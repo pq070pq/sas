@@ -83,7 +83,6 @@ def fetch_finnhub_candles(symbol: str):
     if not FINNHUB_API_KEY:
         return None
         
-    # التوجيه الذكي للمسار بناءً على نوع الأصل (تعديل هام)
     if symbol.startswith("BINANCE:"):
         category = "crypto"
     elif symbol.startswith("OANDA:"):
@@ -132,7 +131,7 @@ def analyze_asset_smart(symbol: str, name: str):
     is_crypto_or_gold = symbol in ["BINANCE:BTCUSDT", "OANDA:XAU_USD"]
 
     if price_change_pct >= MIN_PRICE_CHANGE_PCT:
-        status_label = "🚀 مرتفع وبزخم قوي" if rsi > 50 else "📈 مرتفع إيجابي"
+        status_label = "🚀 مرتفع بصاروخ وبزخم قوي" if rsi > 50 else "📈 مرتفع إيجابي"
         direction = "up"
         signal_type = "buy"
     elif price_change_pct <= -MIN_PRICE_CHANGE_PCT:
@@ -144,7 +143,6 @@ def analyze_asset_smart(symbol: str, name: str):
         direction = "neutral"
         signal_type = "neutral"
 
-    # تطبيق فلتر عدم الإزعاج على الكريبتو والذهب (إرسال فقط في حال التغير القوي)
     if is_crypto_or_gold:
         if direction == "neutral":
             return None
@@ -184,7 +182,6 @@ def analyze_asset_smart(symbol: str, name: str):
 
 
 def send_direct_text(text: str):
-    """إرسال رسالة نصية مباشرة إلى تيليجرام (تستخدم لرسالة التشغيل)"""
     if not (RAW_TELEGRAM_TOKEN and TELEGRAM_CHANNEL_ID):
         return
     token_clean = RAW_TELEGRAM_TOKEN.strip()
@@ -249,10 +246,9 @@ def run_scan_cycle():
 
 
 def background_worker():
-    # إرسال رسالة ترحيبية تؤكد أن الربط سليم 100% فور تشغيل البوت
     welcome_msg = (
-        "🟢 <b>تم تشغيل Signal Desk بنجاح!</b>\n\n"
-        "البوت الآن متصل ويقوم برصد السوق (الأسهم، الذهب، الكريبتو) كل 5 دقائق... ⏳\n"
+        "🟢 <b>اشعار : الان رصد 𝗦𝗔𝗦 يعمل بنجاح</b> \n\n"
+        "والبوت الآن متصل ويقوم برصد السوق (الأسهم، الذهب، الكريبتو) كل 5 دقائق... ⏳\n"
         "<i>لن يتم إرسال أي تنبيه إلا إذا تم رصد فرصة حقيقية وقفزة في السعر والسيولة.</i> 🚀"
     )
     send_direct_text(welcome_msg)
