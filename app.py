@@ -12,7 +12,7 @@ from collections import deque
 
 import requests
 import pytz
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify
 
 # ============================ الإعدادات الأساسية ============================
 
@@ -123,7 +123,7 @@ def analyze_asset_smart(symbol: str, name: str):
     is_crypto_or_gold = symbol in ["BINANCE:BTCUSDT", "OANDA:XAU_USD"]
 
     if price_change_pct >= 0.4:
-        status_label = "🚀 مرتفع بصاروخ وبزخم قوي" if rsi > 50 else "📈 مرتفع إيجابي"
+        status_label = "🚀 مرتفع وبزخم قوي" if rsi > 50 else "📈 مرتفع إيجابي"
         direction = "up"
         signal_type = "buy"
     elif price_change_pct <= -0.4:
@@ -237,7 +237,30 @@ def background_worker():
 
 @app.route("/")
 def dashboard():
-    return render_template("dashboard.html")
+    # تم حل المشكلة هنا بإرجاع واجهة HTML مباشرة بدلاً من استدعاء قالب خارجي غير موجود
+    return """
+    <html dir="rtl">
+        <head>
+            <title>Signal Desk Status</title>
+            <meta charset="utf-8">
+            <style>
+                body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #f4f4f9; color: #333; }
+                .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0px 4px 6px rgba(0,0,0,0.1); display: inline-block; }
+                a { text-decoration: none; color: white; background-color: #007bff; padding: 10px 20px; border-radius: 5px; margin: 5px; display: inline-block; }
+                a:hover { background-color: #0056b3; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h2>🚀 بوت Signal Desk يعمل بنجاح!</h2>
+                <p>يتم الآن رصد الذهب، البتكوين، والأسهم في الخلفية.</p>
+                <hr>
+                <a href="/api/status" target="_blank">📊 عرض حالة البوت (JSON)</a>
+                <a href="/api/signals" target="_blank">📡 عرض الإشارات الأخيرة (JSON)</a>
+            </div>
+        </body>
+    </html>
+    """
 
 
 @app.route("/api/status")
