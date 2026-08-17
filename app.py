@@ -82,7 +82,16 @@ def calculate_rsi(closes: list, period: int = 14) -> float:
 def fetch_finnhub_candles(symbol: str):
     if not FINNHUB_API_KEY:
         return None
-    url = f"https://finnhub.io/api/v1/stock/candle?symbol={symbol}&resolution=15&count=30&token={FINNHUB_API_KEY}"
+        
+    # التوجيه الذكي للمسار بناءً على نوع الأصل (تعديل هام)
+    if symbol.startswith("BINANCE:"):
+        category = "crypto"
+    elif symbol.startswith("OANDA:"):
+        category = "forex"
+    else:
+        category = "stock"
+
+    url = f"https://finnhub.io/api/v1/{category}/candle?symbol={symbol}&resolution=15&count=30&token={FINNHUB_API_KEY}"
     try:
         resp = requests.get(url, timeout=10)
         if resp.status_code == 200:
@@ -122,11 +131,11 @@ def analyze_asset_smart(symbol: str, name: str):
 
     is_crypto_or_gold = symbol in ["BINANCE:BTCUSDT", "OANDA:XAU_USD"]
 
-    if price_change_pct >= 0.4:
+    if price_change_pct >= MIN_PRICE_CHANGE_PCT:
         status_label = "🚀 مرتفع وبزخم قوي" if rsi > 50 else "📈 مرتفع إيجابي"
         direction = "up"
         signal_type = "buy"
-    elif price_change_pct <= -0.4:
+    elif price_change_pct <= -MIN_PRICE_CHANGE_PCT:
         status_label = "🩸 هبوط قوي وعنيف ببيع مكثف" if rsi < 50 else "📉 منخفض سلبي"
         direction = "down"
         signal_type = "sell"
@@ -135,7 +144,10 @@ def analyze_asset_smart(symbol: str, name: str):
         direction = "neutral"
         signal_type = "neutral"
 
+    # تطبيق فلتر عدم الإزعاج على الكريبتو والذهب (إرسال فقط في حال التغير القوي)
     if is_crypto_or_gold:
+        if direction == "neutral":
+            return None
         return {
             "symbol": symbol,
             "name": name,
@@ -170,6 +182,19 @@ def analyze_asset_smart(symbol: str, name: str):
         "time_ny": datetime.now(NY_TZ).strftime("%Y-%m-%d %H:%M:%S"),
     }
 
+
+def send_direct_text(text: str):
+    """إرسال رسالة نصية مباشرة إلى تيليجرام (تستخدم لرسالة التشغيل)"""
+    if not (RAW_TELEGRAM_TOKEN and TELEGRAM_CHANNEL_ID):
+        return
+    token_clean = RAW_TELEGRAM_TOKEN.strip()
+    if token_clean.startswith("bot"):
+        token_clean = token_clean[3:]
+    url = f"https://api.telegram.org/bot{token_clean}/sendMessage"
+    try:
+        requests.post(url, json={"chat_id": TELEGRAM_CHANNEL_ID, "text": text, "parse_mode": "HTML"}, timeout=15)
+    except:
+        pass
 
 def send_telegram_message(signal: dict):
     if not (RAW_TELEGRAM_TOKEN and TELEGRAM_CHANNEL_ID):
@@ -224,6 +249,14 @@ def run_scan_cycle():
 
 
 def background_worker():
+    # إرسال رسالة ترحيبية تؤكد أن الربط سليم 100% فور تشغيل البوت
+    welcome_msg = (
+        "🟢 <b>تم تشغيل Signal Desk بنجاح!</b>\n\n"
+        "البوت الآن متصل ويقوم برصد السوق (الأسهم، الذهب، الكريبتو) كل 5 دقائق... ⏳\n"
+        "<i>لن يتم إرسال أي تنبيه إلا إذا تم رصد فرصة حقيقية وقفزة في السعر والسيولة.</i> 🚀"
+    )
+    send_direct_text(welcome_msg)
+    
     while True:
         try:
             run_scan_cycle()
@@ -237,7 +270,6 @@ def background_worker():
 
 @app.route("/")
 def dashboard():
-    # تم حل المشكلة هنا بإرجاع واجهة HTML مباشرة بدلاً من استدعاء قالب خارجي غير موجود
     return """
     <html dir="rtl">
         <head>
@@ -261,7 +293,6 @@ def dashboard():
         </body>
     </html>
     """
-
 
 @app.route("/api/status")
 def api_status():
