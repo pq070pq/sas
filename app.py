@@ -1,9 +1,13 @@
+
+## 📄 6️⃣ ملف `bot.py` (الكود الكامل)
+
+```python
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-💎 Smart Trading Bot - بوت التداول الذكي
+💎 Signal Desk Pro - بوت التداول الذكي
 =========================================
-مع إضافة التنبيه الشرعي في نهاية كل تحليل
+رصد الانفجارات + تحليل ذكي عند المراسلة
 """
 
 import os
@@ -12,10 +16,11 @@ import json
 import requests
 import threading
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from collections import deque
 import pytz
 import logging
+from flask import Flask, request, jsonify
 
 # ═══════════════ الإعدادات ═══════════════
 FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY", "")
@@ -23,15 +28,17 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID", "")
 
 # فلترة الانفجارات
-MIN_PRICE = 1.0
-MAX_PRICE = 20.0
-MIN_CHANGE_PCT = 15.0
-MIN_VOLUME = 2000000
-COOLDOWN_HOURS = 3
+MIN_PRICE = float(os.environ.get("MIN_PRICE", "1.0"))
+MAX_PRICE = float(os.environ.get("MAX_PRICE", "20.0"))
+MIN_CHANGE_PCT = float(os.environ.get("MIN_CHANGE_PCT", "15.0"))
+MIN_VOLUME = float(os.environ.get("MIN_VOLUME", "2000000"))
+COOLDOWN_HOURS = int(os.environ.get("COOLDOWN_HOURS", "3"))
 
 NY_TZ = pytz.timezone("America/New_York")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+app = Flask(__name__)
 
 # ═══════════════ تحليل الأسهم ═══════════════
 
@@ -163,8 +170,7 @@ class StockAnalyzer:
         
         rsi = 50
         if candles and candles.get("c"):
-            closes = candles["c"]
-            rsi = self.calculate_rsi(closes)
+            rsi = self.calculate_rsi(candles["c"])
         
         vwap = current_price
         vwap_distance = 0
@@ -190,8 +196,6 @@ class StockAnalyzer:
     
     def momentum_analysis(self, quote: Dict, candles: Optional[Dict]) -> Dict:
         """تحليل الزخم"""
-        current_price = quote.get("c", 0)
-        
         momentum = {
             "short_term": "محايد",
             "medium_term": "محايد",
@@ -215,7 +219,6 @@ class StockAnalyzer:
                 momentum["long_term"] = self.classify_momentum(change_30)
         
         momentum["score"] = self.calculate_momentum_score(momentum)
-        
         return momentum
     
     def volume_analysis(self, quote: Dict, candles: Optional[Dict]) -> Dict:
@@ -261,8 +264,6 @@ class StockAnalyzer:
     
     def determine_direction(self, quote: Dict, candles: Optional[Dict]) -> Dict:
         """تحديد اتجاه السهم"""
-        current_price = quote.get("c", 0)
-        
         direction = {
             "trend": "محايد",
             "strength": 50,
@@ -368,11 +369,10 @@ class StockAnalyzer:
         
         return max(0, min(100, score))
 
-# ═══════════════ تنسيق التحليل مع التنبيه الشرعي ═══════════════
+# ═══════════════ تنسيق الرسائل ═══════════════
 
 def format_analysis_message(analysis: Dict) -> str:
-    """تنسيق رسالة التحليل الشامل مع التنبيه الشرعي"""
-    
+    """تنسيق رسالة التحليل"""
     if "error" in analysis:
         return analysis["error"]
     
@@ -444,7 +444,6 @@ def format_analysis_message(analysis: Dict) -> str:
             lines.append(f"{sentiment_emoji} {headline[:100]}")
             lines.append(f"   ({source} - {timestamp})")
     
-    # ═══════════════ التنبيه الشرعي والإخلاء ═══════════════
     lines.extend([
         "",
         "━━━━━━━━━━━━━━━━━",
@@ -471,74 +470,17 @@ def classify_news_sentiment(headline: str) -> str:
     else:
         return "neutral"
 
-# ═══════════════ رصد الانفجارات (للقناة) ═══════════════
-
-class ExplosionScanner:
-    """راصد الانفجارات للقناة"""
-    
-    def __init__(self):
-        self.api_key = FINNHUB_API_KEY
-        self.alert_history = {}
-        
-    def format_explosion_alert(self, stock: Dict, news: Optional[str]) -> str:
-        """تنسيق تنبيه الانفجار مع التنبيه الشرعي"""
-        symbol = stock.get("symbol", "")
-        price = stock.get("price", 0)
-        change_pct = stock.get("change_pct", 0)
-        volume = stock.get("volume", 0)
-        
-        direction = "🚀 انفجار صاعد" if change_pct > 0 else "💥 انفجار هابط"
-        
-        if abs(change_pct) >= 30:
-            explosion_level = "🔥🔥🔥 انفجار عنيف"
-        elif abs(change_pct) >= 20:
-            explosion_level = "🔥🔥 انفجار قوي"
-        else:
-            explosion_level = "🔥 انفجار"
-        
-        lines = [
-            f"<b>{direction}</b>",
-            "",
-            f"📌 <b>{symbol}</b>",
-            f"💰 السعر: <b>${price}</b>",
-            f"📊 التغير: <b>{change_pct}%</b>",
-            f"⚡ الحجم: <b>{volume:,}</b> سهم",
-            "",
-            f"💥 المستوى: {explosion_level}",
-        ]
-        
-        if news:
-            lines.append(f"\n📰 <b>الخبر:</b>\n{news[:150]}")
-        
-        # إضافة التنبيه الشرعي
-        lines.extend([
-            "",
-            f"🕐 {datetime.now(NY_TZ).strftime('%Y-%m-%d %H:%M:%S')}",
-            "",
-            "⚠️ <b>هذا تحليل آلي وليس توصية استثمارية</b>",
-            "",
-            "♦️ <b>شرعية الأسهم مسؤوليتك نبرأ منها أمام الله</b> ♦️"
-        ])
-        
-        return "\n".join(lines)
-    
-    def scan_and_alert(self):
-        """مسح وإرسال تنبيهات الانفجارات"""
-        # نفس كود الرصد السابق
-        pass
-
-# ═══════════════ البوت الذكي ═══════════════
+# ═══════════════ البوت ═══════════════
 
 class SmartTradingBot:
-    """البوت الذكي المتكامل"""
+    """البوت الذكي"""
     
     def __init__(self):
         self.analyzer = StockAnalyzer()
-        self.scanner = ExplosionScanner()
         self.last_update_id = 0
         
     def send_telegram(self, chat_id: str, message: str):
-        """إرسال رسالة إلى محادثة محددة"""
+        """إرسال رسالة"""
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         data = {
             "chat_id": chat_id,
@@ -562,7 +504,6 @@ class SmartTradingBot:
         if not text:
             return
         
-        # أوامر المساعدة
         if text.lower() in ["/start", "/help", "مساعدة", "help"]:
             help_message = f"""
 👋 <b>مرحباً {username}!</b>
@@ -584,13 +525,6 @@ class SmartTradingBot:
 ❌ <b>إذا كان الرمز خاطئ:</b>
 - سأخبرك أن الرمز غير صحيح
 
-📌 <b>أمثلة على الرموز:</b>
-- AAPL = Apple
-- TSLA = Tesla
-- NVDA = NVIDIA
-- AMD = Advanced Micro Devices
-- COIN = Coinbase
-
 ⚠️ <b>تنبيه مهم:</b>
 - التحليل آلي وليس توصية
 - شرعية الأسهم مسؤوليتك
@@ -600,25 +534,15 @@ class SmartTradingBot:
             self.send_telegram(chat_id, help_message)
             return
         
-        # تحليل السهم
         self.send_telegram(chat_id, "🔍 <b>جاري تحليل السهم...</b>")
-        
-        # تحليل
         analysis = self.analyzer.analyze_stock(text)
-        
-        # تنسيق وإرسال
         formatted = format_analysis_message(analysis)
         self.send_telegram(chat_id, formatted)
     
     def run(self):
-        """التشغيل المستمر للبوت"""
+        """التشغيل المستمر"""
         logger.info("🤖 بدء البوت الذكي...")
         
-        # تشغيل راصد الانفجارات في خلفية منفصلة
-        scanner_thread = threading.Thread(target=self.run_scanner, daemon=True)
-        scanner_thread.start()
-        
-        # معالجة الرسائل
         while True:
             try:
                 updates = self.get_updates()
@@ -627,8 +551,6 @@ class SmartTradingBot:
                     message = update.get("message")
                     if message:
                         chat_type = message.get("chat", {}).get("type")
-                        
-                        # معالجة الرسائل الخاصة فقط
                         if chat_type == "private":
                             self.handle_private_message(message)
                 
@@ -639,7 +561,7 @@ class SmartTradingBot:
                 time.sleep(10)
     
     def get_updates(self) -> List[Dict]:
-        """جلب التحديثات من تيليجرام"""
+        """جلب التحديثات"""
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
         params = {
             "offset": self.last_update_id + 1,
@@ -650,28 +572,29 @@ class SmartTradingBot:
             response = requests.get(url, params=params, timeout=35)
             if response.status_code == 200:
                 updates = response.json().get("result", [])
-                
                 if updates:
                     self.last_update_id = updates[-1]["update_id"]
-                
                 return updates
         except:
             pass
         
         return []
-    
-    def run_scanner(self):
-        """تشغيل راصد الانفجارات"""
-        while True:
-            try:
-                self.scanner.scan_and_alert()
-                time.sleep(600)
-            except Exception as e:
-                logger.error(f"خطأ في الراصد: {e}")
-                time.sleep(60)
+
+# ═══════════════ مسارات الويب ═══════════════
+
+@app.route("/health")
+def health():
+    return jsonify({"ok": True, "time": datetime.now(NY_TZ).strftime("%H:%M:%S")})
 
 # ═══════════════ التشغيل ═══════════════
 
 if __name__ == "__main__":
+    # تشغيل البوت في خلفية
     bot = SmartTradingBot()
-    bot.run()
+    bot_thread = threading.Thread(target=bot.run, daemon=True)
+    bot_thread.start()
+    
+    # تشغيل خادم الويب
+    port = int(os.environ.get("PORT", 10000))
+    logger.info(f"🚀 تشغيل على المنفذ {port}")
+    app.run(host="0.0.0.0", port=port)
