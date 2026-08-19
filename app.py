@@ -1,13 +1,7 @@
-
-## 📄 6️⃣ ملف `bot.py` (الكود الكامل)
-
-```python
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-💎 Signal Desk Pro - بوت التداول الذكي
-=========================================
-رصد الانفجارات + تحليل ذكي عند المراسلة
+📈 US Stock Bot - بوت تحليل الأسهم الأمريكية مع الأخبار
 """
 
 import os
@@ -17,7 +11,6 @@ import requests
 import threading
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
-from collections import deque
 import pytz
 import logging
 from flask import Flask, request, jsonify
@@ -27,12 +20,11 @@ FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY", "")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID", "")
 
-# فلترة الانفجارات
+# فلترة الأسهم الأمريكية فقط
 MIN_PRICE = float(os.environ.get("MIN_PRICE", "1.0"))
-MAX_PRICE = float(os.environ.get("MAX_PRICE", "20.0"))
-MIN_CHANGE_PCT = float(os.environ.get("MIN_CHANGE_PCT", "15.0"))
-MIN_VOLUME = float(os.environ.get("MIN_VOLUME", "2000000"))
-COOLDOWN_HOURS = int(os.environ.get("COOLDOWN_HOURS", "3"))
+MAX_PRICE = float(os.environ.get("MAX_PRICE", "500.0"))
+MIN_CHANGE_PCT = float(os.environ.get("MIN_CHANGE_PCT", "5.0"))
+MIN_VOLUME = float(os.environ.get("MIN_VOLUME", "1000000"))
 
 NY_TZ = pytz.timezone("America/New_York")
 logging.basicConfig(level=logging.INFO)
@@ -40,10 +32,10 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# ═══════════════ تحليل الأسهم ═══════════════
+# ═══════════════ محلل الأسهم ═══════════════
 
 class StockAnalyzer:
-    """محلل الأسهم الذكي"""
+    """محلل الأسهم الأمريكية"""
     
     def __init__(self):
         self.api_key = FINNHUB_API_KEY
@@ -54,7 +46,7 @@ class StockAnalyzer:
         """تحليل شامل للسهم"""
         symbol = symbol.upper().strip()
         
-        # فحص الكاش
+        # التحقق من الكاش
         if symbol in self.cache:
             cached_time = self.cache_time.get(symbol)
             if cached_time and (datetime.now() - cached_time).seconds < 300:
@@ -66,8 +58,8 @@ class StockAnalyzer:
             return {"error": f"❌ رمز السهم {symbol} غير صحيح أو غير موجود"}
         
         profile = self.get_company_profile(symbol)
-        news = self.get_company_news(symbol)
         candles = self.get_candles(symbol)
+        news = self.get_company_news(symbol)
         
         # تحليل شامل
         analysis = {
@@ -75,12 +67,11 @@ class StockAnalyzer:
             "name": profile.get("name", symbol) if profile else symbol,
             "quote": quote,
             "profile": profile,
-            "news": news,
             "candles": candles,
+            "news": news,
             "technical": self.technical_analysis(quote, candles),
-            "momentum": self.momentum_analysis(quote, candles),
             "volume_analysis": self.volume_analysis(quote, candles),
-            "direction": self.determine_direction(quote, candles),
+            "recommendation": self.get_recommendation(quote, candles, news),
             "timestamp": datetime.now(NY_TZ).strftime("%Y-%m-%d %H:%M:%S")
         }
         
@@ -101,8 +92,8 @@ class StockAnalyzer:
                 data = response.json()
                 if data.get("c"):
                     return data
-        except:
-            pass
+        except Exception as e:
+            logger.error(f"خطأ في جلب السعر: {e}")
         
         return None
     
@@ -115,8 +106,8 @@ class StockAnalyzer:
             response = requests.get(url, params=params, timeout=5)
             if response.status_code == 200:
                 return response.json()
-        except:
-            pass
+        except Exception as e:
+            logger.error(f"خطأ في جلب الملف الشخصي: {e}")
         
         return None
     
@@ -133,9 +124,16 @@ class StockAnalyzer:
         try:
             response = requests.get(url, params=params, timeout=5)
             if response.status_code == 200:
-                return response.json()[:10]
-        except:
-            pass
+                news_data = response.json()
+                # تصفية الأخبار المهمة (اللي لها تأثير)
+                filtered_news = []
+                for item in news_data[:10]:
+                    headline = item.get("headline", "")
+                    if any(word in headline.lower() for word in ["beat", "miss", "surge", "plunge", "upgrade", "downgrade", "record", "low", "high", "partnership", "acquisition", "lawsuit", "approval", "revenue", "earnings"]):
+                        filtered_news.append(item)
+                return filtered_news[:5]  # خذ أهم 5 أخبار فقط
+        except Exception as e:
+            logger.error(f"خطأ في جلب الأخبار: {e}")
         
         return []
     
@@ -145,7 +143,7 @@ class StockAnalyzer:
         params = {
             "symbol": symbol,
             "resolution": "15",
-            "count": 50,
+            "count": 30,
             "token": self.api_key
         }
         
@@ -155,8 +153,8 @@ class StockAnalyzer:
                 data = response.json()
                 if data.get("s") == "ok":
                     return data
-        except:
-            pass
+        except Exception as e:
+            logger.error(f"خطأ في جلب الشموع: {e}")
         
         return None
     
@@ -168,18 +166,11 @@ class StockAnalyzer:
         low = quote.get("l", 0)
         prev_close = quote.get("pc", 0)
         
+        change_pct = ((current_price - prev_close) / prev_close * 100) if prev_close else 0
+        
         rsi = 50
         if candles and candles.get("c"):
             rsi = self.calculate_rsi(candles["c"])
-        
-        vwap = current_price
-        vwap_distance = 0
-        if candles and candles.get("c") and candles.get("v"):
-            total_volume = sum(candles["v"])
-            total_value = sum(c * v for c, v in zip(candles["c"], candles["v"]))
-            if total_volume > 0:
-                vwap = total_value / total_volume
-                vwap_distance = ((current_price - vwap) / vwap) * 100
         
         return {
             "current_price": current_price,
@@ -187,50 +178,20 @@ class StockAnalyzer:
             "high": high,
             "low": low,
             "prev_close": prev_close,
-            "change_pct": ((current_price - prev_close) / prev_close * 100) if prev_close else 0,
+            "change_pct": change_pct,
             "rsi": rsi,
-            "vwap": vwap,
-            "vwap_distance": vwap_distance,
-            "day_range": f"${low} - ${high}"
+            "day_range": f"${low:.2f} - ${high:.2f}"
         }
-    
-    def momentum_analysis(self, quote: Dict, candles: Optional[Dict]) -> Dict:
-        """تحليل الزخم"""
-        momentum = {
-            "short_term": "محايد",
-            "medium_term": "محايد",
-            "long_term": "محايد",
-            "score": 50
-        }
-        
-        if candles and candles.get("c"):
-            closes = candles["c"]
-            
-            if len(closes) >= 5:
-                change_5 = ((closes[-1] - closes[-5]) / closes[-5] * 100) if closes[-5] else 0
-                momentum["short_term"] = self.classify_momentum(change_5)
-                
-            if len(closes) >= 15:
-                change_15 = ((closes[-1] - closes[-15]) / closes[-15] * 100) if closes[-15] else 0
-                momentum["medium_term"] = self.classify_momentum(change_15)
-                
-            if len(closes) >= 30:
-                change_30 = ((closes[-1] - closes[-30]) / closes[-30] * 100) if closes[-30] else 0
-                momentum["long_term"] = self.classify_momentum(change_30)
-        
-        momentum["score"] = self.calculate_momentum_score(momentum)
-        return momentum
     
     def volume_analysis(self, quote: Dict, candles: Optional[Dict]) -> Dict:
-        """تحليل الحجم والسيولة"""
+        """تحليل الحجم"""
         current_volume = quote.get("v", 0)
         
         volume_info = {
             "current_volume": current_volume,
             "average_volume": 0,
             "volume_ratio": 0,
-            "liquidity": "غير معروفة",
-            "volume_trend": "محايد"
+            "liquidity": "غير معروفة"
         }
         
         if candles and candles.get("v"):
@@ -247,60 +208,85 @@ class StockAnalyzer:
                     volume_info["liquidity"] = "سيولة عالية"
                 elif current_volume > 1000000:
                     volume_info["liquidity"] = "سيولة متوسطة"
-                elif current_volume > 500000:
-                    volume_info["liquidity"] = "سيولة منخفضة"
                 else:
-                    volume_info["liquidity"] = "سيولة ضعيفة جداً"
-                
-                recent_vol = sum(volumes[-5:]) / 5
-                if recent_vol > avg_volume * 1.5:
-                    volume_info["volume_trend"] = "زيادة قوية"
-                elif recent_vol > avg_volume * 1.2:
-                    volume_info["volume_trend"] = "زيادة طفيفة"
-                elif recent_vol < avg_volume * 0.8:
-                    volume_info["volume_trend"] = "انخفاض"
+                    volume_info["liquidity"] = "سيولة منخفضة"
         
         return volume_info
     
-    def determine_direction(self, quote: Dict, candles: Optional[Dict]) -> Dict:
-        """تحديد اتجاه السهم"""
-        direction = {
-            "trend": "محايد",
-            "strength": 50,
-            "recommendation": "انتظار",
-            "reasons": []
-        }
-        
+    def get_recommendation(self, quote: Dict, candles: Optional[Dict], news: List[Dict]) -> Dict:
+        """توصية مع تحليل الأخبار"""
         technical = self.technical_analysis(quote, candles)
-        momentum = self.momentum_analysis(quote, candles)
         volume = self.volume_analysis(quote, candles)
         
+        score = 50
+        reasons = []
+        news_impact = "محايد"
+        
+        # تحليل السعر
+        if technical["change_pct"] > 3:
+            score += 15
+            reasons.append("📈 ارتفاع قوي")
+        elif technical["change_pct"] > 1:
+            score += 8
+            reasons.append("📈 ارتفاع طفيف")
+        elif technical["change_pct"] < -3:
+            score -= 15
+            reasons.append("📉 انخفاض قوي")
+        elif technical["change_pct"] < -1:
+            score -= 8
+            reasons.append("📉 انخفاض طفيف")
+        
+        # تحليل RSI
         if technical["rsi"] > 70:
-            direction["reasons"].append("RSI في منطقة تشبع شراء")
+            score -= 10
+            reasons.append("⚠️ RSI في منطقة تشبع شراء")
         elif technical["rsi"] < 30:
-            direction["reasons"].append("RSI في منطقة تشبع بيع")
+            score += 10
+            reasons.append("✅ RSI في منطقة تشبع بيع")
         
-        if technical["vwap_distance"] > 5:
-            direction["reasons"].append("السعر فوق VWAP بشكل كبير")
-        elif technical["vwap_distance"] < -5:
-            direction["reasons"].append("السعر تحت VWAP بشكل كبير")
+        # تحليل الحجم
+        if volume["volume_ratio"] > 2:
+            score += 10
+            reasons.append("⚡ حجم تداول استثنائي")
         
-        if volume["volume_ratio"] > 3:
-            direction["reasons"].append("حجم تداول استثنائي")
+        # تحليل الأخبار
+        positive_words = ["beat", "surge", "upgrade", "record", "high", "approval", "partnership", "growth", "profit"]
+        negative_words = ["miss", "plunge", "downgrade", "lawsuit", "investigation", "loss", "decline", "low"]
         
-        if momentum["score"] > 65 and technical["rsi"] > 55:
-            direction["trend"] = "صاعد"
-            direction["strength"] = min(100, momentum["score"])
-            direction["recommendation"] = "مراقبة للشراء"
-        elif momentum["score"] < 35 and technical["rsi"] < 45:
-            direction["trend"] = "هابط"
-            direction["strength"] = min(100, 100 - momentum["score"])
-            direction["recommendation"] = "مراقبة للبيع"
+        for news_item in news[:3]:
+            headline = news_item.get("headline", "").lower()
+            if any(word in headline for word in positive_words):
+                score += 5
+                news_impact = "إيجابي"
+                reasons.append("📰 أخبار إيجابية")
+                break
+            elif any(word in headline for word in negative_words):
+                score -= 5
+                news_impact = "سلبي"
+                reasons.append("📰 أخبار سلبية")
+                break
+        
+        # التوصية النهائية
+        if score >= 70:
+            recommendation = "شراء"
+            emoji = "🟢"
+        elif score >= 55:
+            recommendation = "مراقبة"
+            emoji = "🟡"
+        elif score >= 40:
+            recommendation = "انتظار"
+            emoji = "🟠"
         else:
-            direction["trend"] = "عرضي"
-            direction["recommendation"] = "انتظار إشارة واضحة"
+            recommendation = "تجنب"
+            emoji = "🔴"
         
-        return direction
+        return {
+            "score": score,
+            "recommendation": recommendation,
+            "emoji": emoji,
+            "news_impact": news_impact,
+            "reasons": reasons[:4]
+        }
     
     def calculate_rsi(self, prices: List[float], period: int = 14) -> float:
         """حساب RSI"""
@@ -327,67 +313,25 @@ class StockAnalyzer:
         
         rs = avg_gain / avg_loss
         return 100 - (100 / (1 + rs))
-    
-    def classify_momentum(self, change_pct: float) -> str:
-        """تصنيف الزخم"""
-        if change_pct > 10:
-            return "زخم إيجابي قوي جداً"
-        elif change_pct > 5:
-            return "زخم إيجابي قوي"
-        elif change_pct > 2:
-            return "زخم إيجابي"
-        elif change_pct > -2:
-            return "محايد"
-        elif change_pct > -5:
-            return "زخم سلبي"
-        elif change_pct > -10:
-            return "زخم سلبي قوي"
-        else:
-            return "زخم سلبي قوي جداً"
-    
-    def calculate_momentum_score(self, momentum: Dict) -> int:
-        """حساب درجة الزخم"""
-        score = 50
-        
-        if "قوي جداً" in momentum["short_term"]:
-            score += 20
-        elif "قوي" in momentum["short_term"]:
-            score += 10
-        elif "سلبي قوي جداً" in momentum["short_term"]:
-            score -= 20
-        elif "سلبي قوي" in momentum["short_term"]:
-            score -= 10
-        
-        if "قوي جداً" in momentum["medium_term"]:
-            score += 15
-        elif "قوي" in momentum["medium_term"]:
-            score += 8
-        elif "سلبي قوي جداً" in momentum["medium_term"]:
-            score -= 15
-        elif "سلبي قوي" in momentum["medium_term"]:
-            score -= 8
-        
-        return max(0, min(100, score))
 
 # ═══════════════ تنسيق الرسائل ═══════════════
 
 def format_analysis_message(analysis: Dict) -> str:
-    """تنسيق رسالة التحليل"""
+    """تنسيق رسالة التحليل مع الأخبار"""
     if "error" in analysis:
         return analysis["error"]
     
     symbol = analysis["symbol"]
     name = analysis.get("name", symbol)
     technical = analysis["technical"]
-    momentum = analysis["momentum"]
     volume = analysis["volume_analysis"]
-    direction = analysis["direction"]
+    recommendation = analysis["recommendation"]
+    news = analysis.get("news", [])
     
-    trend_emoji = "📈" if direction["trend"] == "صاعد" else "📉" if direction["trend"] == "هابط" else "↔️"
     change_emoji = "🟢" if technical["change_pct"] > 0 else "🔴" if technical["change_pct"] < 0 else "⚪"
     
     lines = [
-        f"{trend_emoji} <b>تحليل {symbol} ({name})</b>",
+        f"📊 <b>تحليل {symbol} ({name})</b>",
         "",
         "━━━━━━━━━━━━━━━━━",
         "💰 <b>السعر:</b>",
@@ -396,61 +340,50 @@ def format_analysis_message(analysis: Dict) -> str:
         f"نطاق اليوم: {technical['day_range']}",
         "",
         "━━━━━━━━━━━━━━━━━",
-        "📊 <b>الزخم:</b>",
-        f"قصير المدى: {momentum['short_term']}",
-        f"متوسط المدى: {momentum['medium_term']}",
-        f"طويل المدى: {momentum['long_term']}",
-        f"درجة الزخم: <b>{momentum['score']}/100</b>",
-        "",
-        "━━━━━━━━━━━━━━━━━",
         "⚡ <b>الحجم والسيولة:</b>",
         f"حجم التداول: <b>{volume['current_volume']:,}</b> سهم",
-        f"متوسط الحجم: {volume['average_volume']:,} سهم",
-        f"نسبة الحجم: <b>×{volume['volume_ratio']:.1f}</b>",
         f"السيولة: {volume['liquidity']}",
-        f"اتجاه الحجم: {volume['volume_trend']}",
         "",
         "━━━━━━━━━━━━━━━━━",
         "📐 <b>المؤشرات الفنية:</b>",
         f"RSI: <b>{technical['rsi']:.1f}</b>",
-        f"VWAP: ${technical['vwap']:.2f}",
-        f"المسافة عن VWAP: {technical['vwap_distance']:.1f}%",
         "",
         "━━━━━━━━━━━━━━━━━",
-        f"🎯 <b>الاتجاه العام: {direction['trend']}</b>",
-        f"قوة الاتجاه: {direction['strength']}/100",
-        f"التوصية: <b>{direction['recommendation']}</b>",
+        f"{recommendation['emoji']} <b>التوصية: {recommendation['recommendation']}</b>",
+        f"درجة الثقة: {recommendation['score']}/100",
+        f"تأثير الأخبار: {recommendation['news_impact']}",
     ]
     
-    if direction["reasons"]:
+    if recommendation["reasons"]:
         lines.append("")
         lines.append("📋 <b>الأسباب:</b>")
-        for reason in direction["reasons"]:
+        for reason in recommendation["reasons"]:
             lines.append(f"• {reason}")
     
-    if analysis.get("news"):
+    # إضافة الأخبار
+    if news:
         lines.append("")
         lines.append("━━━━━━━━━━━━━━━━━")
-        lines.append("📰 <b>آخر الأخبار:</b>")
+        lines.append("📰 <b>آخر الأخبار الهامة:</b>")
         
-        for news in analysis["news"][:3]:
-            headline = news.get("headline", "")
-            source = news.get("source", "")
-            timestamp = datetime.fromtimestamp(news.get("datetime", 0), NY_TZ).strftime("%m/%d %H:%M")
+        for item in news[:3]:
+            headline = item.get("headline", "")
+            source = item.get("source", "")
+            timestamp = datetime.fromtimestamp(item.get("datetime", 0), NY_TZ).strftime("%m/%d %H:%M")
             
+            # تصنيف الخبر
             sentiment = classify_news_sentiment(headline)
             sentiment_emoji = "🟢" if sentiment == "positive" else "🔴" if sentiment == "negative" else "⚪"
             
-            lines.append(f"{sentiment_emoji} {headline[:100]}")
-            lines.append(f"   ({source} - {timestamp})")
+            lines.append(f"{sentiment_emoji} <b>{headline}</b>")
+            lines.append(f"   📍 {source} • {timestamp}")
+            lines.append("")
     
     lines.extend([
-        "",
         "━━━━━━━━━━━━━━━━━",
-        f"🕐 {analysis['timestamp']}",
+        f"🕐 {analysis['timestamp']} (توقيت نيويورك)",
         "",
         "⚠️ <b>هذا تحليل آلي وليس توصية استثمارية</b>",
-        "",
         "♦️ <b>شرعية الأسهم مسؤوليتك نبرأ منها أمام الله</b> ♦️"
     ])
     
@@ -458,22 +391,25 @@ def format_analysis_message(analysis: Dict) -> str:
 
 def classify_news_sentiment(headline: str) -> str:
     """تصنيف مشاعر الخبر"""
-    positive_words = ["beat", "surge", "upgrade", "record", "approval", "partnership", "growth", "profit"]
-    negative_words = ["miss", "plunge", "downgrade", "lawsuit", "investigation", "loss", "decline"]
+    positive_words = ["beat", "surge", "upgrade", "record", "high", "approval", "partnership", "growth", "profit", "positive", "gain", "rise", "jump"]
+    negative_words = ["miss", "plunge", "downgrade", "lawsuit", "investigation", "loss", "decline", "low", "drop", "fall", "negative", "slump"]
     
     headline_lower = headline.lower()
     
-    if any(word in headline_lower for word in positive_words):
+    pos_count = sum(1 for word in positive_words if word in headline_lower)
+    neg_count = sum(1 for word in negative_words if word in headline_lower)
+    
+    if pos_count > neg_count:
         return "positive"
-    elif any(word in headline_lower for word in negative_words):
+    elif neg_count > pos_count:
         return "negative"
     else:
         return "neutral"
 
 # ═══════════════ البوت ═══════════════
 
-class SmartTradingBot:
-    """البوت الذكي"""
+class TradingBot:
+    """بوت التداول"""
     
     def __init__(self):
         self.analyzer = StockAnalyzer()
@@ -508,28 +444,26 @@ class SmartTradingBot:
             help_message = f"""
 👋 <b>مرحباً {username}!</b>
 
-أنا بوت التداول الذكي. يمكنني:
+أنا بوت تحليل الأسهم الأمريكية. 
 
-📊 <b>تحليل أي سهم أمريكي:</b>
-- أرسل رمز السهم فقط
-- مثال: AAPL أو TSLA
+📊 <b>ماذا أفعل؟</b>
+✅ أحلل أي سهم أمريكي
+✅ أعطيك السعر والتغير
+✅ أحلل المؤشرات الفنية (RSI)
+✅ أحلل الحجم والسيولة
+✅ أعرض آخر الأخبار الهامة
+✅ أعطي توصية مبسطة
 
-💡 <b>ماذا سأقدم لك:</b>
-- السعر الحالي والتغير
-- الزخم (قصير، متوسط، طويل)
-- الحجم والسيولة
-- المؤشرات الفنية (RSI, VWAP)
-- اتجاه السهم
-- آخر الأخبار
+🎯 <b>كيف تستخدمني؟</b>
+أرسل رمز السهم فقط (مثل: AAPL, TSLA, MSFT)
 
-❌ <b>إذا كان الرمز خاطئ:</b>
-- سأخبرك أن الرمز غير صحيح
+📰 <b>الأخبار:</b>
+أعرض آخر 3 أخبار هامة مع تحليل تأثيرها
 
-⚠️ <b>تنبيه مهم:</b>
-- التحليل آلي وليس توصية
-- شرعية الأسهم مسؤوليتك
+⚠️ <b>تنبيه:</b>
+هذا تحليل آلي وليس توصية استثمارية
 
-🎯 <b>أرسل رمز السهم الآن!</b>
+📈 <b>أرسل رمز السهم الآن!</b>
 """
             self.send_telegram(chat_id, help_message)
             return
@@ -541,7 +475,7 @@ class SmartTradingBot:
     
     def run(self):
         """التشغيل المستمر"""
-        logger.info("🤖 بدء البوت الذكي...")
+        logger.info("🤖 بدء البوت...")
         
         while True:
             try:
@@ -575,26 +509,32 @@ class SmartTradingBot:
                 if updates:
                     self.last_update_id = updates[-1]["update_id"]
                 return updates
-        except:
-            pass
+        except Exception as e:
+            logger.error(f"خطأ في جلب التحديثات: {e}")
         
         return []
 
 # ═══════════════ مسارات الويب ═══════════════
 
+@app.route("/")
 @app.route("/health")
 def health():
-    return jsonify({"ok": True, "time": datetime.now(NY_TZ).strftime("%H:%M:%S")})
+    """فحص صحة السيرفر"""
+    return jsonify({
+        "status": "ok",
+        "time": datetime.now(NY_TZ).strftime("%Y-%m-%d %H:%M:%S"),
+        "service": "US Stock Bot with News"
+    })
 
 # ═══════════════ التشغيل ═══════════════
 
 if __name__ == "__main__":
-    # تشغيل البوت في خلفية
-    bot = SmartTradingBot()
+    # تشغيل البوت
+    bot = TradingBot()
     bot_thread = threading.Thread(target=bot.run, daemon=True)
     bot_thread.start()
     
-    # تشغيل خادم الويب
+    # تشغيل السيرفر
     port = int(os.environ.get("PORT", 10000))
-    logger.info(f"🚀 تشغيل على المنفذ {port}")
+    logger.info(f"🚀 تشغيل السيرفر على المنفذ {port}")
     app.run(host="0.0.0.0", port=port)
