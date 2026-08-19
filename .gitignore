@@ -1,0 +1,30 @@
+# ملفات Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+virtualenv/
+ENV/
+env.bak/
+venv.bak/
+
+# ملفات حساسة
+.env
+.env.local
+.env.production
+
+# قواعد البيانات
+*.db
+*.sqlite
+*.sqlite3
+
+# ملفات النظام
+.DS_Store
+Thumbs.db
+
+# سجلات
+*.log
+logs/
