@@ -1,487 +1,814 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Signal Desk Pro — بوت رصد الأسهم الأمريكية الانفجارية + استقبال تنبيهات TradingView
-=====================================================================================
-يجمع بين:
-  1) فحص داخلي دوري لسلة أسهم أمريكية (كبار السوق + أسهم رخيصة/زخم عالي) عبر Finnhub،
-     يعمل فقط أثناء أوقات تداول السوق الأمريكي.
-  2) استقبال تنبيهات Pine Script من TradingView عبر /webhook محمي برمز سري.
-  3) داشبورد ويب + إرسال تلجرام موحّد التنسيق للمصدرين.
-
-الإصلاحات مقارنة بالنسخة السابقة:
-  - حذف "الأهداف السعرية" الوهمية (كانت نسب ثابتة بدون أي تحليل فني حقيقي).
-  - تصنيف الأخبار الآن بكلمات مفتاحية إيجابية/سلبية بوضوح، بدل افتراض إنها
-    دايمًا "داعمة للانفجار". ومُعلَّم صراحة كـ"تصنيف آلي تقريبي".
-  - /webhook أصبح محمي برمز سري (WEBHOOK_SECRET_TOKEN)، يرفض أي طلب بدونه.
-  - تبريد (cooldown) بين تنبيهات نفس الرمز عشان ما يصير سبام لنفس الحركة.
-  - الفحص كامل مقتصر على الأسهم الأمريكية فقط، ويعمل حصريًا أثناء
-    أوقات تداول السوق الأمريكي (9:30 ص - 4:00 م بتوقيت نيويورك).
-  - إذا فشل جلب بيانات الشموع/الحجم لسهم معيّن (شائع بخطة Finnhub المجانية
-    للأسهم الأمريكية)، يرجع لتحليل بالسعر اللحظي فقط، ويوضّح بالرسالة إن
-    بيانات الحجم غير متوفرة، بدل ما يفشل بصمت أو يعطي بيانات مضللة.
-
-المتغيرات البيئية المطلوبة:
-  FINNHUB_API_KEY
-  TELEGRAM_BOT_TOKEN
-  TELEGRAM_CHANNEL_ID
-  WEBHOOK_SECRET_TOKEN   (اختاره أنت بنفسك، سلسلة عشوائية طويلة)
+💎 Signal Desk Pro - بوت الأسهم الأمريكية فقط
+===============================================
+رصد الانفجارات + تحليل ذكي عند المراسلة
+(الأسهم الأمريكية فقط - بدون كريبتو أو ذهب)
 """
 
 import os
 import time
+import json
+import requests
 import threading
 from datetime import datetime, timedelta
+from typing import List, Dict, Optional
 from collections import deque
-
-import requests
 import pytz
-from flask import Flask, request, jsonify, render_template
+import logging
+from flask import Flask, request, jsonify
 
-# ============================ الإعدادات ============================
-
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
-if TELEGRAM_BOT_TOKEN.startswith("bot"):
-    TELEGRAM_BOT_TOKEN = TELEGRAM_BOT_TOKEN[3:]
-TELEGRAM_CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID", "")
+# ═══════════════ الإعدادات ═══════════════
 FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY", "")
-WEBHOOK_SECRET_TOKEN = os.environ.get("WEBHOOK_SECRET_TOKEN", "")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID", "")
 
-SCAN_INTERVAL_SECONDS = int(os.environ.get("SCAN_INTERVAL_SECONDS", 300))
-MIN_PRICE_CHANGE_PCT = float(os.environ.get("MIN_PRICE_CHANGE_PCT", 4.0))
-VOLUME_MULTIPLIER = float(os.environ.get("VOLUME_MULTIPLIER", 2.0))
-ALERT_COOLDOWN_MINUTES = int(os.environ.get("ALERT_COOLDOWN_MINUTES", 20))
-
-# نطاق السعر المستهدف: من السنتات إلى 100 دولار
-PRICE_MIN = float(os.environ.get("PRICE_MIN", 0.01))
-PRICE_MAX = float(os.environ.get("PRICE_MAX", 100.0))
+# فلترة الانفجارات
+MIN_PRICE = float(os.environ.get("MIN_PRICE", "1.0"))
+MAX_PRICE = float(os.environ.get("MAX_PRICE", "20.0"))
+MIN_CHANGE_PCT = float(os.environ.get("MIN_CHANGE_PCT", "15.0"))
+MIN_VOLUME = float(os.environ.get("MIN_VOLUME", "2000000"))
+COOLDOWN_HOURS = int(os.environ.get("COOLDOWN_HOURS", "3"))
 
 NY_TZ = pytz.timezone("America/New_York")
-
-# قائمة الأصول: أسهم فقط (كبار السوق + قائمة أسهم رخيصة/زخم عالي)
-# تُفحص فقط أثناء أوقات تداول السوق الأمريكي (راجع is_market_open)
-ASSETS = {
-    "AAPL": {"name": "أبل (AAPL)", "category": "stock"},
-    "TSLA": {"name": "تسلا (TSLA)", "category": "stock"},
-    "NVDA": {"name": "إنفيديا (NVDA)", "category": "stock"},
-    "AMD": {"name": "إيه إم دي (AMD)", "category": "stock"},
-    "COIN": {"name": "كوينبيس (COIN)", "category": "stock"},
-    "SPY": {"name": "إس آند بي 500 (SPY)", "category": "stock"},
-    "QQQ": {"name": "ناسداك (QQQ)", "category": "stock"},
-
-    # === قائمة أسهم رخيصة/عالية الزخم ===
-    # حدّثها يدويًا من فاحص TradingView Stock Screener (فلتر: السعر بين
-    # $0.01-$100، Relative Volume > 3، Change % > 5) لأن Finnhub المجاني
-    # ما يوفر فاحص أسهم صغيرة تلقائي بدقة كافية.
-    # مثال (بدّلها برموز فعلية محدثة يوميًا):
-    # "GME": {"name": "GameStop (GME)", "category": "stock"},
-}
-
-SIGNALS = deque(maxlen=100)
-LAST_ALERT_TIME = {}          # symbol -> datetime آخر تنبيه أُرسل له
-PRICE_ROLLING = {}             # symbol -> deque أسعار لحساب momentum/RSI تقريبي
-STATE_LOCK = threading.Lock()
-
-STATUS = {
-    "last_scan_time": None,
-    "last_scan_symbols_count": 0,
-    "next_scan_eta_seconds": SCAN_INTERVAL_SECONDS,
-    "telegram_configured": bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID),
-    "finnhub_configured": bool(FINNHUB_API_KEY),
-    "webhook_secured": bool(WEBHOOK_SECRET_TOKEN),
-}
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-POSITIVE_KEYWORDS = [
-    "beats", "surge", "upgrade", "record", "approval", "acquisition",
-    "partnership", "breakthrough", "soars", "jumps", "raises guidance",
-    "buyback", "outperform", "profit rise",
-]
-NEGATIVE_KEYWORDS = [
-    "lawsuit", "downgrade", "recall", "investigation", "bankruptcy",
-    "delisting", "fraud", "misses", "plunge", "halts", "resigns",
-    "sec charges", "restatement", "default", "layoffs",
-]
+# ═══════════════ تحليل الأسهم الأمريكية فقط ═══════════════
 
-# ============================ أدوات مساعدة ============================
-
-
-def is_market_open() -> bool:
-    now = datetime.now(NY_TZ)
-    if now.weekday() >= 5:
-        return False
-    open_time = now.replace(hour=9, minute=30, second=0, microsecond=0)
-    close_time = now.replace(hour=16, minute=0, second=0, microsecond=0)
-    return open_time <= now <= close_time
-
-
-def calculate_rsi(closes: list, period: int = 14) -> float:
-    try:
-        if not closes or len(closes) < period + 1:
-            return None
-        gains, losses = [], []
-        for i in range(1, len(closes)):
-            diff = closes[i] - closes[i - 1]
-            gains.append(max(diff, 0.0))
-            losses.append(max(-diff, 0.0))
+class StockAnalyzer:
+    """محلل الأسهم الأمريكية الذكي"""
+    
+    def __init__(self):
+        self.api_key = FINNHUB_API_KEY
+        self.cache = {}
+        self.cache_time = {}
+        
+    def analyze_stock(self, symbol: str) -> Dict:
+        """تحليل شامل لسهم أمريكي"""
+        symbol = symbol.upper().strip()
+        
+        # فحص الكاش
+        if symbol in self.cache:
+            cached_time = self.cache_time.get(symbol)
+            if cached_time and (datetime.now() - cached_time).seconds < 300:
+                return self.cache[symbol]
+        
+        # جلب البيانات
+        quote = self.get_quote(symbol)
+        if not quote:
+            return {"error": f"❌ رمز السهم {symbol} غير صحيح أو غير موجود\n\n💡 تأكد أنك ترسل رمز سهم أمريكي مثل:\nAAPL, TSLA, NVDA, AMD, COIN"}
+        
+        profile = self.get_company_profile(symbol)
+        
+        # التحقق أنه سهم أمريكي
+        if profile:
+            country = profile.get("country", "")
+            exchange = profile.get("exchange", "")
+            
+            # التحقق من السوق الأمريكي
+            if country and country != "US":
+                return {"error": f"❌ {symbol} ليس سهماً أمريكياً\nالبلد: {country}\n\n💡 هذا البوت متخصص في الأسهم الأمريكية فقط"}
+            
+            if exchange and exchange not in ["NASDAQ NMS - GLOBAL MARKET", "NYSE", "AMEX", "NASDAQ"]:
+                return {"error": f"❌ {symbol} ليس في بورصة أمريكية رئيسية\nالبورصة: {exchange}"}
+        
+        news = self.get_company_news(symbol)
+        candles = self.get_candles(symbol)
+        
+        # تحليل شامل
+        analysis = {
+            "symbol": symbol,
+            "name": profile.get("name", symbol) if profile else symbol,
+            "quote": quote,
+            "profile": profile,
+            "news": news,
+            "candles": candles,
+            "technical": self.technical_analysis(quote, candles),
+            "momentum": self.momentum_analysis(quote, candles),
+            "volume_analysis": self.volume_analysis(quote, candles),
+            "direction": self.determine_direction(quote, candles),
+            "timestamp": datetime.now(NY_TZ).strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        # حفظ في الكاش
+        self.cache[symbol] = analysis
+        self.cache_time[symbol] = datetime.now()
+        
+        return analysis
+    
+    def get_quote(self, symbol: str) -> Optional[Dict]:
+        """جلب السعر الحالي"""
+        url = "https://finnhub.io/api/v1/quote"
+        params = {"symbol": symbol, "token": self.api_key}
+        
+        try:
+            response = requests.get(url, params=params, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("c"):
+                    return data
+        except:
+            pass
+        
+        return None
+    
+    def get_company_profile(self, symbol: str) -> Optional[Dict]:
+        """جلب معلومات الشركة"""
+        url = "https://finnhub.io/api/v1/stock/profile2"
+        params = {"symbol": symbol, "token": self.api_key}
+        
+        try:
+            response = requests.get(url, params=params, timeout=5)
+            if response.status_code == 200:
+                return response.json()
+        except:
+            pass
+        
+        return None
+    
+    def get_company_news(self, symbol: str) -> List[Dict]:
+        """جلب أخبار الشركة"""
+        url = "https://finnhub.io/api/v1/company-news"
+        params = {
+            "symbol": symbol,
+            "from": (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d"),
+            "to": datetime.now().strftime("%Y-%m-%d"),
+            "token": self.api_key
+        }
+        
+        try:
+            response = requests.get(url, params=params, timeout=5)
+            if response.status_code == 200:
+                return response.json()[:10]
+        except:
+            pass
+        
+        return []
+    
+    def get_candles(self, symbol: str) -> Optional[Dict]:
+        """جلب الشموع"""
+        url = "https://finnhub.io/api/v1/stock/candle"
+        params = {
+            "symbol": symbol,
+            "resolution": "15",
+            "count": 50,
+            "token": self.api_key
+        }
+        
+        try:
+            response = requests.get(url, params=params, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("s") == "ok":
+                    return data
+        except:
+            pass
+        
+        return None
+    
+    def technical_analysis(self, quote: Dict, candles: Optional[Dict]) -> Dict:
+        """التحليل الفني"""
+        current_price = quote.get("c", 0)
+        open_price = quote.get("o", 0)
+        high = quote.get("h", 0)
+        low = quote.get("l", 0)
+        prev_close = quote.get("pc", 0)
+        
+        rsi = 50
+        if candles and candles.get("c"):
+            rsi = self.calculate_rsi(candles["c"])
+        
+        vwap = current_price
+        vwap_distance = 0
+        if candles and candles.get("c") and candles.get("v"):
+            total_volume = sum(candles["v"])
+            total_value = sum(c * v for c, v in zip(candles["c"], candles["v"]))
+            if total_volume > 0:
+                vwap = total_value / total_volume
+                vwap_distance = ((current_price - vwap) / vwap) * 100
+        
+        return {
+            "current_price": current_price,
+            "open": open_price,
+            "high": high,
+            "low": low,
+            "prev_close": prev_close,
+            "change_pct": ((current_price - prev_close) / prev_close * 100) if prev_close else 0,
+            "rsi": rsi,
+            "vwap": vwap,
+            "vwap_distance": vwap_distance,
+            "day_range": f"${low} - ${high}"
+        }
+    
+    def momentum_analysis(self, quote: Dict, candles: Optional[Dict]) -> Dict:
+        """تحليل الزخم"""
+        momentum = {
+            "short_term": "محايد",
+            "medium_term": "محايد",
+            "long_term": "محايد",
+            "score": 50
+        }
+        
+        if candles and candles.get("c"):
+            closes = candles["c"]
+            
+            if len(closes) >= 5:
+                change_5 = ((closes[-1] - closes[-5]) / closes[-5] * 100) if closes[-5] else 0
+                momentum["short_term"] = self.classify_momentum(change_5)
+                
+            if len(closes) >= 15:
+                change_15 = ((closes[-1] - closes[-15]) / closes[-15] * 100) if closes[-15] else 0
+                momentum["medium_term"] = self.classify_momentum(change_15)
+                
+            if len(closes) >= 30:
+                change_30 = ((closes[-1] - closes[-30]) / closes[-30] * 100) if closes[-30] else 0
+                momentum["long_term"] = self.classify_momentum(change_30)
+        
+        momentum["score"] = self.calculate_momentum_score(momentum)
+        return momentum
+    
+    def volume_analysis(self, quote: Dict, candles: Optional[Dict]) -> Dict:
+        """تحليل الحجم والسيولة"""
+        current_volume = quote.get("v", 0)
+        
+        volume_info = {
+            "current_volume": current_volume,
+            "average_volume": 0,
+            "volume_ratio": 0,
+            "liquidity": "غير معروفة",
+            "volume_trend": "محايد"
+        }
+        
+        if candles and candles.get("v"):
+            volumes = candles["v"]
+            
+            if len(volumes) >= 10:
+                avg_volume = sum(volumes[:-1]) / len(volumes[:-1])
+                volume_info["average_volume"] = avg_volume
+                volume_info["volume_ratio"] = current_volume / avg_volume if avg_volume > 0 else 0
+                
+                if current_volume > 10000000:
+                    volume_info["liquidity"] = "سيولة عالية جداً"
+                elif current_volume > 5000000:
+                    volume_info["liquidity"] = "سيولة عالية"
+                elif current_volume > 1000000:
+                    volume_info["liquidity"] = "سيولة متوسطة"
+                elif current_volume > 500000:
+                    volume_info["liquidity"] = "سيولة منخفضة"
+                else:
+                    volume_info["liquidity"] = "سيولة ضعيفة جداً"
+                
+                recent_vol = sum(volumes[-5:]) / 5
+                if recent_vol > avg_volume * 1.5:
+                    volume_info["volume_trend"] = "زيادة قوية"
+                elif recent_vol > avg_volume * 1.2:
+                    volume_info["volume_trend"] = "زيادة طفيفة"
+                elif recent_vol < avg_volume * 0.8:
+                    volume_info["volume_trend"] = "انخفاض"
+        
+        return volume_info
+    
+    def determine_direction(self, quote: Dict, candles: Optional[Dict]) -> Dict:
+        """تحديد اتجاه السهم"""
+        direction = {
+            "trend": "محايد",
+            "strength": 50,
+            "recommendation": "انتظار",
+            "reasons": []
+        }
+        
+        technical = self.technical_analysis(quote, candles)
+        momentum = self.momentum_analysis(quote, candles)
+        volume = self.volume_analysis(quote, candles)
+        
+        if technical["rsi"] > 70:
+            direction["reasons"].append("RSI في منطقة تشبع شراء")
+        elif technical["rsi"] < 30:
+            direction["reasons"].append("RSI في منطقة تشبع بيع")
+        
+        if technical["vwap_distance"] > 5:
+            direction["reasons"].append("السعر فوق VWAP بشكل كبير")
+        elif technical["vwap_distance"] < -5:
+            direction["reasons"].append("السعر تحت VWAP بشكل كبير")
+        
+        if volume["volume_ratio"] > 3:
+            direction["reasons"].append("حجم تداول استثنائي")
+        
+        if momentum["score"] > 65 and technical["rsi"] > 55:
+            direction["trend"] = "صاعد"
+            direction["strength"] = min(100, momentum["score"])
+            direction["recommendation"] = "مراقبة للشراء"
+        elif momentum["score"] < 35 and technical["rsi"] < 45:
+            direction["trend"] = "هابط"
+            direction["strength"] = min(100, 100 - momentum["score"])
+            direction["recommendation"] = "مراقبة للبيع"
+        else:
+            direction["trend"] = "عرضي"
+            direction["recommendation"] = "انتظار إشارة واضحة"
+        
+        return direction
+    
+    def calculate_rsi(self, prices: List[float], period: int = 14) -> float:
+        """حساب RSI"""
+        if len(prices) < period + 1:
+            return 50
+        
+        gains = []
+        losses = []
+        
+        for i in range(1, len(prices)):
+            diff = prices[i] - prices[i-1]
+            if diff > 0:
+                gains.append(diff)
+                losses.append(0)
+            else:
+                gains.append(0)
+                losses.append(abs(diff))
+        
         avg_gain = sum(gains[-period:]) / period
         avg_loss = sum(losses[-period:]) / period
+        
         if avg_loss == 0:
-            return 100.0
+            return 100
+        
         rs = avg_gain / avg_loss
-        return round(100 - (100 / (1 + rs)), 1)
-    except Exception:
-        return None
+        return 100 - (100 / (1 + rs))
+    
+    def classify_momentum(self, change_pct: float) -> str:
+        """تصنيف الزخم"""
+        if change_pct > 10:
+            return "زخم إيجابي قوي جداً"
+        elif change_pct > 5:
+            return "زخم إيجابي قوي"
+        elif change_pct > 2:
+            return "زخم إيجابي"
+        elif change_pct > -2:
+            return "محايد"
+        elif change_pct > -5:
+            return "زخم سلبي"
+        elif change_pct > -10:
+            return "زخم سلبي قوي"
+        else:
+            return "زخم سلبي قوي جداً"
+    
+    def calculate_momentum_score(self, momentum: Dict) -> int:
+        """حساب درجة الزخم"""
+        score = 50
+        
+        if "قوي جداً" in momentum["short_term"]:
+            score += 20
+        elif "قوي" in momentum["short_term"]:
+            score += 10
+        elif "سلبي قوي جداً" in momentum["short_term"]:
+            score -= 20
+        elif "سلبي قوي" in momentum["short_term"]:
+            score -= 10
+        
+        if "قوي جداً" in momentum["medium_term"]:
+            score += 15
+        elif "قوي" in momentum["medium_term"]:
+            score += 8
+        elif "سلبي قوي جداً" in momentum["medium_term"]:
+            score -= 15
+        elif "سلبي قوي" in momentum["medium_term"]:
+            score -= 8
+        
+        return max(0, min(100, score))
 
+# ═══════════════ رصد الانفجارات (أسهم أمريكية فقط) ═══════════════
 
-def classify_headline(headline: str) -> str:
-    """تصنيف تقريبي بالكلمات المفتاحية فقط — ليس تحليل مشاعر حقيقي"""
-    text = headline.lower()
-    if any(k in text for k in NEGATIVE_KEYWORDS):
-        return "negative"
-    if any(k in text for k in POSITIVE_KEYWORDS):
-        return "positive"
-    return "neutral"
-
-
-def get_news_context(symbol: str):
-    if not FINNHUB_API_KEY or ":" in symbol:  # نتخطى الكريبتو/الفوركس
-        return None
-    try:
-        today = datetime.now().strftime("%Y-%m-%d")
-        since = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d")
-        url = "https://finnhub.io/api/v1/company-news"
-        resp = requests.get(
-            url,
-            params={"symbol": symbol, "from": since, "to": today, "token": FINNHUB_API_KEY},
-            timeout=6,
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            if isinstance(data, list) and data:
-                headline = data[0].get("headline", "")
-                return {"headline": headline, "classification": classify_headline(headline)}
-    except Exception as e:
-        print(f"[خطأ أخبار] {symbol}: {e}")
-    return None
-
-
-def fetch_quote(symbol: str):
-    try:
-        resp = requests.get(
-            "https://finnhub.io/api/v1/quote",
-            params={"symbol": symbol, "token": FINNHUB_API_KEY},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        if not data or data.get("c") in (None, 0):
-            return None
-        return {
-            "current": float(data["c"]),
-            "open": float(data.get("o") or 0),
-            "high": float(data.get("h") or 0),
-            "low": float(data.get("l") or 0),
-            "prev_close": float(data.get("pc") or 0),
-        }
-    except Exception as e:
-        print(f"[خطأ سعر] {symbol}: {e}")
-        return None
-
-
-def fetch_candles(symbol: str, category: str):
-    """يحاول جلب شموع 15 دقيقة (يعمل غالبًا للكريبتو/الفوركس، وأحيانًا للأسهم)"""
-    if not FINNHUB_API_KEY:
-        return None
-    url = f"https://finnhub.io/api/v1/{category}/candle"
-    try:
-        resp = requests.get(
-            url,
-            params={"symbol": symbol, "resolution": 15, "count": 30, "token": FINNHUB_API_KEY},
-            timeout=10,
-        )
-        if resp.status_code != 200:
-            return None
-        data = resp.json()
-        if not isinstance(data, dict) or data.get("s") != "ok":
-            return None
-        closes = [float(x) for x in data.get("c", []) if x is not None]
-        volumes = [float(x) for x in data.get("v", []) if x is not None]
-        if len(closes) >= 15 and len(volumes) >= 15:
-            return {"closes": closes, "volumes": volumes}
-    except Exception as e:
-        print(f"[خطأ شموع] {symbol}: {e}")
-    return None
-
-
-def is_cooldown_active(symbol: str) -> bool:
-    last = LAST_ALERT_TIME.get(symbol)
-    if not last:
-        return False
-    return (datetime.now(NY_TZ) - last).total_seconds() < ALERT_COOLDOWN_MINUTES * 60
-
-
-# ============================ التحليل ============================
-
-
-def analyze_asset(symbol: str, meta: dict):
-    category = meta["category"]
-
-    if category == "stock" and not is_market_open():
-        return None
-
-    now = datetime.now(NY_TZ)
-    candles = fetch_candles(symbol, category)
-
-    if candles:
-        closes = candles["closes"]
-        volumes = candles["volumes"]
-        current_price = closes[-1]
-        prev_price = closes[-2]
-        if prev_price <= 0:
-            return None
-        change_pct = ((current_price - prev_price) / prev_price) * 100
-        rsi = calculate_rsi(closes)
-        avg_volume = sum(volumes[-6:-1]) / 5 if len(volumes) >= 6 else 0
-        last_volume = volumes[-1]
-        vol_ratio = round(last_volume / avg_volume, 1) if avg_volume > 0 else None
-        data_quality = "candles"
-    else:
-        # لا توجد بيانات شموع (شائع للأسهم بالخطة المجانية) — نستخدم السعر اللحظي فقط
-        quote = fetch_quote(symbol)
-        if not quote or quote["current"] <= 0:
-            return None
-        current_price = quote["current"]
-
-        with STATE_LOCK:
-            hist = PRICE_ROLLING.setdefault(symbol, deque(maxlen=20))
-            hist.append(current_price)
-            hist_list = list(hist)
-
-        if len(hist_list) < 3:
-            return None  # أول فحصين بس نبني تاريخ الأسعار، بدون إشارة
-
-        prev_price = hist_list[-2]
-        if prev_price <= 0:
-            return None
-        change_pct = ((current_price - prev_price) / prev_price) * 100
-        rsi = calculate_rsi(hist_list) if len(hist_list) >= 15 else None
-        vol_ratio = None  # غير متوفر بدون شموع
-        data_quality = "quote_only"
-
-    # فلتر النطاق السعري (سنتات إلى 100 دولار)
-    if not (PRICE_MIN <= current_price <= PRICE_MAX) and category == "stock":
-        return None
-
-    if abs(change_pct) < MIN_PRICE_CHANGE_PCT:
-        return None
-
-    # فلتر الحجم يُطبّق فقط إذا كانت البيانات متوفرة أصلًا
-    if vol_ratio is not None and vol_ratio < VOLUME_MULTIPLIER:
-        return None
-
-    if is_cooldown_active(symbol):
-        return None
-
-    direction = "buy" if change_pct > 0 else "sell"
-
-    with STATE_LOCK:
-        LAST_ALERT_TIME[symbol] = now
-
-    return {
-        "symbol": symbol,
-        "name": meta["name"],
-        "direction": direction,
-        "current_price": round(current_price, 4 if current_price < 1 else 2),
-        "change_pct": round(change_pct, 2),
-        "rsi": rsi,
-        "volume_ratio": vol_ratio,
-        "data_quality": data_quality,
-        "source": "internal_scan",
-        "time_ny": now.strftime("%Y-%m-%d %H:%M:%S"),
-    }
-
-
-# ============================ تنسيق وإرسال تلجرام ============================
-
-
-def format_signal_message(signal: dict) -> str:
-    is_buy = signal["direction"] == "buy"
-    header = "🟢 رصد شراء قوي متراكم" if is_buy else "🔴 رصد بيع قوي متراكم"
-    arrow = "📈 مرتفع" if is_buy else "📉 منخفض"
-
-    lines = [
-        f"<b>{header}</b>",
-        "",
-        f"📌 الرمز: <b>{signal['symbol']}</b> ({signal.get('name', signal['symbol'])})",
-        f"💵 السعر الحالي: <b>${signal['current_price']}</b>",
-        f"📊 الاتجاه: {arrow} ({signal['change_pct']}%)",
-    ]
-
-    if signal.get("volume_ratio") is not None:
-        lines.append(f"⚡ الحجم: ×{signal['volume_ratio']} من المعدل")
-    else:
-        lines.append("⚡ الحجم: غير متوفر لهذا الرمز (قيود الخطة المجانية)")
-
-    if signal.get("rsi") is not None:
-        lines.append(f"📈 RSI تقريبي: {signal['rsi']}")
-
-    news = signal.get("news")
-    if news:
-        emoji = {"positive": "🟢", "negative": "🔴", "neutral": "⚪"}[news["classification"]]
-        lines.append(f"📰 آخر خبر ({emoji} تصنيف آلي تقريبي): {news['headline']}")
-        lines.append("⚠️ التصنيف تلقائي بكلمات مفتاحية فقط — راجع الخبر بنفسك.")
-
-    lines.append(f"🕐 الوقت (نيويورك): {signal['time_ny']}")
-    lines.append("")
-    lines.append("⚠️ مؤشر تقني آلي وليس توصية استثمارية. تحقق من السيولة والأخبار دائمًا قبل أي قرار.")
-
-    return "\n".join(lines)
-
-
-def format_webhook_message(payload: dict) -> str:
-    direction = payload.get("direction", "buy")
-    is_buy = direction == "buy"
-    header = "🔔🟢 تنبيه TradingView — شراء قوي" if is_buy else "🔔🔴 تنبيه TradingView — بيع قوي"
-
-    lines = [
-        f"<b>{header}</b>",
-        "",
-        f"📌 الرمز: <b>{payload.get('symbol', '?')}</b>",
-        f"💵 السعر: <b>${payload.get('price', '?')}</b>",
-    ]
-    if payload.get("change_pct"):
-        lines.append(f"📊 التغير: {payload['change_pct']}%")
-    if payload.get("rvol"):
-        lines.append(f"⚡ RVOL: {payload['rvol']}")
-
-    lines.append(f"🕐 الوقت (نيويورك): {datetime.now(NY_TZ).strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append("")
-    lines.append("⚠️ المصدر: مؤشر Pine Script مخصص على TradingView. تحقق من الشرط قبل أي إجراء.")
-    return "\n".join(lines)
-
-
-def send_telegram(text: str):
-    if not (TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID):
-        print("[تنبيه] Telegram غير مُهيأ، تم تجاوز الإرسال.")
-        return
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    try:
-        resp = requests.post(
-            url,
-            json={"chat_id": TELEGRAM_CHANNEL_ID, "text": text, "parse_mode": "HTML"},
-            timeout=15,
-        )
-        if resp.status_code != 200:
-            print(f"[خطأ تلجرام] {resp.status_code}: {resp.text}")
-    except Exception as e:
-        print(f"[خطأ تلجرام] {e}")
-
-
-# ============================ حلقة الفحص الداخلي ============================
-
-
-def run_scan_cycle():
-    print(f"[معلومة] فحص {len(ASSETS)} أصل...")
-    found = 0
-    for symbol, meta in ASSETS.items():
+class ExplosionScanner:
+    """راصد الانفجارات للأسهم الأمريكية"""
+    
+    def __init__(self):
+        self.api_key = FINNHUB_API_KEY
+        self.alert_history = {}
+        
+    def get_extreme_movers(self) -> List[Dict]:
+        """جلب الأسهم الأمريكية ذات الحركة القصوى"""
+        extreme_movers = []
+        
+        # جلب الأسهم الأكثر ارتفاعاً
+        winners = self.fetch_movers("winner")
+        if winners:
+            extreme_winners = [w for w in winners if abs(w.get("change_pct", 0)) >= MIN_CHANGE_PCT]
+            extreme_movers.extend(extreme_winners)
+            logger.info(f"🚀 {len(extreme_winners)} سهم أمريكي منفجر صاعد")
+        
+        # جلب الأسهم الأكثر انخفاضاً
+        losers = self.fetch_movers("loser")
+        if losers:
+            extreme_losers = [l for l in losers if abs(l.get("change_pct", 0)) >= MIN_CHANGE_PCT]
+            extreme_movers.extend(extreme_losers)
+            logger.info(f"💥 {len(extreme_losers)} سهم أمريكي منفجر هابط")
+        
+        return extreme_movers
+    
+    def fetch_movers(self, category: str) -> List[Dict]:
+        """جلب الأسهم المتحركة"""
+        url = f"https://finnhub.io/api/v1/stock/market/{category}"
+        params = {"token": self.api_key}
+        
         try:
-            signal = analyze_asset(symbol, meta)
-            if signal:
-                if meta["category"] != "stock":  # الأخبار متاحة للأسهم فقط
-                    pass
-                else:
-                    signal["news"] = get_news_context(symbol)
-                send_telegram(format_signal_message(signal))
-                with STATE_LOCK:
-                    SIGNALS.appendleft(signal)
-                found += 1
+            response = requests.get(url, params=params, timeout=10)
+            if response.status_code == 200:
+                stocks = response.json()
+                return [
+                    {
+                        "symbol": stock.get("symbol", ""),
+                        "price": float(stock.get("price", 0)),
+                        "change_pct": float(stock.get("change_percent", 0)),
+                        "volume": float(stock.get("volume", 0)),
+                        "market_cap": float(stock.get("market_cap", 0)),
+                    }
+                    for stock in stocks
+                ]
         except Exception as e:
-            print(f"[خطأ فحص] {symbol}: {e}")
-        time.sleep(1.2)
+            logger.error(f"خطأ: {e}")
+        
+        return []
+    
+    def is_real_explosion(self, stock: Dict) -> bool:
+        """فحص إذا كان انفجار حقيقي"""
+        symbol = stock.get("symbol", "")
+        price = stock.get("price", 0)
+        change_pct = stock.get("change_pct", 0)
+        volume = stock.get("volume", 0)
+        
+        conditions = {
+            "السعر المناسب": MIN_PRICE <= price <= MAX_PRICE,
+            "التغير القوي": abs(change_pct) >= MIN_CHANGE_PCT,
+            "الحجم الكبير": volume >= MIN_VOLUME,
+            "ليس في تبريد": not self.check_cooldown(symbol)
+        }
+        
+        return all(conditions.values())
+    
+    def check_cooldown(self, symbol: str) -> bool:
+        """فحص التبريد"""
+        if symbol not in self.alert_history:
+            return False
+        
+        last_alert = self.alert_history[symbol]
+        elapsed = (datetime.now(NY_TZ) - last_alert).total_seconds()
+        return elapsed < COOLDOWN_HOURS * 3600
+    
+    def update_alert_time(self, symbol: str):
+        """تحديث وقت التنبيه"""
+        self.alert_history[symbol] = datetime.now(NY_TZ)
+    
+    def get_company_news(self, symbol: str) -> Optional[str]:
+        """جلب الخبر المسبب للانفجار"""
+        url = "https://finnhub.io/api/v1/company-news"
+        params = {
+            "symbol": symbol,
+            "from": (datetime.now() - timedelta(hours=6)).strftime("%Y-%m-%d"),
+            "to": datetime.now().strftime("%Y-%m-%d"),
+            "token": self.api_key
+        }
+        
+        try:
+            response = requests.get(url, params=params, timeout=5)
+            if response.status_code == 200:
+                news = response.json()
+                if news and len(news) > 0:
+                    return news[0].get("headline", "")
+        except:
+            pass
+        
+        return None
+    
+    def format_explosion_alert(self, stock: Dict, news: Optional[str]) -> str:
+        """تنسيق تنبيه الانفجار"""
+        symbol = stock.get("symbol", "")
+        price = stock.get("price", 0)
+        change_pct = stock.get("change_pct", 0)
+        volume = stock.get("volume", 0)
+        
+        direction = "🚀 انفجار صاعد" if change_pct > 0 else "💥 انفجار هابط"
+        
+        if abs(change_pct) >= 30:
+            explosion_level = "🔥🔥🔥 انفجار عنيف"
+        elif abs(change_pct) >= 20:
+            explosion_level = "🔥🔥 انفجار قوي"
+        else:
+            explosion_level = "🔥 انفجار"
+        
+        lines = [
+            f"<b>{direction}</b>",
+            "",
+            f"📌 <b>{symbol}</b>",
+            f"💰 السعر: <b>${price}</b>",
+            f"📊 التغير: <b>{change_pct}%</b>",
+            f"⚡ الحجم: <b>{volume:,}</b> سهم",
+            "",
+            f"💥 المستوى: {explosion_level}",
+        ]
+        
+        if news:
+            lines.append(f"\n📰 <b>الخبر:</b>\n{news[:150]}")
+        
+        lines.extend([
+            "",
+            f"🕐 {datetime.now(NY_TZ).strftime('%Y-%m-%d %H:%M:%S')}",
+            "",
+            "⚠️ <b>هذا تحليل آلي وليس توصية استثمارية</b>",
+            "",
+            "♦️ <b>شرعية الأسهم مسؤوليتك نبرأ منها أمام الله</b> ♦️"
+        ])
+        
+        return "\n".join(lines)
+    
+    def send_telegram(self, message: str):
+        """إرسال إلى القناة"""
+        if not (TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID):
+            return
+        
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        data = {
+            "chat_id": TELEGRAM_CHANNEL_ID,
+            "text": message,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True
+        }
+        
+        try:
+            requests.post(url, json=data, timeout=10)
+        except Exception as e:
+            logger.error(f"خطأ إرسال: {e}")
+    
+    def scan_and_alert(self):
+        """مسح وإرسال تنبيهات الانفجارات"""
+        logger.info("🔍 بدء مسح الأسهم الأمريكية...")
+        
+        movers = self.get_extreme_movers()
+        explosions = [m for m in movers if self.is_real_explosion(m)]
+        
+        if explosions:
+            logger.info(f"💥 وجدنا {len(explosions)} انفجار حقيقي!")
+            
+            for stock in explosions:
+                news = self.get_company_news(stock["symbol"])
+                message = self.format_explosion_alert(stock, news)
+                self.send_telegram(message)
+                self.update_alert_time(stock["symbol"])
+                time.sleep(5)
+        else:
+            logger.info("😴 لا توجد انفجارات حالياً")
 
-    with STATE_LOCK:
-        STATUS["last_scan_time"] = datetime.now(NY_TZ).strftime("%Y-%m-%d %H:%M:%S")
-        STATUS["last_scan_symbols_count"] = len(ASSETS)
-    print(f"[معلومة] انتهت الدورة، عدد التنبيهات: {found}")
+# ═══════════════ تنسيق التحليل ═══════════════
 
+def format_analysis_message(analysis: Dict) -> str:
+    """تنسيق رسالة التحليل"""
+    if "error" in analysis:
+        return analysis["error"]
+    
+    symbol = analysis["symbol"]
+    name = analysis.get("name", symbol)
+    technical = analysis["technical"]
+    momentum = analysis["momentum"]
+    volume = analysis["volume_analysis"]
+    direction = analysis["direction"]
+    
+    trend_emoji = "📈" if direction["trend"] == "صاعد" else "📉" if direction["trend"] == "هابط" else "↔️"
+    change_emoji = "🟢" if technical["change_pct"] > 0 else "🔴" if technical["change_pct"] < 0 else "⚪"
+    
+    lines = [
+        f"{trend_emoji} <b>تحليل {symbol} ({name})</b>",
+        "",
+        "━━━━━━━━━━━━━━━━━",
+        "💰 <b>السعر:</b>",
+        f"السعر الحالي: <b>${technical['current_price']:.2f}</b>",
+        f"التغير: {change_emoji} <b>{technical['change_pct']:.2f}%</b>",
+        f"نطاق اليوم: {technical['day_range']}",
+        "",
+        "━━━━━━━━━━━━━━━━━",
+        "📊 <b>الزخم:</b>",
+        f"قصير المدى: {momentum['short_term']}",
+        f"متوسط المدى: {momentum['medium_term']}",
+        f"طويل المدى: {momentum['long_term']}",
+        f"درجة الزخم: <b>{momentum['score']}/100</b>",
+        "",
+        "━━━━━━━━━━━━━━━━━",
+        "⚡ <b>الحجم والسيولة:</b>",
+        f"حجم التداول: <b>{volume['current_volume']:,}</b> سهم",
+        f"متوسط الحجم: {volume['average_volume']:,} سهم",
+        f"نسبة الحجم: <b>×{volume['volume_ratio']:.1f}</b>",
+        f"السيولة: {volume['liquidity']}",
+        f"اتجاه الحجم: {volume['volume_trend']}",
+        "",
+        "━━━━━━━━━━━━━━━━━",
+        "📐 <b>المؤشرات الفنية:</b>",
+        f"RSI: <b>{technical['rsi']:.1f}</b>",
+        f"VWAP: ${technical['vwap']:.2f}",
+        f"المسافة عن VWAP: {technical['vwap_distance']:.1f}%",
+        "",
+        "━━━━━━━━━━━━━━━━━",
+        f"🎯 <b>الاتجاه العام: {direction['trend']}</b>",
+        f"قوة الاتجاه: {direction['strength']}/100",
+        f"التوصية: <b>{direction['recommendation']}</b>",
+    ]
+    
+    if direction["reasons"]:
+        lines.append("")
+        lines.append("📋 <b>الأسباب:</b>")
+        for reason in direction["reasons"]:
+            lines.append(f"• {reason}")
+    
+    if analysis.get("news"):
+        lines.append("")
+        lines.append("━━━━━━━━━━━━━━━━━")
+        lines.append("📰 <b>آخر الأخبار:</b>")
+        
+        for news in analysis["news"][:3]:
+            headline = news.get("headline", "")
+            source = news.get("source", "")
+            timestamp = datetime.fromtimestamp(news.get("datetime", 0), NY_TZ).strftime("%m/%d %H:%M")
+            
+            sentiment = classify_news_sentiment(headline)
+            sentiment_emoji = "🟢" if sentiment == "positive" else "🔴" if sentiment == "negative" else "⚪"
+            
+            lines.append(f"{sentiment_emoji} {headline[:100]}")
+            lines.append(f"   ({source} - {timestamp})")
+    
+    lines.extend([
+        "",
+        "━━━━━━━━━━━━━━━━━",
+        f"🕐 {analysis['timestamp']}",
+        "",
+        "⚠️ <b>هذا تحليل آلي وليس توصية استثمارية</b>",
+        "",
+        "♦️ <b>شرعية الأسهم مسؤوليتك نبرأ منها أمام الله</b> ♦️"
+    ])
+    
+    return "\n".join(lines)
 
-def background_worker():
-    while True:
-        if FINNHUB_API_KEY:
+def classify_news_sentiment(headline: str) -> str:
+    """تصنيف مشاعر الخبر"""
+    positive_words = ["beat", "surge", "upgrade", "record", "approval", "partnership", "growth", "profit"]
+    negative_words = ["miss", "plunge", "downgrade", "lawsuit", "investigation", "loss", "decline"]
+    
+    headline_lower = headline.lower()
+    
+    if any(word in headline_lower for word in positive_words):
+        return "positive"
+    elif any(word in headline_lower for word in negative_words):
+        return "negative"
+    else:
+        return "neutral"
+
+# ═══════════════ البوت ═══════════════
+
+class SmartTradingBot:
+    """البوت الذكي للأسهم الأمريكية"""
+    
+    def __init__(self):
+        self.analyzer = StockAnalyzer()
+        self.scanner = ExplosionScanner()
+        self.last_update_id = 0
+        
+    def send_telegram(self, chat_id: str, message: str):
+        """إرسال رسالة"""
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        data = {
+            "chat_id": chat_id,
+            "text": message,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True
+        }
+        
+        try:
+            requests.post(url, json=data, timeout=10)
+        except Exception as e:
+            logger.error(f"خطأ إرسال: {e}")
+    
+    def handle_private_message(self, message: Dict):
+        """معالجة الرسائل الخاصة"""
+        chat_id = message.get("chat", {}).get("id")
+        text = message.get("text", "").strip()
+        user = message.get("from", {})
+        username = user.get("username", user.get("first_name", "مستخدم"))
+        
+        if not text:
+            return
+        
+        if text.lower() in ["/start", "/help", "مساعدة", "help"]:
+            help_message = f"""
+👋 <b>مرحباً {username}!</b>
+
+أنا بوت تحليل الأسهم الأمريكية. يمكنني:
+
+📊 <b>تحليل أي سهم أمريكي:</b>
+- أرسل رمز السهم فقط
+- مثال: AAPL أو TSLA
+
+💡 <b>ماذا سأقدم لك:</b>
+- السعر الحالي والتغير
+- الزخم (قصير، متوسط، طويل)
+- الحجم والسيولة
+- المؤشرات الفنية (RSI, VWAP)
+- اتجاه السهم
+- آخر الأخبار
+
+❌ <b>إذا كان الرمز خاطئ:</b>
+- سأخبرك أن الرمز غير صحيح
+
+📌 <b>أمثلة على الرموز:</b>
+- AAPL = Apple
+- TSLA = Tesla
+- NVDA = NVIDIA
+- AMD = Advanced Micro Devices
+- COIN = Coinbase
+
+⚠️ <b>تنبيه مهم:</b>
+- التحليل آلي وليس توصية
+- شرعية الأسهم مسؤوليتك
+
+🎯 <b>أرسل رمز السهم الآن!</b>
+"""
+            self.send_telegram(chat_id, help_message)
+            return
+        
+        self.send_telegram(chat_id, "🔍 <b>جاري تحليل السهم الأمريكي...</b>")
+        analysis = self.analyzer.analyze_stock(text)
+        formatted = format_analysis_message(analysis)
+        self.send_telegram(chat_id, formatted)
+    
+    def run(self):
+        """التشغيل المستمر"""
+        logger.info("🤖 بدء بوت الأسهم الأمريكية...")
+        
+        # تشغيل الراصد في خلفية
+        scanner_thread = threading.Thread(target=self.run_scanner, daemon=True)
+        scanner_thread.start()
+        
+        # معالجة الرسائل
+        while True:
             try:
-                run_scan_cycle()
+                updates = self.get_updates()
+                
+                for update in updates:
+                    message = update.get("message")
+                    if message:
+                        chat_type = message.get("chat", {}).get("type")
+                        if chat_type == "private":
+                            self.handle_private_message(message)
+                
+                time.sleep(3)
+                
             except Exception as e:
-                print(f"[خطأ دورة العمل] {e}")
-        wait = SCAN_INTERVAL_SECONDS
-        with STATE_LOCK:
-            STATUS["next_scan_eta_seconds"] = wait
-        time.sleep(wait)
+                logger.error(f"خطأ: {e}")
+                time.sleep(10)
+    
+    def get_updates(self) -> List[Dict]:
+        """جلب التحديثات"""
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
+        params = {
+            "offset": self.last_update_id + 1,
+            "timeout": 30
+        }
+        
+        try:
+            response = requests.get(url, params=params, timeout=35)
+            if response.status_code == 200:
+                updates = response.json().get("result", [])
+                if updates:
+                    self.last_update_id = updates[-1]["update_id"]
+                return updates
+        except:
+            pass
+        
+        return []
+    
+    def run_scanner(self):
+        """تشغيل راصد الانفجارات"""
+        while True:
+            try:
+                self.scanner.scan_and_alert()
+                time.sleep(600)  # كل 10 دقائق
+            except Exception as e:
+                logger.error(f"خطأ في الراصد: {e}")
+                time.sleep(60)
 
-
-# ============================ مسارات الويب ============================
-
-
-@app.route("/")
-def dashboard():
-    return render_template("dashboard.html")
-
-
-@app.route("/webhook", methods=["POST"])
-def tradingview_webhook():
-    token = request.args.get("token", "")
-    if not WEBHOOK_SECRET_TOKEN or token != WEBHOOK_SECRET_TOKEN:
-        return jsonify({"status": "error", "message": "unauthorized"}), 403
-
-    try:
-        payload = request.get_json(force=True, silent=True) or {}
-    except Exception:
-        return jsonify({"status": "error", "message": "invalid json"}), 400
-
-    if not payload.get("symbol"):
-        return jsonify({"status": "error", "message": "missing symbol"}), 400
-
-    signal = {
-        "symbol": payload.get("symbol"),
-        "name": payload.get("symbol"),
-        "direction": payload.get("direction", "buy"),
-        "current_price": payload.get("price", "?"),
-        "change_pct": payload.get("change_pct"),
-        "rsi": None,
-        "volume_ratio": payload.get("rvol"),
-        "data_quality": "tradingview_webhook",
-        "source": "tradingview",
-        "time_ny": datetime.now(NY_TZ).strftime("%Y-%m-%d %H:%M:%S"),
-    }
-
-    send_telegram(format_webhook_message(payload))
-    with STATE_LOCK:
-        SIGNALS.appendleft(signal)
-
-    return jsonify({"status": "success"}), 200
-
-
-@app.route("/api/status")
-def api_status():
-    with STATE_LOCK:
-        return jsonify(dict(STATUS))
-
-
-@app.route("/api/signals")
-def api_signals():
-    with STATE_LOCK:
-        return jsonify(list(SIGNALS))
-
+# ═══════════════ مسارات الويب ═══════════════
 
 @app.route("/health")
 def health():
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "time": datetime.now(NY_TZ).strftime("%H:%M:%S")})
 
-
-worker_thread = threading.Thread(target=background_worker, daemon=True)
-worker_thread.start()
+# ═══════════════ التشغيل ═══════════════
 
 if __name__ == "__main__":
+    # تشغيل البوت في خلفية
+    bot = SmartTradingBot()
+    bot_thread = threading.Thread(target=bot.run, daemon=True)
+    bot_thread.start()
+    
+    # تشغيل خادم الويب
     port = int(os.environ.get("PORT", 10000))
+    logger.info(f"🚀 تشغيل على المنفذ {port}")
     app.run(host="0.0.0.0", port=port)
