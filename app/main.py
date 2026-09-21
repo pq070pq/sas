@@ -58,6 +58,10 @@ async def health():
 
 @app.get("/api/me")
 async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    existing = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
+    if not existing:
+        db.add(User(telegram_id=user["id"], username=user.get("username"), first_name=user.get("first_name")))
+        await db.commit()
     sub = (await db.execute(
         select(Subscription)
         .where(Subscription.telegram_id == user["id"], Subscription.active == True)
@@ -150,6 +154,21 @@ async def invoice(plan: str, user=Depends(telegram_user)):
         "prices": [{"label": f"SAS PRO {plan}", "amount": stars}],
     })
     return {"invoice_url": result, "stars": stars, "days": days}
+
+
+@app.post("/api/telegram/webhook")
+async def telegram_webhook(request: Request):
+    data = await request.json()
+    if "pre_checkout_query" in data:
+        q = data["pre_checkout_query"]
+        await bot_api("answerPreCheckoutQuery", {
+            "pre_checkout_query_id": q.get("id"),
+            "ok": True,
+        })
+        return {"ok": True}
+    if data.get("message", {}).get("successful_payment"):
+        return await successful_payment(request)
+    return {"ok": True}
 
 @app.post("/api/telegram/precheckout")
 async def precheckout(request: Request):
