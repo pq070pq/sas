@@ -35,6 +35,60 @@ async def startup():
     asyncio.create_task(scheduler())
     asyncio.create_task(holiday_radar_scheduler())
 
+def build_report(symbol: str, q: dict, tech: dict) -> str:
+    price = q.get("price")
+    change = q.get("change_pct")
+    targets = tech.get("targets") or []
+    exit_level = tech.get("exit")
+    volume_ratio = tech.get("volume_ratio")
+
+    move = f"{float(change):+.2f}%" if change is not None else "غير واضح"
+    trading = "قوي" if volume_ratio is not None and volume_ratio >= 1.15 else "عادي"
+    liquidity = "عالية" if volume_ratio is not None and volume_ratio >= 1.50 else "مو واضحة"
+    strength = "قوية" if volume_ratio is not None and volume_ratio >= 1.50 else "متوسطة"
+
+    labels = ["الأول", "الثاني", "الثالث"]
+    target_lines = [
+        f"الهدف {labels[i]}: {_money(level)}"
+        for i, level in enumerate(targets[:3])
+    ]
+    if not target_lines:
+        target_lines = ["الأهداف: غير واضحة حاليًا"]
+
+    exit_text = f"🛑 حد الخروج: {_money(exit_level)}" if exit_level is not None else "🛑 حد الخروج: غير واضح"
+
+    return (
+        f"🚨 SAS PRO RADAR\n\n"
+        f"🔹 السهم: {symbol}\n"
+        f"💵 السعر: {_money(float(price)) if price is not None else 'غير واضح'}\n"
+        f"📈 مرتفع/منخفض: {move}\n"
+        f"📊 التداول: {trading}\n"
+        f"💰 السيولة: {liquidity}\n"
+        f"🔥 حركة السهم: {strength}\n\n"
+        f"━━━━━━━━━━━━━━\n\n"
+        f"🤖 قراءة SAS PRO\n\n"
+        f"📈 الاتجاه: طالع إذا حافظ على مستوياته الحالية\n"
+        f"💪 قوة الحركة: {strength}\n"
+        f"📊 التداول: {'يدعم استمرار الحركة' if volume_ratio is not None and volume_ratio >= 1.15 else 'يحتاج متابعة'}\n"
+        f"⚠️ مستوى الخطورة: {'مرتفع' if volume_ratio is not None and volume_ratio >= 1.50 else 'متوسط'}\n\n"
+        f"━━━━━━━━━━━━━━\n\n"
+        f"🎯 الأهداف\n\n"
+        f"{chr(10).join(target_lines)}\n\n"
+        f"{exit_text}\n\n"
+        f"━━━━━━━━━━━━━━\n\n"
+        f"🧠 الزبدة\n\n"
+        f"الأهداف محسوبة من مقاومات فعلية ظهرت في بيانات السعر، "
+        f"وما ينحط هدف رقمي إذا ما فيه مستوى واضح.\n\n"
+        f"🚨 إذا ضعف التداول أو انكسر حد الخروج، تتغير نظرة السهم.\n\n"
+        f"{DISCLAIMER}\n\n"
+        f"{SHARIAH_DISCLAIMER}"
+    )
+
+def _money(value):
+    if value is None:
+        return "غير واضح"
+    return f"${value:,.4f}".rstrip("0").rstrip(".")
+
 def is_active(sub):
     return bool(sub and sub.active and aware(sub.expires_at) > utcnow())
 
@@ -114,7 +168,7 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     symbol = symbol.upper().strip()
     result = await analyze(symbol)
     targets = await technical_targets(symbol)
-
+    q = await quote(symbol)
     payload = {
         "analysis": result,
         "sas_pro": {
