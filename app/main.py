@@ -13,6 +13,7 @@ from .market import quote, ticker
 from .panwatch import analyze
 from .news import company_news, corporate_events
 from .jobs import scheduler
+from .holiday_radar import holiday_radar_scheduler
 from .timeutil import utcnow, aware
 
 app = FastAPI(title="SAS PRO", version="2.0.0")
@@ -29,6 +30,7 @@ PLANS = {
 async def startup():
     await init_db()
     asyncio.create_task(scheduler())
+    asyncio.create_task(holiday_radar_scheduler())
 
 def is_active(sub):
     return bool(sub and sub.active and aware(sub.expires_at) > utcnow())
