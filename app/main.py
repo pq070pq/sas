@@ -35,12 +35,16 @@ async def startup():
     asyncio.create_task(scheduler())
     asyncio.create_task(holiday_radar_scheduler())
 
-def build_report(symbol: str, q: dict, tech: dict) -> str:
+def build_report(symbol: str, q: dict, tech: dict, classification: dict | None = None) -> str:
     price = q.get("price")
     change = q.get("change_pct")
     targets = tech.get("targets") or []
     exit_level = tech.get("exit")
     volume_ratio = tech.get("volume_ratio")
+    classification = classification or {}
+    stock_type = classification.get("type", "غير واضح")
+    type_emoji = classification.get("emoji", "⚪")
+    type_reason = classification.get("reason", "بيانات غير كافية")
 
     move = f"{float(change):+.2f}%" if change is not None else "غير واضح"
     trading = "قوي" if volume_ratio is not None and volume_ratio >= 1.15 else "عادي"
@@ -64,7 +68,9 @@ def build_report(symbol: str, q: dict, tech: dict) -> str:
         f"📈 مرتفع/منخفض: {move}\n"
         f"📊 التداول: {trading}\n"
         f"💰 السيولة: {liquidity}\n"
-        f"🔥 حركة السهم: {strength}\n\n"
+        f"🔥 حركة السهم: {strength}\n"
+        f"🏷️ نوع السهم: {type_emoji} {stock_type}\n"
+        f"↳ {type_reason}\n\n"
         f"━━━━━━━━━━━━━━\n\n"
         f"🤖 قراءة SAS PRO\n\n"
         f"📈 الاتجاه: طالع إذا حافظ على مستوياته الحالية\n"
@@ -169,12 +175,15 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     result = await analyze(symbol)
     targets = await technical_targets(symbol)
     q = await quote(symbol)
+    from .scanner import classify_stock
+    classification = await classify_stock(symbol, q)
     payload = {
         "analysis": result,
         "quote": q,
         "sas_pro": {
             "targets": targets,
-            "report": build_report(symbol, q, targets),
+            "classification": classification,
+            "report": build_report(symbol, q, targets, classification),
             "disclaimer": DISCLAIMER,
             "shariah_disclaimer": SHARIAH_DISCLAIMER,
         },
