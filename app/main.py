@@ -13,6 +13,7 @@ from .market import quote, ticker
 from .panwatch import analyze
 from .news import company_news, corporate_events
 from .jobs import scheduler
+from .timeutil import utcnow, aware
 
 app = FastAPI(title="SAS PRO", version="2.0.0")
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
@@ -30,7 +31,7 @@ async def startup():
     asyncio.create_task(scheduler())
 
 def is_active(sub):
-    return bool(sub and sub.active and sub.expires_at > datetime.now(timezone.utc))
+    return bool(sub and sub.active and aware(sub.expires_at) > utcnow())
 
 async def telegram_user(x_telegram_init_data: str = Header(default="")):
     try:
@@ -133,7 +134,7 @@ async def admin_stats(user=Depends(telegram_user), db: AsyncSession = Depends(ge
 async def grant(telegram_id: int, days: int = 30, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     if user["id"] != settings.owner_telegram_id:
         raise HTTPException(403, "Admin only")
-    now = datetime.now(timezone.utc)
+    now = utcnow()
     exp = now + timedelta(days=days)
     db.add(Subscription(telegram_id=telegram_id, plan="admin", starts_at=now, expires_at=exp, active=True))
     await db.commit()
@@ -211,7 +212,7 @@ async def successful_payment(request: Request, db: AsyncSession = Depends(get_se
         .where(Subscription.telegram_id == telegram_id, Subscription.active == True)
         .order_by(Subscription.expires_at.desc())
     )).scalars().first()
-    start = max(now, old.expires_at) if old else now
+    start = max(now, aware(old.expires_at)) if old else now
     exp = start + timedelta(days=days)
     if old:
         old.active = False
