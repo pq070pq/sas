@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#030a14"><title>SAS PRO</title>
+<link rel="stylesheet" href="/assets/app.css"><script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+<div class="app">
+<header><div class="logo">🐬 <b>SAS PRO</b></div><span id="market">السوق الأمريكي</span></header>
+<div class="ticker"><div id="ticker">جاري تحميل السوق...</div></div>
+<div class="warning">⛔ شرعية الاسهم مسؤوليتك نبرا منها ⛔</div>
+<section class="hero"><small>مرحبًا بك</small><h1>لوحة السوق الذكية</h1><p>تحليل الأسهم والأخبار والأحداث من مكان واحد.</p>
+<div class="search"><input id="symbol" placeholder="رمز السهم مثل AAPL" autocomplete="off"><button onclick="runAnalysis()">تحليل</button></div></section>
+<section class="status" id="account">جارٍ التحقق من الاشتراك...</section>
+<main>
+<div class="cards">
+<button onclick="showNews()"><b>📰 الأخبار</b><span>أخبار السهم واتجاهها</span></button>
+<button onclick="showEvents()"><b>📅 الأحداث</b><span>أرباح وتوزيعات وتقسيمات</span></button>
+<button onclick="runAnalysis()"><b>🧠 تحليل PanWatch</b><span>تحليل متعدد الوكلاء</span></button>
+<button onclick="showHistory()"><b>📈 التاريخ</b><span>سجل التحليلات السابقة</span></button>
+</div>
+<div id="result" class="result">اختر سهمًا ثم ابدأ.</div>
+<section class="plans">
+<h2>اشتراك SAS PRO</h2>
+<div class="plan"><b>شهري</b><strong>500 ⭐</strong><button onclick="buy('monthly')">اشتراك</button></div>
+<div class="plan"><b>3 أشهر</b><strong>1200 ⭐</strong><button onclick="buy('3month')">اشتراك</button></div>
+<div class="plan"><b>سنوي</b><strong>3500 ⭐</strong><button onclick="buy('yearly')">اشتراك</button></div>
+</section>
+</main>
+<nav><button class="active">الرئيسية</button><button onclick="runAnalysis()">التحليل</button><button onclick="showNews()">الأخبار</button><button onclick="showHistory()">التاريخ</button></nav>
+</div>
+<script>
+const tg=window.Telegram&&window.Telegram.WebApp;
+if(tg){tg.ready();tg.expand();}
+function headers(){return {'X-Telegram-Init-Data':tg?tg.initData:''};}
+async function api(path,opt={}){opt.headers=Object.assign(headers(),opt.headers||{});const r=await fetch(path,opt);if(!r.ok)throw new Error(await r.text());return r.json();}
+async function load(){
+ try{
+  const d=await api('/api/market/ticker');
+  document.getElementById('ticker').innerHTML=d.map(x=>'<span>'+x.label+': <b>'+(x.price??'—')+'</b> '+(x.change_pct??'')+'</span>').join(' • ');
+ }catch(e){document.getElementById('ticker').textContent='بيانات السوق غير متاحة';}
+ try{
+  const d=await api('/api/me');
+  document.getElementById('account').innerHTML=d.pro?'🟢 اشتراكك فعال حتى '+new Date(d.expires_at).toLocaleDateString('ar-SA'):'🔒 لا يوجد اشتراك PRO فعال';
+ }catch(e){document.getElementById('account').textContent='افتح التطبيق من Telegram للتحقق من الحساب';}
+}
+function symbol(){return document.getElementById('symbol').value.trim().toUpperCase();}
+async function runAnalysis(){
+ const s=symbol();if(!s)return;
+ document.getElementById('result').textContent='جاري التحليل من PanWatch...';
+ try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/analyze',{method:'POST'});document.getElementById('result').textContent=JSON.stringify(d,null,2);}
+ catch(e){document.getElementById('result').textContent=e.message;}
+}
+async function showNews(){
+ const s=symbol();if(!s)return;
+ try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/news');document.getElementById('result').textContent=JSON.stringify(d,null,2);}
+ catch(e){document.getElementById('result').textContent=e.message;}
+}
+async function showEvents(){
+ const s=symbol();if(!s)return;
+ try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/events');document.getElementById('result').textContent=JSON.stringify(d,null,2);}
+ catch(e){document.getElementById('result').textContent=e.message;}
+}
+async function showHistory(){
+ const s=symbol();if(!s)return;
+ try{const d=await api('/api/history/'+encodeURIComponent(s));document.getElementById('result').textContent=JSON.stringify(d,null,2);}
+ catch(e){document.getElementById('result').textContent=e.message;}
+}
+async function buy(plan){
+ try{const d=await api('/api/payments/invoice/'+plan,{method:'POST'});if(tg&&tg.openInvoice)tg.openInvoice(d.invoice_url);else location.href=d.invoice_url;}
+ catch(e){document.getElementById('result').textContent=e.message;}
+}
+load();setInterval(load,60000);
+</script>
+</body></html>
