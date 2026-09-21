@@ -13,8 +13,8 @@ from .market import quote, ticker
 from .panwatch import analyze
 from .news import company_news, corporate_events
 from .jobs import scheduler
-from .market_mode import market_status
-from .channel_radar import stock_radar_enabled
+from .market_calendar import market_status
+from .holiday_radar import stock_radar_enabled
 from .holiday_radar import holiday_radar_scheduler
 from .timeutil import utcnow, aware
 
