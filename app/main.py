@@ -46,6 +46,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     type_emoji = classification.get("emoji", "⚪")
     type_reason = classification.get("reason", "بيانات غير كافية")
     behavior = classification.get("behavior", "غير واضح")
+    behavior = classification.get("behavior", "غير واضح")
 
     move = f"{float(change):+.2f}%" if change is not None else "غير واضح"
     trading = "قوي" if volume_ratio is not None and volume_ratio >= 1.15 else "عادي"
