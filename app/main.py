@@ -11,6 +11,7 @@ from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, get_se
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze
+from .news import company_news, corporate_events
 from .jobs import scheduler
 
 app = FastAPI(title="SAS PRO", version="2.0.0")
@@ -76,6 +77,14 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
 @app.get("/api/market/ticker")
 async def market_ticker(_: dict = Depends(telegram_user)):
     return await ticker()
+
+@app.get("/api/stocks/{symbol}/news")
+async def stock_news(symbol: str, _: dict = Depends(telegram_user)):
+    return await company_news(symbol.upper())
+
+@app.get("/api/stocks/{symbol}/events")
+async def stock_events(symbol: str, _: dict = Depends(telegram_user)):
+    return await corporate_events(symbol.upper())
 
 @app.get("/api/stocks/{symbol}/quote")
 async def stock_quote(symbol: str, _: dict = Depends(telegram_user)):
