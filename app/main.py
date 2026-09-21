@@ -22,7 +22,6 @@ app = FastAPI(title="SAS PRO", version="2.1.0")
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
 
 DISCLAIMER = "🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️"
-SHARIAH_DISCLAIMER = "⛔ شرعية الاسهم مسؤوليتك نبرا منها ⛔"
 PLANS = {
     "monthly": (settings.pro_monthly_stars, 30),
     "3month": (settings.pro_3month_stars, 90),
@@ -45,7 +44,6 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     stock_type = classification.get("type", "غير واضح")
     type_emoji = classification.get("emoji", "⚪")
     type_reason = classification.get("reason", "بيانات غير كافية")
-    behavior = classification.get("behavior", "غير واضح")
     behavior = classification.get("behavior", "غير واضح")
 
     move = f"{float(change):+.2f}%" if change is not None else "غير واضح"
@@ -89,8 +87,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         f"الأهداف محسوبة من مقاومات فعلية ظهرت في بيانات السعر، "
         f"وما ينحط هدف رقمي إذا ما فيه مستوى واضح.\n\n"
         f"🚨 إذا ضعف التداول أو انكسر حد الخروج، تتغير نظرة السهم.\n\n"
-        f"{DISCLAIMER}\n\n"
-        f"{SHARIAH_DISCLAIMER}"
+        f"{DISCLAIMER}"
     )
 
 def _money(value):
@@ -159,6 +156,14 @@ async def radar_status(_: dict = Depends(telegram_user)):
 @app.get("/api/market/ticker")
 async def market_ticker(_: dict = Depends(telegram_user)):
     return await ticker()
+
+@app.get("/api/radar/scan")
+async def radar_scan(_: dict = Depends(telegram_user)):
+    from .scanner import scan_us_low_price_stocks
+    if not stock_radar_enabled():
+        return {"enabled": False, "reason": "السوق الأمريكي مغلق", "stocks": []}
+    rows = await scan_us_low_price_stocks()
+    return {"enabled": True, "range": {"min": 0.50, "max": 30.00}, "method": "Faisal", "stocks": rows}
 
 @app.get("/api/stocks/{symbol}/news")
 async def stock_news(symbol: str, _: dict = Depends(telegram_user)):
