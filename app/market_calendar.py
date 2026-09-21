@@ -55,6 +55,20 @@ def us_market_holidays(year: int) -> set[date]:
         _observed(date(year, 12, 25)),                                   # Christmas
     }
 
+
+
+def early_close_time(local_date: date):
+    # NYSE regular-session early closes at 1:00 p.m. ET.
+    # Day after Thanksgiving and Christmas Eve are included for supported years.
+    if local_date == _day_after_thanksgiving(local_date.year):
+        return (13, 0)
+    if local_date.month == 12 and local_date.day == 24 and local_date.weekday() < 5:
+        return (13, 0)
+    return (16, 0)
+
+def _day_after_thanksgiving(year: int) -> date:
+    return _nth_weekday(year, 11, 3, 4) + timedelta(days=1)
+
 def market_status(now: datetime | None = None) -> dict:
     now = now or datetime.now(MARKET_TZ)
     local = now.astimezone(MARKET_TZ)
@@ -64,11 +78,13 @@ def market_status(now: datetime | None = None) -> dict:
     if local.weekday() >= 5:
         return {"open": False, "holiday": True, "reason": "weekend", "date": d.isoformat()}
     start = local.replace(hour=9, minute=30, second=0, microsecond=0)
-    end = local.replace(hour=16, minute=0, second=0, microsecond=0)
+    end_hour, end_minute = early_close_time(d)
+    end = local.replace(hour=end_hour, minute=end_minute, second=0, microsecond=0)
     return {
         "open": start <= local < end,
         "holiday": False,
-        "reason": "regular session",
+        "reason": "regular session" if end_hour == 16 else "early close",
+        "close_time_et": f"{end_hour:02d}:{end_minute:02d}",
         "date": d.isoformat(),
         "local_time": local.isoformat(),
     }
