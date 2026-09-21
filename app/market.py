@@ -33,7 +33,7 @@ async def ticker():
         try:
             item = await quote(symbol)
             item["label"] = label
-        except Exception as e:
+        except Exception:
             item = {"symbol": symbol, "label": label, "price": None, "change_pct": None, "source": "error"}
         out.append(item)
     return out
