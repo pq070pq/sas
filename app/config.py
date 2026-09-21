@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     owner_telegram_id: int = 0
     twelve_data_api_key: str = ""
     finnhub_api_key: str = ""
+    zoya_api_key: str = ""
     panwatch_base_url: str = "http://panwatch:8000"
     panwatch_timeout_seconds: int = 180
     pro_monthly_stars: int = 500
