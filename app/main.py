@@ -171,8 +171,10 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     q = await quote(symbol)
     payload = {
         "analysis": result,
+        "quote": q,
         "sas_pro": {
             "targets": targets,
+            "report": build_report(symbol, q, targets),
             "disclaimer": DISCLAIMER,
             "shariah_disclaimer": SHARIAH_DISCLAIMER,
         },
