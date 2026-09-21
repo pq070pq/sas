@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./data/saspro.db"
     telegram_bot_token: str = ""
     telegram_webapp_short_name: str = ""
+    telegram_webhook_secret: str = ""
     telegram_channel_id: str = ""
     owner_telegram_id: int = 0
     twelve_data_api_key: str = ""
