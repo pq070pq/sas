@@ -1,0 +1,20 @@
+services:
+  saspro:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - saspro_data:/app/data
+    depends_on:
+      - panwatch
+  panwatch:
+    build:
+      context: ./vendor/PanWatch
+    restart: unless-stopped
+    env_file: .env
+    expose:
+      - "8000"
+volumes:
+  saspro_data:
