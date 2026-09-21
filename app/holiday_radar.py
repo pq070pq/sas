@@ -1,35 +1,32 @@
-import asyncio
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-import httpx
-
 from .config import settings
 from .market import quote
+from .market_calendar import market_status
 from .telegram import send_message
 
 RIYADH = ZoneInfo("Asia/Riyadh")
 
-# US market holidays for 2026-2030. Weekends are handled separately.
-US_HOLIDAYS = {
-    2026: {"01-01","01-19","02-16","04-03","05-25","06-19","07-03","09-07","11-26","12-25"},
-    2027: {"01-01","01-18","02-15","03-26","05-31","06-18","07-05","09-06","11-25","12-24"},
-    2028: {"01-17","02-21","04-14","05-29","06-19","07-04","09-04","11-23","12-25"},
-    2029: {"01-01","01-15","02-19","03-30","05-28","06-19","07-04","09-03","11-22","12-25"},
-    2030: {"01-01","01-21","02-18","04-19","05-27","06-19","07-04","09-02","11-28","12-25"},
-}
+_last_snapshot_at = None
+_last_btc_alert_at = None
+_btc_alert_reference = None
 
-def us_market_holiday_or_weekend(dt: datetime | None = None) -> bool:
-    local = (dt or datetime.now(timezone.utc)).astimezone(RIYADH)
-    if local.weekday() >= 5:
-        return True
-    return local.strftime("%m-%d") in US_HOLIDAYS.get(local.year, set())
+MACRO = [
+    ("BTC/USD", "₿ BTC"),
+    ("XAU/USD", "🥇 Gold"),
+    ("WTI/USD", "🛢 Oil"),
+    ("SPX", "📊 S&P 500"),
+    ("IXIC", "💻 Nasdaq"),
+    ("DJI", "📈 Dow Jones"),
+]
 
 def _fmt_price(value):
     if value is None:
         return "—"
     try:
-        return f"{float(value):,.2f}"
+        n = float(value)
+        return f"{n:,.4f}" if n < 1000 else f"{n:,.2f}"
     except Exception:
         return str(value)
 
@@ -37,54 +34,79 @@ def _fmt_pct(value):
     if value is None:
         return "—"
     try:
-        n = float(value)
-        return f"{n:+.2f}%"
+        return f"{float(value):+.2f}%"
     except Exception:
         return str(value)
 
-async def bitcoin_move():
-    current = await quote("BTC/USD")
-    return current
-
 async def holiday_snapshot():
-    symbols = [
-        ("BTC/USD", "₿ BTC"),
-        ("XAU/USD", "🥇 Gold"),
-        ("WTI/USD", "🛢 Oil"),
-        ("SPX", "📊 S&P 500"),
-        ("IXIC", "💻 Nasdaq"),
-        ("DJI", "📈 Dow Jones"),
-    ]
     rows = []
-    for symbol, label in symbols:
+    for symbol, label in MACRO:
         try:
             q = await quote(symbol)
-            rows.append(f"{label}: <b>{_fmt_price(q.get('price'))}</b>  {_fmt_pct(q.get('change_pct'))}")
+            rows.append((label, q))
         except Exception:
-            rows.append(f"{label}: <b>—</b>  —")
-    btc = await bitcoin_move()
-    return rows, btc
+            rows.append((label, {"price": None, "change_pct": None}))
+    return rows
 
 async def publish_holiday_radar():
+    """Publish a quiet macro snapshot only while the US regular session is closed."""
+    global _last_snapshot_at, _last_btc_alert_at, _btc_alert_reference
+
     if not settings.telegram_channel_id or not settings.telegram_bot_token:
         return {"sent": False, "reason": "Telegram channel/bot is not configured"}
-    if not us_market_holiday_or_weekend():
-        return {"sent": False, "reason": "US market is not on holiday/weekend"}
 
-    rows, btc = await holiday_snapshot()
-    now = datetime.now(timezone.utc).astimezone(RIYADH)
-    text = (
-        "🟡 <b>SAS HOLIDAY RADAR</b>\n\n"
-        "🇺🇸 <b>السوق الأمريكي في إجازة</b>\n"
-        f"🕐 تحديث: {now.strftime('%H:%M')} بتوقيت السعودية\n\n"
-        + "\n".join(rows)
-        + "\n\n"
-        "₿ <b>تحرك البيتكوين</b>\n"
-        f"السعر: <b>{_fmt_price(btc.get('price'))}</b>\n"
-        f"التغير: <b>{_fmt_pct(btc.get('change_pct'))}</b>\n\n"
-        "يتكرر التحديث تلقائيًا أثناء إجازة السوق."
-    )
-    await send_message(settings.telegram_channel_id, text)
+    status = market_status()
+    if status["open"]:
+        # The moment the regular session opens, holiday/macro broadcasting stops.
+        return {"sent": False, "reason": "US regular session is open"}
+
+    now = datetime.now(timezone.utc)
+
+    # Main macro snapshot: every 2 hours, not every scheduler tick.
+    if _last_snapshot_at is None or (now - _last_snapshot_at).total_seconds() >= 7200:
+        rows = await holiday_snapshot()
+        title = "🟡 <b>SAS HOLIDAY RADAR</b>" if status["holiday"] else "🌙 <b>SAS MARKET RADAR</b>"
+        text = (
+            f"{title}\n\n"
+            "🇺🇸 السوق الأمريكي مغلق.\n"
+            f"🕐 {datetime.now(RIYADH).strftime('%H:%M')} بتوقيت السعودية\n\n"
+        )
+        for label, q in rows:
+            text += f"{label}: <b>{_fmt_price(q.get('price'))}</b>  {_fmt_pct(q.get('change_pct'))}\n"
+        text += "\n🔕 التحديث الدوري كل ساعتين أثناء الإغلاق."
+        try:
+            await send_message(settings.telegram_channel_id, text)
+            _last_snapshot_at = now
+        except Exception:
+            pass
+
+    # Bitcoin: alert only for a meaningful move from the last BTC alert reference.
+    try:
+        btc = await quote("BTC/USD")
+        price = btc.get("price")
+        if price is not None:
+            price = float(price)
+            if _btc_alert_reference in (None, 0):
+                _btc_alert_reference = price
+            movement = abs((price - _btc_alert_reference) / _btc_alert_reference) * 100
+            cooldown_ok = _last_btc_alert_at is None or (now - _last_btc_alert_at).total_seconds() >= 5400
+            if movement >= 1.50 and cooldown_ok:
+                direction = "📈 صعود" if price > _btc_alert_reference else "📉 هبوط"
+                text = (
+                    "₿ <b>تحرك بيتكوين</b>\n\n"
+                    f"{direction} <b>{movement:.2f}%</b> منذ آخر تنبيه.\n"
+                    f"السعر الحالي: <b>{_fmt_price(price)}</b>\n"
+                    "🔕 تنبيه مختصر لتجنب الإزعاج."
+                )
+                try:
+                    await send_message(settings.telegram_channel_id, text)
+                    _last_btc_alert_at = now
+                    _btc_alert_reference = price
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
     return {"sent": True}
 
 async def holiday_radar_scheduler():
@@ -95,3 +117,7 @@ async def holiday_radar_scheduler():
         except Exception:
             pass
         await asyncio.sleep(interval)
+
+def stock_radar_enabled() -> bool:
+    """Stock radar is enabled only during the US regular session."""
+    return market_status()["open"]
