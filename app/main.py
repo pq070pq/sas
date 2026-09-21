@@ -35,7 +35,7 @@ async def startup():
     asyncio.create_task(scheduler())
     asyncio.create_task(holiday_radar_scheduler())
 
-def build_report(symbol: str, q: dict, tech: dict, classification: dict | None = None) -> str:
+def build_report(symbol: str, q: dict, tech: dict, classification: dict | None = None, shariah: dict | None = None) -> str:
     price = q.get("price")
     change = q.get("change_pct")
     targets = tech.get("targets") or []
@@ -46,6 +46,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     type_emoji = classification.get("emoji", "⚪")
     type_reason = classification.get("reason", "بيانات غير كافية")
     behavior = classification.get("behavior", "غير واضح")
+    shariah = shariah or {}
 
     move = f"{float(change):+.2f}%" if change is not None else "غير واضح"
     trading = "قوي" if volume_ratio is not None and volume_ratio >= 1.15 else "عادي"
@@ -84,6 +85,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         f"{chr(10).join(target_lines)}\n\n"
         f"{exit_text}\n\n"
         f"━━━━━━━━━━━━━━\n\n"
+        f"🕌 الشرعية: {shariah.get('status_ar', 'غير واضح / يحتاج تحقق')}\n↳ {shariah.get('confidence', 'غير واضح')}\n\n"
         f"🧠 الزبدة\n\n"
         f"الأهداف محسوبة من مقاومات فعلية ظهرت في بيانات السعر، "
         f"وما ينحط هدف رقمي إذا ما فيه مستوى واضح.\n\n"
@@ -198,7 +200,7 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
             "targets": targets,
             "classification": classification,
             "shariah": shariah,
-            "report": build_report(symbol, q, targets, classification),
+            "report": build_report(symbol, q, targets, classification, shariah),
 
             "disclaimer": DISCLAIMER,
         },
