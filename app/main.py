@@ -10,7 +10,7 @@ from .config import settings
 from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, get_session, init_db
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
-from .panwatch import analyze
+from .panwatch import analyze, technical_targets
 from .news import company_news, corporate_events
 from .jobs import scheduler
 from .market_calendar import market_status
@@ -18,10 +18,11 @@ from .holiday_radar import stock_radar_enabled
 from .holiday_radar import holiday_radar_scheduler
 from .timeutil import utcnow, aware
 
-app = FastAPI(title="SAS PRO", version="2.0.0")
+app = FastAPI(title="SAS PRO", version="2.1.0")
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
 
-DISCLAIMER = "⛔ شرعية الاسهم مسؤوليتك نبرا منها ⛔"
+DISCLAIMER = "🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️"
+SHARIAH_DISCLAIMER = "⛔ شرعية الاسهم مسؤوليتك نبرا منها ⛔"
 PLANS = {
     "monthly": (settings.pro_monthly_stars, 30),
     "3month": (settings.pro_3month_stars, 90),
@@ -112,13 +113,24 @@ async def stock_quote(symbol: str, _: dict = Depends(telegram_user)):
 async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession = Depends(get_session)):
     symbol = symbol.upper().strip()
     result = await analyze(symbol)
+    targets = await technical_targets(symbol)
+
+    payload = {
+        "analysis": result,
+        "sas_pro": {
+            "targets": targets,
+            "disclaimer": DISCLAIMER,
+            "shariah_disclaimer": SHARIAH_DISCLAIMER,
+        },
+    }
+
     db.add(StockAnalysis(
         telegram_id=user["id"],
         symbol=symbol,
-        payload=json.dumps(result, ensure_ascii=False),
+        payload=json.dumps(payload, ensure_ascii=False),
     ))
     await db.commit()
-    return result
+    return payload
 
 @app.get("/api/history/{symbol}")
 async def history(symbol: str, user=Depends(require_pro), db: AsyncSession = Depends(get_session)):
@@ -181,7 +193,6 @@ async def invoice(plan: str, user=Depends(telegram_user)):
         "prices": [{"label": f"SAS PRO {plan}", "amount": stars}],
     })
     return {"invoice_url": result, "stars": stars, "days": days}
-
 
 @app.post("/api/telegram/webhook")
 async def telegram_webhook(request: Request):
