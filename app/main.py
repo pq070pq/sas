@@ -168,6 +168,9 @@ async def invoice(plan: str, user=Depends(telegram_user)):
 
 @app.post("/api/telegram/webhook")
 async def telegram_webhook(request: Request):
+    expected = settings.telegram_webhook_secret
+    if expected and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != expected:
+        raise HTTPException(403, "Invalid Telegram webhook secret")
     data = await request.json()
     if "pre_checkout_query" in data:
         q = data["pre_checkout_query"]
