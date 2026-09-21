@@ -1,0 +1,196 @@
+import asyncio
+import json
+from datetime import datetime, timedelta, timezone
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from .config import settings
+from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, get_session, init_db
+from .telegram import validate_init_data, send_message, bot_api
+from .market import quote, ticker
+from .panwatch import analyze
+from .jobs import scheduler
+
+app = FastAPI(title="SAS PRO", version="2.0.0")
+app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
+
+DISCLAIMER = "⛔ شرعية الاسهم مسؤوليتك نبرا منها ⛔"
+PLANS = {
+    "monthly": (settings.pro_monthly_stars, 30),
+    "3month": (settings.pro_3month_stars, 90),
+    "yearly": (settings.pro_yearly_stars, 365),
+}
+
+@app.on_event("startup")
+async def startup():
+    await init_db()
+    asyncio.create_task(scheduler())
+
+def is_active(sub):
+    return bool(sub and sub.active and sub.expires_at > datetime.now(timezone.utc))
+
+async def telegram_user(x_telegram_init_data: str = Header(default="")):
+    try:
+        return validate_init_data(x_telegram_init_data)
+    except Exception as e:
+        raise HTTPException(401, str(e))
+
+async def require_pro(user=Depends(telegram_user)):
+    async with SessionLocal() as db:
+        sub = (await db.execute(
+            select(Subscription)
+            .where(Subscription.telegram_id == user["id"], Subscription.active == True)
+            .order_by(Subscription.expires_at.desc())
+        )).scalars().first()
+        if not is_active(sub):
+            raise HTTPException(403, "اشتراك SAS PRO منتهي أو غير موجود")
+    return user
+
+@app.get("/")
+async def home():
+    return FileResponse("web/index.html")
+
+@app.get("/health")
+async def health():
+    return {"ok": True, "app": "SAS PRO", "version": app.version}
+
+@app.get("/api/me")
+async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    sub = (await db.execute(
+        select(Subscription)
+        .where(Subscription.telegram_id == user["id"], Subscription.active == True)
+        .order_by(Subscription.expires_at.desc())
+    )).scalars().first()
+    return {
+        "user": user,
+        "pro": is_active(sub),
+        "expires_at": sub.expires_at.isoformat() if sub else None,
+    }
+
+@app.get("/api/market/ticker")
+async def market_ticker(_: dict = Depends(telegram_user)):
+    return await ticker()
+
+@app.get("/api/stocks/{symbol}/quote")
+async def stock_quote(symbol: str, _: dict = Depends(telegram_user)):
+    return await quote(symbol.upper())
+
+@app.post("/api/stocks/{symbol}/analyze")
+async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession = Depends(get_session)):
+    symbol = symbol.upper().strip()
+    result = await analyze(symbol)
+    db.add(StockAnalysis(
+        telegram_id=user["id"],
+        symbol=symbol,
+        payload=json.dumps(result, ensure_ascii=False),
+    ))
+    await db.commit()
+    return result
+
+@app.get("/api/history/{symbol}")
+async def history(symbol: str, user=Depends(require_pro), db: AsyncSession = Depends(get_session)):
+    rows = (await db.execute(
+        select(StockAnalysis)
+        .where(StockAnalysis.telegram_id == user["id"], StockAnalysis.symbol == symbol.upper())
+        .order_by(StockAnalysis.created_at.desc())
+        .limit(50)
+    )).scalars().all()
+    return [
+        {"id": r.id, "symbol": r.symbol, "created_at": r.created_at.isoformat(), "analysis": json.loads(r.payload)}
+        for r in rows
+    ]
+
+@app.get("/api/admin/stats")
+async def admin_stats(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    if user["id"] != settings.owner_telegram_id:
+        raise HTTPException(403, "Admin only")
+    users = (await db.execute(select(User))).scalars().all()
+    subs = (await db.execute(select(Subscription).where(Subscription.active == True))).scalars().all()
+    payments = (await db.execute(select(Payment))).scalars().all()
+    return {
+        "users": len(users),
+        "active_subscriptions": sum(is_active(s) for s in subs),
+        "payments": len(payments),
+        "stars": sum(p.stars for p in payments),
+    }
+
+@app.post("/api/admin/grant/{telegram_id}")
+async def grant(telegram_id: int, days: int = 30, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    if user["id"] != settings.owner_telegram_id:
+        raise HTTPException(403, "Admin only")
+    now = datetime.now(timezone.utc)
+    exp = now + timedelta(days=days)
+    db.add(Subscription(telegram_id=telegram_id, plan="admin", starts_at=now, expires_at=exp, active=True))
+    await db.commit()
+    return {"ok": True, "expires_at": exp.isoformat()}
+
+@app.post("/api/admin/revoke/{telegram_id}")
+async def revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    if user["id"] != settings.owner_telegram_id:
+        raise HTTPException(403, "Admin only")
+    await db.execute(update(Subscription).where(
+        Subscription.telegram_id == telegram_id, Subscription.active == True
+    ).values(active=False))
+    await db.commit()
+    return {"ok": True}
+
+@app.post("/api/payments/invoice/{plan}")
+async def invoice(plan: str, user=Depends(telegram_user)):
+    if plan not in PLANS:
+        raise HTTPException(400, "Invalid plan")
+    stars, days = PLANS[plan]
+    payload = f"saspro:{plan}:{user['id']}:{int(datetime.now().timestamp())}"
+    result = await bot_api("createInvoiceLink", {
+        "title": f"SAS PRO {plan}",
+        "description": f"اشتراك SAS PRO لمدة {days} يوم",
+        "payload": payload,
+        "currency": "XTR",
+        "prices": [{"label": f"SAS PRO {plan}", "amount": stars}],
+    })
+    return {"invoice_url": result, "stars": stars, "days": days}
+
+@app.post("/api/telegram/precheckout")
+async def precheckout(request: Request):
+    data = await request.json()
+    q = data.get("pre_checkout_query", {})
+    await bot_api("answerPreCheckoutQuery", {"pre_checkout_query_id": q.get("id"), "ok": True})
+    return {"ok": True}
+
+@app.post("/api/telegram/success")
+async def successful_payment(request: Request, db: AsyncSession = Depends(get_session)):
+    data = await request.json()
+    message = data.get("message", {})
+    payment = message.get("successful_payment", {})
+    payload = payment.get("invoice_payload", "")
+    if not payload.startswith("saspro:"):
+        return {"ok": True}
+    _, plan, tid, _ = payload.split(":", 3)
+    telegram_id = int(tid)
+    stars, days = PLANS.get(plan, (0, 0))
+    charge = payment.get("telegram_payment_charge_id")
+    if not charge:
+        raise HTTPException(400, "Missing charge id")
+    exists = (await db.execute(
+        select(Payment).where(Payment.telegram_charge_id == charge)
+    )).scalars().first()
+    if exists:
+        return {"ok": True, "duplicate": True}
+    now = datetime.now(timezone.utc)
+    old = (await db.execute(
+        select(Subscription)
+        .where(Subscription.telegram_id == telegram_id, Subscription.active == True)
+        .order_by(Subscription.expires_at.desc())
+    )).scalars().first()
+    start = max(now, old.expires_at) if old else now
+    exp = start + timedelta(days=days)
+    if old:
+        old.active = False
+    db.add(Payment(telegram_id=telegram_id, plan=plan, stars=stars, telegram_charge_id=charge))
+    db.add(Subscription(
+        telegram_id=telegram_id, plan=plan, starts_at=start, expires_at=exp,
+        active=True, warning_3d_sent_at=None, telegram_charge_id=charge
+    ))
+    await db.commit()
+    return {"ok": True, "expires_at": exp.isoformat()}
