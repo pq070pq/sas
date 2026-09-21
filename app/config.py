@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     pro_3month_stars: int = 1200
     pro_yearly_stars: int = 3500
     expiry_warning_hours: int = 72
+    holiday_radar_interval_minutes: int = 30
     cron_secret: str = ""
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
