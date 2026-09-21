@@ -4,14 +4,15 @@ from sqlalchemy import select
 from .config import settings
 from .db import SessionLocal, Subscription
 from .telegram import send_message, bot_api
+from .timeutil import utcnow, aware
 
 async def expiry_cycle():
-    now = datetime.now(timezone.utc)
+    now = utcnow()
     horizon = now + timedelta(hours=settings.expiry_warning_hours)
     async with SessionLocal() as db:
         rows = (await db.execute(select(Subscription).where(Subscription.active == True))).scalars().all()
         for sub in rows:
-            if sub.expires_at <= now:
+            if aware(sub.expires_at) <= now:
                 sub.active = False
                 if settings.telegram_channel_id:
                     try:
@@ -27,7 +28,7 @@ async def expiry_cycle():
                         })
                     except Exception:
                         pass
-            elif sub.expires_at <= horizon and sub.warning_3d_sent_at is None:
+            elif aware(sub.expires_at) <= horizon and sub.warning_3d_sent_at is None:
                 text = (
                     "⚠️ <b>تنبيه اشتراك SAS PRO</b>\n\n"
                     "اشتراكك سينتهي بعد 3 أيام أو أقل.\n"
