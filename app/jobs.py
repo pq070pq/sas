@@ -4,7 +4,7 @@ from sqlalchemy import select
 from .config import settings
 from .db import SessionLocal, Subscription
 from .telegram import send_message, bot_api
-from .channel_radar import broadcast_closed_market, stock_radar_enabled
+from .holiday_radar import publish_holiday_radar
 from .timeutil import utcnow, aware
 
 async def expiry_cycle():
