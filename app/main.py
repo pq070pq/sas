@@ -13,6 +13,8 @@ from .market import quote, ticker
 from .panwatch import analyze
 from .news import company_news, corporate_events
 from .jobs import scheduler
+from .market_mode import market_status
+from .channel_radar import stock_radar_enabled
 from .holiday_radar import holiday_radar_scheduler
 from .timeutil import utcnow, aware
 
@@ -75,6 +77,19 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
         "user": user,
         "pro": is_active(sub),
         "expires_at": sub.expires_at.isoformat() if sub else None,
+    }
+
+@app.get("/api/market/status")
+async def market_status_api(_: dict = Depends(telegram_user)):
+    return market_status()
+
+@app.get("/api/market/radar-status")
+async def radar_status(_: dict = Depends(telegram_user)):
+    status = market_status()
+    return {
+        **status,
+        "stock_radar_enabled": stock_radar_enabled(),
+        "closed_market_macro_radar": not status["open"],
     }
 
 @app.get("/api/market/ticker")
