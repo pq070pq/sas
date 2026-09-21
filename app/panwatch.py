@@ -3,15 +3,19 @@ from .config import settings
 
 async def analyze(symbol: str):
     base = settings.panwatch_base_url.rstrip("/")
+    params = {
+        "allow_unbound": "true",
+        "bypass_market_hours": "true",
+        "wait": "true",
+        "force_refresh": "true",
+        "symbol": symbol.upper(),
+        "market": "US",
+        "name": symbol.upper(),
+    }
     async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
-        candidates = [
-            f"{base}/api/stocks/{symbol}/agents/TradingAgentsAgent/trigger",
-            f"{base}/api/stocks/{symbol}/agents/tradingagents/trigger",
-        ]
-        last = None
-        for url in candidates:
-            last = await client.post(url)
-            if last.status_code < 400:
-                return last.json()
-        last.raise_for_status()
-        return last.json()
+        r = await client.post(
+            f"{base}/api/stocks/0/agents/tradingagents/trigger",
+            params=params,
+        )
+        r.raise_for_status()
+        return r.json()
