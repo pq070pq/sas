@@ -31,4 +31,6 @@ jobs:
           git add vendor/PanWatch
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "chore: sync PanWatch upstream"
-          git push
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
