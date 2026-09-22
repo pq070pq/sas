@@ -1,0 +1,32 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: saspro-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to OVH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.OVH_HOST }}
+          username: ${{ secrets.OVH_USER }}
+          key: ${{ secrets.OVH_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            cd /opt/saspro
+            git fetch origin main
+            git reset --hard origin/main
+            docker compose pull || true
+            docker compose up -d --build --remove-orphans
+            docker image prune -f
+            docker compose ps
+            curl -fsS http://127.0.0.1:8000/health
