@@ -60,3 +60,47 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(920px,
 .home-market.session-premarket strong{color:#ffd447}
 .home-market.session-afterhours strong{color:#ffb14a}
 .home-market.session-holiday strong,.home-market.session-weekend strong,.home-market.session-overnight strong{color:#ff5964}
+
+/* Final SAS PRO artwork layer: artwork remains untouched; controls are transparent hit zones. */
+.home-stage{position:relative;width:100%;aspect-ratio:941/1672;overflow:hidden;background:#020912;line-height:1}
+.home-image{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:fill}
+.home-hit{position:absolute;z-index:8;display:block;border:0;background:transparent;padding:0;margin:0;cursor:pointer;border-radius:18px}
+.home-hit:active{background:rgba(0,220,255,.08);box-shadow:inset 0 0 20px rgba(0,220,255,.12)}
+.card-invest{left:2%;top:29.5%;width:36%;height:9%}
+.card-market{right:2%;top:29.5%;width:36%;height:9%}
+.card-growth{left:2%;top:40.3%;width:31%;height:8%}
+.card-radar{left:34.5%;top:40.3%;width:31%;height:8%}
+.card-dividends{left:67%;top:40.3%;width:31%;height:8%}
+.card-new{left:2%;top:50.2%;width:23%;height:8%}
+.card-news{left:26%;top:50.2%;width:23%;height:8%}
+.card-fav{left:50%;top:50.2%;width:23%;height:8%}
+
+.zone-nasdaq{left:2%;top:40.3%;width:31%;height:8%}
+.zone-sp500{left:34.5%;top:40.3%;width:31%;height:8%}
+.zone-dow{left:67%;top:40.3%;width:31%;height:8%}
+.zone-macro{left:2%;top:50.2%;width:96%;height:8%}
+.zone-market-data{left:2%;top:59.8%;width:23%;height:8%}
+.zone-news{left:26%;top:59.8%;width:23%;height:8%}
+.zone-company{left:50%;top:59.8%;width:23%;height:8%}
+.zone-opportunities{left:74%;top:59.8%;width:24%;height:8%}
+.zone-alerts{left:2%;top:69.5%;width:23%;height:8%}
+.zone-activity{left:26%;top:69.5%;width:23%;height:8%}
+.zone-active{left:50%;top:69.5%;width:23%;height:8%}
+.zone-daily{left:74%;top:69.5%;width:24%;height:8%}
+.zone-plans{left:2%;top:79.5%;width:31%;height:6.8%}
+.zone-scan{left:34.5%;top:79.5%;width:31%;height:6.8%}
+.zone-settings{left:67%;top:79.5%;width:31%;height:6.8%}
+
+.live-top-ticker{position:absolute;z-index:20;left:0;right:0;top:.15%;height:3.2%;display:grid;grid-template-columns:repeat(3,1fr);align-items:center;background:rgba(0,5,12,.82);border-bottom:1px solid rgba(0,230,255,.5);direction:ltr;pointer-events:none}
+.live-top-ticker>div{display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;font-size:clamp(8px,1.65vw,14px);text-shadow:0 1px 4px #000}
+.live-top-ticker b{font-weight:900;color:#fff}.live-top-ticker strong{font-weight:900;color:#fff;direction:ltr}.live-top-ticker em{font-style:normal;font-weight:900;direction:ltr}
+.live-top-ticker em.up{color:#17f28b}.live-top-ticker em.down{color:#ff5665}
+
+.live-disclaimer{position:absolute;z-index:20;left:0;right:0;top:3.35%;height:3.15%;overflow:hidden;display:flex;align-items:center;background:rgba(90,0,8,.82);border-top:1px solid #ff3348;border-bottom:1px solid #ff3348;color:#fff;font-size:clamp(8px,1.65vw,14px);font-weight:900;pointer-events:none;white-space:nowrap}
+.live-disclaimer span{display:inline-block;padding-right:100%;animation:sasTicker 18s linear infinite}
+@keyframes sasTicker{from{transform:translateX(0)}to{transform:translateX(100%)}}
+
+.live-market-state{position:absolute;z-index:21;right:4%;top:32.5%;width:31%;text-align:center;color:#19f38b;font-weight:900;font-size:clamp(11px,2vw,20px);text-shadow:0 0 8px rgba(0,255,150,.25);pointer-events:none}
+.live-market-session{position:absolute;z-index:21;right:7%;top:35.4%;width:25%;text-align:center;color:#8df5ff;font-size:clamp(8px,1.2vw,12px);font-weight:800;pointer-events:none}
+.live-stats{display:none}
+.home-refresh{position:absolute;z-index:22;right:3%;bottom:.7%;font-size:clamp(6px,.8vw,9px);color:#71eaf1;opacity:.8;pointer-events:none}
