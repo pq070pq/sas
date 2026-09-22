@@ -1,11 +1,13 @@
 import asyncio
+import json
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from .config import settings
-from .db import SessionLocal, Subscription
+from .db import SessionLocal, Subscription, RadarSignal
 from .telegram import send_message, bot_api
 from .holiday_radar import publish_holiday_radar
 from .timeutil import utcnow, aware
+from zoneinfo import ZoneInfo
 from .market_calendar import market_status
 
 async def expiry_cycle():
@@ -38,7 +40,8 @@ async def expiry_cycle():
                     "جدّد اشتراكك الآن للاستمرار في استخدام جميع مزايا SAS PRO 🚀"
                 )
                 try:
-                    await send_message(sub.telegram_id, text)
+                    invoice_url = await bot_api("createInvoiceLink", {"title": "SAS PRO monthly", "description": "تجديد اشتراك SAS PRO لمدة 30 يوم", "payload": f"saspro:monthly:{sub.telegram_id}:renew", "currency": "XTR", "prices": [{"label": "SAS PRO monthly", "amount": settings.pro_monthly_stars}]})
+                    await send_message(sub.telegram_id, text, {"inline_keyboard": [[{"text": "🔄 تجديد الاشتراك", "url": invoice_url}]]})
                     sub.warning_3d_sent_at = now
                 except Exception:
                     pass
@@ -100,17 +103,25 @@ async def stock_radar_cycle():
         for row in rows:
             symbol = str(row.get("symbol") or "").upper()
             if not symbol or symbol in _radar_seen:
-                continue
+                    continue
+                session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+                existing = (await db.execute(select(RadarSignal).where(RadarSignal.symbol == symbol, RadarSignal.session_date == session_date))).scalars().first()
+                if existing:
+                    _radar_seen.add(symbol)
+                    continue
 
-            q = await quote(symbol)
+                q = await quote(symbol)
             classification = row.get("classification") or {}
             tech = row.get("targets") or {}
             report = build_report(symbol, q, tech, classification)
-            try:
-                await send_message(settings.telegram_channel_id, report)
-                _radar_seen.add(symbol)
-            except Exception:
-                continue
+                try:
+                    await send_message(settings.telegram_channel_id, report)
+                    db.add(RadarSignal(symbol=symbol, session_date=session_date, payload=json.dumps(row, ensure_ascii=False)))
+                    await db.commit()
+                    _radar_seen.add(symbol)
+                except Exception:
+                    await db.rollback()
+                    continue
     except Exception:
         return
 
