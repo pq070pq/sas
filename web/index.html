@@ -19,7 +19,7 @@
   <button class="home-hit zone-news" onclick="showNews()" aria-label="الأخبار"></button>
   <button class="home-hit zone-company" onclick="showEvents()" aria-label="بيانات الشركات"></button>
   <button class="home-hit zone-opportunities" onclick="setMode('radar')" aria-label="الفرص المرصودة"></button>
-  <button class="home-hit zone-plans" onclick="openPlans()" aria-label="الاشتراك والباقات"></button>
+  <button class="access-request" id="accessRequestBtn" onclick="requestAccessFlow()" aria-label="طلب إذن الدخول">🔐 طلب إذن الدخول</button>
   <button class="home-hit zone-scan" onclick="setMode('radar')" aria-label="الرادار"></button>
   <button class="home-hit zone-settings" onclick="showSettings()" aria-label="الإعدادات"></button>
 
@@ -51,13 +51,9 @@
     <small id="homeMarketSession">—</small>
   </div>
 
-  <button class="subscription-badge" onclick="openPlans()" aria-label="حالة اشتراك SAS PRO">
-    <span id="homeSubscriptionIcon">SAS</span>
-    <strong id="homeSubscriptionText">جاري التحقق من الاشتراك...</strong>
-    <small id="homeSubscriptionExpiry">—</small>
-  </button>
 
-  <button class="radar-live" onclick="showRadarStatus()" aria-label="رصد SAS PRO">
+
+  <button class="radar-live" onclick="showRadar()" aria-label="رصد SAS PRO">
     <span>📡</span><strong>الرصد</strong><small id="homeRadarStatus">جاري التحقق...</small>
   </button>
 
@@ -77,23 +73,16 @@
   <div id="report-content" class="report-empty">جاري التحقق من حالة الرادار...</div>
 </div>
 
-<section class="plans">
-  <div class="section-title"><b>اشتراكات SAS PRO</b><span>اختر خطتك</span></div>
-  <div class="plan-grid">
-    <div class="plan"><b>الاشتراك الشهري</b><strong>150 ريال</strong><small id="planMonthlyStars">30 يومًا • جاري التحقق…</small><button onclick="buy('monthly')">📋 الشروط والموافقة ثم الاشتراك</button></div>
-    <div class="plan"><b>3 أشهر</b><strong>405 ريال</strong><small id="plan3Stars">خصم 10% • جاري التحقق…</small><button onclick="buy('3month')">📋 الشروط والموافقة ثم الاشتراك</button></div>
-    <div class="plan"><b>6 أشهر</b><strong>720 ريال</strong><small id="plan6Stars">خصم 20% • جاري التحقق…</small><button onclick="buy('6month')">📋 الشروط والموافقة ثم الاشتراك</button></div>
-    <div class="plan featured"><label>خصم 30%</label><b>سنة كاملة</b><strong>1260 ريال</strong><small id="planYearlyStars">365 يومًا • جاري التحقق…</small><button onclick="buy('yearly')">📋 الشروط والموافقة ثم الاشتراك</button></div>
-  </div>
-</section>
+
 
 <section id="adminPanel" class="panel admin-panel" hidden>
   <div class="section-title"><b>🛠️ إدارة SAS PRO</b><span>للمالك فقط</span></div>
   <div class="admin-actions">
     <button onclick="loadAdminSubs()">🔄 تحديث الاشتراكات</button>
-    <button onclick="loadAdminTerms()">📋 سجل الموافقات</button>
+    <button onclick="loadAdminTerms()">📋 سجل الموافقات</button><button onclick="loadAdminRequests()">🔐 طلبات الدخول</button>
   </div>
   <div id="adminContent">جارٍ التحميل...</div>
+  <div id="adminRequests"></div>
 </section>
 
 <div class="legal">⚠️ 🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</div>
@@ -134,47 +123,53 @@ function renderHomeTicker(d){
  setHomeQuote('homeBtc','homeBtcCh',map.BTC);
  setHomeQuote('homeGold','homeGoldCh',map.GOLD);
  setHomeQuote('homeOil','homeOilCh',map.OIL);
+ setHomeQuote('homeSp500','homeSp500Ch',map['S&P 500']);
+ setHomeQuote('homeNasdaq','homeNasdaqCh',map.NASDAQ);
+ setHomeQuote('homeVix','homeVixCh',map.VIX);
 }
-async function showEntryTerms(){
- pendingPlan=null;
- document.getElementById('termsAgree').checked=false;
- document.getElementById('termsModal').hidden=false;
- const body=document.querySelector('.terms-body');
- try{
-  const d=await api('/api/terms');
-  body.innerHTML=(d.text||'').split('\n').map(x=>x.trim()?'<p>'+x+'</p>':'').join('');
- }catch(e){
-  body.innerHTML='<p>تعذر تحميل الشروط. أعد المحاولة.</p>';
- }
- const btn=document.querySelector('.terms-actions button:last-child');
- if(btn)btn.textContent='أوافق وأدخل SAS PRO';
- btn.onclick=acceptTermsOnly;
- const trialBtn=document.getElementById('trialButton');
- if(trialBtn) trialBtn.hidden=false;
-}
-async function openPurchaseTerms(plan){
- pendingPlan=plan;
- document.getElementById('termsAgree').checked=false;
- document.getElementById('termsModal').hidden=false;
- const body=document.querySelector('.terms-body');
- body.innerHTML='<p>جاري تحميل شروط استخدام SAS PRO...</p>';
- const btn=document.querySelector('.terms-actions button:last-child');
- if(btn){btn.textContent='أوافق وأتابع الاشتراك';btn.onclick=acceptAndBuy;}
- try{
+async function requestAccessFlow(){
+  const modal=document.getElementById('termsModal');
+  const body=document.querySelector('.terms-body');
+  const agree=document.getElementById('termsAgree');
+  const action=document.getElementById('termsPrimary');
+  agree.checked=false; action.disabled=true; action.textContent='أوافق وأرسل طلب الدخول';
+  body.innerHTML='<p>جاري تحميل شروط استخدام SAS PRO...</p>';
+  document.getElementById('termsVersion').textContent='';
+  modal.hidden=false;
+  try{
    const d=await api('/api/terms');
    const text=String(d.text||'').trim();
-   body.innerHTML=text.split(/\\n\\s*\\n/).map(x=>'<p>'+x.replace(/\\n/g,'<br>')+'</p>').join('');
+   body.innerHTML=text.split(/\n\s*\n/).map(x=>'<p>'+x.replace(/\n/g,'<br>')+'</p>').join('');
    document.getElementById('termsVersion').textContent='الإصدار '+(d.version||'—');
- }catch(e){
-   body.innerHTML='<p>تعذر تحميل الشروط الآن. لا يمكن إكمال الاشتراك قبل عرض الشروط والموافقة عليها.</p>';
-   if(btn)btn.disabled=true;
- }
+   action.disabled=false;
+  }catch(e){body.innerHTML='<p>تعذر تحميل الشروط. لا يمكن إرسال الطلب قبل عرضها.</p>';}
+}
+async function acceptAndRequestAccess(){
+ if(!document.getElementById('termsAgree').checked){alert('يرجى الموافقة على الشروط أولًا');return;}
+ try{
+  await api('/api/terms/accept',{method:'POST'});
+  const d=await api('/api/access/request',{method:'POST'});
+  closeTerms();
+  const out=document.getElementById('report-content');
+  out.dataset.userAction='1';
+  out.textContent='🔐 SAS PRO\n\n'+(d.message||'تم إرسال طلب إذن الدخول للإدارة.');
+  document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
+  load();
+ }catch(e){alert(e.message);}
 }
 async function loadAdminSubs(){
  try{
   const rows=await api('/api/admin/subscriptions');
   document.getElementById('adminContent').innerHTML='<h4>👥 الاشتراكات</h4>'+rows.map(x=>'• <b>'+x.telegram_id+'</b> — '+x.plan+' — '+(x.active?'🟢 فعال':'🔴 منتهي')+' — '+new Date(x.expires_at).toLocaleDateString('ar-SA')).join('<br>')||'لا توجد بيانات';
  }catch(e){document.getElementById('adminContent').textContent='غير مصرح أو تعذر التحميل';}
+}
+async function loadAdminRequests(){
+ try{
+  const rows=await api('/api/admin/access-requests');
+  const pending=rows.filter(x=>x.status==='pending');
+  document.getElementById('adminRequests').innerHTML='<h4>🔐 طلبات الدخول</h4>'+
+   (pending.map(x=>'• #'+x.id+' — <b>'+x.telegram_id+'</b> — '+(x.first_name||x.username||'بدون اسم')+' — '+new Date(x.requested_at).toLocaleString('ar-SA')).join('<br>')||'لا توجد طلبات معلقة');
+ }catch(e){document.getElementById('adminRequests').textContent='تعذر تحميل الطلبات';}
 }
 async function loadAdminTerms(){
  try{
@@ -215,7 +210,7 @@ async function load(){
   if(me.user&&me.user.id){
    try{await api('/api/admin/subscriptions');document.getElementById('adminPanel').hidden=false;}catch(e){}
   }
-  if(!me.terms_accepted) showEntryTerms();
+  // لا يفتح الشروط تلقائيًا؛ تظهر فقط عند طلب إذن الدخول.
  }catch(e){
   document.getElementById('homeMarketState').textContent='تعذر تحديث البيانات';
   document.getElementById('homeSubscriptionText').textContent='تعذر التحقق';
@@ -245,24 +240,6 @@ function renderReport(d){
  '\n\n━━━━━━━━━━━━━━\n\n💡 التحليل الفني :\n\n🔔 الأهداف محسوبة من مقاومات فعلية ظهرت في بيانات السعر،\nوما ينحط هدف رقمي إذا ما فيه مستوى واضح.\n\n🚨 إذا ضعف التداول أو انكسر حد الخروج، تتغير نظرة السهم.\n\n🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️';
 }
 function focusSearch(){document.getElementById('analysisBox').scrollIntoView({behavior:'smooth'});setTimeout(()=>document.getElementById('symbol').focus(),250);}
-function openPlans(){document.querySelector('.plans').scrollIntoView({behavior:'smooth',block:'start'});}
-async function loadPlans(){
- try{
-  const p=await api('/api/plans');
-  const set=(id,txt)=>{const e=document.getElementById(id);if(e)e.textContent=txt;};
-  if(p.monthly)set('planMonthlyStars','30 يومًا • '+p.monthly.stars+' ⭐');
-  if(p['3month'])set('plan3Stars','خصم 10% • '+p['3month'].stars+' ⭐');
-  if(p['6month'])set('plan6Stars','خصم 20% • '+p['6month'].stars+' ⭐');
-  if(p.yearly)set('planYearlyStars','365 يومًا • '+p.yearly.stars+' ⭐');
- }catch(e){}
-}
-async function showRadarStatus(){
- try{
-  const d=await api('/api/radar/status-message');
-  document.getElementById('report-content').textContent=d.message||'لا توجد حالة رصد متاحة.';document.getElementById('report-content').dataset.userAction='1';
-  document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
- }catch(e){document.getElementById('report-content').textContent=e.message;}
-}
 async function showMacro(label){
  try{
   const rows=await api('/api/market/ticker');
@@ -297,35 +274,8 @@ async function showRadar(){
 }
 function scrollToTop(){window.scrollTo({top:0,behavior:'smooth'});}
 let pendingPlan=null;
-function openTerms(plan){pendingPlan=plan;document.getElementById('termsAgree').checked=false;document.getElementById('termsModal').hidden=false;}
-function closeTerms(){document.getElementById('termsModal').hidden=true;}
-async function acceptTermsOnly(){
- if(!document.getElementById('termsAgree').checked){alert('يرجى الموافقة على الشروط أولًا');return;}
- try{await api('/api/terms/accept',{method:'POST'});closeTerms();load();}catch(e){alert(e.message);}
-}
-async function startTrial(){
- if(!document.getElementById('termsAgree').checked){alert('يرجى الموافقة على الشروط أولًا');return;}
- try{
-   await api('/api/terms/accept',{method:'POST'});
-   await api('/api/trial/start',{method:'POST'});
-   closeTerms();
-   alert('🎁 بدأت تجربتك المجانية لمدة 3 أيام.');
-   load();
- }catch(e){alert(e.message);}
-}
-async function acceptAndBuy(){
- const body=document.querySelector('.terms-body');
- if(!body || body.textContent.includes('جاري تحميل') || body.textContent.includes('تعذر تحميل')){alert('يجب عرض شروط الاستخدام أولًا ثم الموافقة عليها.');return;}
- if(!document.getElementById('termsAgree').checked){alert('يرجى قراءة شروط الاستخدام والموافقة عليها أولًا');return;}
- try{
-  await api('/api/terms/accept',{method:'POST'});
-  const d=await api('/api/payments/invoice/'+pendingPlan,{method:'POST'});
-  closeTerms();
-  if(tg&&tg.openInvoice)tg.openInvoice(d.invoice_url);else location.href=d.invoice_url;
- }catch(e){alert(e.message);}
-}
 async function buy(plan){openPurchaseTerms(plan);}
-load();loadPlans();setInterval(load,30000);
+load();setInterval(load,30000);
 </script>
 <div id="termsModal" class="terms-modal" hidden>
   <div class="terms-card">
