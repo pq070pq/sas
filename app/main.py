@@ -1129,8 +1129,9 @@ async def successful_payment(request: Request, db: AsyncSession = Depends(get_se
         await sync_payment([
             telegram_id, message.get("from", {}).get("username") or "",
             result["plan"]["label"], result["plan"]["sar"], result["plan"]["stars"],
-            result["plan"]["days"], exp.strftime("%Y-%m-%d"),
-            "active", "paid", result["charge_id"], utcnow().isoformat()
+            utcnow().isoformat(), result["expires_at"].strftime("%Y-%m-%d"),
+            result["expires_at"].strftime("%Y-%m-%d"),
+            "active", "paid", "لا", utcnow().isoformat()
         ])
     except Exception:
         pass
