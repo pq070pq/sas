@@ -5,14 +5,14 @@ from .panwatch import technical_targets
 from .news import company_news
 
 # رادار SAS PRO:
-# - السوق: NASDAQ فقط
+# - السوق الأمريكي المدرج: NASDAQ + NYSE + NYSE American (AMEX)
 # - السعر: $0.50 - $30
 # - منهج فيصل: السلوك، الفوليوم، RVOL، الدعم/المقاومة والثبات.
 MIN_PRICE = 0.50
 MAX_PRICE = 30.00
-DISCOVERY_LIMIT = 100
+DISCOVERY_LIMIT = 300
 CANDIDATE_LIMIT = 15
-ALLOWED_EXCHANGE = "NASDAQ"
+ALLOWED_EXCHANGES = {"NASDAQ", "NYSE", "AMEX", "NYSE AMERICAN", "NYSEAMERICAN"}
 
 
 def _f(value, default=0.0):
@@ -22,9 +22,21 @@ def _f(value, default=0.0):
         return default
 
 
-def _is_nasdaq(row):
-    exchange = str(row.get("exchange") or row.get("mic_code") or "").upper().strip()
-    return exchange == ALLOWED_EXCHANGE
+def _normalize_exchange(value):
+    exchange = str(value or "").upper().strip()
+    exchange = exchange.replace("_", " ").replace("-", " ")
+    if exchange in {"NYSE AMERICAN", "NYSEAMERICAN", "AMERICAN", "AMEX"}:
+        return "AMEX"
+    if exchange == "NASDAQ":
+        return "NASDAQ"
+    if exchange == "NYSE":
+        return "NYSE"
+    return exchange
+
+
+def _is_allowed_exchange(row):
+    exchange = _normalize_exchange(row.get("exchange") or row.get("mic_code"))
+    return exchange in {"NASDAQ", "NYSE", "AMEX"}
 
 
 def _parse_candles(rows):
@@ -68,65 +80,64 @@ def _parse_money(value):
         return 0.0
 
 
-async def _discover_nasdaq(client):
-    # Nasdaq public screener supplies current price/change/volume in one pull.
-    # This avoids requiring Twelve Data /market_movers for radar discovery.
-    try:
-        r = await client.get(
-            "https://api.nasdaq.com/api/screener/stocks",
-            params={
-                "tableonly": "true",
-                "limit": 5000,
-                "offset": 0,
-                "exchange": "NASDAQ",
-                "download": "true",
-            },
-            headers={
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/146.0.0.0 Safari/537.36"
-                ),
-                "Accept": "application/json,text/plain,*/*",
-                "Origin": "https://www.nasdaq.com",
-                "Referer": "https://www.nasdaq.com/market-activity/stocks/screener",
-            },
-        )
-        r.raise_for_status()
-        payload = r.json()
-        rows = ((payload.get("data") or {}).get("rows") or [])
-    except Exception:
-        return []
-
+async def _discover_us_exchanges(client):
+    # Nasdaq public screener: pull the three requested US listed exchanges.
     out = []
-    excluded_words = (
-        "WARRANT", "RIGHT", "UNIT", "PREFERRED", "ETF",
-        "NOTE", "DEPOSITARY", "TRUST",
-    )
-    for row in rows:
-        symbol = str(row.get("symbol") or "").upper().strip()
-        name = str(row.get("name") or "").strip()
-        price = _parse_money(row.get("lastsale"))
-        change_pct = _parse_money(row.get("pctchange"))
-        volume = _parse_money(row.get("volume"))
-        if not symbol or not name:
+    for exchange in ("NASDAQ", "NYSE", "AMEX"):
+        try:
+            r = await client.get(
+                "https://api.nasdaq.com/api/screener/stocks",
+                params={
+                    "tableonly": "true",
+                    "limit": 5000,
+                    "offset": 0,
+                    "exchange": exchange,
+                    "download": "true",
+                },
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/146.0.0.0 Safari/537.36"
+                    ),
+                    "Accept": "application/json,text/plain,*/*",
+                    "Origin": "https://www.nasdaq.com",
+                    "Referer": "https://www.nasdaq.com/market-activity/stocks/screener",
+                },
+            )
+            r.raise_for_status()
+            payload = r.json()
+            rows = ((payload.get("data") or {}).get("rows") or [])
+        except Exception:
             continue
-        if any(word in name.upper() for word in excluded_words):
-            continue
-        if not (MIN_PRICE <= price <= MAX_PRICE):
-            continue
-        out.append({
-            "symbol": symbol,
-            "name": name,
-            "price": price,
-            "change_pct": change_pct,
-            "volume": volume,
-            "exchange": "NASDAQ",
-            "source": "Nasdaq Screener",
-        })
+
+        excluded_words = (
+            "WARRANT", "RIGHT", "UNIT", "PREFERRED", "ETF",
+            "NOTE", "DEPOSITARY", "TRUST",
+        )
+        for row in rows:
+            symbol = str(row.get("symbol") or "").upper().strip()
+            name = str(row.get("name") or "").strip()
+            price = _parse_money(row.get("lastsale"))
+            change_pct = _parse_money(row.get("pctchange"))
+            volume = _parse_money(row.get("volume"))
+            if not symbol or not name:
+                continue
+            if any(word in name.upper() for word in excluded_words):
+                continue
+            if not (MIN_PRICE <= price <= MAX_PRICE):
+                continue
+            out.append({
+                "symbol": symbol,
+                "name": name,
+                "price": price,
+                "change_pct": change_pct,
+                "volume": volume,
+                "exchange": exchange,
+                "source": "Nasdaq Screener",
+            })
     out.sort(key=lambda x: x["change_pct"], reverse=True)
     return out[:DISCOVERY_LIMIT]
-
 
 async def _discover_twelvedata(client):
     # Optional fallback only. /market_movers may require a higher plan.
@@ -148,7 +159,7 @@ async def _discover_twelvedata(client):
         return []
     out = []
     for row in rows:
-        if not _is_nasdaq(row):
+        if not _is_allowed_exchange(row):
             continue
         symbol = str(row.get("symbol") or "").upper().strip()
         price = _f(row.get("last"), -1)
@@ -159,7 +170,7 @@ async def _discover_twelvedata(client):
                 "price": price,
                 "change_pct": _f(row.get("percent_change")),
                 "volume": _f(row.get("volume")),
-                "exchange": "NASDAQ",
+                "exchange": _normalize_exchange(row.get("exchange")),
                 "source": "Twelve Data",
             })
     return out
@@ -179,19 +190,19 @@ async def _discover_panwatch(client):
 
     out = []
     for row in rows or []:
-        if not _is_nasdaq(row):
+        if not _is_allowed_exchange(row):
             continue
         symbol = str(row.get("symbol") or "").upper().strip()
         price = _f(row.get("price"), -1)
         if symbol and MIN_PRICE <= price <= MAX_PRICE:
-            out.append({**row, "exchange": "NASDAQ", "source": "PanWatch"})
+            out.append({**row, "exchange": _normalize_exchange(row.get("exchange")), "source": "PanWatch"})
     return out
 
 
 async def discover_low_price_stocks():
     async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
         sources = await asyncio.gather(
-            _discover_nasdaq(client),
+            _discover_us_exchanges(client),
             _discover_twelvedata(client),
             _discover_panwatch(client),
             return_exceptions=True,
@@ -202,7 +213,7 @@ async def discover_low_price_stocks():
         if isinstance(source_rows, Exception):
             continue
         for row in source_rows:
-            if not _is_nasdaq(row):
+            if not _is_allowed_exchange(row):
                 continue
             symbol = str(row.get("symbol") or "").upper().strip()
             if not symbol or symbol in seen:
@@ -397,7 +408,7 @@ async def scan_us_low_price_stocks():
         results.append({
             **row,
             "symbol": symbol,
-            "exchange": "NASDAQ",
+            "exchange": _normalize_exchange(row.get("exchange")),
             "classification": classification,
             "targets": targets,
             "catalyst": bool(news),
