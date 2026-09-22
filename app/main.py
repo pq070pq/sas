@@ -113,8 +113,17 @@ async def telegram_user(x_telegram_init_data: str = Header(default="")):
     except Exception as e:
         raise HTTPException(401, str(e))
 
-async def require_pro(user=Depends(telegram_user)):
+async def require_terms(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    row = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
+    if not row or row.terms_version != TERMS_VERSION or not row.terms_accepted_at:
+        raise HTTPException(409, "يجب الموافقة على شروط استخدام SAS PRO أولاً")
+    return user
+
+async def require_pro(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     async with SessionLocal() as db:
+        row = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
+        if not row or row.terms_version != TERMS_VERSION or not row.terms_accepted_at:
+            raise HTTPException(409, "يجب الموافقة على شروط استخدام SAS PRO أولاً")
         sub = (await db.execute(
             select(Subscription)
             .where(Subscription.telegram_id == user["id"], Subscription.active == True)
