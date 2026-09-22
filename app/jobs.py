@@ -21,6 +21,8 @@ async def expiry_cycle():
         for sub in subs:
             expires_at = aware(sub.expires_at)
             user = (await db.execute(select(User).where(User.telegram_id == sub.telegram_id))).scalars().first()
+            if user and user.free_access:
+                continue
             if expires_at <= now:
                 sub.active = False
                 if user:
