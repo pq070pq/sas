@@ -4,13 +4,15 @@ from .config import settings
 from .panwatch import technical_targets
 from .news import company_news
 
-# تطبيق فلترة "طريقة فيصل" على كون الرادار المطلوب:
-# السعر في SAS PRO: $0.50 - $30 (توسيع للنطاق الذي طلبه المستخدم)
-# مع الاحتفاظ بمنطق المنهج: فلووم، RVOL، سلوك سابق، دعم/طلب، محفز، وثبات.
+# رادار SAS PRO:
+# - السوق: NASDAQ فقط
+# - السعر: $0.50 - $30
+# - منهج فيصل: السلوك، الفوليوم، RVOL، الدعم/المقاومة والثبات.
 MIN_PRICE = 0.50
 MAX_PRICE = 30.00
 DISCOVERY_LIMIT = 100
 CANDIDATE_LIMIT = 15
+ALLOWED_EXCHANGE = "NASDAQ"
 
 
 def _f(value, default=0.0):
@@ -18,6 +20,11 @@ def _f(value, default=0.0):
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _is_nasdaq(row):
+    exchange = str(row.get("exchange") or row.get("mic_code") or "").upper().strip()
+    return exchange == ALLOWED_EXCHANGE
 
 
 def _parse_candles(rows):
@@ -54,15 +61,28 @@ def _near(level, price, pct=0.04):
 async def _discover_twelvedata(client):
     if not settings.twelve_data_api_key:
         return []
-    r = await client.get(
-        "https://api.twelvedata.com/market_movers/stocks",
-        params={"apikey": settings.twelve_data_api_key, "direction": "gainers",
-                "outputsize": 50, "country": "USA"},
-    )
-    r.raise_for_status()
-    rows = (r.json().get("values") or [])
+
+    # market_movers غير متاح لبعض خطط Twelve Data، لذلك لا نعتمد عليه.
+    # هذه الدالة تبقى مصدرًا احتياطيًا إذا أصبح endpoint متاحًا لاحقًا.
+    try:
+        r = await client.get(
+            "https://api.twelvedata.com/market_movers/stocks",
+            params={
+                "apikey": settings.twelve_data_api_key,
+                "direction": "gainers",
+                "outputsize": 50,
+                "country": "USA",
+            },
+        )
+        r.raise_for_status()
+        rows = (r.json().get("values") or [])
+    except Exception:
+        return []
+
     out = []
     for row in rows:
+        if not _is_nasdaq(row):
+            continue
         symbol = str(row.get("symbol") or "").upper().strip()
         price = _f(row.get("last"), -1)
         if symbol and MIN_PRICE <= price <= MAX_PRICE:
@@ -72,6 +92,7 @@ async def _discover_twelvedata(client):
                 "price": price,
                 "change_pct": _f(row.get("percent_change")),
                 "volume": _f(row.get("volume")),
+                "exchange": "NASDAQ",
                 "source": "Twelve Data",
             })
     return out
@@ -91,10 +112,12 @@ async def _discover_panwatch(client):
 
     out = []
     for row in rows or []:
+        if not _is_nasdaq(row):
+            continue
         symbol = str(row.get("symbol") or "").upper().strip()
         price = _f(row.get("price"), -1)
         if symbol and MIN_PRICE <= price <= MAX_PRICE:
-            out.append({**row, "source": "PanWatch"})
+            out.append({**row, "exchange": "NASDAQ", "source": "PanWatch"})
     return out
 
 
@@ -111,6 +134,8 @@ async def discover_low_price_stocks():
         if isinstance(source_rows, Exception):
             continue
         for row in source_rows:
+            if not _is_nasdaq(row):
+                continue
             symbol = str(row.get("symbol") or "").upper().strip()
             if not symbol or symbol in seen:
                 continue
@@ -168,12 +193,10 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
     support = max([x for x in supports if x < price], default=None)
     resistance = min([x for x in resistances if x > price], default=None)
 
-    # Runner Former: سبق للسهم أن حقق موجة قوية من قاعدة تاريخية.
     max_30d = max(closes[-30:])
     min_30d = min(closes[-30:])
     former_runner = min_30d > 0 and (max_30d / min_30d - 1) >= 1.00
 
-    # تجميع: تماسك قريب من دعم + هبوط أقل + قيعان أعلى + انخفاض نسبي في فوليوم البيع.
     recent = candles[-10:]
     higher_lows = all(
         recent[i]["low"] >= recent[i-1]["low"] * 0.995
@@ -188,7 +211,6 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
     selling_dry = recent_sell_vol < prior_sell_vol if prior_sell_vol else False
     accumulation = support is not None and _near(support, price, 0.06) and higher_lows and (compression or selling_dry)
 
-    # W: قاعان متقاربان ثم اختراق القمة بينهما.
     lows = [c["low"] for c in candles[-40:]]
     mid = len(lows) // 2
     left_low = min(lows[:mid])
@@ -196,27 +218,22 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
     neckline = max(c["high"] for c in candles[-40:] if c["low"] not in (left_low, right_low))
     w_pattern = abs(left_low - right_low) / max(price, 0.0001) <= 0.10 and price >= neckline * 0.995
 
-    # Sweep: كسر دعم قريب ثم استرداده في آخر الجلسات.
     sweep = False
     if support is not None:
         last = candles[-1]
         prev = candles[-2]
         sweep = prev["low"] < support and last["close"] > support
 
-    # اختراق ثابت: تجاوز مقاومة وإغلاق فوقها بدل الاختراق اللحظي.
     breakout = bool(resistance and price > resistance and candles[-1]["close"] > resistance)
 
-    # لا نعتبر ارتفاعاً سريعاً وحده إشارة. نحتاج ربطه بالفوليوم/الدعم/السلوك.
     momentum = (
         rvol >= 2.0 and change_pct >= 3.0 and
         (breakout or (support is not None and _near(support, price, 0.08)))
     )
 
-    # Fill Gap: هبوط سابق كبير ثم استرداد باتجاه مناطق الهبوط القديمة.
     old_high = max(c["high"] for c in candles[-30:-5])
     fill_gap = change_pct > 3 and price < old_high and sma20 >= sma50 * 0.98 and rvol >= 1.2
 
-    # استبعاد سلوك الخطر المذكور في المنهج: ارتفاع بلا دعم/ثبات أو فوليوم كبير بلا تقدم.
     distribution_risk = rvol >= 2.5 and abs(change_pct) < 1.5
 
     scores = {
@@ -254,7 +271,6 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
     }
     behavior, emoji = behavior_names[behavior_key]
 
-    # تصنيف المنتج السابق: طريقة فيصل هنا تركز على المضاربة/السوينق أكثر من الاستثمار.
     stock_type = "مضاربي" if momentum or sweep or rvol >= 3 or atr_pct >= 0.10 else "سوينق"
 
     evidence = []
@@ -313,6 +329,7 @@ async def scan_us_low_price_stocks():
         results.append({
             **row,
             "symbol": symbol,
+            "exchange": "NASDAQ",
             "classification": classification,
             "targets": targets,
             "catalyst": bool(news),
