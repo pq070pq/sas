@@ -104,12 +104,28 @@ function renderTicker(d){
 function renderMacro(d){
  document.getElementById('macro').innerHTML=(d||[]).map(x=>'<div><b>'+x.label+'</b><strong>'+money(x.price)+'</strong><em>'+((x.change_pct??''))+'</em></div>').join('');
 }
+function showEntryTerms(){
+ pendingPlan=null;
+ document.getElementById('termsAgree').checked=false;
+ document.getElementById('termsModal').hidden=false;
+ const btn=document.querySelector('.terms-actions button:last-child');
+ if(btn)btn.textContent='أوافق وأدخل SAS PRO';
+ btn.onclick=acceptTermsOnly;
+}
+function openPurchaseTerms(plan){
+ pendingPlan=plan;
+ document.getElementById('termsAgree').checked=false;
+ document.getElementById('termsModal').hidden=false;
+ const btn=document.querySelector('.terms-actions button:last-child');
+ if(btn)btn.textContent='أوافق وأتابع الاشتراك';
+ btn.onclick=acceptAndBuy;
+}
 async function load(){
  try{const d=await api('/api/market/ticker');renderTicker(d);renderMacro(d);}catch(e){document.getElementById('ticker').textContent='بيانات السوق غير متاحة';}
  try{
   const d=await api('/api/me');
   document.getElementById('accountStatus')?.remove();
-  document.getElementById('marketState').textContent=d.pro?'مشترك PRO فعال':'الحساب غير مشترك';
+  document.getElementById('marketState').textContent=d.pro?'مشترك PRO فعال':'الحساب غير مشترك'; if(!d.terms_accepted) showEntryTerms();
  }catch(e){}
  try{
   const d=await api('/api/market/status');
@@ -153,6 +169,10 @@ function scrollToTop(){window.scrollTo({top:0,behavior:'smooth'});}
 let pendingPlan=null;
 function openTerms(plan){pendingPlan=plan;document.getElementById('termsAgree').checked=false;document.getElementById('termsModal').hidden=false;}
 function closeTerms(){document.getElementById('termsModal').hidden=true;}
+async function acceptTermsOnly(){
+ if(!document.getElementById('termsAgree').checked){alert('يرجى الموافقة على الشروط أولًا');return;}
+ try{await api('/api/terms/accept',{method:'POST'});closeTerms();}catch(e){alert(e.message);}
+}
 async function acceptAndBuy(){
  if(!document.getElementById('termsAgree').checked){alert('يرجى الموافقة على الشروط أولًا');return;}
  try{
@@ -162,7 +182,7 @@ async function acceptAndBuy(){
   if(tg&&tg.openInvoice)tg.openInvoice(d.invoice_url);else location.href=d.invoice_url;
  }catch(e){alert(e.message);}
 }
-async function buy(plan){openTerms(plan);}
+async function buy(plan){openPurchaseTerms(plan);}
 load();setInterval(load,60000);
 </script>
 <div id="termsModal" class="terms-modal" hidden>
