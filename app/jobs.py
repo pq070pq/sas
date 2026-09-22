@@ -275,9 +275,26 @@ async def stock_radar_cycle():
                         )
                     )
                 ).scalars().first()
+
+                # لا نكرر نفس السهم بلا سبب.
+                # نعيد التحليل فقط إذا ظهرت قفزة موثوقة في التداول مقارنة بآخر رصد محفوظ.
                 if existing:
-                    _radar_seen.add(symbol)
-                    continue
+                    try:
+                        previous = json.loads(existing.payload or "{}")
+                    except Exception:
+                        previous = {}
+                    previous_volume = float(previous.get("volume") or 0)
+                    current_volume = float(row.get("volume") or 0)
+                    previous_change = float(previous.get("change_pct") or 0)
+                    current_change = float(row.get("change_pct") or 0)
+                    volume_jump = (
+                        previous_volume > 0
+                        and current_volume >= previous_volume * 2.0
+                    )
+                    price_jump = abs(current_change - previous_change) >= 5.0
+                    if not (volume_jump or price_jump):
+                        _radar_seen.add(symbol)
+                        continue
 
                 q = await quote(symbol)
                 # Keep the radar price populated from the scan row when the
@@ -298,11 +315,15 @@ async def stock_radar_cycle():
 
                 try:
                     await send_message(settings.telegram_channel_id, report)
-                    db.add(RadarSignal(
-                        symbol=symbol,
-                        session_date=session_date,
-                        payload=json.dumps(row, ensure_ascii=False),
-                    ))
+                    if existing:
+                        existing.payload = json.dumps(row, ensure_ascii=False)
+                        existing.created_at = utcnow()
+                    else:
+                        db.add(RadarSignal(
+                            symbol=symbol,
+                            session_date=session_date,
+                            payload=json.dumps(row, ensure_ascii=False),
+                        ))
                     await db.commit()
                     _radar_seen.add(symbol)
                 except Exception:
