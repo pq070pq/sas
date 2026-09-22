@@ -184,32 +184,38 @@ async function loadAdminTerms(){
 }
 async function load(){
  try{
-  const [quotes,home]=await Promise.all([api('/api/market/ticker'),api('/api/dashboard/home')]);
+  const [quotes,home,me]=await Promise.all([
+   api('/api/market/ticker'),
+   api('/api/dashboard/home'),
+   api('/api/me')
+  ]);
   renderHomeTicker(quotes);
   const m=home.market||{};
-  const marketBox=document.getElementById('homeMarketState').closest('.home-market'); marketBox.className='home-market session-'+(m.session||'unknown');
+  const marketBox=document.getElementById('homeMarketBox');
+  marketBox.className='home-market session-'+(m.session||'unknown');
   document.getElementById('homeMarketState').textContent=m.label_ar||'غير متاح';
   document.getElementById('homeMarketSession').textContent=m.session==='regular'?'التداول الرئيسي':(m.short_ar||'—');
+
   const r=home.radar||{};
-  document.getElementById('homeOpps').textContent=r.opportunities??0;
-  document.getElementById('homeWatched').textContent=r.watched??0;
-  document.getElementById('homeTopMove').textContent=r.top_move_pct==null?'0%':fmtChange(r.top_move_pct);
-  document.getElementById('homeTopVolume').textContent=r.top_volume==null?'0':Number(r.top_volume).toLocaleString('en-US');
-  document.getElementById('homeCardRadar').textContent=r.enabled?'الرصد يعمل الآن':'الرصد متوقف';
-  document.getElementById('homeCardGrowth').textContent='فرص مرصودة: '+(r.opportunities??0);
-  document.getElementById('homeCardMarket').textContent='الجلسة: '+(m.short_ar||'—');
-  document.getElementById('homeCardInvest').textContent=m.session==='regular'?'السوق يعمل الآن':'بانتظار جلسة السوق';
-  document.getElementById('homeCardNew').textContent=m.holiday?'عطلة السوق':'بيانات السوق';
-  document.getElementById('homeCardNews').textContent='آخر تحديث: '+new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('homeRadarStatus').textContent=r.enabled?'الرصد يعمل الآن':'خارج وقت الرصد';
   document.getElementById('homeRefresh').textContent='آخر تحديث '+new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+
+  const pro=!!me.pro;
+  document.getElementById('homeSubscriptionText').textContent=pro?'SAS PRO فعال':'اشترك في SAS PRO';
+  document.getElementById('homeSubscriptionExpiry').textContent=pro&&me.expires_at
+   ?'فعال حتى '+new Date(me.expires_at).toLocaleDateString('ar-SA')
+   :'اضغط لعرض الباقات';
+  document.getElementById('homeSubscriptionIcon').textContent=pro?'PRO':'SAS';
+
+  if(me.user&&me.user.id){
+   try{await api('/api/admin/subscriptions');document.getElementById('adminPanel').hidden=false;}catch(e){}
+  }
+  if(!me.terms_accepted) showEntryTerms();
  }catch(e){
   document.getElementById('homeMarketState').textContent='تعذر تحديث البيانات';
+  document.getElementById('homeSubscriptionText').textContent='تعذر التحقق';
+  document.getElementById('homeRadarStatus').textContent='تعذر التحديث';
  }
- try{
-  const d=await api('/api/me');
-  if(d.user&&d.user.id){ try { await api('/api/admin/subscriptions'); document.getElementById('adminPanel').hidden=false; } catch(e){} }
-  if(!d.terms_accepted) showEntryTerms();
- }catch(e){}
 }
 async function runAnalysis(){
  const s=symbol();if(!s)return focusSearch();
