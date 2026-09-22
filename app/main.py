@@ -528,7 +528,7 @@ async def admin_grant(telegram_id: int, days: str = "30", user=Depends(telegram_
             "✅ <b>تم تفعيل وصول SAS PRO</b>\n\n"
             f"📅 تاريخ الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>\n\n"
             "🚀 رابط دخول القناة:",
-            {"inline_keyboard": [[{"text": "🚀 دخول SAS PRO", "url": link}]]},
+            {"inline_keyboard": [[{"text": "🚀 دخول قناة SAS PRO", "url": link}], [{"text": "📱 فتح SAS PRO", "web_app": {"url": settings.app_base_url}}]]},
         )
     except Exception:
         pass
@@ -1362,7 +1362,7 @@ async def successful_payment(request: Request, db: AsyncSession = Depends(get_se
             f"💰 القيمة: <b>{result['plan']['sar']} ريال</b> / <b>{result['plan']['stars']} ⭐</b>\n"
             f"📅 الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>\n\n"
             "🚀 رابط الدخول الخاص بك صالح للاستخدام مرة واحدة لمدة 48 ساعة:",
-            {"inline_keyboard": [[{"text": "🚀 دخول SAS PRO", "url": result["invite_link"]}]]},
+            {"inline_keyboard": [[{"text": "🚀 دخول قناة SAS PRO", "url": result["invite_link"]}], [{"text": "📱 فتح SAS PRO", "web_app": {"url": settings.app_base_url}}]]},
         )
     except Exception:
         pass
