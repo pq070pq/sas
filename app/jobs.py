@@ -46,7 +46,7 @@ async def expiry_cycle():
                 try:
                     await send_message(sub.telegram_id,
                         "⚠️ <b>تنبيه الاشتراك</b>\n\n"
-                        "متبقي على اشتراكك <b>7 أيام أو أقل</b>.\n"
+                        "متبقي على اشتراكك <b>7 أيام</b>.\n"
                         "يمكنك التجديد الآن والاستمرار بدون انقطاع."
                     )
                     sub.warning_3d_sent_at = now
@@ -430,4 +430,4 @@ async def scheduler():
             await weekly_radar_report()
         except Exception:
             pass
-        await asyncio.sleep(900)
+        await asyncio.sleep(max(60, int(settings.radar_interval_minutes) * 60))
