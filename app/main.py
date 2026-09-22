@@ -83,7 +83,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         f"↳ {type_reason}\n\n"
         f"━━━━━━━━━━━━━━\n\n"
         f"🤖 قراءة SAS PRO\n\n"
-        f"📈 الاتجاه: طالع إذا حافظ على مستوياته الحالية\n"
+        f"📈 الاتجاه: صاعد إذا حافظ على مستوياته الحالية\n"
         f"💪 قوة الحركة: {strength}\n"
         f"📊 التداول: {'يدعم استمرار الحركة' if volume_ratio is not None and volume_ratio >= 1.15 else 'يحتاج متابعة'}\n"
         f"⚠️ مستوى الخطورة: {'مرتفع' if volume_ratio is not None and volume_ratio >= 1.50 else 'متوسط'}\n\n"
@@ -95,7 +95,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         f"🧠 الزبدة\n\n"
         f"الأهداف محسوبة من مقاومات فعلية ظهرت في بيانات السعر، "
         f"وما ينحط هدف رقمي إذا ما فيه مستوى واضح.\n\n"
-        f"🚨 إذا ضعف التداول أو انكسر حد الخروج، تتغير نظرة السهم.\n\n"
+        f"🚨 إذا ضعف التداول أو كسر السهم حد الخروج، تتغير النظرة.\n\n"
         f"{DISCLAIMER}"
     )
 
