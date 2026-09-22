@@ -23,84 +23,69 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(920px,
 .terms-actions{display:flex;gap:10px}
 .terms-actions button{flex:1;border:0;border-radius:12px;padding:12px;font-weight:700}
 
-/* SAS PRO fixed-image home: the artwork stays untouched; live data sits on transparent layers. */
+/* SAS PRO — الصورة الأصلية ثابتة، وهذه الطبقات تفاعلية فقط. */
 .home-stage{position:relative;width:100%;aspect-ratio:874/1536;overflow:hidden;background:#020912;line-height:1}
 .home-image{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:fill}
-.home-hit{position:absolute;display:flex;align-items:flex-end;justify-content:center;text-align:center;cursor:pointer;z-index:3;padding:0 3% 1.1%;color:#dffcff;font-weight:800;font-size:clamp(7px,1.15vw,12px);text-shadow:0 1px 5px #000;outline:none}
-.home-hit span{max-width:92%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(1,12,18,.66);border-radius:9px;padding:3px 7px}
-.card-invest{left:3.6%;top:21.4%;width:22.5%;height:8.8%}
-.card-market{left:28.2%;top:21.4%;width:22.5%;height:8.8%}
-.card-growth{left:51.1%;top:21.4%;width:22.5%;height:8.8%}
-.card-radar{left:74.0%;top:21.4%;width:22.5%;height:8.8%}
-.card-dividends{left:3.6%;top:30.9%;width:22.5%;height:8.8%}
-.card-new{left:28.2%;top:30.9%;width:22.5%;height:8.8%}
-.card-news{left:51.1%;top:30.9%;width:22.5%;height:8.8%}
-.card-fav{left:74.0%;top:30.9%;width:22.5%;height:8.8%}
+.home-hit{position:absolute;z-index:8;border:0;background:transparent;padding:0;margin:0;cursor:pointer;border-radius:18px}
+.home-hit:active,.macro-hit:active{background:rgba(0,220,255,.08);box-shadow:inset 0 0 20px rgba(0,220,255,.12)}
 
-.home-ticker{position:absolute;left:3.4%;top:40.65%;width:93.2%;height:6.35%;display:grid;grid-template-columns:repeat(6,1fr);z-index:4;pointer-events:none}
-.home-ticker>div{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:#fff;text-shadow:0 1px 5px #000}
-.home-ticker b{font-size:clamp(7px,1.05vw,11px);font-weight:800}
-.home-ticker strong{font-size:clamp(8px,1.25vw,14px);font-weight:900;direction:ltr}
-.home-ticker em{font-size:clamp(7px,1.05vw,11px);font-style:normal;font-weight:900;direction:ltr}
+.home-ticker{position:absolute;z-index:10;left:3.4%;top:40.65%;width:93.2%;height:6.35%;display:grid;grid-template-columns:repeat(6,1fr);direction:ltr;pointer-events:none}
+.home-ticker button{position:relative;border:0;background:transparent;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:2px;cursor:pointer;text-shadow:0 1px 5px #000;pointer-events:auto}
+.home-ticker button:active{background:rgba(0,230,255,.10);border-radius:10px}
+.home-ticker b{font-size:clamp(6px,1.05vw,11px);font-weight:900}
+.home-ticker strong{font-size:clamp(7px,1.25vw,14px);font-weight:900;direction:ltr}
+.home-ticker em{font-size:clamp(6px,1.02vw,11px);font-style:normal;font-weight:900;direction:ltr}
 .home-ticker em.up{color:#19ef8b}.home-ticker em.down{color:#ff5964}
 
-.home-stats{position:absolute;left:2.1%;top:48.7%;width:25.7%;height:13.1%;z-index:4;display:grid;grid-template-rows:repeat(4,1fr);align-items:center;justify-items:end;padding:12% 6% 7% 4%;pointer-events:none}
-.home-stats b{font-size:clamp(8px,1.35vw,14px);color:#fff;text-shadow:0 1px 5px #000;direction:ltr}
+.macro-hit{position:absolute;z-index:11;border:0;background:transparent;padding:0;cursor:pointer}
+.macro-btc{left:3.4%;top:40.65%;width:15.5%;height:6.35%}
+.macro-gold{left:19%;top:40.65%;width:15.5%;height:6.35%}
+.macro-oil{left:34.6%;top:40.65%;width:15.5%;height:6.35%}
+.macro-sp500{left:50.2%;top:40.65%;width:15.5%;height:6.35%}
+.macro-nasdaq{left:65.8%;top:40.65%;width:15.5%;height:6.35%}
+.macro-vix{left:81.4%;top:40.65%;width:15.2%;height:6.35%}
 
-.home-market{position:absolute;left:70.8%;top:48.6%;width:27%;height:10.3%;z-index:5;border:0;background:rgba(2,12,18,.42);border-radius:16px;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer}
-.home-market strong{font-size:clamp(12px,2.25vw,22px);color:#1dff75;text-shadow:0 0 8px rgba(0,255,130,.25)}
-.home-market span{font-size:clamp(8px,1.2vw,12px)}
-.home-market small{font-size:clamp(7px,1vw,10px);color:#6feff6}
+.analysis-launch{position:absolute;z-index:12;left:33%;top:22.3%;width:34%;height:12.8%;border:1px solid rgba(45,244,255,.30);border-radius:18px;background:rgba(1,12,18,.22);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;text-shadow:0 1px 5px #000;box-shadow:0 0 18px rgba(0,229,255,.05)}
+.analysis-launch:active{background:rgba(0,229,255,.10)}
+.analysis-icon{width:38px;height:38px;border:2px solid #2df4ff;border-radius:12px;display:grid;place-items:center;color:#2df4ff;font-size:29px;line-height:1;box-shadow:0 0 16px rgba(45,244,255,.28)}
+.analysis-launch strong{font-size:clamp(10px,1.7vw,16px)}
+.analysis-launch small{font-size:clamp(7px,1vw,10px);color:#8feef4}
 
-.home-tools{position:absolute;left:70.8%;top:59.7%;width:27%;height:9.6%;z-index:5;display:grid;grid-template-columns:repeat(3,1fr);gap:4%;padding:9% 6% 5%}
-.home-tools button{border:0;background:transparent;border-radius:12px;cursor:pointer}
-
-.home-refresh{position:absolute;right:4%;bottom:1.7%;font-size:clamp(6px,.8vw,9px);color:#71eaf1;z-index:4;opacity:.8}
-
+.home-market{position:absolute;z-index:12;right:2.8%;top:48.55%;width:27.2%;height:10.5%;border:0;background:rgba(2,12,18,.28);border-radius:16px;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;pointer-events:none;text-shadow:0 1px 5px #000}
+.home-market strong{font-size:clamp(11px,2.2vw,21px);color:#19ef8b;text-shadow:0 0 8px rgba(0,255,130,.25)}
+.home-market span{font-size:clamp(8px,1.2vw,12px);font-weight:800}
+.home-market small{font-size:clamp(7px,1vw,10px);color:#83eef5}
 .home-market.session-premarket strong{color:#ffd447}
 .home-market.session-afterhours strong{color:#ffb14a}
 .home-market.session-holiday strong,.home-market.session-weekend strong,.home-market.session-overnight strong{color:#ff5964}
 
-/* Final SAS PRO artwork layer: artwork remains untouched; controls are transparent hit zones. */
-.home-stage{position:relative;width:100%;aspect-ratio:941/1672;overflow:hidden;background:#020912;line-height:1}
-.home-image{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:fill}
-.home-hit{position:absolute;z-index:8;display:block;border:0;background:transparent;padding:0;margin:0;cursor:pointer;border-radius:18px}
-.home-hit:active{background:rgba(0,220,255,.08);box-shadow:inset 0 0 20px rgba(0,220,255,.12)}
-.card-invest{left:2%;top:29.5%;width:36%;height:9%}
-.card-market{right:2%;top:29.5%;width:36%;height:9%}
-.card-growth{left:2%;top:40.3%;width:31%;height:8%}
-.card-radar{left:34.5%;top:40.3%;width:31%;height:8%}
-.card-dividends{left:67%;top:40.3%;width:31%;height:8%}
-.card-new{left:2%;top:50.2%;width:23%;height:8%}
-.card-news{left:26%;top:50.2%;width:23%;height:8%}
-.card-fav{left:50%;top:50.2%;width:23%;height:8%}
+.subscription-badge{position:absolute;z-index:13;left:31%;top:46.0%;width:38%;height:4.2%;border:1px solid rgba(45,244,255,.65);border-radius:999px;background:rgba(2,12,18,.78);color:#fff;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;box-shadow:0 0 14px rgba(0,229,255,.14);text-shadow:0 1px 4px #000}
+.subscription-badge span{font-size:clamp(7px,1vw,10px);font-weight:1000;color:#2df4ff}
+.subscription-badge strong{font-size:clamp(8px,1.15vw,12px)}
+.subscription-badge small{font-size:clamp(6px,.9vw,9px);color:#9deff4}
+.subscription-badge:active{background:rgba(0,229,255,.16)}
 
-.zone-nasdaq{left:2%;top:40.3%;width:31%;height:8%}
-.zone-sp500{left:34.5%;top:40.3%;width:31%;height:8%}
-.zone-dow{left:67%;top:40.3%;width:31%;height:8%}
-.zone-macro{left:2%;top:50.2%;width:96%;height:8%}
+.radar-live{position:absolute;z-index:13;left:3%;top:58.9%;width:30%;height:6.5%;border:1px solid rgba(45,244,255,.35);border-radius:15px;background:rgba(2,12,18,.20);color:#fff;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;text-shadow:0 1px 4px #000}
+.radar-live span{font-size:clamp(12px,2vw,20px)}
+.radar-live strong{font-size:clamp(9px,1.3vw,13px);color:#2df4ff}
+.radar-live small{font-size:clamp(6px,.9vw,9px);color:#a7dce1}
+
 .zone-market-data{left:2%;top:59.8%;width:23%;height:8%}
 .zone-news{left:26%;top:59.8%;width:23%;height:8%}
 .zone-company{left:50%;top:59.8%;width:23%;height:8%}
 .zone-opportunities{left:74%;top:59.8%;width:24%;height:8%}
-.zone-alerts{left:2%;top:69.5%;width:23%;height:8%}
-.zone-activity{left:26%;top:69.5%;width:23%;height:8%}
-.zone-active{left:50%;top:69.5%;width:23%;height:8%}
-.zone-daily{left:74%;top:69.5%;width:24%;height:8%}
 .zone-plans{left:2%;top:79.5%;width:31%;height:6.8%}
 .zone-scan{left:34.5%;top:79.5%;width:31%;height:6.8%}
 .zone-settings{left:67%;top:79.5%;width:31%;height:6.8%}
 
-.live-top-ticker{position:absolute;z-index:20;left:0;right:0;top:.15%;height:3.2%;display:grid;grid-template-columns:repeat(3,1fr);align-items:center;background:rgba(0,5,12,.82);border-bottom:1px solid rgba(0,230,255,.5);direction:ltr;pointer-events:none}
-.live-top-ticker>div{display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;font-size:clamp(8px,1.65vw,14px);text-shadow:0 1px 4px #000}
-.live-top-ticker b{font-weight:900;color:#fff}.live-top-ticker strong{font-weight:900;color:#fff;direction:ltr}.live-top-ticker em{font-style:normal;font-weight:900;direction:ltr}
-.live-top-ticker em.up{color:#17f28b}.live-top-ticker em.down{color:#ff5665}
+.image-disclaimer-red{position:absolute;z-index:14;left:2.1%;right:2.1%;bottom:3.95%;height:5.05%;border-radius:14px;background:rgba(170,0,12,.34);box-shadow:inset 0 0 0 1px rgba(255,52,65,.75),0 0 12px rgba(255,30,45,.16);pointer-events:none}
+.image-disclaimer-red:after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(90deg,rgba(255,0,0,.08),rgba(130,0,0,.18),rgba(255,0,0,.08))}
 
-.live-disclaimer{position:absolute;z-index:20;left:0;right:0;top:3.35%;height:3.15%;overflow:hidden;display:flex;align-items:center;background:rgba(90,0,8,.82);border-top:1px solid #ff3348;border-bottom:1px solid #ff3348;color:#fff;font-size:clamp(8px,1.65vw,14px);font-weight:900;pointer-events:none;white-space:nowrap}
-.live-disclaimer span{display:inline-block;padding-right:100%;animation:sasTicker 18s linear infinite}
-@keyframes sasTicker{from{transform:translateX(0)}to{transform:translateX(100%)}}
+.home-refresh{position:absolute;z-index:15;right:3%;bottom:.65%;font-size:clamp(6px,.8vw,9px);color:#71eaf1;opacity:.8;pointer-events:none}
 
-.live-market-state{position:absolute;z-index:21;right:4%;top:32.5%;width:31%;text-align:center;color:#19f38b;font-weight:900;font-size:clamp(11px,2vw,20px);text-shadow:0 0 8px rgba(0,255,150,.25);pointer-events:none}
-.live-market-session{position:absolute;z-index:21;right:7%;top:35.4%;width:25%;text-align:center;color:#8df5ff;font-size:clamp(8px,1.2vw,12px);font-weight:800;pointer-events:none}
-.live-stats{display:none}
-.home-refresh{position:absolute;z-index:22;right:3%;bottom:.7%;font-size:clamp(6px,.8vw,9px);color:#71eaf1;opacity:.8;pointer-events:none}
+@media(max-width:700px){
+ .analysis-launch{left:29%;width:42%;top:22.2%;height:12.5%}
+ .subscription-badge{left:24%;width:52%;top:46.0%}
+ .radar-live{left:3%;width:36%}
+ .home-ticker b{font-size:7px}.home-ticker strong{font-size:8px}.home-ticker em{font-size:7px}
+}
