@@ -266,7 +266,32 @@ async def request_access(user=Depends(telegram_user), db: AsyncSession = Depends
         )
     except Exception:
         pass
-    return {"ok": True, "status": "pending", "request_id": req.id, "message": "تم إرسال طلبك للإدارة. بعد القرار ستصلك مدة الوصول من SAS PRO."}
+    channel_link = None
+    if settings.telegram_channel_id:
+        try:
+            link = await bot_api("createChatInviteLink", {
+                "chat_id": settings.telegram_channel_id,
+                "name": "SAS PRO Access Requests",
+                "creates_join_request": True,
+            })
+            channel_link = link.get("invite_link") if isinstance(link, dict) else link
+        except Exception:
+            channel_link = None
+
+    user_message = "تم إرسال طلبك للإدارة. بعد اعتماد المدة سيتم تفعيل وصولك."
+    if channel_link:
+        user_message += "\nأرسل طلب الانضمام للقناة من الزر التالي؛ بعد اعتماد الإدارة سيوافق البوت على طلب الانضمام تلقائيًا."
+        try:
+            await send_message(
+                user["id"],
+                "📡 <b>طلب الانضمام إلى قناة SAS PRO</b>\n\n"
+                "أرسل طلب الانضمام الآن وسيبقى معلّقًا حتى اعتماد الإدارة.\n"
+                "بعد اعتماد المدة سيضيفك البوت تلقائيًا إلى القناة.",
+                {"inline_keyboard": [[{"text": "📡 طلب الانضمام للقناة", "url": channel_link}]]},
+            )
+        except Exception:
+            pass
+    return {"ok": True, "status": "pending", "request_id": req.id, "message": user_message, "channel_join_request_link": channel_link}
 
 @app.get("/api/terms")
 async def terms():
@@ -639,13 +664,15 @@ async def telegram_webhook(request: Request):
                 ).order_by(Subscription.expires_at.desc()))).scalars().first()
                 active = is_active(sub)
                 await db.commit()
-            try:
-                await bot_api(
-                    "approveChatJoinRequest" if active else "declineChatJoinRequest",
-                    {"chat_id": settings.telegram_channel_id, "user_id": telegram_id},
-                )
-            except Exception:
-                pass
+            if active:
+                try:
+                    await bot_api("approveChatJoinRequest", {
+                        "chat_id": settings.telegram_channel_id,
+                        "user_id": telegram_id,
+                    })
+                except Exception:
+                    pass
+            # Keep requests pending until admin grants SAS PRO access.
             return {"ok": True}
 
     if "pre_checkout_query" in data:
