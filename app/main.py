@@ -21,6 +21,7 @@ from .holiday_radar import stock_radar_enabled
 from .holiday_radar import holiday_radar_scheduler
 from .timeutil import utcnow, aware
 from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings
+from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
 
 app = FastAPI(title="SAS PRO", version="2.1.0")
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
@@ -547,6 +548,145 @@ async def admin_revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncS
     await set_channel_access(telegram_id, allow=False)
     return {"ok": True}
 
+
+
+async def require_admin_permission(user, permission: str):
+    if not await has_permission(int(user["id"]), permission):
+        raise HTTPException(403, "لا تملك هذه الصلاحية")
+    return user
+
+@app.get("/api/admin/me")
+async def admin_me(user=Depends(telegram_user)):
+    admin = await get_admin(int(user["id"]))
+    if not admin:
+        raise HTTPException(403, "لا تملك صلاحيات الإدارة")
+    return {"ok": True, **admin, "permissions_catalog": PERMISSIONS, "role_defaults": ROLE_DEFAULTS}
+
+@app.get("/api/admin/staff")
+async def admin_staff(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    await require_admin_permission(user, "admins")
+    from .db import AdminRole
+    rows = (await db.execute(select(AdminRole).order_by(AdminRole.created_at.desc()))).scalars().all()
+    out=[]
+    for row in rows:
+        try: perms=json.loads(row.permissions or "[]")
+        except Exception: perms=[]
+        out.append({"telegram_id":row.telegram_id,"role":row.role,"permissions":perms,"enabled":row.enabled,"created_by":row.created_by,"created_at":aware(row.created_at).isoformat()})
+    out.insert(0, {"telegram_id":int(settings.owner_telegram_id),"role":"owner","permissions":list(PERMISSIONS),"enabled":True,"created_by":int(settings.owner_telegram_id),"created_at":None})
+    return out
+
+@app.post("/api/admin/staff")
+async def admin_staff_upsert(request: Request, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    await require_admin_permission(user, "admins")
+    from .db import AdminRole
+    body=await request.json()
+    telegram_id=int(body.get("telegram_id") or 0)
+    if not telegram_id or telegram_id == int(settings.owner_telegram_id):
+        raise HTTPException(400, "لا يمكن تعديل المالك بهذه الطريقة")
+    role=str(body.get("role") or "moderator")
+    if role not in ROLE_DEFAULTS:
+        raise HTTPException(400, "الدور غير معروف")
+    perms=body.get("permissions")
+    if perms is None: perms=ROLE_DEFAULTS[role]
+    perms=[p for p in perms if p in PERMISSIONS]
+    row=await db.get(AdminRole, telegram_id)
+    if not row:
+        row=AdminRole(telegram_id=telegram_id, role=role, permissions=json.dumps(perms,ensure_ascii=False), enabled=True, created_by=int(user["id"]))
+        db.add(row)
+        action="staff_added"
+    else:
+        row.role=role; row.permissions=json.dumps(perms,ensure_ascii=False); row.enabled=True; row.updated_at=utcnow()
+        action="staff_updated"
+    await db.commit()
+    await audit(int(user["id"]), action, telegram_id, {"role":role,"permissions":perms})
+    return {"ok":True,"telegram_id":telegram_id,"role":role,"permissions":perms,"enabled":True}
+
+@app.post("/api/admin/staff/{telegram_id}/disable")
+async def admin_staff_disable(telegram_id:int, user=Depends(telegram_user), db: AsyncSession=Depends(get_session)):
+    await require_admin_permission(user,"admins")
+    from .db import AdminRole
+    row=await db.get(AdminRole,telegram_id)
+    if not row: raise HTTPException(404,"المشرف غير موجود")
+    row.enabled=False; row.updated_at=utcnow(); await db.commit()
+    await audit(int(user["id"]),"staff_disabled",telegram_id)
+    return {"ok":True}
+
+@app.post("/api/admin/staff/{telegram_id}/enable")
+async def admin_staff_enable(telegram_id:int, user=Depends(telegram_user), db: AsyncSession=Depends(get_session)):
+    await require_admin_permission(user,"admins")
+    from .db import AdminRole
+    row=await db.get(AdminRole,telegram_id)
+    if not row: raise HTTPException(404,"المشرف غير موجود")
+    row.enabled=True; row.updated_at=utcnow(); await db.commit()
+    await audit(int(user["id"]),"staff_enabled",telegram_id)
+    return {"ok":True}
+
+@app.delete("/api/admin/staff/{telegram_id}")
+async def admin_staff_delete(telegram_id:int, user=Depends(telegram_user), db: AsyncSession=Depends(get_session)):
+    await require_admin_permission(user,"admins")
+    from .db import AdminRole
+    row=await db.get(AdminRole,telegram_id)
+    if not row: raise HTTPException(404,"المشرف غير موجود")
+    await db.delete(row); await db.commit()
+    await audit(int(user["id"]),"staff_deleted",telegram_id)
+    return {"ok":True}
+
+@app.get("/api/admin/audit")
+async def admin_audit(user=Depends(telegram_user), db: AsyncSession=Depends(get_session)):
+    await require_admin_permission(user,"audit")
+    from .db import AuditLog
+    rows=(await db.execute(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(200))).scalars().all()
+    return [{"id":r.id,"actor_telegram_id":r.actor_telegram_id,"action":r.action,"target_telegram_id":r.target_telegram_id,"details":r.details,"created_at":aware(r.created_at).isoformat()} for r in rows]
+
+@app.post("/api/admin/access/grant/{telegram_id}")
+async def staff_grant(telegram_id:int, days:str="30", user=Depends(telegram_user)):
+    await require_admin_permission(user,"subscriptions")
+    if days.lower()=="forever":
+        exp,link,link_exp=await grant_access(telegram_id,forever=True)
+    else:
+        n=int(days)
+        if n<=0 or n>3650: raise HTTPException(400,"المدة يجب أن تكون بين 1 و3650 يومًا")
+        exp,link,link_exp=await grant_access(telegram_id,days=n)
+    await audit(int(user["id"]),"grant_access",telegram_id,{"days":days,"expires_at":exp.isoformat()})
+    try:
+        kb={"inline_keyboard":[
+            [{"text":"🚀 دخول قناة SAS PRO","url":link}],
+            *([[{"text":"📱 فتح SAS PRO","web_app":{"url":settings.app_base_url}}]] if settings.app_base_url else [])
+        ]}
+        await send_message(telegram_id,"✅ <b>تم تفعيل SAS PRO</b>\n\n📅 الانتهاء: <b>"+exp.strftime("%d/%m/%Y")+"</b>\n\n🔗 رابط القناة صالح 48 ساعة ويستخدم مرة واحدة.\n📱 يمكنك فتح التطبيق من الزر التالي.",kb)
+    except Exception: pass
+    return {"ok":True,"expires_at":exp.isoformat(),"invite_expires":link_exp.isoformat()}
+
+@app.post("/api/admin/access/revoke/{telegram_id}")
+async def staff_revoke(telegram_id:int, user=Depends(telegram_user), db:AsyncSession=Depends(get_session)):
+    await require_admin_permission(user,"subscriptions")
+    await db.execute(update(Subscription).where(Subscription.telegram_id==telegram_id,Subscription.active==True).values(active=False))
+    row=(await db.execute(select(User).where(User.telegram_id==telegram_id))).scalars().first()
+    if row: row.status="revoked"; row.free_access=False; row.subscription_expires=utcnow(); row.updated_at=utcnow()
+    await db.commit(); await set_channel_access(telegram_id,False); await audit(int(user["id"]),"revoke_access",telegram_id)
+    return {"ok":True}
+
+@app.post("/api/admin/access/free/{telegram_id}")
+async def staff_free_access(telegram_id:int, user=Depends(telegram_user), db:AsyncSession=Depends(get_session)):
+    await require_admin_permission(user,"subscriptions")
+    now=utcnow()
+    row=(await db.execute(select(User).where(User.telegram_id==telegram_id))).scalars().first()
+    if not row:
+        row=User(telegram_id=telegram_id); db.add(row); await db.flush()
+    row.free_access=True; row.status="active"; row.plan="admin_free"; row.subscription_expires=None; row.updated_at=now
+    await db.execute(update(Subscription).where(Subscription.telegram_id==telegram_id,Subscription.active==True).values(active=False))
+    await db.commit()
+    await set_channel_access(telegram_id,True,None)
+    await audit(int(user["id"]),"free_access_granted",telegram_id)
+    return {"ok":True,"free_access":True}
+
+@app.post("/api/admin/access/free/{telegram_id}/revoke")
+async def staff_free_access_revoke(telegram_id:int, user=Depends(telegram_user), db:AsyncSession=Depends(get_session)):
+    await require_admin_permission(user,"subscriptions")
+    row=(await db.execute(select(User).where(User.telegram_id==telegram_id))).scalars().first()
+    if row: row.free_access=False; row.status="revoked"; row.updated_at=utcnow()
+    await db.commit(); await set_channel_access(telegram_id,False); await audit(int(user["id"]),"free_access_revoked",telegram_id)
+    return {"ok":True,"free_access":False}
 
 
 def _terminal_token(telegram_id: int, expires_at):
