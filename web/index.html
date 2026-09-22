@@ -23,7 +23,7 @@
   <div class="home-hit card-growth" onclick="setMode('growth')" role="button" aria-label="أسهم النمو">
     <span id="homeCardGrowth">فرص: —</span>
   </div>
-  <div class="home-hit card-radar" onclick="setMode('radar')" role="button" aria-label="أسهم الرخم">
+  <div class="home-hit card-radar" onclick="setMode('radar')" role="button" aria-label="أسهم الزخم">
     <span id="homeCardRadar">الرصد: —</span>
   </div>
 
@@ -181,6 +181,7 @@ async function load(){
   const [quotes,home]=await Promise.all([api('/api/market/ticker'),api('/api/dashboard/home')]);
   renderHomeTicker(quotes);
   const m=home.market||{};
+  const marketBox=document.getElementById('homeMarketState').closest('.home-market'); marketBox.className='home-market session-'+(m.session||'unknown');
   document.getElementById('homeMarketState').textContent=m.label_ar||'غير متاح';
   document.getElementById('homeMarketDate').textContent=m.date||'—';
   document.getElementById('homeMarketSession').textContent=m.session==='regular'?'التداول الرئيسي':(m.short_ar||'—');
