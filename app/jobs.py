@@ -19,8 +19,19 @@ async def expiry_cycle():
     async with SessionLocal() as db:
         rows = (await db.execute(select(Subscription).where(Subscription.active == True))).scalars().all()
         for sub in rows:
-            if aware(sub.expires_at) <= now:
+            expires_at = aware(sub.expires_at)
+            if expires_at <= now:
                 sub.active = False
+                try:
+                    await send_message(
+                        sub.telegram_id,
+                        "⛔ <b>انتهى إذن دخول SAS PRO</b>\n\n"
+                        f"📅 تاريخ الانتهاء: <b>{expires_at.strftime('%d/%m/%Y')}</b>\n\n"
+                        "🔐 لا يمكنك استخدام مزايا SAS PRO حتى يتم تجديد إذن الدخول من الإدارة.\n"
+                        "يمكنك فتح Mini App وإرسال طلب إذن جديد بعد الموافقة على الشروط."
+                    )
+                except Exception:
+                    pass
                 if settings.telegram_channel_id:
                     try:
                         await bot_api("banChatMember", {
@@ -35,16 +46,16 @@ async def expiry_cycle():
                         })
                     except Exception:
                         pass
-            elif aware(sub.expires_at) <= horizon and sub.warning_3d_sent_at is None:
+            elif expires_at <= horizon and sub.warning_3d_sent_at is None:
                 text = (
-                    "⚠️ <b>تنبيه اشتراك SAS PRO</b>\n\n"
-                    "اشتراكك سينتهي بعد 3 أيام أو أقل.\n"
-                    f"تاريخ الانتهاء: {sub.expires_at.strftime('%d/%m/%Y')}\n\n"
-                    "جدّد اشتراكك الآن للاستمرار في استخدام جميع مزايا SAS PRO 🚀"
+                    "⚠️ <b>تنبيه: إذن دخول SAS PRO سينتهي قريبًا</b>\n\n"
+                    f"📅 تاريخ الانتهاء: <b>{expires_at.strftime('%d/%m/%Y')}</b>\n"
+                    "⏳ متبقٍ: <b>3 أيام أو أقل</b>\n\n"
+                    "بعد انتهاء المدة سيتوقف وصولك إلى مزايا SAS PRO حتى يتم التجديد من الإدارة.\n\n"
+                    "🔐 للتجديد: افتح Mini App وأرسل طلب إذن دخول جديد بعد الموافقة على الشروط."
                 )
                 try:
-                    invoice_url = await bot_api("createInvoiceLink", {"title": "SAS PRO monthly", "description": "تجديد اشتراك SAS PRO لمدة 30 يوم", "payload": f"saspro:monthly:{sub.telegram_id}:renew", "currency": "XTR", "prices": [{"label": "SAS PRO monthly", "amount": settings.pro_monthly_stars}]})
-                    await send_message(sub.telegram_id, text, {"inline_keyboard": [[{"text": "🔄 تجديد الاشتراك", "url": invoice_url}]]})
+                    await send_message(sub.telegram_id, text)
                     sub.warning_3d_sent_at = now
                 except Exception:
                     pass
