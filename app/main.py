@@ -124,6 +124,69 @@ def _money(value):
         return "غير واضح"
     return f"${value:,.4f}".rstrip("0").rstrip(".")
 
+async def set_channel_access(telegram_id: int, allow: bool, expires_at=None):
+    """Lock/unlock channel access for SAS PRO users."""
+    if not settings.telegram_channel_id:
+        return {"ok": False, "reason": "telegram_channel_id_not_configured"}
+
+    if not allow:
+        try:
+            await bot_api("banChatMember", {
+                "chat_id": settings.telegram_channel_id,
+                "user_id": telegram_id,
+                "revoke_messages": False,
+            })
+            return {"ok": True, "action": "banned"}
+        except Exception as exc:
+            return {"ok": False, "reason": str(exc)}
+
+    # Remove any previous ban first.
+    try:
+        await bot_api("unbanChatMember", {
+            "chat_id": settings.telegram_channel_id,
+            "user_id": telegram_id,
+            "only_if_banned": True,
+        })
+    except Exception:
+        pass
+
+    # If the user has an outstanding join request, approve it automatically.
+    try:
+        await bot_api("approveChatJoinRequest", {
+            "chat_id": settings.telegram_channel_id,
+            "user_id": telegram_id,
+        })
+        return {"ok": True, "action": "join_request_approved"}
+    except Exception:
+        pass
+
+    # Telegram Bot API cannot silently add an arbitrary user to a private
+    # channel. Give the approved user a one-use invite as the fallback.
+    try:
+        payload = {
+            "chat_id": settings.telegram_channel_id,
+            "name": f"SAS PRO {telegram_id}",
+            "member_limit": 1,
+            "creates_join_request": False,
+        }
+        if expires_at:
+            payload["expire_date"] = int(expires_at.timestamp())
+        link = await bot_api("createChatInviteLink", payload)
+        invite = link.get("invite_link") if isinstance(link, dict) else link
+        if invite:
+            await send_message(
+                telegram_id,
+                "✅ <b>تم قبول إذن دخولك إلى قناة SAS PRO</b>\n\n"
+                "رابط الدخول الخاص بك مرفق أدناه.\n"
+                f"⏳ ينتهي الإذن: <b>{expires_at.strftime('%d/%m/%Y')}</b>",
+                {"inline_keyboard": [[{"text": "🚀 دخول قناة SAS PRO", "url": invite}]]},
+            )
+            return {"ok": True, "action": "invite_sent"}
+    except Exception as exc:
+        return {"ok": False, "reason": str(exc)}
+
+    return {"ok": False, "reason": "channel_access_not_granted"}
+
 def is_active(sub):
     return bool(sub and sub.active and aware(sub.expires_at) > utcnow())
 
@@ -506,6 +569,7 @@ async def grant(telegram_id: int, days: int = 30, user=Depends(telegram_user), d
         req.decided_at = now
         req.decided_days = days
     await db.commit()
+    channel_result = await set_channel_access(telegram_id, allow=True, expires_at=exp)
     try:
         await send_message(telegram_id,
             "✅ <b>تم قبول طلب إذن الدخول إلى SAS PRO</b>\n\n"
@@ -525,6 +589,15 @@ async def revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncSession
         Subscription.telegram_id == telegram_id, Subscription.active == True
     ).values(active=False))
     await db.commit()
+    await set_channel_access(telegram_id, allow=False)
+    try:
+        await send_message(
+            telegram_id,
+            "⛔ <b>تم إيقاف إذن دخول SAS PRO</b>\n\n"
+            "تم استبعادك من قناة SAS PRO حتى يتم اعتماد إذن جديد من الإدارة."
+        )
+    except Exception:
+        pass
     return {"ok": True}
 
 
@@ -542,6 +615,38 @@ async def telegram_webhook(request: Request):
     if expected and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != expected:
         raise HTTPException(403, "Invalid Telegram webhook secret")
     data = await request.json()
+
+    if "chat_join_request" in data:
+        jr = data.get("chat_join_request") or {}
+        chat = jr.get("chat") or {}
+        sender = jr.get("from") or {}
+        telegram_id = int(sender.get("id") or 0)
+        if telegram_id and str(chat.get("id")) == str(settings.telegram_channel_id):
+            now = utcnow()
+            async with SessionLocal() as db:
+                row = (await db.execute(select(User).where(User.telegram_id == telegram_id))).scalars().first()
+                if not row:
+                    row = User(
+                        telegram_id=telegram_id,
+                        username=sender.get("username"),
+                        first_name=sender.get("first_name"),
+                    )
+                    db.add(row)
+                row.channel_join_requested_at = now
+                sub = (await db.execute(select(Subscription).where(
+                    Subscription.telegram_id == telegram_id,
+                    Subscription.active == True
+                ).order_by(Subscription.expires_at.desc()))).scalars().first()
+                active = is_active(sub)
+                await db.commit()
+            try:
+                await bot_api(
+                    "approveChatJoinRequest" if active else "declineChatJoinRequest",
+                    {"chat_id": settings.telegram_channel_id, "user_id": telegram_id},
+                )
+            except Exception:
+                pass
+            return {"ok": True}
 
     if "pre_checkout_query" in data:
         q = data["pre_checkout_query"]
@@ -622,6 +727,7 @@ async def telegram_webhook(request: Request):
                         req.decided_at = now
                         req.decided_days = days
                     await db.commit()
+                channel_result = await set_channel_access(target, allow=True, expires_at=exp)
                 await send_message(
                     chat_id,
                     f"✅ <b>تم تفعيل الاشتراك</b>\n\n"
@@ -653,6 +759,7 @@ async def telegram_webhook(request: Request):
                         Subscription.active == True
                     ).values(active=False))
                     await db.commit()
+                await set_channel_access(target, allow=False)
                 await send_message(chat_id, f"⛔ <b>تم إيقاف اشتراك</b>\nالمستخدم: <code>{target}</code>")
             except Exception:
                 await send_message(chat_id, "❌ الصيغة الصحيحة: /revoke ID")
