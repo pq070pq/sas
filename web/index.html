@@ -14,62 +14,35 @@
 <section class="home-stage" aria-label="SAS PRO">
   <img src="/assets/sas-pro-home.png" alt="SAS PRO" class="home-image">
 
-  <div class="home-hit card-invest" onclick="setMode('analysis')" role="button" aria-label="الأسهم الاستثمارية">
-    <span id="homeCardInvest">بيانات السوق</span>
-  </div>
-  <div class="home-hit card-market" onclick="setMode('swing')" role="button" aria-label="أسهم السوق">
-    <span id="homeCardMarket">الجلسة: جاري التحقق</span>
-  </div>
-  <div class="home-hit card-growth" onclick="setMode('growth')" role="button" aria-label="أسهم النمو">
-    <span id="homeCardGrowth">فرص: —</span>
-  </div>
-  <div class="home-hit card-radar" onclick="setMode('radar')" role="button" aria-label="أسهم الزخم">
-    <span id="homeCardRadar">الرصد: —</span>
+  <!-- Transparent click zones only: no text is painted over the artwork. -->
+  <button class="home-hit card-invest" onclick="setMode('analysis')" aria-label="بيانات السوق"></button>
+  <button class="home-hit card-market" onclick="focusSearch()" aria-label="حالة السوق"></button>
+  <button class="home-hit card-growth" onclick="setMode('growth')" aria-label="فرص النمو"></button>
+  <button class="home-hit card-radar" onclick="setMode('radar')" aria-label="الرادار"></button>
+  <button class="home-hit card-dividends" onclick="showDividends()" aria-label="توزيعات الأرباح"></button>
+  <button class="home-hit card-new" onclick="showNewStocks()" aria-label="بيانات السوق"></button>
+  <button class="home-hit card-news" onclick="showNews()" aria-label="الأخبار"></button>
+  <button class="home-hit card-fav" onclick="showFavorites()" aria-label="المفضلة"></button>
+
+  <div class="live-top-ticker" aria-label="الأسعار الحية">
+    <div><b>₿ BTC</b><strong id="homeBtc">—</strong><em id="homeBtcCh">—</em></div>
+    <div><b>🥇 GOLD</b><strong id="homeGold">—</strong><em id="homeGoldCh">—</em></div>
+    <div><b>🛢️ OIL</b><strong id="homeOil">—</strong><em id="homeOilCh">—</em></div>
   </div>
 
-  <div class="home-hit card-dividends" onclick="showDividends()" role="button" aria-label="توزيعات الأرباح">
-    <span id="homeCardDividends">بيانات الشركات</span>
-  </div>
-  <div class="home-hit card-new" onclick="showNewStocks()" role="button" aria-label="الأسهم الجديدة">
-    <span id="homeCardNew">بيانات السوق</span>
-  </div>
-  <div class="home-hit card-news" onclick="showNews()" role="button" aria-label="آخر الأخبار">
-    <span id="homeCardNews">آخر تحديث: —</span>
-  </div>
-  <div class="home-hit card-fav" onclick="showFavorites()" role="button" aria-label="قائمتي المفضلة">
-    <span id="homeCardFav">أسهمك المفضلة</span>
+  <div class="live-disclaimer" aria-label="إخلاء المسؤولية">
+    <span>🚨 لا يعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</span>
   </div>
 
-  <div class="home-ticker">
-    <div><b>BTC</b><strong id="homeBtc">—</strong><em id="homeBtcCh">—</em></div>
-    <div><b>GOLD</b><strong id="homeGold">—</strong><em id="homeGoldCh">—</em></div>
-    <div><b>OIL</b><strong id="homeOil">—</strong><em id="homeOilCh">—</em></div>
-    <div><b>S&amp;P 500</b><strong id="homeSp">—</strong><em id="homeSpCh">—</em></div>
-    <div><b>NASDAQ</b><strong id="homeNasdaq">—</strong><em id="homeNasdaqCh">—</em></div>
-    <div><b>VIX</b><strong id="homeVix">—</strong><em id="homeVixCh">—</em></div>
-  </div>
+  <div class="live-market-state" id="homeMarketState" aria-live="polite">جاري التحقق...</div>
+  <div class="live-market-session" id="homeMarketSession">—</div>
 
-  <div class="home-stats">
-    <b id="homeOpps">0</b>
-    <b id="homeWatched">0</b>
-    <b id="homeTopMove">0%</b>
-    <b id="homeTopVolume">0</b>
-  </div>
-
-  <button class="home-market" onclick="focusSearch()" aria-label="حالة السوق">
-    <strong id="homeMarketState">جارٍ التحقق...</strong>
-    <span id="homeMarketDate">—</span>
-    <small id="homeMarketSession">—</small>
-  </button>
-
-  <div class="home-tools">
-    <button onclick="focusSearch()" aria-label="بحث عن سهم"></button>
-    <button onclick="showAlerts()" aria-label="تنبيهات الأسعار"></button>
-    <button onclick="showSettings()" aria-label="الإعدادات"></button>
+  <div class="live-stats" aria-hidden="true">
+    <b id="homeOpps">0</b><b id="homeWatched">0</b><b id="homeTopMove">0%</b><b id="homeTopVolume">0</b>
   </div>
 
   <div class="home-refresh" id="homeRefresh">تحديث تلقائي</div>
-</section>
+</section></section>
 
 <section class="search-card" id="analysisBox">
   <div class="search-title"><span>🧠</span><div><b>تحليل SAS PRO</b><small>تحليل متعدد الوكلاء + قراءة فنية</small></div></div>
@@ -138,9 +111,6 @@ function renderHomeTicker(d){
  setHomeQuote('homeBtc','homeBtcCh',map.BTC);
  setHomeQuote('homeGold','homeGoldCh',map.GOLD);
  setHomeQuote('homeOil','homeOilCh',map.OIL);
- setHomeQuote('homeSp','homeSpCh',map['S&P 500']);
- setHomeQuote('homeNasdaq','homeNasdaqCh',map.NASDAQ);
- setHomeQuote('homeVix','homeVixCh',map.VIX);
 }
 async function showEntryTerms(){
  pendingPlan=null;
@@ -186,7 +156,6 @@ async function load(){
   const m=home.market||{};
   const marketBox=document.getElementById('homeMarketState').closest('.home-market'); marketBox.className='home-market session-'+(m.session||'unknown');
   document.getElementById('homeMarketState').textContent=m.label_ar||'غير متاح';
-  document.getElementById('homeMarketDate').textContent=m.date||'—';
   document.getElementById('homeMarketSession').textContent=m.session==='regular'?'التداول الرئيسي':(m.short_ar||'—');
   const r=home.radar||{};
   document.getElementById('homeOpps').textContent=r.opportunities??0;
