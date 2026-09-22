@@ -6,13 +6,12 @@ from .news import company_news
 from .market import quote
 
 # رادار SAS PRO:
-# - السوق الأمريكي المدرج: NASDAQ + NYSE + NYSE American (AMEX)
-# - السعر: $0.50 - $30
-# - منهج فيصل: السلوك، الفوليوم، RVOL، الدعم/المقاومة والثبات.
-MIN_PRICE = 0.50
-MAX_PRICE = 30.00
-# لا يوجد حد ثابت لعدد الأسهم: يتم مسح كامل الكون المؤهل ثم تمرير المطابق فقط.
-ALLOWED_EXCHANGES = {"NASDAQ", "NYSE", "AMEX", "NYSE AMERICAN", "NYSEAMERICAN"}
+# - السوق: NASDAQ فقط
+# - السعر: $0.30 - $6
+# - منهج فيصل: السلوك، التداول، RVOL، الدعم/المقاومة والثبات.
+MIN_PRICE = 0.30
+MAX_PRICE = 6.00
+ALLOWED_EXCHANGES = {"NASDAQ"}
 
 
 def _f(value, default=0.0):
@@ -25,18 +24,14 @@ def _f(value, default=0.0):
 def _normalize_exchange(value):
     exchange = str(value or "").upper().strip()
     exchange = exchange.replace("_", " ").replace("-", " ")
-    if exchange in {"NYSE AMERICAN", "NYSEAMERICAN", "AMERICAN", "AMEX"}:
-        return "AMEX"
     if exchange == "NASDAQ":
         return "NASDAQ"
-    if exchange == "NYSE":
-        return "NYSE"
     return exchange
 
 
 def _is_allowed_exchange(row):
     exchange = _normalize_exchange(row.get("exchange") or row.get("mic_code"))
-    return exchange in {"NASDAQ", "NYSE", "AMEX"}
+    return exchange == "NASDAQ"
 
 
 def _parse_candles(rows):
@@ -163,9 +158,9 @@ def _parse_money(value):
 
 
 async def _discover_us_exchanges(client):
-    # Nasdaq public screener: pull the three requested US listed exchanges.
+    # Nasdaq public screener: NASDAQ only.
     out = []
-    for exchange in ("NASDAQ", "NYSE", "AMEX"):
+    for exchange in ("NASDAQ",):
         try:
             r = await client.get(
                 "https://api.nasdaq.com/api/screener/stocks",
