@@ -165,7 +165,6 @@ async def create_invoice_for_user(user_data, plan_key):
         "title": f"SAS PRO — {plan['label']}",
         "description": f"اشتراك SAS PRO لمدة {plan['days']} يوم — {plan['sar']} ريال",
         "payload": payload,
-        "provider_token": "",
         "currency": "XTR",
         "prices": [{"label": f"{plan['label']} — {plan['sar']} ريال", "amount": int(plan["stars"])}],
     })
