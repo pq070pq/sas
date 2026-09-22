@@ -386,10 +386,24 @@ async def dashboard_home(_: dict = Depends(telegram_user)):
 @app.get("/api/radar/scan")
 async def radar_scan(_: dict = Depends(telegram_user)):
     from .scanner import scan_us_low_price_stocks
+    status = market_status()
     if not stock_radar_enabled():
-        return {"enabled": False, "reason": "السوق الأمريكي مغلق", "stocks": []}
-    rows = await scan_us_low_price_stocks()
-    return {"enabled": True, "range": {"min": 0.50, "max": 30.00}, "method": "Faisal", "stocks": rows}
+        return {
+            "enabled": False,
+            "reason": status["label_ar"],
+            "session": status["session"],
+            "stocks": [],
+            "diagnostics": {"candidates": 0, "passed": 0, "filtered": 0, "errors": 0},
+        }
+    result = await scan_us_low_price_stocks()
+    return {
+        "enabled": True,
+        "range": {"min": 0.50, "max": 30.00},
+        "method": "Faisal",
+        "session": status["session"],
+        "stocks": result.get("stocks", []),
+        "diagnostics": result.get("diagnostics", {}),
+    }
 
 @app.get("/api/stocks/{symbol}/news")
 async def stock_news(symbol: str, _: dict = Depends(telegram_user)):
