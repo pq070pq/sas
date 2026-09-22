@@ -11,15 +11,8 @@
 <body>
 <div class="app">
 
-<section class="hero">
-  <div class="hero-grid"></div>
-  <div class="hero-copy">
-    <span>تحليلات أدق • فرص أفضل • مستقبل أقوى</span>
-    <h1>SAS</h1>
-    <h2>لسوق الأسهم</h2>
-    <em>S A S &nbsp; P R O</em>
-  </div>
-  <div class="hero-side">TRADE<br>SMARTER<br>LIVE<br>BETTER</div>
+<section class="hero" aria-label="SAS PRO">
+  <img src="/assets/sas-pro-home.png" alt="SAS PRO" class="hero-image">
 </section>
 
 <div class="ticker"><div id="ticker">جاري تحميل السوق...</div></div>
@@ -113,10 +106,17 @@ function renderTicker(d){
 function renderMacro(d){
  document.getElementById('macro').innerHTML=(d||[]).map(x=>'<div><b>'+x.label+'</b><strong>'+money(x.price)+'</strong><em>'+((x.change_pct??''))+'</em></div>').join('');
 }
-function showEntryTerms(){
+async function showEntryTerms(){
  pendingPlan=null;
  document.getElementById('termsAgree').checked=false;
  document.getElementById('termsModal').hidden=false;
+ const body=document.querySelector('.terms-body');
+ try{
+  const d=await api('/api/terms');
+  body.innerHTML=(d.text||'').split('\n').map(x=>x.trim()?'<p>'+x+'</p>':'').join('');
+ }catch(e){
+  body.innerHTML='<p>تعذر تحميل الشروط. أعد المحاولة.</p>';
+ }
  const btn=document.querySelector('.terms-actions button:last-child');
  if(btn)btn.textContent='أوافق وأدخل SAS PRO';
  btn.onclick=acceptTermsOnly;
@@ -211,13 +211,7 @@ load();setInterval(load,60000);
 <div id="termsModal" class="terms-modal" hidden>
   <div class="terms-card">
     <h3>📋 شروط استخدام SAS PRO</h3>
-    <div class="terms-body">
-      <p>• الخدمة معلوماتية وتعليمية وليست توصية أو مشورة استثمارية شخصية.</p>
-      <p>• الأهداف والمستويات تحليلية وليست ضمانًا للنتائج أو الأرباح.</p>
-      <p>• البيانات والأسعار قد تتغير وقد يحدث تأخير أو خطأ في البيانات.</p>
-      <p>• المستخدم مسؤول عن قرارات التداول وإدارة المخاطر والنتائج المترتبة عليها.</p>
-      <p>• لا يجوز اعتبار SAS PRO ضمانًا للربح أو بديلًا عن التقييم المستقل.</p>
-    </div>
+    <div class="terms-body"><p>جاري تحميل الشروط...</p></div>
     <label class="terms-check"><input id="termsAgree" type="checkbox"> أوافق على شروط استخدام SAS PRO.</label>
     <div class="terms-actions">
       <button onclick="closeTerms()">إلغاء</button>
