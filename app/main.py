@@ -353,7 +353,45 @@ async def successful_payment(request: Request, db: AsyncSession = Depends(get_se
     payment = message.get("successful_payment", {})
     payload = payment.get("invoice_payload", "")
     if not payload.startswith("saspro:"):
-        return {"ok": True}
+    
+        if telegram_id == settings.owner_telegram_id and text.startswith("/grant "):
+            parts = text.split()
+            try:
+                target = int(parts[1])
+                days = int(parts[2]) if len(parts) > 2 else 30
+                now = utcnow()
+                exp = now + timedelta(days=days)
+                async with SessionLocal() as db:
+                    await db.execute(update(Subscription).where(Subscription.telegram_id == target, Subscription.active == True).values(active=False))
+                    db.add(Subscription(telegram_id=target, plan="admin", starts_at=now, expires_at=exp, active=True))
+                    await db.commit()
+                await send_message(chat_id, f"✅ تم منح <b>{days} يوم</b> للمستخدم <code>{target}</code>.\n📅 الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>")
+            except Exception:
+                await send_message(chat_id, "❌ الصيغة: /grant ID DAYS")
+            return {"ok": True}
+
+        if telegram_id == settings.owner_telegram_id and text.startswith("/revoke "):
+            parts = text.split()
+            try:
+                target = int(parts[1])
+                async with SessionLocal() as db:
+                    await db.execute(update(Subscription).where(Subscription.telegram_id == target, Subscription.active == True).values(active=False))
+                    await db.commit()
+                await send_message(chat_id, f"⛔ تم إيقاف اشتراك <code>{target}</code>.")
+            except Exception:
+                await send_message(chat_id, "❌ الصيغة: /revoke ID")
+            return {"ok": True}
+
+        if telegram_id == settings.owner_telegram_id and text == "/subs":
+            async with SessionLocal() as db:
+                rows = (await db.execute(select(Subscription).order_by(Subscription.expires_at.desc()).limit(50))).scalars().all()
+            lines = ["👥 <b>آخر الاشتراكات</b>"]
+            for s in rows:
+                lines.append(f"• <code>{s.telegram_id}</code> — {s.plan} — {'🟢 فعال' if is_active(s) else '🔴 منتهي'} — {s.expires_at.strftime('%d/%m/%Y')}")
+            await send_message(chat_id, "\n".join(lines))
+            return {"ok": True}
+
+    return {"ok": True}
     _, plan, tid, _ = payload.split(":", 3)
     telegram_id = int(tid)
     stars, days = PLANS.get(plan, (0, 0))
