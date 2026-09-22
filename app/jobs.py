@@ -210,7 +210,11 @@ async def stock_radar_cycle():
         return
 
     status = market_status()
-    if not status["open"]:
+
+    # الأسهم تُرصد طوال أيام السوق على مدار اليوم:
+    # قبل الافتتاح + الجلسة الرئيسية + بعد الإغلاق + خارج الجلسة.
+    # في عطلة السوق ونهاية الأسبوع يتحول النظام إلى رادار بيتكوين.
+    if status["holiday"] or status["session"] == "weekend":
         _radar_open_announced = False
         return
 
@@ -365,7 +369,16 @@ async def scheduler():
             await expiry_cycle()
             await evaluate_radar_outcomes()
             await weekly_radar_report()
-            await stock_radar_cycle()
+
+            status = market_status()
+            if status["holiday"] or status["session"] == "weekend":
+                # في عطلة السوق/نهاية الأسبوع: بيتكوين حسب شروط رادار الإجازة السابقة.
+                from .holiday_radar import publish_holiday_radar
+                await publish_holiday_radar()
+            else:
+                # الأسهم: الرصد مستمر طوال اليوم في كل جلسات السوق.
+                await stock_radar_cycle()
+
             await weekly_radar_report()
         except Exception:
             pass
