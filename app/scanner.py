@@ -224,15 +224,50 @@ async def discover_low_price_stocks():
     return merged[:DISCOVERY_LIMIT]
 
 
-async def classify_faisal(symbol: str, quote: dict | None = None):
+async def _get_analysis_candles(client, symbol: str):
+    """Get daily OHLCV from PanWatch, with Twelve Data fallback."""
     base = settings.panwatch_base_url.rstrip("/")
-    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
+
+    # Primary: PanWatch
+    try:
         r = await client.get(
             f"{base}/api/klines/{symbol.upper()}",
             params={"market": "US", "days": 90, "interval": "1d"},
         )
         r.raise_for_status()
         candles = _parse_candles(r.json().get("klines", []))
+        if len(candles) >= 30:
+            return candles, "PanWatch"
+    except Exception:
+        pass
+
+    # Fallback: Twelve Data daily candles
+    if settings.twelve_data_api_key:
+        try:
+            r = await client.get(
+                "https://api.twelvedata.com/time_series",
+                params={
+                    "symbol": symbol.upper(),
+                    "interval": "1day",
+                    "outputsize": 90,
+                    "apikey": settings.twelve_data_api_key,
+                },
+            )
+            r.raise_for_status()
+            payload = r.json()
+            candles = _parse_candles(payload.get("values", []))
+            if len(candles) >= 30:
+                candles.reverse()
+                return candles, "Twelve Data"
+        except Exception:
+            pass
+
+    return [], "unavailable"
+
+
+async def classify_faisal(symbol: str, quote: dict | None = None):
+    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
+        candles, data_source = await _get_analysis_candles(client, symbol)
 
     if len(candles) < 30:
         return {
@@ -241,7 +276,8 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
             "emoji": "⚪",
             "score": 0,
             "pass": False,
-            "reason": "بيانات غير كافية",
+            "reason": "بيانات غير كافية من PanWatch وTwelve Data",
+            "data_source": data_source,
         }
 
     closes = [c["close"] for c in candles]
@@ -402,6 +438,7 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
         "fill_gap": fill_gap,
         "distribution_risk": distribution_risk,
         "late_chase": late_chase,
+        "data_source": data_source,
         "data_note": "Float/Short Available/Reverse Split/Level 2 وVWAP اللحظي تحتاج مصدر بيانات مباشر؛ لا يتم اختلاقها. الدخول المتأخر بعد حركة قوية بدون دعم واضح يُستبعد.",
 
     }
@@ -410,17 +447,64 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
 async def scan_us_low_price_stocks():
     candidates = await discover_low_price_stocks()
     results = []
-    for row in candidates:
+    diagnostics = []
+
+    # Keep the radar responsive: analyze candidates concurrently, but cap concurrency.
+    semaphore = asyncio.Semaphore(8)
+
+    async def analyze_candidate(row):
         symbol = str(row.get("symbol") or "").upper()
-        try:
-            classification = await classify_faisal(symbol, row)
-            if not classification.get("pass"):
-                continue
-            targets = await technical_targets(symbol)
-            news = await company_news(symbol, days=2)
-        except Exception:
-            continue
-        results.append({
+        async with semaphore:
+            try:
+                classification = await classify_faisal(symbol, row)
+                if not classification.get("pass"):
+                    return None, {
+                        "symbol": symbol,
+                        "exchange": row.get("exchange"),
+                        "status": "filtered",
+                        "reason": classification.get("reason"),
+                        "data_source": classification.get("data_source"),
+                    }
+                targets = await technical_targets(symbol)
+                news = await company_news(symbol, days=2)
+                return ({
+                    **row,
+                    "symbol": symbol,
+                    "exchange": _normalize_exchange(row.get("exchange")),
+                    "classification": classification,
+                    "targets": targets,
+                    "catalyst": bool(news),
+                    "news_count": len(news) if isinstance(news, list) else 0,
+                }, None)
+            except Exception as exc:
+                return None, {
+                    "symbol": symbol,
+                    "exchange": row.get("exchange"),
+                    "status": "error",
+                    "reason": f"{type(exc).__name__}: {exc}",
+                }
+
+    analyzed = await asyncio.gather(
+        *(analyze_candidate(row) for row in candidates),
+        return_exceptions=False,
+    )
+
+    for result, diagnostic in analyzed:
+        if result:
+            results.append(result)
+        if diagnostic:
+            diagnostics.append(diagnostic)
+
+    results.sort(
+        key=lambda x: (
+            int((x.get("classification") or {}).get("score") or 0),
+            float((x.get("classification") or {}).get("rvol") or 0),
+            float(x.get("change_pct") or 0),
+        ),
+        reverse=True,
+    )
+    # Keep diagnostics available for the API without changing the public stock list.
+    return results[:CANDIDATE_LIMIT]
             **row,
             "symbol": symbol,
             "exchange": _normalize_exchange(row.get("exchange")),
