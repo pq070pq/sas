@@ -23,6 +23,10 @@ jobs:
           script: |
             set -e
             cd /opt/saspro
+            if systemctl is-active --quiet saspro.service; then
+              systemctl stop saspro.service || true
+            fi
+            systemctl disable saspro.service 2>/dev/null || true
             git fetch origin main
             git reset --hard origin/main
             docker compose pull || true
