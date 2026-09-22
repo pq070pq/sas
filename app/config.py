@@ -24,10 +24,12 @@ class Settings(BaseSettings):
     trial_days: int = 3
     invite_hours: int = 48
     trial_channel_id: str = ""
-    expiry_warning_hours: int = 72
+    expiry_warning_hours: int = 168
     holiday_radar_interval_minutes: int = 30
+    radar_interval_minutes: int = 5
     cron_secret: str = ""
     openterminal_base_url: str = ""
+    openterminal_api_url: str = "http://openterminal-api:4000"
     sas_terminal_secret: str = ""
     google_sheets_id: str = ""
     google_sheets_range: str = "Subscriptions"
