@@ -1,5 +1,8 @@
 import asyncio
 import json
+import base64
+import hashlib
+import hmac
 from datetime import datetime, timedelta, timezone
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse
@@ -543,6 +546,42 @@ async def admin_revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncS
     await db.commit()
     await set_channel_access(telegram_id, allow=False)
     return {"ok": True}
+
+
+
+def _terminal_token(telegram_id: int, expires_at):
+    secret = settings.sas_terminal_secret
+    base_url = settings.openterminal_base_url.rstrip("/")
+    if not secret or not base_url:
+        raise HTTPException(503, "محطة SAS غير مهيأة في الخادم")
+    exp = int(aware(expires_at).timestamp())
+    body = base64.urlsafe_b64encode(
+        json.dumps({"sub": int(telegram_id), "exp": exp}, separators=(",", ":")).encode()
+    ).decode().rstrip("=")
+    sig = hmac.new(secret.encode(), body.encode(), hashlib.sha256).digest()
+    signature = base64.urlsafe_b64encode(sig).decode().rstrip("=")
+    return f"{base_url}?sas_token={body}.{signature}"
+
+
+@app.get("/api/terminal/access")
+async def terminal_access(user=Depends(require_pro), db: AsyncSession = Depends(get_session)):
+    if int(user["id"]) == int(settings.owner_telegram_id):
+        expires = utcnow() + timedelta(days=3650)
+    else:
+        sub = (await db.execute(
+            select(Subscription).where(
+                Subscription.telegram_id == user["id"],
+                Subscription.active == True,
+            ).order_by(Subscription.expires_at.desc())
+        )).scalars().first()
+        if not is_active(sub):
+            raise HTTPException(403, "اشتراك SAS PRO غير فعال")
+        expires = aware(sub.expires_at)
+    return {
+        "ok": True,
+        "url": _terminal_token(int(user["id"]), expires),
+        "expires_at": expires.isoformat(),
+    }
 
 @app.get("/api/market/status")
 async def market_status_api(_: dict = Depends(require_pro)):
