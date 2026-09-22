@@ -21,6 +21,19 @@ class User(Base):
     terms_version: Mapped[str | None] = mapped_column(String(32))
     trial_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+class AccessRequest(Base):
+    __tablename__ = "access_requests"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    telegram_id: Mapped[int] = mapped_column(Integer, index=True)
+    username: Mapped[str | None] = mapped_column(String(128))
+    first_name: Mapped[str | None] = mapped_column(String(128))
+    terms_version: Mapped[str] = mapped_column(String(32))
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    status: Mapped[str] = mapped_column(String(24), default="pending", index=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    decided_days: Mapped[int | None] = mapped_column(Integer)
+    admin_note: Mapped[str | None] = mapped_column(Text)
+
 class Subscription(Base):
     __tablename__ = "subscriptions"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
