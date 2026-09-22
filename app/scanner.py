@@ -305,13 +305,22 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
 
     breakout = bool(resistance and price > resistance and candles[-1]["close"] > resistance)
 
+    # منهج فيصل: لا نطارد الحركة المتأخرة.
+    # إذا ارتفع السهم بقوة وهو بعيد عن دعم واضح، لا يمر للرادار حتى لو كان RVOL مرتفعاً.
+    late_chase = change_pct >= 20 and support is not None and not _near(support, price, 0.08)
+
     momentum = (
         rvol >= 2.0 and change_pct >= 3.0 and
+        not late_chase and
         (breakout or (support is not None and _near(support, price, 0.08)))
     )
 
     old_high = max(c["high"] for c in candles[-30:-5])
-    fill_gap = change_pct > 3 and price < old_high and sma20 >= sma50 * 0.98 and rvol >= 1.2
+    fill_gap = (
+        change_pct > 3 and price < old_high and
+        sma20 >= sma50 * 0.98 and rvol >= 1.2 and
+        support is not None
+    )
 
     distribution_risk = rvol >= 2.5 and abs(change_pct) < 1.5
 
@@ -375,7 +384,11 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
         "type": stock_type,
         "emoji": emoji,
         "score": min(100, sum(scores.values()) * 10),
-        "pass": bool((accumulation or momentum or sweep or w_pattern or fill_gap) and not distribution_risk),
+        "pass": bool(
+            (accumulation or momentum or sweep or w_pattern or fill_gap)
+            and not distribution_risk
+            and not late_chase
+        ),
         "reason": " + ".join(evidence) if evidence else "لا توجد تركيبة واضحة من منهج فيصل",
         "rvol": round(rvol, 2),
         "atr_pct": round(atr_pct * 100, 2),
@@ -388,7 +401,9 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
         "w_pattern": w_pattern,
         "fill_gap": fill_gap,
         "distribution_risk": distribution_risk,
-        "data_note": "Float/Short Available/Reverse Split/Level 2 تحتاج مصدر بيانات مباشر؛ لا يتم اختلاقها.",
+        "late_chase": late_chase,
+        "data_note": "Float/Short Available/Reverse Split/Level 2 وVWAP اللحظي تحتاج مصدر بيانات مباشر؛ لا يتم اختلاقها. الدخول المتأخر بعد حركة قوية بدون دعم واضح يُستبعد.",
+
     }
 
 
