@@ -216,6 +216,45 @@ async def _discover_us_exchanges(client):
     out.sort(key=lambda x: x["change_pct"], reverse=True)
     return out
 
+async def _discover_openterminal(client):
+    """Secondary live screener source from the bundled OpenTerminal service."""
+    base = settings.openterminal_api_url.rstrip("/")
+    if not base:
+        return []
+    try:
+        r = await client.get(
+            f"{base}/api/screener",
+            params={
+                "market": "us",
+                "changeMin": 0,
+                "sort": "changePercent",
+                "dir": "desc",
+            },
+        )
+        r.raise_for_status()
+        rows = r.json()
+    except Exception:
+        return []
+
+    out = []
+    for row in rows or []:
+        exchange = _normalize_exchange(row.get("exchange"))
+        symbol = str(row.get("symbol") or "").upper().strip()
+        price = _f(row.get("price"), -1)
+        if exchange != "NASDAQ" or not symbol or not (MIN_PRICE <= price <= MAX_PRICE):
+            continue
+        out.append({
+            "symbol": symbol,
+            "name": row.get("name") or symbol,
+            "price": price,
+            "change_pct": _f(row.get("changePercent")),
+            "volume": _f(row.get("volume")),
+            "market_cap": _f(row.get("marketCap")),
+            "exchange": "NASDAQ",
+            "source": "OpenTerminal / TradingView",
+        })
+    return out
+
 async def _discover_twelvedata(client):
     # Optional fallback only. /market_movers may require a higher plan.
     if not settings.twelve_data_api_key:
@@ -280,6 +319,7 @@ async def discover_low_price_stocks():
     async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
         sources = await asyncio.gather(
             _discover_us_exchanges(client),
+            _discover_openterminal(client),
             _discover_twelvedata(client),
             _discover_panwatch(client),
             return_exceptions=True,
