@@ -505,21 +505,3 @@ async def scan_us_low_price_stocks():
     )
     # Keep diagnostics available for the API without changing the public stock list.
     return results[:CANDIDATE_LIMIT]
-            **row,
-            "symbol": symbol,
-            "exchange": _normalize_exchange(row.get("exchange")),
-            "classification": classification,
-            "targets": targets,
-            "catalyst": bool(news),
-            "news_count": len(news) if isinstance(news, list) else 0,
-        })
-
-    results.sort(
-        key=lambda x: (
-            int((x.get("classification") or {}).get("score") or 0),
-            float((x.get("classification") or {}).get("rvol") or 0),
-            float(x.get("change_pct") or 0),
-        ),
-        reverse=True,
-    )
-    return results[:CANDIDATE_LIMIT]
