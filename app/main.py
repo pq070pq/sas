@@ -291,6 +291,7 @@ async def telegram_webhook(request: Request):
     if expected and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != expected:
         raise HTTPException(403, "Invalid Telegram webhook secret")
     data = await request.json()
+
     if "pre_checkout_query" in data:
         q = data["pre_checkout_query"]
         await bot_api("answerPreCheckoutQuery", {
@@ -298,6 +299,7 @@ async def telegram_webhook(request: Request):
             "ok": True,
         })
         return {"ok": True}
+
     message = data.get("message", {})
     if message.get("successful_payment"):
         return await successful_payment(request)
@@ -307,54 +309,44 @@ async def telegram_webhook(request: Request):
     text = (message.get("text") or "").strip()
     telegram_id = int(sender.get("id") or 0)
 
-    if telegram_id:
-        async with SessionLocal() as db:
-            user_row = (await db.execute(select(User).where(User.telegram_id == telegram_id))).scalars().first()
-            if not user_row:
-                db.add(User(telegram_id=telegram_id, username=sender.get("username"), first_name=sender.get("first_name")))
-            else:
-                user_row.username = sender.get("username")
-                user_row.first_name = sender.get("first_name")
-            await db.commit()
+    if not telegram_id:
+        return {"ok": True}
 
-        if text.startswith("/start"):
-            async with SessionLocal() as db:
-                sub = (await db.execute(select(Subscription).where(Subscription.telegram_id == telegram_id, Subscription.active == True).order_by(Subscription.expires_at.desc()))).scalars().first()
-            name = sender.get("first_name") or sender.get("username") or "عزيزي المستخدم"
-            if is_active(sub):
-                msg = f"👋 أهلًا <b>{name}</b>\n\n🚀 <b>مرحبًا بك في SAS PRO</b>\n\n🟢 اشتراكك فعال.\n📅 الانتهاء: <b>{sub.expires_at.strftime('%d/%m/%Y')}</b>\n\nيمكنك الآن استخدام جميع مزايا SAS PRO."
-            else:
-                msg = f"👋 أهلًا <b>{name}</b>\n\n🚀 <b>مرحبًا بك في SAS PRO</b>\n\n🔒 لا يوجد لديك اشتراك فعال حاليًا.\n\n💬 <b>الرجاء التواصل مع الإدارة للاشتراك.</b>\n\nبعد تفعيل الاشتراك ستتمكن من استخدام التحليل والرادار والأخبار والأحداث وسجل التحليلات.\n\n⚡ SAS PRO\nالدقة أولًا • بدون مطاردة • بدون إشارات وهمية"
-            await send_message(chat_id, msg)
-            return {"ok": True}
+    async with SessionLocal() as db:
+        user_row = (await db.execute(select(User).where(User.telegram_id == telegram_id))).scalars().first()
+        if not user_row:
+            db.add(User(
+                telegram_id=telegram_id,
+                username=sender.get("username"),
+                first_name=sender.get("first_name"),
+            ))
+        else:
+            user_row.username = sender.get("username")
+            user_row.first_name = sender.get("first_name")
+        await db.commit()
 
-        if telegram_id == settings.owner_telegram_id and text.startswith("/admin"):
+    # Admin commands are available only to the owner.
+    if telegram_id == settings.owner_telegram_id:
+        if text == "/admin":
             async with SessionLocal() as db:
                 users = len((await db.execute(select(User))).scalars().all())
                 subs = (await db.execute(select(Subscription).where(Subscription.active == True))).scalars().all()
                 payments_rows = (await db.execute(select(Payment))).scalars().all()
-            msg = f"🛠️ <b>SAS PRO — الإدارة</b>\n\n👥 المستخدمون: <b>{users}</b>\n🟢 الاشتراكات الفعالة: <b>{sum(is_active(s) for s in subs)}</b>\n💳 المدفوعات: <b>{len(payments_rows)}</b>\n⭐ النجوم: <b>{sum(p.stars for p in payments_rows)}</b>\n\n/grant ID DAYS\n/revoke ID\n/subs"
+            msg = (
+                "🛠️ <b>SAS PRO — لوحة الإدارة</b>\n\n"
+                f"👥 المستخدمون: <b>{users}</b>\n"
+                f"🟢 الاشتراكات الفعالة: <b>{sum(is_active(s) for s in subs)}</b>\n"
+                f"💳 المدفوعات: <b>{len(payments_rows)}</b>\n"
+                f"⭐ النجوم: <b>{sum(p.stars for p in payments_rows)}</b>\n\n"
+                "الأوامر:\n"
+                "/grant ID DAYS — تفعيل اشتراك\n"
+                "/revoke ID — إيقاف اشتراك\n"
+                "/subs — عرض الاشتراكات"
+            )
             await send_message(chat_id, msg)
             return {"ok": True}
 
-    return {"ok": True}
-
-@app.post("/api/telegram/precheckout")
-async def precheckout(request: Request):
-    data = await request.json()
-    q = data.get("pre_checkout_query", {})
-    await bot_api("answerPreCheckoutQuery", {"pre_checkout_query_id": q.get("id"), "ok": True})
-    return {"ok": True}
-
-@app.post("/api/telegram/success")
-async def successful_payment(request: Request, db: AsyncSession = Depends(get_session)):
-    data = await request.json()
-    message = data.get("message", {})
-    payment = message.get("successful_payment", {})
-    payload = payment.get("invoice_payload", "")
-    if not payload.startswith("saspro:"):
-    
-        if telegram_id == settings.owner_telegram_id and text.startswith("/grant "):
+        if text.startswith("/grant "):
             parts = text.split()
             try:
                 target = int(parts[1])
@@ -362,61 +354,174 @@ async def successful_payment(request: Request, db: AsyncSession = Depends(get_se
                 now = utcnow()
                 exp = now + timedelta(days=days)
                 async with SessionLocal() as db:
-                    await db.execute(update(Subscription).where(Subscription.telegram_id == target, Subscription.active == True).values(active=False))
-                    db.add(Subscription(telegram_id=target, plan="admin", starts_at=now, expires_at=exp, active=True))
+                    await db.execute(update(Subscription).where(
+                        Subscription.telegram_id == target,
+                        Subscription.active == True
+                    ).values(active=False))
+                    db.add(Subscription(
+                        telegram_id=target, plan="admin",
+                        starts_at=now, expires_at=exp, active=True
+                    ))
                     await db.commit()
-                await send_message(chat_id, f"✅ تم منح <b>{days} يوم</b> للمستخدم <code>{target}</code>.\n📅 الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>")
+                await send_message(
+                    chat_id,
+                    f"✅ <b>تم تفعيل الاشتراك</b>\n\n"
+                    f"👤 المستخدم: <code>{target}</code>\n"
+                    f"⏳ المدة: <b>{days} يوم</b>\n"
+                    f"📅 الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>"
+                )
             except Exception:
-                await send_message(chat_id, "❌ الصيغة: /grant ID DAYS")
+                await send_message(chat_id, "❌ الصيغة الصحيحة: /grant ID DAYS")
             return {"ok": True}
 
-        if telegram_id == settings.owner_telegram_id and text.startswith("/revoke "):
+        if text.startswith("/revoke "):
             parts = text.split()
             try:
                 target = int(parts[1])
                 async with SessionLocal() as db:
-                    await db.execute(update(Subscription).where(Subscription.telegram_id == target, Subscription.active == True).values(active=False))
+                    await db.execute(update(Subscription).where(
+                        Subscription.telegram_id == target,
+                        Subscription.active == True
+                    ).values(active=False))
                     await db.commit()
-                await send_message(chat_id, f"⛔ تم إيقاف اشتراك <code>{target}</code>.")
+                await send_message(chat_id, f"⛔ <b>تم إيقاف اشتراك</b>\nالمستخدم: <code>{target}</code>")
             except Exception:
-                await send_message(chat_id, "❌ الصيغة: /revoke ID")
+                await send_message(chat_id, "❌ الصيغة الصحيحة: /revoke ID")
             return {"ok": True}
 
-        if telegram_id == settings.owner_telegram_id and text == "/subs":
+        if text == "/subs":
             async with SessionLocal() as db:
-                rows = (await db.execute(select(Subscription).order_by(Subscription.expires_at.desc()).limit(50))).scalars().all()
-            lines = ["👥 <b>آخر الاشتراكات</b>"]
+                rows = (await db.execute(
+                    select(Subscription).order_by(Subscription.expires_at.desc()).limit(50)
+                )).scalars().all()
+                users = {
+                    u.telegram_id: u for u in
+                    (await db.execute(select(User))).scalars().all()
+                }
+            lines = ["👥 <b>إدارة اشتراكات SAS PRO</b>", ""]
             for s in rows:
-                lines.append(f"• <code>{s.telegram_id}</code> — {s.plan} — {'🟢 فعال' if is_active(s) else '🔴 منتهي'} — {s.expires_at.strftime('%d/%m/%Y')}")
-            await send_message(chat_id, "\n".join(lines))
+                u = users.get(s.telegram_id)
+                name = (u.first_name if u else None) or (f"@{u.username}" if u and u.username else "بدون اسم")
+                lines.append(
+                    f"• {name} — <code>{s.telegram_id}</code> — "
+                    f"{'🟢 فعال' if is_active(s) else '🔴 منتهي'} — {s.expires_at.strftime('%d/%m/%Y')}"
+                )
+            await send_message(chat_id, "\n".join(lines) if len(lines) > 2 else "لا توجد اشتراكات.")
             return {"ok": True}
+
+    if text.startswith("/start"):
+        async with SessionLocal() as db:
+            sub = (await db.execute(
+                select(Subscription)
+                .where(Subscription.telegram_id == telegram_id, Subscription.active == True)
+                .order_by(Subscription.expires_at.desc())
+            )).scalars().first()
+
+        name = sender.get("first_name") or sender.get("username") or "عزيزي المستخدم"
+        if is_active(sub):
+            msg = (
+                f"👋 <b>أهلًا {name}</b>\n\n"
+                "🚀 <b>مرحبًا بك في SAS PRO</b>\n\n"
+                "🟢 <b>اشتراكك فعال</b>\n"
+                f"📅 تاريخ الانتهاء: <b>{sub.expires_at.strftime('%d/%m/%Y')}</b>\n\n"
+                "يمكنك الآن الدخول إلى Mini App واستخدام مزايا SAS PRO."
+            )
+        else:
+            msg = (
+                f"👋 <b>أهلًا {name}</b>\n\n"
+                "🚀 <b>مرحبًا بك في SAS PRO</b>\n\n"
+                "🔒 <b>لا يوجد اشتراك فعال حاليًا</b>\n\n"
+                "💬 <b>الرجاء التواصل مع الإدارة للاشتراك.</b>\n\n"
+                "بعد تفعيل الاشتراك ستتمكن من استخدام التحليل والرادار والأخبار والأحداث وسجل التحليلات.\n\n"
+                "⚡ <b>SAS PRO</b>\n"
+                "الدقة أولًا • بدون مطاردة • بدون إشارات وهمية"
+            )
+        await send_message(chat_id, msg)
+        return {"ok": True}
 
     return {"ok": True}
-    _, plan, tid, _ = payload.split(":", 3)
+
+
+@app.post("/api/telegram/precheckout")
+async def precheckout(request: Request):
+    data = await request.json()
+    q = data.get("pre_checkout_query", {})
+    await bot_api("answerPreCheckoutQuery", {
+        "pre_checkout_query_id": q.get("id"),
+        "ok": True,
+    })
+    return {"ok": True}
+
+
+@app.post("/api/telegram/success")
+async def successful_payment(request: Request, db: AsyncSession = Depends(get_session)):
+    data = await request.json()
+    message = data.get("message", {})
+    payment = message.get("successful_payment", {})
+    payload = payment.get("invoice_payload", "")
+
+    if not payload.startswith("saspro:"):
+        return {"ok": True}
+
+    parts = payload.split(":", 3)
+    if len(parts) != 4:
+        return {"ok": True}
+
+    _, plan, tid, _ = parts
     telegram_id = int(tid)
     stars, days = PLANS.get(plan, (0, 0))
+    if not stars or not days:
+        return {"ok": True}
+
     charge = payment.get("telegram_payment_charge_id")
     if not charge:
         raise HTTPException(400, "Missing charge id")
+
     exists = (await db.execute(
         select(Payment).where(Payment.telegram_charge_id == charge)
     )).scalars().first()
     if exists:
         return {"ok": True, "duplicate": True}
+
     now = datetime.now(timezone.utc)
     old = (await db.execute(
         select(Subscription)
         .where(Subscription.telegram_id == telegram_id, Subscription.active == True)
         .order_by(Subscription.expires_at.desc())
     )).scalars().first()
+
     start = max(now, aware(old.expires_at)) if old else now
     exp = start + timedelta(days=days)
+
     if old:
         old.active = False
-    db.add(Payment(telegram_id=telegram_id, plan=plan, stars=stars, telegram_charge_id=charge))
+
+    db.add(Payment(
+        telegram_id=telegram_id,
+        plan=plan,
+        stars=stars,
+        telegram_charge_id=charge,
+    ))
     db.add(Subscription(
-        telegram_id=telegram_id, plan=plan, starts_at=start, expires_at=exp,
-        active=True, warning_3d_sent_at=None, telegram_charge_id=charge
+        telegram_id=telegram_id,
+        plan=plan,
+        starts_at=start,
+        expires_at=exp,
+        active=True,
+        warning_3d_sent_at=None,
+        telegram_charge_id=charge,
     ))
     await db.commit()
+
+    try:
+        await send_message(
+            telegram_id,
+            "✅ <b>تم تفعيل اشتراك SAS PRO</b>\n\n"
+            f"📦 الباقة: <b>{plan}</b>\n"
+            f"📅 تاريخ الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>\n\n"
+            "🚀 أهلًا بك في SAS PRO."
+        )
+    except Exception:
+        pass
+
     return {"ok": True, "expires_at": exp.isoformat()}
