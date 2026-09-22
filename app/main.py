@@ -850,11 +850,27 @@ async def telegram_webhook(request: Request):
             return {"ok": True}
 
     if "pre_checkout_query" in data:
-        q = data["pre_checkout_query"]
-        await bot_api("answerPreCheckoutQuery", {
-            "pre_checkout_query_id": q.get("id"),
-            "ok": True,
-        })
+        q = data["pre_checkout_query"] or {}
+        payload = str(q.get("invoice_payload") or "")
+        ok = False
+        error_message = "الفاتورة غير صالحة"
+        try:
+            parts = payload.split(":", 3)
+            plans = await get_plans()
+            if len(parts) == 4 and parts[0] == "saspro":
+                plan = plans.get(parts[1])
+                user_id = int(parts[2])
+                amount = int(q.get("total_amount") or 0)
+                currency = q.get("currency")
+                ok = bool(plan and currency == "XTR" and amount == int(plan["stars"]) and user_id == int((q.get("from") or {}).get("id") or 0) and int(plan["stars"]) > 0)
+                if not ok:
+                    error_message = "بيانات الفاتورة أو السعر غير صحيح"
+        except Exception:
+            ok = False
+        payload_answer = {"pre_checkout_query_id": q.get("id"), "ok": ok}
+        if not ok:
+            payload_answer["error_message"] = error_message
+        await bot_api("answerPreCheckoutQuery", payload_answer)
         return {"ok": True}
 
     message = data.get("message", {})
