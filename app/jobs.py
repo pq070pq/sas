@@ -15,41 +15,66 @@ from sqlalchemy import func
 
 async def expiry_cycle():
     now = utcnow()
-    horizon = now + timedelta(hours=settings.expiry_warning_hours)
+    horizon = now + timedelta(days=7)
     async with SessionLocal() as db:
-        rows = (await db.execute(select(Subscription).where(Subscription.active == True))).scalars().all()
-        for sub in rows:
+        subs = (await db.execute(select(Subscription).where(Subscription.active == True))).scalars().all()
+        for sub in subs:
             expires_at = aware(sub.expires_at)
+            user = (await db.execute(select(User).where(User.telegram_id == sub.telegram_id))).scalars().first()
             if expires_at <= now:
                 sub.active = False
-                try:
-                    await send_message(
-                        sub.telegram_id,
-                        "⛔ <b>انتهى إذن دخول SAS PRO</b>\n\n"
-                        f"📅 تاريخ الانتهاء: <b>{expires_at.strftime('%d/%m/%Y')}</b>\n\n"
-                        "🔐 لا يمكنك استخدام مزايا SAS PRO حتى يتم تجديد إذن الدخول من الإدارة.\n"
-                        "يمكنك فتح Mini App وإرسال طلب إذن جديد بعد الموافقة على الشروط."
-                    )
-                except Exception:
-                    pass
+                if user:
+                    user.status = "expired"
+                    user.subscription_expires = expires_at
+                    user.updated_at = now
                 try:
                     from .main import set_channel_access
                     await set_channel_access(sub.telegram_id, allow=False)
                 except Exception:
                     pass
-            elif expires_at <= horizon and sub.warning_3d_sent_at is None:
-                text = (
-                    "⚠️ <b>تنبيه: إذن دخول SAS PRO سينتهي قريبًا</b>\n\n"
-                    f"📅 تاريخ الانتهاء: <b>{expires_at.strftime('%d/%m/%Y')}</b>\n"
-                    "⏳ متبقٍ: <b>3 أيام أو أقل</b>\n\n"
-                    "بعد انتهاء المدة سيتوقف وصولك إلى مزايا SAS PRO حتى يتم التجديد من الإدارة.\n\n"
-                    "🔐 للتجديد: افتح Mini App وأرسل طلب إذن دخول جديد بعد الموافقة على الشروط."
-                )
                 try:
-                    await send_message(sub.telegram_id, text)
-                    sub.warning_3d_sent_at = now
+                    await send_message(sub.telegram_id,
+                        "⛔ <b>انتهى اشتراك SAS PRO</b>\n\n"
+                        f"📅 تاريخ الانتهاء: <b>{expires_at.strftime('%d/%m/%Y')}</b>\n\n"
+                        "جدّد اشتراكك من Mini App للاستمرار."
+                    )
                 except Exception:
                     pass
+            elif expires_at <= horizon and sub.warning_3d_sent_at is None:
+                try:
+                    await send_message(sub.telegram_id,
+                        "⚠️ <b>تنبيه الاشتراك</b>\n\n"
+                        "متبقي على اشتراكك <b>7 أيام أو أقل</b>.\n"
+                        "يمكنك التجديد الآن والاستمرار بدون انقطاع."
+                    )
+                    sub.warning_3d_sent_at = now
+                    if user:
+                        user.warning_sent_at = now
+                        user.updated_at = now
+                except Exception:
+                    pass
+
+        # انتهاء التجارب المجانية: فصل المستخدم عن قناة التجربة فقط.
+        trial_users = (await db.execute(select(User).where(User.trial_expires.is_not(None), User.trial_expires <= now, User.status == "trial"))).scalars().all()
+        for user in trial_users:
+            user.status = "expired"
+            user.updated_at = now
+            if settings.trial_channel_id:
+                try:
+                    await bot_api("banChatMember", {
+                        "chat_id": settings.trial_channel_id,
+                        "user_id": user.telegram_id,
+                        "revoke_messages": False,
+                    })
+                except Exception:
+                    pass
+            try:
+                await send_message(user.telegram_id,
+                    "⏳ <b>انتهت تجربتك المجانية في SAS PRO</b>\n\n"
+                    "يمكنك اختيار إحدى الباقات المدفوعة من Mini App للاستمرار."
+                )
+            except Exception:
+                pass
         await db.commit()
 
 
