@@ -202,6 +202,8 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
         "user": user,
         "pro": is_active(sub),
         "expires_at": sub.expires_at.isoformat() if sub else None,
+        "terms_accepted": bool(existing and existing.terms_accepted_at and existing.terms_version == TERMS_VERSION),
+        "terms_version": existing.terms_version if existing else None,
     }
 
 @app.get("/api/market/status")
