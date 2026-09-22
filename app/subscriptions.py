@@ -13,7 +13,7 @@ PLAN_DEFAULTS = {
     "yearly": {"label": "سنة", "sar": settings.yearly_sar, "days": 365, "stars": settings.pro_yearly_stars},
 }
 
-TERMS_VERSION = "2.0"
+TERMS_VERSION = "3.0"
 TERMS_TEXT = """إقرار المستخدم وإخلاء المسؤولية
 
 قبل استخدام SAS PRO أو الاشتراك في خدماتها، أقر بأنني قرأت وفهمت ما يلي:
