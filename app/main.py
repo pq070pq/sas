@@ -239,6 +239,45 @@ async def radar_status(_: dict = Depends(telegram_user)):
 async def market_ticker(_: dict = Depends(telegram_user)):
     return await ticker()
 
+
+@app.get("/api/dashboard/home")
+async def dashboard_home(_: dict = Depends(telegram_user)):
+    status = market_status()
+    now_ny = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=-4)))
+    # Radar signals are persisted by the existing production radar cycle.
+    session_date = now_ny.strftime("%Y-%m-%d")
+    async with SessionLocal() as db:
+        rows = (await db.execute(
+            select(RadarSignal)
+            .where(RadarSignal.session_date == session_date)
+            .order_by(RadarSignal.created_at.desc())
+        )).scalars().all()
+
+    moves = []
+    volumes = []
+    for row in rows:
+        try:
+            payload = json.loads(row.payload or "{}")
+            if payload.get("change_pct") is not None:
+                moves.append(float(payload["change_pct"]))
+            if payload.get("volume") is not None:
+                volumes.append(float(payload["volume"]))
+        except Exception:
+            continue
+
+    return {
+        "market": status,
+        "radar": {
+            "enabled": stock_radar_enabled(),
+            "opportunities": len(rows),
+            "watched": len(rows),
+            "top_move_pct": max(moves) if moves else None,
+            "top_volume": max(volumes) if volumes else None,
+            "last_signal_at": rows[0].created_at.isoformat() if rows and rows[0].created_at else None,
+        },
+        "updated_at": utcnow().isoformat(),
+    }
+
 @app.get("/api/radar/scan")
 async def radar_scan(_: dict = Depends(telegram_user)):
     from .scanner import scan_us_low_price_stocks
