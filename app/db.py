@@ -20,6 +20,7 @@ class User(Base):
     terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     terms_version: Mapped[str | None] = mapped_column(String(32))
     trial_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    channel_join_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 class AccessRequest(Base):
     __tablename__ = "access_requests"
@@ -101,6 +102,8 @@ async def init_db():
             cols = {row[1] for row in (await conn.execute(text("PRAGMA table_info(users)"))).fetchall()}
             if "trial_used_at" not in cols:
                 await conn.execute(text("ALTER TABLE users ADD COLUMN trial_used_at DATETIME"))
+            if "channel_join_requested_at" not in cols:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN channel_join_requested_at DATETIME"))
 
 async def get_session():
     async with SessionLocal() as session:
