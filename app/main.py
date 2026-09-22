@@ -136,6 +136,37 @@ async def health():
 async def terms():
     return {"version": TERMS_VERSION, "text": TERMS_TEXT}
 
+@app.get("/api/terms/my")
+async def my_terms(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    row = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
+    if not row or not row.terms_accepted_at:
+        return {"accepted": False, "version": None, "accepted_at": None}
+    return {
+        "accepted": True,
+        "version": row.terms_version,
+        "accepted_at": aware(row.terms_accepted_at).isoformat(),
+        "text": TERMS_TEXT,
+    }
+
+@app.get("/api/admin/terms")
+async def admin_terms(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    if user["id"] != settings.owner_telegram_id:
+        raise HTTPException(403, "Admin only")
+    rows = (await db.execute(
+        select(User).where(User.terms_accepted_at.is_not(None)).order_by(User.terms_accepted_at.desc())
+    )).scalars().all()
+    return [{
+        "telegram_id": u.telegram_id,
+        "username": u.username,
+        "first_name": u.first_name,
+        "version": u.terms_version,
+        "accepted_at": aware(u.terms_accepted_at).isoformat(),
+    } for u in rows]
+
+
+async def terms():
+    return {"version": TERMS_VERSION, "text": TERMS_TEXT}
+
 @app.post("/api/terms/accept")
 async def accept_terms(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     row = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
