@@ -11,48 +11,64 @@
 <body>
 <div class="app">
 
-<section class="hero" aria-label="SAS PRO">
-  <img src="/assets/sas-pro-home.png" alt="SAS PRO" class="hero-image">
-</section>
+<section class="home-stage" aria-label="SAS PRO">
+  <img src="/assets/sas-pro-home.png" alt="SAS PRO" class="home-image">
 
-<div class="ticker"><div id="ticker">جاري تحميل السوق...</div></div>
-
-<section class="feature-grid">
-  <button onclick="setMode('radar')"><strong>🔥 الأسهم الرخيصة</strong><small>تحركات قوية حاليًا</small></button>
-  <button onclick="setMode('growth')"><strong>🚀 أسهم النمو</strong><small>فرص عالية النمو</small></button>
-  <button onclick="setMode('swing')"><strong>📈 مؤشرات التداول</strong><small>إشارات دقيقة وفعالة</small></button>
-  <button onclick="setMode('analysis')"><strong>📊 تحليل الأسهم</strong><small>فرص يومية مميزة</small></button>
-  <button onclick="showFavorites()"><strong>⭐ قائمتي المفضلة</strong><small>الأسهم التي تتابعها</small></button>
-  <button onclick="showNews()"><strong>📰 آخر الأخبار</strong><small>أخبار السوق والشركات</small></button>
-  <button onclick="showNewStocks()"><strong>💡 الأسهم الجديدة</strong><small>اكتتابات وفرص قادمة</small></button>
-  <button onclick="showDividends()"><strong>🟡 توزيعات الأرباح</strong><small>شركات توزع أرباح</small></button>
-</section>
-
-<section class="market-strip" id="macro"></section>
-
-<section class="dashboard-grid">
-  <div class="panel stats">
-    <h3>📊 إحصائيات اليوم</h3>
-    <div><span>عدد الفرص</span><b id="opps">0</b></div>
-    <div><span>الأسهم المرصودة</span><b id="watched">0</b></div>
-    <div><span>أعلى ارتفاع</span><b id="topMove">0%</b></div>
-    <div><span>أعلى حجم تداول</span><b id="topVolume">0</b></div>
+  <div class="home-hit card-invest" onclick="setMode('analysis')" role="button" aria-label="الأسهم الاستثمارية">
+    <span id="homeCardInvest">بيانات السوق</span>
+  </div>
+  <div class="home-hit card-market" onclick="setMode('swing')" role="button" aria-label="أسهم السوق">
+    <span id="homeCardMarket">الجلسة: جاري التحقق</span>
+  </div>
+  <div class="home-hit card-growth" onclick="setMode('growth')" role="button" aria-label="أسهم النمو">
+    <span id="homeCardGrowth">فرص: —</span>
+  </div>
+  <div class="home-hit card-radar" onclick="setMode('radar')" role="button" aria-label="أسهم الرخم">
+    <span id="homeCardRadar">الرصد: —</span>
   </div>
 
-  <div class="panel market-state">
-    <h3>حالة السوق الأمريكي</h3>
-    <strong id="marketState">جارٍ التحقق...</strong>
-    <div id="marketDate">—</div>
+  <div class="home-hit card-dividends" onclick="showDividends()" role="button" aria-label="توزيعات الأرباح">
+    <span id="homeCardDividends">بيانات الشركات</span>
+  </div>
+  <div class="home-hit card-new" onclick="showNewStocks()" role="button" aria-label="الأسهم الجديدة">
+    <span id="homeCardNew">بيانات السوق</span>
+  </div>
+  <div class="home-hit card-news" onclick="showNews()" role="button" aria-label="آخر الأخبار">
+    <span id="homeCardNews">آخر تحديث: —</span>
+  </div>
+  <div class="home-hit card-fav" onclick="showFavorites()" role="button" aria-label="قائمتي المفضلة">
+    <span id="homeCardFav">أسهمك المفضلة</span>
   </div>
 
-  <div class="panel tools-panel">
-    <h3>أدوات سريعة</h3>
-    <div class="quick-tools">
-      <button onclick="focusSearch()">🔎<span>بحث عن سهم</span></button>
-      <button onclick="showAlerts()">🔔<span>تنبيهات الأسعار</span></button>
-      <button onclick="showSettings()">⚙️<span>الإعدادات</span></button>
-    </div>
+  <div class="home-ticker">
+    <div><b>BTC</b><strong id="homeBtc">—</strong><em id="homeBtcCh">—</em></div>
+    <div><b>GOLD</b><strong id="homeGold">—</strong><em id="homeGoldCh">—</em></div>
+    <div><b>OIL</b><strong id="homeOil">—</strong><em id="homeOilCh">—</em></div>
+    <div><b>S&amp;P 500</b><strong id="homeSp">—</strong><em id="homeSpCh">—</em></div>
+    <div><b>NASDAQ</b><strong id="homeNasdaq">—</strong><em id="homeNasdaqCh">—</em></div>
+    <div><b>VIX</b><strong id="homeVix">—</strong><em id="homeVixCh">—</em></div>
   </div>
+
+  <div class="home-stats">
+    <b id="homeOpps">0</b>
+    <b id="homeWatched">0</b>
+    <b id="homeTopMove">0%</b>
+    <b id="homeTopVolume">0</b>
+  </div>
+
+  <button class="home-market" onclick="focusSearch()" aria-label="حالة السوق">
+    <strong id="homeMarketState">جارٍ التحقق...</strong>
+    <span id="homeMarketDate">—</span>
+    <small id="homeMarketSession">—</small>
+  </button>
+
+  <div class="home-tools">
+    <button onclick="focusSearch()" aria-label="بحث عن سهم"></button>
+    <button onclick="showAlerts()" aria-label="تنبيهات الأسعار"></button>
+    <button onclick="showSettings()" aria-label="الإعدادات"></button>
+  </div>
+
+  <div class="home-refresh" id="homeRefresh">تحديث تلقائي</div>
 </section>
 
 <section class="search-card" id="analysisBox">
@@ -68,9 +84,9 @@
 <section class="plans">
   <div class="section-title"><b>اشتراكات SAS PRO</b><span>اختر خطتك</span></div>
   <div class="plan-grid">
-    <div class="plan"><b>تجربة مجانية</b><strong>$0</strong><small>لمدة 3 أيام</small><button onclick="buy('monthly')">ابدأ التجربة الآن</button></div>
-    <div class="plan"><b>الاشتراك الشهري</b><strong>500 ⭐</strong><small>شهريًا</small><button onclick="buy('monthly')">اشترك الآن</button></div>
-    <div class="plan featured"><label>الأفضل</label><b>الاشتراك السنوي</b><strong>3500 ⭐</strong><small>سنويًا</small><button onclick="buy('yearly')">اشترك الآن</button></div>
+    <div class="plan"><b>الاشتراك الشهري</b><strong>500 ⭐</strong><small>30 يومًا</small><button onclick="buy('monthly')">اشترك الآن</button></div>
+    <div class="plan"><b>الاشتراك 3 أشهر</b><strong>1200 ⭐</strong><small>90 يومًا</small><button onclick="buy('3month')">اشترك الآن</button></div>
+    <div class="plan featured"><label>اشتراك سنوي</label><b>الاشتراك السنوي</b><strong>3500 ⭐</strong><small>365 يومًا</small><button onclick="buy('yearly')">اشترك الآن</button></div>
   </div>
 </section>
 
@@ -100,11 +116,30 @@ function headers(){return {'X-Telegram-Init-Data':tg?tg.initData:''};}
 async function api(path,opt={}){opt.headers=Object.assign(headers(),opt.headers||{});const r=await fetch(path,opt);if(!r.ok)throw new Error(await r.text());return r.json();}
 function symbol(){return document.getElementById('symbol').value.trim().toUpperCase();}
 function money(v){return v==null?'غير واضح':'$'+Number(v).toFixed(2);}
-function renderTicker(d){
- document.getElementById('ticker').innerHTML=(d||[]).map(x=>'<span><b>'+x.label+'</b> '+(x.price??'—')+' <em>'+((x.change_pct??'') )+'</em></span>').join('');
+function fmtPrice(v){
+ if(v==null||v==='') return '—';
+ const n=Number(v);
+ return Number.isFinite(n)?(Math.abs(n)>=1000?n.toLocaleString('en-US',{maximumFractionDigits:2}):n.toFixed(2)):'—';
 }
-function renderMacro(d){
- document.getElementById('macro').innerHTML=(d||[]).map(x=>'<div><b>'+x.label+'</b><strong>'+money(x.price)+'</strong><em>'+((x.change_pct??''))+'</em></div>').join('');
+function fmtChange(v){
+ if(v==null||v==='') return '—';
+ const n=Number(v);
+ return Number.isFinite(n)?(n>=0?'+':'')+n.toFixed(2)+'%':'—';
+}
+function setHomeQuote(id,changeId,item){
+ document.getElementById(id).textContent=fmtPrice(item?.price);
+ const ch=document.getElementById(changeId);
+ ch.textContent=fmtChange(item?.change_pct);
+ ch.className=(Number(item?.change_pct)>=0)?'up':'down';
+}
+function renderHomeTicker(d){
+ const map=Object.fromEntries((d||[]).map(x=>[x.label,x]));
+ setHomeQuote('homeBtc','homeBtcCh',map.BTC);
+ setHomeQuote('homeGold','homeGoldCh',map.GOLD);
+ setHomeQuote('homeOil','homeOilCh',map.OIL);
+ setHomeQuote('homeSp','homeSpCh',map['S&P 500']);
+ setHomeQuote('homeNasdaq','homeNasdaqCh',map.NASDAQ);
+ setHomeQuote('homeVix','homeVixCh',map.VIX);
 }
 async function showEntryTerms(){
  pendingPlan=null;
@@ -142,18 +177,32 @@ async function loadAdminTerms(){
  }catch(e){document.getElementById('adminContent').textContent='غير مصرح أو تعذر التحميل';}
 }
 async function load(){
- try{const d=await api('/api/market/ticker');renderTicker(d);renderMacro(d);}catch(e){document.getElementById('ticker').textContent='بيانات السوق غير متاحة';}
+ try{
+  const [quotes,home]=await Promise.all([api('/api/market/ticker'),api('/api/dashboard/home')]);
+  renderHomeTicker(quotes);
+  const m=home.market||{};
+  document.getElementById('homeMarketState').textContent=m.label_ar||'غير متاح';
+  document.getElementById('homeMarketDate').textContent=m.date||'—';
+  document.getElementById('homeMarketSession').textContent=m.session==='regular'?'التداول الرئيسي':(m.short_ar||'—');
+  const r=home.radar||{};
+  document.getElementById('homeOpps').textContent=r.opportunities??0;
+  document.getElementById('homeWatched').textContent=r.watched??0;
+  document.getElementById('homeTopMove').textContent=r.top_move_pct==null?'0%':fmtChange(r.top_move_pct);
+  document.getElementById('homeTopVolume').textContent=r.top_volume==null?'0':Number(r.top_volume).toLocaleString('en-US');
+  document.getElementById('homeCardRadar').textContent=r.enabled?'الرصد يعمل الآن':'الرصد متوقف';
+  document.getElementById('homeCardGrowth').textContent='فرص مرصودة: '+(r.opportunities??0);
+  document.getElementById('homeCardMarket').textContent='الجلسة: '+(m.short_ar||'—');
+  document.getElementById('homeCardInvest').textContent=m.session==='regular'?'السوق يعمل الآن':'بانتظار جلسة السوق';
+  document.getElementById('homeCardNew').textContent=m.holiday?'عطلة السوق':'بيانات السوق';
+  document.getElementById('homeCardNews').textContent='آخر تحديث: '+new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('homeRefresh').textContent='آخر تحديث '+new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+ }catch(e){
+  document.getElementById('homeMarketState').textContent='تعذر تحديث البيانات';
+ }
  try{
   const d=await api('/api/me');
-  document.getElementById('accountStatus')?.remove();
-  if(d.user&&d.user.id){ /* owner panel visibility is enforced by server */ }
-  if(d.user&&d.user.id){ try { const s=await api('/api/admin/subscriptions'); document.getElementById('adminPanel').hidden=false; } catch(e){} }
-  document.getElementById('marketState').textContent=d.pro?'مشترك PRO فعال':'الحساب غير مشترك'; if(!d.terms_accepted) showEntryTerms();
- }catch(e){}
- try{
-  const d=await api('/api/market/status');
-  document.getElementById('marketState').textContent=d.open?'مفتوح الآن 🟢':'مغلق الآن 🔴';
-  document.getElementById('marketDate').textContent=new Date().toLocaleString('ar-SA',{weekday:'long',year:'numeric',month:'long',day:'numeric',hour:'numeric',minute:'2-digit'});
+  if(d.user&&d.user.id){ try { await api('/api/admin/subscriptions'); document.getElementById('adminPanel').hidden=false; } catch(e){} }
+  if(!d.terms_accepted) showEntryTerms();
  }catch(e){}
 }
 async function runAnalysis(){
@@ -206,7 +255,7 @@ async function acceptAndBuy(){
  }catch(e){alert(e.message);}
 }
 async function buy(plan){openPurchaseTerms(plan);}
-load();setInterval(load,60000);
+load();setInterval(load,30000);
 </script>
 <div id="termsModal" class="terms-modal" hidden>
   <div class="terms-card">
