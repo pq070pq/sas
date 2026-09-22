@@ -100,23 +100,38 @@ async def stock_radar_cycle():
         from .market import quote
 
         rows = await scan_us_low_price_stocks()
-        for row in rows:
-            symbol = str(row.get("symbol") or "").upper()
-            if not symbol or symbol in _radar_seen:
+        session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+
+        async with SessionLocal() as db:
+            for row in rows:
+                symbol = str(row.get("symbol") or "").upper()
+                if not symbol or symbol in _radar_seen:
                     continue
-                session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
-                existing = (await db.execute(select(RadarSignal).where(RadarSignal.symbol == symbol, RadarSignal.session_date == session_date))).scalars().first()
+
+                existing = (
+                    await db.execute(
+                        select(RadarSignal).where(
+                            RadarSignal.symbol == symbol,
+                            RadarSignal.session_date == session_date,
+                        )
+                    )
+                ).scalars().first()
                 if existing:
                     _radar_seen.add(symbol)
                     continue
 
                 q = await quote(symbol)
-            classification = row.get("classification") or {}
-            tech = row.get("targets") or {}
-            report = build_report(symbol, q, tech, classification)
+                classification = row.get("classification") or {}
+                tech = row.get("targets") or {}
+                report = build_report(symbol, q, tech, classification)
+
                 try:
                     await send_message(settings.telegram_channel_id, report)
-                    db.add(RadarSignal(symbol=symbol, session_date=session_date, payload=json.dumps(row, ensure_ascii=False)))
+                    db.add(RadarSignal(
+                        symbol=symbol,
+                        session_date=session_date,
+                        payload=json.dumps(row, ensure_ascii=False),
+                    ))
                     await db.commit()
                     _radar_seen.add(symbol)
                 except Exception:
