@@ -490,11 +490,32 @@ async def admin_radar(user=Depends(telegram_user), db: AsyncSession = Depends(ge
 async def grant(telegram_id: int, days: int = 30, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     if user["id"] != settings.owner_telegram_id:
         raise HTTPException(403, "Admin only")
+    if days <= 0:
+        raise HTTPException(400, "days must be positive")
     now = utcnow()
     exp = now + timedelta(days=days)
+    await db.execute(update(Subscription).where(
+        Subscription.telegram_id == telegram_id, Subscription.active == True
+    ).values(active=False))
     db.add(Subscription(telegram_id=telegram_id, plan="admin", starts_at=now, expires_at=exp, active=True))
+    req = (await db.execute(select(AccessRequest).where(
+        AccessRequest.telegram_id == telegram_id, AccessRequest.status == "pending"
+    ).order_by(AccessRequest.requested_at.desc()))).scalars().first()
+    if req:
+        req.status = "approved"
+        req.decided_at = now
+        req.decided_days = days
     await db.commit()
-    return {"ok": True, "expires_at": exp.isoformat()}
+    try:
+        await send_message(telegram_id,
+            "✅ <b>تم قبول طلب إذن الدخول إلى SAS PRO</b>\n\n"
+            f"⏳ مدة الوصول: <b>{days} يوم</b>\n"
+            f"📅 ينتهي: <b>{exp.strftime('%d/%m/%Y')}</b>\n\n"
+            "يمكنك الآن فتح Mini App واستخدام مزايا SAS PRO."
+        )
+    except Exception:
+        pass
+    return {"ok": True, "expires_at": exp.isoformat(), "days": days}
 
 @app.post("/api/admin/revoke/{telegram_id}")
 async def revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
@@ -607,6 +628,16 @@ async def telegram_webhook(request: Request):
                     f"⏳ المدة: <b>{days} يوم</b>\n"
                     f"📅 الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>"
                 )
+                try:
+                    await send_message(
+                        target,
+                        "✅ <b>تم قبول طلب إذن الدخول إلى SAS PRO</b>\n\n"
+                        f"⏳ مدة الوصول: <b>{days} يوم</b>\n"
+                        f"📅 ينتهي: <b>{exp.strftime('%d/%m/%Y')}</b>\n\n"
+                        "افتح Mini App الآن لاستخدام مزايا SAS PRO."
+                    )
+                except Exception:
+                    pass
             except Exception:
                 await send_message(chat_id, "❌ الصيغة الصحيحة: /grant ID DAYS")
             return {"ok": True}
