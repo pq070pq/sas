@@ -165,6 +165,18 @@ async def health():
 async def terms():
     return {"version": TERMS_VERSION, "text": TERMS_TEXT}
 
+@app.get("/api/plans")
+async def plans(_: dict = Depends(telegram_user)):
+    return {
+        key: {"sar": label, "stars": stars, "days": days}
+        for key, (stars, days), label in [
+            ("monthly", PLANS["monthly"], "150 ريال"),
+            ("3month", PLANS["3month"], "405 ريال"),
+            ("6month", PLANS["6month"], "720 ريال"),
+            ("yearly", PLANS["yearly"], "1260 ريال"),
+        ]
+    }
+
 @app.get("/api/terms/my")
 async def my_terms(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     row = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
