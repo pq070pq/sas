@@ -260,21 +260,38 @@ function showAlerts(){document.getElementById('report-content').textContent='ت�
 function showSettings(){document.getElementById('report-content').textContent='إعدادات SAS PRO.';}
 function setMode(mode){if(mode==='radar'){showRadar();return;}focusSearch();}
 async function showRadar(){
- try{
-  const d=await api('/api/radar/scan');
-  if(!d.enabled){document.getElementById('report-content').textContent='📡 SAS PRO RADAR\\n\\n'+(d.reason||'الرصد متوقف حاليًا.')+'\\nلا توجد فرص مصطنعة خارج الجلسة الرئيسية.';document.getElementById('report-content').dataset.userAction='1';}
-  else if(!d.stocks||!d.stocks.length){document.getElementById('report-content').textContent='📡 SAS PRO RADAR\n\nلا توجد فرصة مستوفية للشروط حاليًا.';}
-  else{
-   document.getElementById('report-content').textContent='📡 SAS PRO RADAR\\n\\n'+d.stocks.slice(0,20).map((x,i)=>
-    (i+1)+'. '+x.symbol+' — '+(x.price!=null?money(x.price):'السعر غير واضح')+' — '+(x.change_pct!=null?fmtChange(x.change_pct):'—')
-   ).join('\n');
-  }
+  const out=document.getElementById('report-content');
+  out.dataset.userAction='1';
+  out.textContent='📡 SAS PRO RADAR\n\nجاري فحص الأسعار والـ RVOL والدعم والمقاومة...';
   document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
- }catch(e){document.getElementById('report-content').textContent=e.message;}
+  try{
+    const d=await api('/api/radar/scan');
+    if(!d.enabled){
+      out.textContent='📡 SAS PRO RADAR\n\n'+(d.reason||'الرصد متوقف حاليًا.')+'\nلا توجد فرص مصطنعة خارج وقت الرصد.';
+      return;
+    }
+    const diag=d.diagnostics||{};
+    const stocks=d.stocks||[];
+    let text='📡 SAS PRO RADAR\n\n'
+      +'🔎 تم فحص: '+(diag.candidates??0)+' سهم\n'
+      +'✅ اجتاز الشروط: '+(diag.passed??stocks.length)+'\n'
+      +'🚫 مستبعد: '+(diag.filtered??0)+'\n'
+      +'⚠️ أخطاء بيانات: '+(diag.errors??0)+'\n\n━━━━━━━━━━━━━━\n\n';
+    if(!stocks.length){
+      out.textContent=text+'لا توجد فرصة مستوفية للشروط في هذا الفحص.';
+      return;
+    }
+    text+=stocks.slice(0,50).map((x,i)=>{
+      const p=x.live_price!=null?x.live_price:x.price;
+      const ch=x.live_change_pct!=null?x.live_change_pct:x.change_pct;
+      return (i+1)+'. '+x.symbol+' — '+(p!=null?money(p):'السعر غير متاح')+' — '+(ch!=null?fmtChange(ch):'—')+' — '+(x.live_price_source||x.source||'مصدر البيانات');
+    }).join('\n');
+    out.textContent=text;
+  }catch(e){
+    out.textContent='📡 SAS PRO RADAR\n\nتعذر تنفيذ الفحص الحقيقي: '+e.message;
+  }
 }
 function scrollToTop(){window.scrollTo({top:0,behavior:'smooth'});}
-let pendingPlan=null;
-async function buy(plan){openPurchaseTerms(plan);}
 load();setInterval(load,30000);
 </script>
 <div id="termsModal" class="terms-modal" hidden>
@@ -283,9 +300,8 @@ load();setInterval(load,30000);
     <div class="terms-body"><p>جاري تحميل الشروط...</p></div>
     <label class="terms-check"><input id="termsAgree" type="checkbox"> أوافق على شروط استخدام SAS PRO.</label>
     <div class="terms-actions">
-      <button id="trialButton" class="trial-btn" hidden onclick="startTrial()">🎁 ابدأ التجربة المجانية 3 أيام</button>
       <button onclick="closeTerms()">إلغاء</button>
-      <button onclick="acceptAndBuy()">أوافق وأتابع الاشتراك</button>
+      <button id="termsPrimary" onclick="acceptAndRequestAccess()" disabled>أوافق وأرسل طلب الدخول</button>
     </div>
   </div>
 </div>
