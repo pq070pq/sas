@@ -523,6 +523,7 @@ async def admin_grant(telegram_id: int, days: str = "30", user=Depends(telegram_
         if n <= 0 or n > 3650:
             raise HTTPException(400, "المدة يجب أن تكون بين 1 و3650 يومًا")
         exp, link, link_exp = await grant_access(telegram_id, days=n)
+    await audit(int(user["id"]), "grant_access_legacy", telegram_id, {"days": days})
     try:
         await send_message(telegram_id,
             "✅ <b>تم تفعيل وصول SAS PRO</b>\n\n"
