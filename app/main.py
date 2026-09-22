@@ -298,8 +298,45 @@ async def telegram_webhook(request: Request):
             "ok": True,
         })
         return {"ok": True}
-    if data.get("message", {}).get("successful_payment"):
+    message = data.get("message", {})
+    if message.get("successful_payment"):
         return await successful_payment(request)
+
+    sender = message.get("from") or {}
+    chat_id = (message.get("chat") or {}).get("id") or sender.get("id")
+    text = (message.get("text") or "").strip()
+    telegram_id = int(sender.get("id") or 0)
+
+    if telegram_id:
+        async with SessionLocal() as db:
+            user_row = (await db.execute(select(User).where(User.telegram_id == telegram_id))).scalars().first()
+            if not user_row:
+                db.add(User(telegram_id=telegram_id, username=sender.get("username"), first_name=sender.get("first_name")))
+            else:
+                user_row.username = sender.get("username")
+                user_row.first_name = sender.get("first_name")
+            await db.commit()
+
+        if text.startswith("/start"):
+            async with SessionLocal() as db:
+                sub = (await db.execute(select(Subscription).where(Subscription.telegram_id == telegram_id, Subscription.active == True).order_by(Subscription.expires_at.desc()))).scalars().first()
+            name = sender.get("first_name") or sender.get("username") or "عزيزي المستخدم"
+            if is_active(sub):
+                msg = f"👋 أهلًا <b>{name}</b>\n\n🚀 <b>مرحبًا بك في SAS PRO</b>\n\n🟢 اشتراكك فعال.\n📅 الانتهاء: <b>{sub.expires_at.strftime('%d/%m/%Y')}</b>\n\nيمكنك الآن استخدام جميع مزايا SAS PRO."
+            else:
+                msg = f"👋 أهلًا <b>{name}</b>\n\n🚀 <b>مرحبًا بك في SAS PRO</b>\n\n🔒 لا يوجد لديك اشتراك فعال حاليًا.\n\n💬 <b>الرجاء التواصل مع الإدارة للاشتراك.</b>\n\nبعد تفعيل الاشتراك ستتمكن من استخدام التحليل والرادار والأخبار والأحداث وسجل التحليلات.\n\n⚡ SAS PRO\nالدقة أولًا • بدون مطاردة • بدون إشارات وهمية"
+            await send_message(chat_id, msg)
+            return {"ok": True}
+
+        if telegram_id == settings.owner_telegram_id and text.startswith("/admin"):
+            async with SessionLocal() as db:
+                users = len((await db.execute(select(User))).scalars().all())
+                subs = (await db.execute(select(Subscription).where(Subscription.active == True))).scalars().all()
+                payments_rows = (await db.execute(select(Payment))).scalars().all()
+            msg = f"🛠️ <b>SAS PRO — الإدارة</b>\n\n👥 المستخدمون: <b>{users}</b>\n🟢 الاشتراكات الفعالة: <b>{sum(is_active(s) for s in subs)}</b>\n💳 المدفوعات: <b>{len(payments_rows)}</b>\n⭐ النجوم: <b>{sum(p.stars for p in payments_rows)}</b>\n\n/grant ID DAYS\n/revoke ID\n/subs"
+            await send_message(chat_id, msg)
+            return {"ok": True}
+
     return {"ok": True}
 
 @app.post("/api/telegram/precheckout")
