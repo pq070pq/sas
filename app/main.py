@@ -26,7 +26,7 @@ from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
 app = FastAPI(title="SAS PRO", version="2.1.0")
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
 
-DISCLAIMER = "لا يعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️"
+DISCLAIMER = "🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️"
 PLANS = {}
 PLAN_LABELS = {}
 
