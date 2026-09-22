@@ -89,3 +89,6 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(920px,
  .radar-live{left:3%;width:36%}
  .home-ticker b{font-size:7px}.home-ticker strong{font-size:8px}.home-ticker em{font-size:7px}
 }
+
+/* إخفاء قسم الاشتراكات من الصفحة الرئيسية بدون حذف نظام الاشتراك أو الفوترة. */
+.plans,.subscription-badge{display:none !important}
