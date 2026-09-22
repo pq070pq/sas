@@ -16,7 +16,6 @@ from .jobs import scheduler
 from .market_calendar import market_status
 from .holiday_radar import stock_radar_enabled
 from .holiday_radar import holiday_radar_scheduler
-from .shariah import check_shariah
 from .timeutil import utcnow, aware
 
 app = FastAPI(title="SAS PRO", version="2.1.0")
@@ -35,7 +34,7 @@ async def startup():
     asyncio.create_task(scheduler())
     asyncio.create_task(holiday_radar_scheduler())
 
-def build_report(symbol: str, q: dict, tech: dict, classification: dict | None = None, shariah: dict | None = None) -> str:
+def build_report(symbol: str, q: dict, tech: dict, classification: dict | None = None) -> str:
     price = q.get("price")
     change = q.get("change_pct")
     targets = tech.get("targets") or []
@@ -46,7 +45,6 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     type_emoji = classification.get("emoji", "⚪")
     type_reason = classification.get("reason", "بيانات غير كافية")
     behavior = classification.get("behavior", "غير واضح")
-    shariah = shariah or {}
 
     move = f"{float(change):+.2f}%" if change is not None else "غير واضح"
     trading = "قوي" if volume_ratio is not None and volume_ratio >= 1.15 else "عادي"
@@ -85,7 +83,6 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         f"{chr(10).join(target_lines)}\n\n"
         f"{exit_text}\n\n"
         f"━━━━━━━━━━━━━━\n\n"
-        f"🕌 الشرعية: {shariah.get('status_ar', 'غير واضح / يحتاج تحقق')}\n↳ {shariah.get('confidence', 'غير واضح')}\n\n"
         f"🧠 الزبدة\n\n"
         f"الأهداف محسوبة من مقاومات فعلية ظهرت في بيانات السعر، "
         f"وما ينحط هدف رقمي إذا ما فيه مستوى واضح.\n\n"
@@ -180,10 +177,6 @@ async def stock_events(symbol: str, _: dict = Depends(telegram_user)):
 async def stock_quote(symbol: str, _: dict = Depends(telegram_user)):
     return await quote(symbol.upper())
 
-@app.get("/api/stocks/{symbol}/shariah")
-async def stock_shariah(symbol: str, _: dict = Depends(telegram_user)):
-    return await check_shariah(symbol.upper())
-
 @app.post("/api/stocks/{symbol}/analyze")
 async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession = Depends(get_session)):
     symbol = symbol.upper().strip()
@@ -192,15 +185,13 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     q = await quote(symbol)
     from .scanner import classify_faisal
     classification = await classify_faisal(symbol, q)
-    shariah = await check_shariah(symbol)
     payload = {
         "analysis": result,
         "quote": q,
         "sas_pro": {
             "targets": targets,
             "classification": classification,
-            "shariah": shariah,
-            "report": build_report(symbol, q, targets, classification, shariah),
+            "report": build_report(symbol, q, targets, classification),
 
             "disclaimer": DISCLAIMER,
         },
