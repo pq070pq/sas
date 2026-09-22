@@ -1,0 +1,34 @@
+name: Sync OpenTerminal
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "47 3 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Sync OpenTerminal upstream
+        run: |
+          set -euo pipefail
+          rm -rf vendor/OpenTerminal
+          mkdir -p vendor
+          git clone --depth 1 https://github.com/ErTasselli/OpenTerminal.git vendor/OpenTerminal
+          rm -rf vendor/OpenTerminal/.git
+      - name: Commit
+        run: |
+          git config user.name "SAS PRO Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add vendor/OpenTerminal
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore: sync OpenTerminal upstream"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
