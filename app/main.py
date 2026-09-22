@@ -26,7 +26,7 @@ from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
 app = FastAPI(title="SAS PRO", version="2.1.0")
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
 
-DISCLAIMER = "⚠️ لا يعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول."
+DISCLAIMER = "لا يعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️"
 PLANS = {}
 PLAN_LABELS = {}
 
@@ -196,21 +196,33 @@ async def require_terms(user=Depends(telegram_user), db: AsyncSession = Depends(
     return user
 
 async def require_pro(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
-    # المالك يدخل لوحة الإدارة مباشرة ولا يخضع للاشتراك أو شاشة الشروط.
+    # المالك يدخل مباشرة. المستخدم يدخل SAS PRO عند وجود اشتراك فعال،
+    # تجربة فعالة، أو وصول مجاني منحه المشرف.
     if int(user["id"]) == int(settings.owner_telegram_id):
         return user
-    async with SessionLocal() as db:
-        row = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
-        if not row or row.terms_version != TERMS_VERSION or not row.terms_accepted_at:
-            raise HTTPException(409, "يجب الموافقة على الشروط أولاً")
-        sub = (await db.execute(
-            select(Subscription)
-            .where(Subscription.telegram_id == user["id"], Subscription.active == True)
-            .order_by(Subscription.expires_at.desc())
-        )).scalars().first()
-        if not is_active(sub):
-            raise HTTPException(403, "اشتراك SAS PRO منتهي أو غير موجود")
-    return user
+
+    row = (await db.execute(
+        select(User).where(User.telegram_id == user["id"])
+    )).scalars().first()
+    if not row or row.terms_version != TERMS_VERSION or not row.terms_accepted_at:
+        raise HTTPException(409, "يجب الموافقة على الشروط أولاً")
+
+    now = utcnow()
+    trial_active = bool(
+        row.status == "trial"
+        and row.trial_expires
+        and aware(row.trial_expires) > now
+    )
+    subscription_active = bool(
+        row.status == "active"
+        and row.subscription_expires
+        and aware(row.subscription_expires) > now
+    )
+
+    if row.free_access or subscription_active or trial_active:
+        return user
+
+    raise HTTPException(403, "صلاحيات SAS PRO غير مفعلة أو منتهية")
 
 @app.get("/")
 async def home():
@@ -379,18 +391,41 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
         await sync_user_subscription(db, existing, sub) if False else None
     admin_info = await get_admin(int(user["id"]))
     admin = bool(admin_info)
-    pro = admin or (active_subscription(existing) if existing.subscription_expires else is_active(sub))
+    now = utcnow()
+    trial_active = bool(
+        existing.status == "trial"
+        and existing.trial_expires
+        and aware(existing.trial_expires) > now
+    )
+    subscription_active = bool(
+        existing.status == "active"
+        and existing.subscription_expires
+        and aware(existing.subscription_expires) > now
+    )
+    pro = admin or existing.free_access or subscription_active or trial_active
     expires = None
-    if sub and not admin:
-        expires = aware(sub.expires_at).isoformat()
-    elif existing.subscription_expires and not admin:
-        expires = aware(existing.subscription_expires).isoformat()
+    if not admin:
+        if trial_active:
+            expires = aware(existing.trial_expires).isoformat()
+        elif existing.subscription_expires:
+            expires = aware(existing.subscription_expires).isoformat()
     return {
         "user": user,
         "admin": admin,
         "admin_role": admin_info.get("role") if admin_info else None,
         "admin_permissions": admin_info.get("permissions", []) if admin_info else [],
         "pro": pro,
+        "access": {
+            "enabled": pro,
+            "source": "admin" if admin else ("free" if existing.free_access else ("trial" if trial_active else ("subscription" if subscription_active else None))),
+            "radar": pro,
+            "market": pro,
+            "analysis": pro,
+            "news": pro,
+            "events": pro,
+            "history": pro,
+            "terminal": pro,
+        },
         "expires_at": expires,
         "trial_available": existing.trial_used_at is None and not admin,
         "trial_expires": existing.trial_expires.isoformat() if existing.trial_expires else None,
@@ -706,15 +741,19 @@ async def terminal_access(user=Depends(require_pro), db: AsyncSession = Depends(
     if int(user["id"]) == int(settings.owner_telegram_id):
         expires = utcnow() + timedelta(days=3650)
     else:
-        sub = (await db.execute(
-            select(Subscription).where(
-                Subscription.telegram_id == user["id"],
-                Subscription.active == True,
-            ).order_by(Subscription.expires_at.desc())
+        row = (await db.execute(
+            select(User).where(User.telegram_id == user["id"])
         )).scalars().first()
-        if not is_active(sub):
-            raise HTTPException(403, "اشتراك SAS PRO غير فعال")
-        expires = aware(sub.expires_at)
+        if not row:
+            raise HTTPException(403, "صلاحيات SAS PRO غير مفعلة")
+        if row.status == "active" and row.subscription_expires:
+            expires = aware(row.subscription_expires)
+        elif row.status == "trial" and row.trial_expires:
+            expires = aware(row.trial_expires)
+        elif row.free_access:
+            expires = utcnow() + timedelta(days=3650)
+        else:
+            raise HTTPException(403, "صلاحيات SAS PRO منتهية")
     return {
         "ok": True,
         "url": _terminal_token(int(user["id"]), expires),
