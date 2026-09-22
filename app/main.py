@@ -808,10 +808,6 @@ async def revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncSession
 async def start_trial():
     raise HTTPException(410, "التجربة التلقائية غير مستخدمة. اطلب إذن الدخول وتنتظر قرار الإدارة.")
 
-@app.post("/api/payments/invoice/{plan}")
-async def invoice(plan: str):
-    raise HTTPException(410, "نظام الاشتراك بالأسعار مخفي. يتم تفعيل SAS PRO يدويًا بعد طلب إذن الدخول وقرار الإدارة.")
-
 @app.post("/api/telegram/webhook")
 async def telegram_webhook(request: Request):
     expected = settings.telegram_webhook_secret
@@ -1063,72 +1059,35 @@ async def precheckout(request: Request):
 @app.post("/api/telegram/success")
 async def successful_payment(request: Request, db: AsyncSession = Depends(get_session)):
     data = await request.json()
-    message = data.get("message", {})
-    payment = message.get("successful_payment", {})
-    payload = payment.get("invoice_payload", "")
-
-    if not payload.startswith("saspro:"):
-        return {"ok": True}
-
-    parts = payload.split(":", 3)
-    if len(parts) != 4:
-        return {"ok": True}
-
-    _, plan, tid, _ = parts
-    telegram_id = int(tid)
-    stars, days = PLANS.get(plan, (0, 0))
-    if not stars or not days:
-        return {"ok": True}
-
-    charge = payment.get("telegram_payment_charge_id")
-    if not charge:
-        raise HTTPException(400, "Missing charge id")
-
-    exists = (await db.execute(
-        select(Payment).where(Payment.telegram_charge_id == charge)
-    )).scalars().first()
-    if exists:
-        return {"ok": True, "duplicate": True}
-
-    now = datetime.now(timezone.utc)
-    old = (await db.execute(
-        select(Subscription)
-        .where(Subscription.telegram_id == telegram_id, Subscription.active == True)
-        .order_by(Subscription.expires_at.desc())
-    )).scalars().first()
-
-    start = max(now, aware(old.expires_at)) if old else now
-    exp = start + timedelta(days=days)
-
-    if old:
-        old.active = False
-
-    db.add(Payment(
-        telegram_id=telegram_id,
-        plan=plan,
-        stars=stars,
-        telegram_charge_id=charge,
-    ))
-    db.add(Subscription(
-        telegram_id=telegram_id,
-        plan=plan,
-        starts_at=start,
-        expires_at=exp,
-        active=True,
-        warning_3d_sent_at=None,
-        telegram_charge_id=charge,
-    ))
-    await db.commit()
-
+    message = data.get("message") or {}
+    try:
+        result = await apply_successful_payment(message, db)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    if result.get("duplicate") or result.get("ignored"):
+        return result
+    telegram_id = result["telegram_id"]
+    exp = result["expires_at"]
     try:
         await send_message(
             telegram_id,
             "✅ <b>تم تفعيل اشتراك SAS PRO</b>\n\n"
-            f"📦 الباقة: <b>{plan}</b>\n"
-            f"📅 تاريخ الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>\n\n"
-            "🚀 أهلًا بك في SAS PRO."
+            f"📦 الباقة: <b>{result['plan']['label']}</b>\n"
+            f"💰 القيمة: <b>{result['plan']['sar']} ريال</b> / <b>{result['plan']['stars']} ⭐</b>\n"
+            f"📅 الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>\n\n"
+            "🚀 رابط الدخول الخاص بك صالح للاستخدام مرة واحدة لمدة 48 ساعة:",
+            {"inline_keyboard": [[{"text": "🚀 دخول SAS PRO", "url": result["invite_link"]}]]},
         )
     except Exception:
         pass
-
-    return {"ok": True, "expires_at": exp.isoformat()}
+    try:
+        from .google_sheets import sync_payment
+        await sync_payment([
+            telegram_id, message.get("from", {}).get("username") or "",
+            result["plan"]["label"], result["plan"]["sar"], result["plan"]["stars"],
+            result["plan"]["days"], exp.strftime("%Y-%m-%d"),
+            "active", "paid", result["charge_id"], utcnow().isoformat()
+        ])
+    except Exception:
+        pass
+    return {"ok": True, "expires_at": exp.isoformat(), "invite_expires": result["invite_expires"].isoformat()}
