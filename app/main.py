@@ -689,6 +689,21 @@ async def telegram_webhook(request: Request):
             await send_message(chat_id, "\n".join(lines) if len(lines) > 2 else "لا توجد اشتراكات.")
             return {"ok": True}
 
+    if text == "/access":
+        name = sender.get("first_name") or sender.get("username") or "عزيزي المستخدم"
+        kb = None
+        if settings.app_base_url:
+            kb = {"inline_keyboard": [[{"text": "🔐 فتح SAS PRO وطلب إذن الدخول", "web_app": {"url": settings.app_base_url}}]]}
+        await send_message(
+            chat_id,
+            f"👋 <b>أهلًا {name}</b>\n\n"
+            "🔐 <b>طلب إذن الدخول إلى SAS PRO</b>\n\n"
+            "اقرأ الشروط ووافق عليها داخل التطبيق، وبعدها يصل طلبك للإدارة.\n"
+            "الإدارة هي التي تحدد مدة الوصول حسب الطلب، ولا توجد باقات أو أسعار معروضة للمستخدم.",
+            kb,
+        )
+        return {"ok": True}
+
     if text.startswith("/start"):
         async with SessionLocal() as db:
             sub = (await db.execute(
