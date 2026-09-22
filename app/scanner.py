@@ -69,6 +69,88 @@ def _near(level, price, pct=0.04):
     return price > 0 and abs(level - price) / price <= pct
 
 
+def _pivot_points(candles, lookback=60):
+    """Extract alternating swing highs/lows for chart-pattern detection."""
+    rows = candles[-lookback:]
+    pivots = []
+    for i in range(2, len(rows) - 2):
+        cur = rows[i]
+        is_low = cur["low"] <= rows[i-1]["low"] and cur["low"] <= rows[i-2]["low"] and cur["low"] <= rows[i+1]["low"] and cur["low"] <= rows[i+2]["low"]
+        is_high = cur["high"] >= rows[i-1]["high"] and cur["high"] >= rows[i-2]["high"] and cur["high"] >= rows[i+1]["high"] and cur["high"] >= rows[i+2]["high"]
+        if is_low:
+            pivots.append(("L", i, cur["low"]))
+        if is_high:
+            pivots.append(("H", i, cur["high"]))
+    clean = []
+    for p in pivots:
+        if clean and clean[-1][0] == p[0]:
+            if (p[0] == "L" and p[2] < clean[-1][2]) or (p[0] == "H" and p[2] > clean[-1][2]):
+                clean[-1] = p
+        else:
+            clean.append(p)
+    return clean
+
+
+def _detect_chart_patterns(candles, price, rvol):
+    """Detect confirmed bullish double-bottom / inverse H&S and bearish H&S."""
+    pivots = _pivot_points(candles, 70)
+    patterns = {
+        "double_bottom": False,
+        "double_bottom_neckline": None,
+        "double_bottom_confirmed": False,
+        "inverse_head_shoulders": False,
+        "inverse_hs_neckline": None,
+        "inverse_hs_confirmed": False,
+        "head_shoulders": False,
+        "head_shoulders_neckline": None,
+    }
+
+    for i in range(len(pivots) - 2):
+        a, b, d = pivots[i:i+3]
+        if a[0] != "L" or b[0] != "H" or d[0] != "L":
+            continue
+        if abs(a[2] - d[2]) / max(price, 0.0001) > 0.10:
+            continue
+        if b[2] <= max(a[2], d[2]) * 1.04:
+            continue
+        neckline = b[2]
+        patterns["double_bottom"] = True
+        patterns["double_bottom_neckline"] = neckline
+        patterns["double_bottom_confirmed"] = price > neckline * 1.005 and rvol >= 1.15
+
+    for i in range(len(pivots) - 4):
+        p = pivots[i:i+5]
+        if [x[0] for x in p] != ["L", "H", "L", "H", "L"]:
+            continue
+        left_shoulder, left_neck, head, right_neck, right_shoulder = p
+        shoulders = (left_shoulder[2] + right_shoulder[2]) / 2
+        if abs(left_shoulder[2] - right_shoulder[2]) / max(price, 0.0001) > 0.10:
+            continue
+        if head[2] >= shoulders * 0.96:
+            continue
+        neckline = (left_neck[2] + right_neck[2]) / 2
+        if neckline <= shoulders:
+            continue
+        patterns["inverse_head_shoulders"] = True
+        patterns["inverse_hs_neckline"] = neckline
+        patterns["inverse_hs_confirmed"] = price > neckline * 1.005 and rvol >= 1.15
+
+    for i in range(len(pivots) - 4):
+        p = pivots[i:i+5]
+        if [x[0] for x in p] != ["H", "L", "H", "L", "H"]:
+            continue
+        left_shoulder, left_neck, head, right_neck, right_shoulder = p
+        shoulders = (left_shoulder[2] + right_shoulder[2]) / 2
+        if abs(left_shoulder[2] - right_shoulder[2]) / max(price, 0.0001) > 0.10:
+            continue
+        if head[2] <= shoulders * 1.04:
+            continue
+        neckline = (left_neck[2] + right_neck[2]) / 2
+        patterns["head_shoulders"] = True
+        patterns["head_shoulders_neckline"] = neckline
+
+    return patterns
+
 def _parse_money(value):
     if value is None:
         return 0.0
@@ -357,7 +439,15 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
         support is not None
     )
 
+    patterns = _detect_chart_patterns(candles, price, rvol)
+    double_bottom_confirmed = patterns["double_bottom_confirmed"]
+    inverse_hs_confirmed = patterns["inverse_hs_confirmed"]
+
     distribution_risk = rvol >= 2.5 and abs(change_pct) < 1.5
+    bearish_head_shoulders = patterns["head_shoulders"] and (
+        patterns["head_shoulders_neckline"] is not None
+        and price < patterns["head_shoulders_neckline"] * 0.995
+    )
 
     scores = {
         "momentum": 0,
@@ -366,6 +456,8 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
         "sweep": 0,
         "fill_gap": 0,
         "runner_former": 0,
+        "double_bottom": 0,
+        "inverse_head_shoulders": 0,
     }
     if momentum:
         scores["momentum"] += 3
@@ -379,6 +471,10 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
         scores["fill_gap"] += 2
     if former_runner:
         scores["runner_former"] += 2
+    if double_bottom_confirmed:
+        scores["double_bottom"] += 4
+    if inverse_hs_confirmed:
+        scores["inverse_head_shoulders"] += 4
     if rvol >= 3:
         for k in scores:
             scores[k] += 1
@@ -391,6 +487,8 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
         "sweep": ("سحب سيولة", "🟡"),
         "fill_gap": ("تغطية فجوة", "🟡"),
         "runner_former": ("Runner Former", "🟣"),
+        "double_bottom": ("قاع مزدوج مؤكد", "🟢"),
+        "inverse_head_shoulders": ("رأس وكتفين مقلوب مؤكد", "🟢"),
     }
     behavior, emoji = behavior_names[behavior_key]
 
@@ -409,6 +507,12 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
         evidence.append("اختراق مع ثبات")
     if w_pattern:
         evidence.append("نموذج W")
+    if patterns["double_bottom"]:
+        evidence.append("قاع مزدوج مؤكد باختراق خط العنق" if double_bottom_confirmed else "قاع مزدوج تحت المراقبة")
+    if patterns["inverse_head_shoulders"]:
+        evidence.append("رأس وكتفين مقلوب مؤكد باختراق خط العنق" if inverse_hs_confirmed else "رأس وكتفين مقلوب تحت المراقبة")
+    if bearish_head_shoulders:
+        evidence.append("⚠️ رأس وكتفين هابط مؤكد")
     if fill_gap:
         evidence.append("مناطق هبوط/فجوة سابقة")
     if distribution_risk:
@@ -420,9 +524,13 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
         "emoji": emoji,
         "score": min(100, sum(scores.values()) * 10),
         "pass": bool(
-            (accumulation or momentum or sweep or w_pattern or fill_gap)
+            (
+                accumulation or momentum or sweep or w_pattern or fill_gap
+                or double_bottom_confirmed or inverse_hs_confirmed
+            )
             and not distribution_risk
             and not late_chase
+            and not bearish_head_shoulders
         ),
         "reason": " + ".join(evidence) if evidence else "لا توجد تركيبة واضحة من منهج فيصل",
         "rvol": round(rvol, 2),
@@ -435,6 +543,14 @@ async def classify_faisal(symbol: str, quote: dict | None = None):
         "breakout": breakout,
         "w_pattern": w_pattern,
         "fill_gap": fill_gap,
+        "double_bottom": patterns["double_bottom"],
+        "double_bottom_confirmed": double_bottom_confirmed,
+        "double_bottom_neckline": round(patterns["double_bottom_neckline"], 4) if patterns["double_bottom_neckline"] else None,
+        "inverse_head_shoulders": patterns["inverse_head_shoulders"],
+        "inverse_hs_confirmed": inverse_hs_confirmed,
+        "inverse_hs_neckline": round(patterns["inverse_hs_neckline"], 4) if patterns["inverse_hs_neckline"] else None,
+        "head_shoulders": patterns["head_shoulders"],
+        "head_shoulders_neckline": round(patterns["head_shoulders_neckline"], 4) if patterns["head_shoulders_neckline"] else None,
         "distribution_risk": distribution_risk,
         "late_chase": late_chase,
         "data_source": data_source,
