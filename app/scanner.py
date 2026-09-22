@@ -3,6 +3,7 @@ import httpx
 from .config import settings
 from .panwatch import technical_targets
 from .news import company_news
+from .market import quote
 
 # رادار SAS PRO:
 # - السوق الأمريكي المدرج: NASDAQ + NYSE + NYSE American (AMEX)
@@ -563,6 +564,7 @@ async def scan_us_low_price_stocks():
     candidates = await discover_low_price_stocks()
     results = []
     diagnostics = []
+    candidate_count = len(candidates)
 
     # Keep the radar responsive: analyze candidates concurrently, but cap concurrency.
     semaphore = asyncio.Semaphore(8)
@@ -582,7 +584,10 @@ async def scan_us_low_price_stocks():
                     }
                 targets = await technical_targets(symbol)
                 news = await company_news(symbol, days=2)
-                return ({
+                live = await quote(symbol)
+                live_price = _f(live.get("price"), 0)
+                live_change = live.get("change_pct")
+                result_row = {
                     **row,
                     "symbol": symbol,
                     "exchange": _normalize_exchange(row.get("exchange")),
@@ -590,7 +595,15 @@ async def scan_us_low_price_stocks():
                     "targets": targets,
                     "catalyst": bool(news),
                     "news_count": len(news) if isinstance(news, list) else 0,
-                }, None)
+                    "live_price": live_price if live_price > 0 else None,
+                    "live_change_pct": live_change,
+                    "live_price_source": live.get("source") or "unavailable",
+                }
+                if live_price > 0:
+                    result_row["price"] = live_price
+                    if live_change is not None:
+                        result_row["change_pct"] = live_change
+                return (result_row, None)
             except Exception as exc:
                 return None, {
                     "symbol": symbol,
@@ -620,4 +633,13 @@ async def scan_us_low_price_stocks():
     )
     # لا نختار عدداً ثابتاً من النتائج: نعيد كل الأسهم التي اكتملت شروط المنهج فقط.
     # السهم غير المطابق لا يظهر، ويمكن أن يدخل لاحقاً عند تحقق الشروط في دورة مسح جديدة.
-    return results
+    return {
+        "stocks": results,
+        "diagnostics": {
+            "candidates": candidate_count,
+            "passed": len(results),
+            "filtered": sum(1 for x in diagnostics if x.get("status") == "filtered"),
+            "errors": sum(1 for x in diagnostics if x.get("status") == "error"),
+            "price_source": "Nasdaq Screener/Twelve Data + live quote for passed symbols",
+        },
+    }
