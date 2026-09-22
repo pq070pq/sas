@@ -11,6 +11,6 @@ FROM node:22-slim
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/web/.next/standalone ./
-COPY --from=build /app/web/.next/static ./web/.next/static
+COPY --from=build /app/web/.next/static ./.next/static
 EXPOSE 3000
 CMD ["node", "server.js"]
