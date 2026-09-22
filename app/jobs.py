@@ -105,33 +105,68 @@ async def weekly_radar_report():
         return
     key = f"weekly-radar:{now.strftime('%Y-%m-%d')}"
     async with SessionLocal() as db:
-        sent = (await db.execute(select(ScheduledReport).where(ScheduledReport.report_key == key))).scalars().first()
+        sent = (await db.execute(
+            select(ScheduledReport).where(ScheduledReport.report_key == key)
+        )).scalars().first()
         if sent or not settings.telegram_channel_id or not settings.telegram_bot_token:
             return
+
         week_start = (now.date() - timedelta(days=6)).isoformat()
         outcomes = (await db.execute(
             select(RadarOutcome).where(RadarOutcome.session_date >= week_start)
         )).scalars().all()
+
         reached = [x for x in outcomes if x.achieved_target > 0]
         failed = [x for x in outcomes if x.status == "failed"]
         active = [x for x in outcomes if x.status == "active"]
+
         lines = [
-            "📊 <b>SAS PRO — التقرير الأسبوعي للرادار</b>",
+            "📊 <b>SAS PRO — تقرير الرادار الأسبوعي</b>",
             "",
             f"📅 الفترة: {week_start} → {now.strftime('%Y-%m-%d')}",
-            f"🔎 الفرص المرصودة: <b>{len(outcomes)}</b>",
-            f"🎯 حققت هدفًا: <b>{len(reached)}</b>",
-            f"❌ لم تحقق الهدف/وصلت لحد الخروج: <b>{len(failed)}</b>",
-            f"⏳ ما زالت مفتوحة: <b>{len(active)}</b>",
+            f"🔎 عدد الأسهم التي رصدها الرادار: <b>{len(outcomes)}</b>",
+            f"🎯 وصلت للهدف: <b>{len(reached)}</b>",
+            f"❌ لم تصل للهدف/وصلت لحد الخروج: <b>{len(failed)}</b>",
+            f"⏳ ما زالت تحت المتابعة: <b>{len(active)}</b>",
             "",
             "━━━━━━━━━━━━━━",
             "",
-            "🎯 <b>الأسهم التي حققت أهدافًا</b>",
+            "🎯 <b>أسهم وصلت إلى أهدافها</b>",
         ]
-        lines += [f"• {x.symbol} — الهدف {x.achieved_target}" for x in reached] or ["• لا توجد حالات مكتملة هذا الأسبوع"]
-        lines += ["", "❌ <b>الأسهم التي لم تحقق الهدف</b>"]
-        lines += [f"• {x.symbol} — {x.status}" for x in failed] or ["• لا توجد حالات مسجلة"]
-        lines += ["", "⚠️ الإحصائية مبنية على أسعار السوق مقارنة بالأهداف وحد الخروج المسجلين وقت إرسال الرادار.", "", "🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️"]
+        lines += [
+            f"• {x.symbol} — وصل للهدف {x.achieved_target} 🎯"
+            for x in reached
+        ] or ["• لا توجد أسهم وصلت إلى هدف خلال الفترة"]
+
+        lines += [
+            "",
+            "━━━━━━━━━━━━━━",
+            "",
+            "❌ <b>أسهم لم تصل إلى الهدف</b>",
+        ]
+        lines += [
+            f"• {x.symbol} — {('وصل لحد الخروج' if x.status == 'failed' else 'لم يصل للهدف')}"
+            for x in failed
+        ] or ["• لا توجد حالات مسجلة"]
+
+        lines += [
+            "",
+            "━━━━━━━━━━━━━━",
+            "",
+            "⏳ <b>أسهم ما زالت تحت المتابعة</b>",
+        ]
+        lines += [f"• {x.symbol}" for x in active] or ["• لا توجد أسهم مفتوحة حاليًا"]
+
+        lines += [
+            "",
+            "━━━━━━━━━━━━━━",
+            "",
+            "⚠️ الإحصائية تعتمد على سعر السوق مقارنة بالأهداف وحد الخروج المسجلين وقت إرسال الرادار.",
+            "",
+            "🚨 <b>SAS PRO معلومات وتحليل فقط وليست توصية أو مشورة استثمارية.</b>",
+            "الأهداف تحليلية وليست ضمانًا للنتيجة، وقرار التداول وإدارة المخاطر مسؤولية المستخدم ⚠️",
+        ]
+
         await send_message(settings.telegram_channel_id, "\n".join(lines))
         db.add(ScheduledReport(report_key=key))
         await db.commit()
