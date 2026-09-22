@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 from .config import settings
 from .panwatch import technical_targets
@@ -50,25 +51,73 @@ def _near(level, price, pct=0.04):
     return price > 0 and abs(level - price) / price <= pct
 
 
-async def discover_low_price_stocks():
+async def _discover_twelvedata(client):
+    if not settings.twelve_data_api_key:
+        return []
+    r = await client.get(
+        "https://api.twelvedata.com/market_movers/stocks",
+        params={"apikey": settings.twelve_data_api_key, "direction": "gainers",
+                "outputsize": 50, "country": "USA"},
+    )
+    r.raise_for_status()
+    rows = (r.json().get("values") or [])
+    out = []
+    for row in rows:
+        symbol = str(row.get("symbol") or "").upper().strip()
+        price = _f(row.get("last"), -1)
+        if symbol and MIN_PRICE <= price <= MAX_PRICE:
+            out.append({
+                "symbol": symbol,
+                "name": row.get("name") or symbol,
+                "price": price,
+                "change_pct": _f(row.get("percent_change")),
+                "volume": _f(row.get("volume")),
+                "source": "Twelve Data",
+            })
+    return out
+
+
+async def _discover_panwatch(client):
     base = settings.panwatch_base_url.rstrip("/")
-    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
+    try:
         r = await client.get(
             f"{base}/api/discovery/stocks",
             params={"market": "US", "mode": "gainers", "limit": DISCOVERY_LIMIT},
         )
         r.raise_for_status()
         rows = r.json()
+    except Exception:
+        return []
 
-    out, seen = [], set()
+    out = []
     for row in rows or []:
         symbol = str(row.get("symbol") or "").upper().strip()
         price = _f(row.get("price"), -1)
-        if not symbol or symbol in seen or not (MIN_PRICE <= price <= MAX_PRICE):
-            continue
-        seen.add(symbol)
-        out.append(row)
+        if symbol and MIN_PRICE <= price <= MAX_PRICE:
+            out.append({**row, "source": "PanWatch"})
     return out
+
+
+async def discover_low_price_stocks():
+    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
+        sources = await asyncio.gather(
+            _discover_twelvedata(client),
+            _discover_panwatch(client),
+            return_exceptions=True,
+        )
+
+    merged, seen = [], set()
+    for source_rows in sources:
+        if isinstance(source_rows, Exception):
+            continue
+        for row in source_rows:
+            symbol = str(row.get("symbol") or "").upper().strip()
+            if not symbol or symbol in seen:
+                continue
+            seen.add(symbol)
+            merged.append(row)
+
+    return merged[:DISCOVERY_LIMIT]
 
 
 async def classify_faisal(symbol: str, quote: dict | None = None):
