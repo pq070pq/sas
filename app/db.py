@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from .config import settings
@@ -19,6 +19,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     terms_version: Mapped[str | None] = mapped_column(String(32))
+    trial_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
@@ -82,6 +83,11 @@ class StockAnalysis(Base):
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Safe SQLite migration for existing production databases.
+        if engine.url.get_backend_name() == "sqlite":
+            cols = {row[1] for row in (await conn.execute(text("PRAGMA table_info(users)"))).fetchall()}
+            if "trial_used_at" not in cols:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN trial_used_at DATETIME"))
 
 async def get_session():
     async with SessionLocal() as session:
