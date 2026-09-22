@@ -84,9 +84,10 @@
 <section class="plans">
   <div class="section-title"><b>اشتراكات SAS PRO</b><span>اختر خطتك</span></div>
   <div class="plan-grid">
-    <div class="plan"><b>الاشتراك الشهري</b><strong>500 ⭐</strong><small>30 يومًا</small><button onclick="buy('monthly')">اشترك الآن</button></div>
-    <div class="plan"><b>الاشتراك 3 أشهر</b><strong>1200 ⭐</strong><small>90 يومًا</small><button onclick="buy('3month')">اشترك الآن</button></div>
-    <div class="plan featured"><label>اشتراك سنوي</label><b>الاشتراك السنوي</b><strong>3500 ⭐</strong><small>365 يومًا</small><button onclick="buy('yearly')">اشترك الآن</button></div>
+    <div class="plan"><b>الاشتراك الشهري</b><strong>150 ريال</strong><small>30 يومًا • 3077 ⭐</small><button onclick="buy('monthly')">اشترك الآن</button></div>
+    <div class="plan"><b>3 أشهر</b><strong>405 ريال</strong><small>خصم 10% • 8308 ⭐</small><button onclick="buy('3month')">اشترك الآن</button></div>
+    <div class="plan"><b>6 أشهر</b><strong>720 ريال</strong><small>خصم 20% • 14770 ⭐</small><button onclick="buy('6month')">اشترك الآن</button></div>
+    <div class="plan featured"><label>خصم 30%</label><b>سنة كاملة</b><strong>1260 ريال</strong><small>365 يومًا • 25847 ⭐</small><button onclick="buy('yearly')">اشترك الآن</button></div>
   </div>
 </section>
 
@@ -155,6 +156,13 @@ async function showEntryTerms(){
  const btn=document.querySelector('.terms-actions button:last-child');
  if(btn)btn.textContent='أوافق وأدخل SAS PRO';
  btn.onclick=acceptTermsOnly;
+ const trialBtn=document.getElementById('trialButton');
+ if(trialBtn){
+   try{
+     const me=await api('/api/me');
+     trialBtn.hidden=!me.trial_available;
+   }catch(e){trialBtn.hidden=true;}
+ }
 }
 function openPurchaseTerms(plan){
  pendingPlan=plan;
@@ -244,7 +252,17 @@ function openTerms(plan){pendingPlan=plan;document.getElementById('termsAgree').
 function closeTerms(){document.getElementById('termsModal').hidden=true;}
 async function acceptTermsOnly(){
  if(!document.getElementById('termsAgree').checked){alert('يرجى الموافقة على الشروط أولًا');return;}
- try{await api('/api/terms/accept',{method:'POST'});closeTerms();}catch(e){alert(e.message);}
+ try{await api('/api/terms/accept',{method:'POST'});closeTerms();load();}catch(e){alert(e.message);}
+}
+async function startTrial(){
+ if(!document.getElementById('termsAgree').checked){alert('يرجى الموافقة على الشروط أولًا');return;}
+ try{
+   await api('/api/terms/accept',{method:'POST'});
+   await api('/api/trial/start',{method:'POST'});
+   closeTerms();
+   alert('🎁 بدأت تجربتك المجانية لمدة 3 أيام.');
+   load();
+ }catch(e){alert(e.message);}
 }
 async function acceptAndBuy(){
  if(!document.getElementById('termsAgree').checked){alert('يرجى الموافقة على الشروط أولًا');return;}
@@ -264,6 +282,7 @@ load();setInterval(load,30000);
     <div class="terms-body"><p>جاري تحميل الشروط...</p></div>
     <label class="terms-check"><input id="termsAgree" type="checkbox"> أوافق على شروط استخدام SAS PRO.</label>
     <div class="terms-actions">
+      <button id="trialButton" class="trial-btn" hidden onclick="startTrial()">🎁 ابدأ التجربة المجانية 3 أيام</button>
       <button onclick="closeTerms()">إلغاء</button>
       <button onclick="acceptAndBuy()">أوافق وأتابع الاشتراك</button>
     </div>
