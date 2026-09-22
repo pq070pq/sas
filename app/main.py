@@ -372,6 +372,159 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
         "terms_version": existing.terms_version,
     }
 
+@app.get("/api/subscription/plans")
+async def subscription_plans(user=Depends(telegram_user)):
+    plans = await get_plans()
+    return {
+        "plans": plans,
+        "terms_version": TERMS_VERSION,
+        "terms_text": TERMS_TEXT,
+    }
+
+@app.post("/api/subscription/trial")
+async def subscription_trial(user=Depends(telegram_user)):
+    if int(user["id"]) == int(settings.owner_telegram_id):
+        raise HTTPException(400, "حساب المالك لا يحتاج تجربة")
+    try:
+        result = await start_trial_for_user(user)
+        try:
+            await send_message(user["id"],
+                "🎁 <b>بدأت تجربتك المجانية في SAS PRO</b>\n\n"
+                "⏳ المدة: <b>3 أيام</b>\n"
+                f"📅 تنتهي: <b>{result['trial_expires'].strftime('%d/%m/%Y %H:%M')}</b>\n\n"
+                "🚀 رابط دخول قناة التجربة الخاص بك:",
+                {"inline_keyboard": [[{"text": "🎁 دخول قناة التجربة", "url": result["invite_link"]}]]},
+            )
+        except Exception:
+            pass
+        return {"ok": True, **result, "trial_expires": result["trial_expires"].isoformat(), "invite_expires": result["invite_expires"].isoformat()}
+    except ValueError as exc:
+        raise HTTPException(409, str(exc))
+
+@app.post("/api/subscription/invoice/{plan}")
+async def subscription_invoice(plan: str, user=Depends(telegram_user)):
+    if int(user["id"]) == int(settings.owner_telegram_id):
+        raise HTTPException(400, "حساب المالك لا يحتاج شراء")
+    async with SessionLocal() as db:
+        row = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
+        if not row or row.terms_version != TERMS_VERSION or not row.terms_accepted_at:
+            raise HTTPException(409, "يجب الموافقة على الشروط قبل الدفع")
+    try:
+        return await create_invoice_for_user(user, plan)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc))
+
+@app.get("/api/admin/overview")
+async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    if int(user["id"]) != int(settings.owner_telegram_id):
+        raise HTTPException(403, "Admin only")
+    now = utcnow()
+    users = (await db.execute(select(User))).scalars().all()
+    active = 0
+    expired = 0
+    trial = 0
+    for u in users:
+        if u.free_access or (u.subscription_expires and aware(u.subscription_expires) > now and u.status == "active"):
+            active += 1
+        elif u.subscription_expires:
+            expired += 1
+        if u.trial_used_at:
+            trial += 1
+    payments = (await db.execute(select(Payment))).scalars().all()
+    return {
+        "active": active,
+        "expired": expired,
+        "trial_users": trial,
+        "new_users": len([u for u in users if u.created_at and (now - aware(u.created_at)).days < 30]),
+        "payments": len(payments),
+        "stars": sum(p.stars for p in payments),
+    }
+
+@app.get("/api/admin/users")
+async def admin_users(q: str = "", user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    if int(user["id"]) != int(settings.owner_telegram_id):
+        raise HTTPException(403, "Admin only")
+    q = q.strip()
+    stmt = select(User).order_by(User.created_at.desc()).limit(100)
+    if q:
+        from sqlalchemy import or_
+        filters = [User.username.ilike(f"%{q.lstrip('@')}%"), User.first_name.ilike(f"%{q}%")]
+        try:
+            filters.append(User.telegram_id == int(q))
+        except ValueError:
+            pass
+        stmt = select(User).where(or_(*filters)).order_by(User.created_at.desc()).limit(100)
+    rows = (await db.execute(stmt)).scalars().all()
+    return [{
+        "telegram_id": u.telegram_id, "username": u.username, "first_name": u.first_name, "last_name": u.last_name,
+        "status": u.status, "trial_start": aware(u.trial_start).isoformat() if u.trial_start else None,
+        "trial_expires": aware(u.trial_expires).isoformat() if u.trial_expires else None,
+        "subscription_start": aware(u.subscription_start).isoformat() if u.subscription_start else None,
+        "subscription_expires": aware(u.subscription_expires).isoformat() if u.subscription_expires else None,
+        "plan": u.plan, "free_access": u.free_access, "terms_accepted_at": aware(u.terms_accepted_at).isoformat() if u.terms_accepted_at else None,
+    } for u in rows]
+
+@app.get("/api/admin/plans")
+async def admin_plans(user=Depends(telegram_user)):
+    if int(user["id"]) != int(settings.owner_telegram_id):
+        raise HTTPException(403, "Admin only")
+    return await get_plans()
+
+@app.post("/api/admin/plans")
+async def admin_update_plans(request: Request, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    if int(user["id"]) != int(settings.owner_telegram_id):
+        raise HTTPException(403, "Admin only")
+    body = await request.json()
+    for key in ("monthly", "3month", "6month", "yearly"):
+        item = body.get(key) or {}
+        sar = int(item.get("sar", 0))
+        days = int(item.get("days", 0))
+        stars = int(item.get("stars", 0))
+        if sar <= 0 or days <= 0 or stars < 0 or stars > 100000:
+            raise HTTPException(400, f"بيانات الباقة {key} غير صحيحة")
+        await __import__("app.subscriptions", fromlist=["setting_set"]).setting_set(db, f"{key}_sar", sar)
+        await __import__("app.subscriptions", fromlist=["setting_set"]).setting_set(db, f"{key}_days", days)
+        await __import__("app.subscriptions", fromlist=["setting_set"]).setting_set(db, f"{key}_stars", stars)
+    await db.commit()
+    return {"ok": True, "plans": await get_plans()}
+
+@app.post("/api/admin/grant/{telegram_id}")
+async def admin_grant(telegram_id: int, days: str = "30", user=Depends(telegram_user)):
+    if int(user["id"]) != int(settings.owner_telegram_id):
+        raise HTTPException(403, "Admin only")
+    if days.lower() == "forever":
+        exp, link, link_exp = await grant_access(telegram_id, forever=True)
+    else:
+        try:
+            n = int(days)
+        except ValueError:
+            raise HTTPException(400, "استخدم /grant ID DAYS أو forever")
+        if n <= 0 or n > 3650:
+            raise HTTPException(400, "المدة يجب أن تكون بين 1 و3650 يومًا")
+        exp, link, link_exp = await grant_access(telegram_id, days=n)
+    try:
+        await send_message(telegram_id,
+            "✅ <b>تم تفعيل وصول SAS PRO</b>\n\n"
+            f"📅 تاريخ الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>\n\n"
+            "🚀 رابط دخول القناة:",
+            {"inline_keyboard": [[{"text": "🚀 دخول SAS PRO", "url": link}]]},
+        )
+    except Exception:
+        pass
+    return {"ok": True, "expires_at": exp.isoformat(), "invite_expires": link_exp.isoformat()}
+
+@app.post("/api/admin/revoke/{telegram_id}")
+async def admin_revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    if int(user["id"]) != int(settings.owner_telegram_id):
+        raise HTTPException(403, "Admin only")
+    await db.execute(update(Subscription).where(Subscription.telegram_id == telegram_id, Subscription.active == True).values(active=False))
+    row = (await db.execute(select(User).where(User.telegram_id == telegram_id))).scalars().first()
+    if row:
+        row.status = "revoked"; row.free_access = False; row.subscription_expires = utcnow(); row.updated_at = utcnow()
+    await db.commit()
+    await set_channel_access(telegram_id, allow=False)
+    return {"ok": True}
+
 @app.get("/api/market/status")
 async def market_status_api(_: dict = Depends(require_pro)):
     return market_status()
