@@ -32,20 +32,11 @@ async def expiry_cycle():
                     )
                 except Exception:
                     pass
-                if settings.telegram_channel_id:
-                    try:
-                        await bot_api("banChatMember", {
-                            "chat_id": settings.telegram_channel_id,
-                            "user_id": sub.telegram_id,
-                            "revoke_messages": False,
-                        })
-                        await bot_api("unbanChatMember", {
-                            "chat_id": settings.telegram_channel_id,
-                            "user_id": sub.telegram_id,
-                            "only_if_banned": True,
-                        })
-                    except Exception:
-                        pass
+                try:
+                    from .main import set_channel_access
+                    await set_channel_access(sub.telegram_id, allow=False)
+                except Exception:
+                    pass
             elif expires_at <= horizon and sub.warning_3d_sent_at is None:
                 text = (
                     "⚠️ <b>تنبيه: إذن دخول SAS PRO سينتهي قريبًا</b>\n\n"
