@@ -92,3 +92,18 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(920px,
 
 /* إخفاء قسم الاشتراكات من الصفحة الرئيسية بدون حذف نظام الاشتراك أو الفوترة. */
 .plans,.subscription-badge{display:none !important}
+
+/* طلب إذن الدخول فقط لغير المصرح لهم؛ لا توجد أسعار أو باقات على الصفحة. */
+.access-request{
+ position:absolute;z-index:13;left:31%;top:46.0%;width:38%;height:4.3%;
+ border:1px solid rgba(45,244,255,.70);border-radius:999px;
+ background:rgba(2,12,18,.78);color:#fff;font-weight:900;
+ font-size:clamp(8px,1.15vw,12px);cursor:pointer;
+ box-shadow:0 0 14px rgba(0,229,255,.14);text-shadow:0 1px 4px #000;
+}
+.access-request:active{background:rgba(0,229,255,.16)}
+.access-request[hidden]{display:none!important}
+.plans,.subscription-badge{display:none!important}
+@media(max-width:700px){
+ .access-request{left:24%;width:52%;top:46.0%}
+}
