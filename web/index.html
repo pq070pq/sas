@@ -23,6 +23,21 @@
   <button class="home-hit card-new" onclick="showNewStocks()" aria-label="بيانات السوق"></button>
   <button class="home-hit card-news" onclick="showNews()" aria-label="الأخبار"></button>
   <button class="home-hit card-fav" onclick="showFavorites()" aria-label="المفضلة"></button>
+  <button class="home-hit zone-nasdaq" onclick="focusSearch()" aria-label="NASDAQ"></button>
+  <button class="home-hit zone-sp500" onclick="focusSearch()" aria-label="S&P 500"></button>
+  <button class="home-hit zone-dow" onclick="focusSearch()" aria-label="Dow Jones"></button>
+  <button class="home-hit zone-macro" onclick="showNews()" aria-label="Bitcoin الذهب النفط"></button>
+  <button class="home-hit zone-market-data" onclick="setMode('analysis')" aria-label="بيانات السوق"></button>
+  <button class="home-hit zone-news" onclick="showNews()" aria-label="آخر الأخبار"></button>
+  <button class="home-hit zone-company" onclick="showEvents()" aria-label="بيانات الشركات"></button>
+  <button class="home-hit zone-opportunities" onclick="setMode('radar')" aria-label="الفرص المرصودة"></button>
+  <button class="home-hit zone-alerts" onclick="showAlerts()" aria-label="التنبيهات"></button>
+  <button class="home-hit zone-activity" onclick="setMode('radar')" aria-label="نشاط السوق"></button>
+  <button class="home-hit zone-active" onclick="setMode('radar')" aria-label="الأسهم النشطة"></button>
+  <button class="home-hit zone-daily" onclick="setMode('radar')" aria-label="الرادار اليومي"></button>
+  <button class="home-hit zone-plans" onclick="document.querySelector('.plans').scrollIntoView({behavior:'smooth'})" aria-label="الاشتراك والباقات"></button>
+  <button class="home-hit zone-scan" onclick="setMode('radar')" aria-label="بدء الرصد"></button>
+  <button class="home-hit zone-settings" onclick="showSettings()" aria-label="الإعدادات"></button>
 
   <div class="live-top-ticker" aria-label="الأسعار الحية">
     <div><b>₿ BTC</b><strong id="homeBtc">—</strong><em id="homeBtcCh">—</em></div>
