@@ -10,6 +10,7 @@ services:
     depends_on:
       - panwatch
       - openterminal-web
+
   panwatch:
     build:
       context: ./vendor/PanWatch
@@ -17,9 +18,6 @@ services:
     env_file: .env
     expose:
       - "8000"
-volumes:
-  saspro_data:
-
 
   openterminal-api:
     build:
