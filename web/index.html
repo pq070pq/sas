@@ -153,6 +153,8 @@ async function load(){
  try{
   const d=await api('/api/me');
   document.getElementById('accountStatus')?.remove();
+  if(d.user&&d.user.id){ /* owner panel visibility is enforced by server */ }
+  if(d.user&&d.user.id){ try { const s=await api('/api/admin/subscriptions'); document.getElementById('adminPanel').hidden=false; } catch(e){} }
   document.getElementById('marketState').textContent=d.pro?'مشترك PRO فعال':'الحساب غير مشترك'; if(!d.terms_accepted) showEntryTerms();
  }catch(e){}
  try{
