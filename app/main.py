@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
-from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, AccessRequest, Setting, get_session, init_db
+from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, AccessRequest, Setting, Invite, get_session, init_db
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets
@@ -30,6 +30,25 @@ PLAN_LABELS = {}
 async def startup():
     await init_db()
     await ensure_subscription_settings()
+    if settings.telegram_bot_token:
+        try:
+            await bot_api("setMyCommands", {"commands": [
+                {"command":"start","description":"فتح SAS PRO"},
+                {"command":"terms","description":"شروط الاستخدام"},
+                {"command":"paysupport","description":"دعم المدفوعات"},
+            ]})
+            if settings.owner_telegram_id:
+                await bot_api("setMyCommands", {
+                    "scope": {"type":"chat","chat_id":settings.owner_telegram_id},
+                    "commands": [
+                        {"command":"start","description":"فتح SAS PRO"},
+                        {"command":"status","description":"حالة الاشتراكات"},
+                        {"command":"grant","description":"منح اشتراك"},
+                        {"command":"revoke","description":"إلغاء اشتراك"},
+                    ],
+                })
+        except Exception:
+            pass
     asyncio.create_task(scheduler())
     asyncio.create_task(holiday_radar_scheduler())
 
@@ -815,6 +834,24 @@ async def telegram_webhook(request: Request):
         raise HTTPException(403, "Invalid Telegram webhook secret")
     data = await request.json()
 
+    if "chat_member" in data:
+        cm = data.get("chat_member") or {}
+        chat = cm.get("chat") or {}
+        member = cm.get("new_chat_member") or {}
+        member_user = member.get("user") or {}
+        uid = int(member_user.get("id") or 0)
+        if uid and str(chat.get("id")) in {str(settings.telegram_channel_id), str(settings.trial_channel_id)}:
+            async with SessionLocal() as db:
+                invite = (await db.execute(select(Invite).where(
+                    Invite.telegram_id == uid,
+                    Invite.channel_id == str(chat.get("id")),
+                    Invite.used == False
+                ).order_by(Invite.created_at.desc()))).scalars().first()
+                if invite:
+                    invite.used = True
+                    await db.commit()
+        return {"ok": True}
+
     if "chat_join_request" in data:
         jr = data.get("chat_join_request") or {}
         chat = jr.get("chat") or {}
@@ -897,6 +934,14 @@ async def telegram_webhook(request: Request):
             user_row.username = sender.get("username")
             user_row.first_name = sender.get("first_name")
         await db.commit()
+
+    if text.lower() == "/terms":
+        await send_message(chat_id, "<b>📋 شروط استخدام SAS PRO</b>\n\n" + TERMS_TEXT)
+        return {"ok": True}
+
+    if text.lower() == "/paysupport":
+        await send_message(chat_id, "💳 <b>دعم المدفوعات SAS PRO</b>\n\nأرسل Telegram ID أو رقم عملية الدفع والمشكلة بالتفصيل، وسيتم مراجعة العملية.")
+        return {"ok": True}
 
     # Admin commands are available only to the owner.
     if telegram_id == settings.owner_telegram_id:
