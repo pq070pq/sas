@@ -72,10 +72,10 @@
 <section class="plans">
   <div class="section-title"><b>اشتراكات SAS PRO</b><span>اختر خطتك</span></div>
   <div class="plan-grid">
-    <div class="plan"><b>الاشتراك الشهري</b><strong>150 ريال</strong><small>30 يومًا • 3077 ⭐</small><button onclick="buy('monthly')">اشترك الآن</button></div>
-    <div class="plan"><b>3 أشهر</b><strong>405 ريال</strong><small>خصم 10% • 8308 ⭐</small><button onclick="buy('3month')">اشترك الآن</button></div>
-    <div class="plan"><b>6 أشهر</b><strong>720 ريال</strong><small>خصم 20% • 14770 ⭐</small><button onclick="buy('6month')">اشترك الآن</button></div>
-    <div class="plan featured"><label>خصم 30%</label><b>سنة كاملة</b><strong>1260 ريال</strong><small>365 يومًا • 25847 ⭐</small><button onclick="buy('yearly')">اشترك الآن</button></div>
+    <div class="plan"><b>الاشتراك الشهري</b><strong>150 ريال</strong><small>30 يومًا • 3077 ⭐</small><button onclick="buy('monthly')">📋 الشروط والموافقة ثم الاشتراك</button></div>
+    <div class="plan"><b>3 أشهر</b><strong>405 ريال</strong><small>خصم 10% • 8308 ⭐</small><button onclick="buy('3month')">📋 الشروط والموافقة ثم الاشتراك</button></div>
+    <div class="plan"><b>6 أشهر</b><strong>720 ريال</strong><small>خصم 20% • 14770 ⭐</small><button onclick="buy('6month')">📋 الشروط والموافقة ثم الاشتراك</button></div>
+    <div class="plan featured"><label>خصم 30%</label><b>سنة كاملة</b><strong>1260 ريال</strong><small>365 يومًا • 25847 ⭐</small><button onclick="buy('yearly')">📋 الشروط والموافقة ثم الاشتراك</button></div>
   </div>
 </section>
 
@@ -144,13 +144,23 @@ async function showEntryTerms(){
  const trialBtn=document.getElementById('trialButton');
  if(trialBtn) trialBtn.hidden=false;
 }
-function openPurchaseTerms(plan){
+async function openPurchaseTerms(plan){
  pendingPlan=plan;
  document.getElementById('termsAgree').checked=false;
  document.getElementById('termsModal').hidden=false;
+ const body=document.querySelector('.terms-body');
+ body.innerHTML='<p>جاري تحميل شروط استخدام SAS PRO...</p>';
  const btn=document.querySelector('.terms-actions button:last-child');
- if(btn)btn.textContent='أوافق وأتابع الاشتراك';
- btn.onclick=acceptAndBuy;
+ if(btn){btn.textContent='أوافق وأتابع الاشتراك';btn.onclick=acceptAndBuy;}
+ try{
+   const d=await api('/api/terms');
+   const text=String(d.text||'').trim();
+   body.innerHTML=text.split(/\\n\\s*\\n/).map(x=>'<p>'+x.replace(/\\n/g,'<br>')+'</p>').join('');
+   document.getElementById('termsVersion').textContent='الإصدار '+(d.version||'—');
+ }catch(e){
+   body.innerHTML='<p>تعذر تحميل الشروط الآن. لا يمكن إكمال الاشتراك قبل عرض الشروط والموافقة عليها.</p>';
+   if(btn)btn.disabled=true;
+ }
 }
 async function loadAdminSubs(){
  try{
@@ -244,7 +254,9 @@ async function startTrial(){
  }catch(e){alert(e.message);}
 }
 async function acceptAndBuy(){
- if(!document.getElementById('termsAgree').checked){alert('يرجى الموافقة على الشروط أولًا');return;}
+ const body=document.querySelector('.terms-body');
+ if(!body || body.textContent.includes('جاري تحميل') || body.textContent.includes('تعذر تحميل')){alert('يجب عرض شروط الاستخدام أولًا ثم الموافقة عليها.');return;}
+ if(!document.getElementById('termsAgree').checked){alert('يرجى قراءة شروط الاستخدام والموافقة عليها أولًا');return;}
  try{
   await api('/api/terms/accept',{method:'POST'});
   const d=await api('/api/payments/invoice/'+pendingPlan,{method:'POST'});
@@ -257,7 +269,7 @@ load();setInterval(load,30000);
 </script>
 <div id="termsModal" class="terms-modal" hidden>
   <div class="terms-card">
-    <h3>📋 شروط استخدام SAS PRO</h3>
+    <h3>📋 شروط استخدام SAS PRO <small id="termsVersion"></small></h3>
     <div class="terms-body"><p>جاري تحميل الشروط...</p></div>
     <label class="terms-check"><input id="termsAgree" type="checkbox"> أوافق على شروط استخدام SAS PRO.</label>
     <div class="terms-actions">
