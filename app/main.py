@@ -243,9 +243,8 @@ async def market_ticker(_: dict = Depends(telegram_user)):
 @app.get("/api/dashboard/home")
 async def dashboard_home(_: dict = Depends(telegram_user)):
     status = market_status()
-    now_ny = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=-4)))
-    # Radar signals are persisted by the existing production radar cycle.
-    session_date = now_ny.strftime("%Y-%m-%d")
+    # Radar signals use the same New York trading date as the market calendar.
+    session_date = status["date"]
     async with SessionLocal() as db:
         rows = (await db.execute(
             select(RadarSignal)
