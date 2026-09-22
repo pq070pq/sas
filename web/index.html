@@ -74,7 +74,7 @@
 
 <div id="result" class="result">
   <div class="report-head">📡 SAS PRO RADAR</div>
-  <div id="report-content" class="report-empty">اختر سهمًا ثم ابدأ التحليل.</div>
+  <div id="report-content" class="report-empty">جاري التحقق من حالة الرادار...</div>
 </div>
 
 <section class="plans">
@@ -199,6 +199,11 @@ async function load(){
   const r=home.radar||{};
   document.getElementById('homeRadarStatus').textContent=r.enabled?'الرصد يعمل الآن':'خارج وقت الرصد';
   document.getElementById('homeRefresh').textContent='آخر تحديث '+new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+  if(!document.getElementById('report-content').dataset.userAction){
+    document.getElementById('report-content').textContent=r.enabled
+      ? '📡 SAS PRO RADAR\\n\\n🟢 الرصد يعمل الآن.\\nاضغط على الرادار لبدء الفحص الحقيقي وعرض الأسهم التي اجتازت الشروط.'
+      : '📡 SAS PRO RADAR\\n\\n'+(m.label_ar||'الرصد متوقف حاليًا.')+'\\nالرادار لا يختلق فرصًا خارج الجلسة الرئيسية.';
+  }
 
   const pro=!!me.pro;
   document.getElementById('homeSubscriptionText').textContent=pro?'SAS PRO فعال':'اشترك في SAS PRO';
@@ -254,7 +259,7 @@ async function loadPlans(){
 async function showRadarStatus(){
  try{
   const d=await api('/api/radar/status-message');
-  document.getElementById('report-content').textContent=d.message||'لا توجد حالة رصد متاحة.';
+  document.getElementById('report-content').textContent=d.message||'لا توجد حالة رصد متاحة.';document.getElementById('report-content').dataset.userAction='1';
   document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(e){document.getElementById('report-content').textContent=e.message;}
 }
@@ -280,10 +285,10 @@ function setMode(mode){if(mode==='radar'){showRadar();return;}focusSearch();}
 async function showRadar(){
  try{
   const d=await api('/api/radar/scan');
-  if(!d.enabled){document.getElementById('report-content').textContent=d.reason||'الرصد متوقف حاليًا.';}
+  if(!d.enabled){document.getElementById('report-content').textContent='📡 SAS PRO RADAR\\n\\n'+(d.reason||'الرصد متوقف حاليًا.')+'\\nلا توجد فرص مصطنعة خارج الجلسة الرئيسية.';document.getElementById('report-content').dataset.userAction='1';}
   else if(!d.stocks||!d.stocks.length){document.getElementById('report-content').textContent='📡 SAS PRO RADAR\n\nلا توجد فرصة مستوفية للشروط حاليًا.';}
   else{
-   document.getElementById('report-content').textContent=d.stocks.slice(0,20).map((x,i)=>
+   document.getElementById('report-content').textContent='📡 SAS PRO RADAR\\n\\n'+d.stocks.slice(0,20).map((x,i)=>
     (i+1)+'. '+x.symbol+' — '+(x.price!=null?money(x.price):'السعر غير واضح')+' — '+(x.change_pct!=null?fmtChange(x.change_pct):'—')
    ).join('\n');
   }
