@@ -20,7 +20,11 @@
 <button onclick="runAnalysis()"><b>🧠 تحليل PanWatch</b><span>تحليل متعدد الوكلاء</span></button>
 <button onclick="showHistory()"><b>📈 التاريخ</b><span>سجل التحليلات السابقة</span></button>
 </div>
-<div id="result" class="result">اختر سهمًا ثم ابدأ.</div>
+<div id="result" class="result">
+<div class="report-head">📡 SAS PRO RADAR</div>
+<div class="report-notice">⛔ شرعية الاسهم مسؤوليتك ⛔</div>
+<div id="report-content" class="report-empty">اختر سهمًا ثم ابدأ.</div>
+</div>
 <section class="plans">
 <h2>اشتراك SAS PRO</h2>
 <div class="plan"><b>شهري</b><strong>500 ⭐</strong><button onclick="buy('monthly')">اشتراك</button></div>
@@ -46,11 +50,80 @@ async function load(){
  }catch(e){document.getElementById('account').textContent='افتح التطبيق من Telegram للتحقق من الحساب';}
 }
 function symbol(){return document.getElementById('symbol').value.trim().toUpperCase();}
+function renderReport(d){
+ const s=d.sas_pro||{};
+ const q=d.quote||{};
+ const t=s.targets||{};
+ const c=s.classification||{};
+ const targets=(t.targets||[]).slice(0,3);
+ const money=v=>v==null?'غير واضح':'
 async function runAnalysis(){
  const s=symbol();if(!s)return;
- document.getElementById('result').textContent='جاري التحليل من PanWatch...';
- try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/analyze',{method:'POST'});document.getElementById('result').textContent=JSON.stringify(d,null,2);}
+ document.getElementById('report-content').textContent='جاري التحليل من PanWatch...';
+ try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/analyze',{method:'POST'});renderReport(d);}
+ catch(e){document.getElementById('report-content').textContent=e.message;}
+}
+async function showNews(){
+ const s=symbol();if(!s)return;
+ try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/news');document.getElementById('result').textContent=JSON.stringify(d,null,2);}
  catch(e){document.getElementById('result').textContent=e.message;}
+}
+async function showEvents(){
+ const s=symbol();if(!s)return;
+ try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/events');document.getElementById('result').textContent=JSON.stringify(d,null,2);}
+ catch(e){document.getElementById('result').textContent=e.message;}
+}
+function showHistory(){
+ const s=symbol();if(!s)return;
+ try{const d=await api('/api/history/'+encodeURIComponent(s));document.getElementById('result').textContent=JSON.stringify(d,null,2);}
+ catch(e){document.getElementById('result').textContent=e.message;}
+}
+async function buy(plan){
+ try{const d=await api('/api/payments/invoice/'+plan,{method:'POST'});if(tg&&tg.openInvoice)tg.openInvoice(d.invoice_url);else location.href=d.invoice_url;}
+ catch(e){document.getElementById('result').textContent=e.message;}
+}
+load();setInterval(load,60000);
+</script>
+</body></html>
++Number(v).toFixed(2);
+ const move=q.change_pct==null?'غير واضح':(Number(q.change_pct)>=0?'+':'')+Number(q.change_pct).toFixed(2)+'%';
+ const vr=t.volume_ratio;
+ const trading=vr!=null&&vr>=1.15?'قوي':'عادي';
+ const liquidity=vr!=null&&vr>=1.5?'عالية':'مو واضحة';
+ const strength=vr!=null&&vr>=1.5?'قوية':'متوسطة';
+ const type=c.emoji&&c.type?c.emoji+' '+c.type:'⚪ غير واضح';
+ const targetText=targets.map((x,i)=>['1️⃣','2️⃣','3️⃣'][i]+' الهدف '+['الأول','الثاني','الثالث'][i]+': '+money(x)).join('\n')||'الأهداف: غير واضحة';
+ document.getElementById('report-content').innerHTML=
+ '✳️ السهم: '+symbol()+'\n'+
+ '💵 السعر: '+money(q.price)+'\n'+
+ '📈 مرتفع/منخفض: '+move+'\n'+
+ '📊 التداول: '+trading+'\n'+
+ '💰 السيولة: '+liquidity+'\n'+
+ '🔥 حركة السهم: '+strength+'\n'+
+ '🏷️ نوع السهم: '+type+'\n'+
+ '🧭 السلوك: '+(c.behavior||'غير واضح')+'\n'+
+ '        🔎 ↳ '+(c.reason||'بيانات غير كافية')+'\n\n'+
+ '━━━━━━━━━━━━━━\n\n'+
+ '🤖 قراءة SAS PRO\n\n'+
+ '📈 الاتجاه: طالع إذا حافظ على مستوياته الحالية\n'+
+ '💪 قوة الحركة: '+strength+'\n'+
+ '📊 التداول: '+(vr!=null&&vr>=1.15?'يدعم استمرار الحركة':'يحتاج متابعة')+'\n'+
+ '⚠️ مستوى الخطورة: '+(vr!=null&&vr>=1.5?'مرتفع':'متوسط')+'\n\n'+
+ '━━━━━━━━━━━━━━\n\n'+
+ '🎯 الأهداف\n\n'+targetText+'\n\n'+
+ '🛑 حد الخروج: '+money(t.exit)+'\n\n'+
+ '━━━━━━━━━━━━━━\n\n'+
+ '💡 التحليل الفني :\n\n'+
+ '🔔 الأهداف محسوبة من مقاومات فعلية ظهرت في بيانات السعر،\n'+
+ 'وما ينحط هدف رقمي إذا ما فيه مستوى واضح.\n\n'+
+ '🚨 إذا ضعف التداول أو انكسر حد الخروج، تتغير نظرة السهم.\n\n'+
+ '🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️';
+}
+async function runAnalysis(){
+ const s=symbol();if(!s)return;
+ document.getElementById('report-content').textContent='جاري التحليل من PanWatch...';
+ try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/analyze',{method:'POST'});renderReport(d);}
+ catch(e){document.getElementById('report-content').textContent=e.message;}
 }
 async function showNews(){
  const s=symbol();if(!s)return;
