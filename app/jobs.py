@@ -264,7 +264,7 @@ async def stock_radar_cycle():
         async with SessionLocal() as db:
             for row in rows:
                 symbol = str(row.get("symbol") or "").upper()
-                if not symbol or symbol in _radar_seen:
+                if not symbol:
                     continue
 
                 existing = (
