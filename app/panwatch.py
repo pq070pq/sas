@@ -26,12 +26,32 @@ async def technical_targets(symbol: str):
     """Build targets only from observed OHLCV structure; never invent prices."""
     base = settings.panwatch_base_url.rstrip("/")
     async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
-        r = await client.get(
-            f"{base}/api/klines/{symbol.upper()}",
-            params={"market": "US", "days": 90, "interval": "1d"},
-        )
-        r.raise_for_status()
-        rows = r.json().get("klines", [])
+        rows = []
+        try:
+            r = await client.get(
+                f"{base}/api/klines/{symbol.upper()}",
+                params={"market": "US", "days": 90, "interval": "1d"},
+            )
+            r.raise_for_status()
+            rows = r.json().get("klines", [])
+        except Exception:
+            # Fallback to Twelve Data when PanWatch has no daily candles.
+            if settings.twelve_data_api_key:
+                try:
+                    r = await client.get(
+                        "https://api.twelvedata.com/time_series",
+                        params={
+                            "symbol": symbol.upper(),
+                            "interval": "1day",
+                            "outputsize": 90,
+                            "apikey": settings.twelve_data_api_key,
+                        },
+                    )
+                    r.raise_for_status()
+                    payload = r.json()
+                    rows = list(reversed(payload.get("values") or []))
+                except Exception:
+                    rows = []
 
     candles = []
     for row in rows:
