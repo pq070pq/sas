@@ -83,6 +83,7 @@
   </div>
   <div id="adminContent">جارٍ التحميل...</div>
   <div id="adminRequests"></div>
+  <div class="admin-help">اختر مدة الاعتماد مباشرة. التجديد يضيف المدة إلى تاريخ الانتهاء الحالي ولا يلغي المتبقي.</div>
 </section>
 
 <div class="legal">⚠️ 🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</div>
@@ -157,19 +158,70 @@ async function acceptAndRequestAccess(){
   load();
  }catch(e){alert(e.message);}
 }
+function adminEscape(v){
+ return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+}
+async function adminAction(url,days){
+ try{
+  await api(url+(days?('?days='+encodeURIComponent(days)):''),{method:'POST'});
+  await loadAdminRequests();
+  await loadAdminSubs();
+  alert('تم تنفيذ العملية بنجاح');
+ }catch(e){alert('تعذر تنفيذ العملية: '+e.message);}
+}
+function durationButtons(id){
+ return '<div class="admin-duration">'+
+  '<button onclick="adminAction(\'/api/admin/grant/'+id+'\',30)">30 يوم</button>'+
+  '<button onclick="adminAction(\'/api/admin/grant/'+id+'\',90)">3 أشهر</button>'+
+  '<button onclick="adminAction(\'/api/admin/grant/'+id+'\',180)">6 أشهر</button>'+
+  '<button onclick="adminAction(\'/api/admin/grant/'+id+'\',365)">سنة</button>'+
+  '<button onclick="adminCustomGrant('+id+')">مدة مخصصة</button></div>';
+}
+async function adminCustomGrant(id){
+ const d=prompt('أدخل عدد أيام الاشتراك:', '30');
+ if(d===null)return;
+ const days=Number(d);
+ if(!Number.isInteger(days)||days<=0){alert('أدخل عدد أيام صحيح');return;}
+ await adminAction('/api/admin/grant/'+id,days);
+}
 async function loadAdminSubs(){
  try{
   const rows=await api('/api/admin/subscriptions');
-  document.getElementById('adminContent').innerHTML='<h4>👥 الاشتراكات</h4>'+rows.map(x=>'• <b>'+x.telegram_id+'</b> — '+x.plan+' — '+(x.active?'🟢 فعال':'🔴 منتهي')+' — '+new Date(x.expires_at).toLocaleDateString('ar-SA')).join('<br>')||'لا توجد بيانات';
- }catch(e){document.getElementById('adminContent').textContent='غير مصرح أو تعذر التحميل';}
+  const html=rows.map(x=>'<div class="admin-row"><div><b>👤 '+adminEscape(x.telegram_id)+'</b> — '+adminEscape(x.plan)+
+   '<br>📅 الانتهاء: <b>'+new Date(x.expires_at).toLocaleDateString('ar-SA')+'</b> — '+(x.active?'🟢 فعال':'🔴 منتهي')+
+   '</div><div class="admin-row-actions">'+durationButtons(x.telegram_id)+
+   '<button class="danger" onclick="adminAction(\'/api/admin/revoke/'+x.telegram_id+'\')">⛔ إيقاف</button></div></div>').join('');
+  document.getElementById('adminContent').innerHTML='<h4>👥 الاشتراكات</h4>'+(html||'<p>لا توجد اشتراكات</p>');
+ }catch(e){document.getElementById('adminContent').textContent='تعذر تحميل الاشتراكات: '+e.message;}
 }
 async function loadAdminRequests(){
  try{
   const rows=await api('/api/admin/access-requests');
   const pending=rows.filter(x=>x.status==='pending');
-  document.getElementById('adminRequests').innerHTML='<h4>🔐 طلبات الدخول</h4>'+
-   (pending.map(x=>'• #'+x.id+' — <b>'+x.telegram_id+'</b> — '+(x.first_name||x.username||'بدون اسم')+' — '+new Date(x.requested_at).toLocaleString('ar-SA')).join('<br>')||'لا توجد طلبات معلقة');
- }catch(e){document.getElementById('adminRequests').textContent='تعذر تحميل الطلبات';}
+  const html=pending.map(x=>'<div class="admin-row request-row"><div><b>🔐 طلب #'+x.id+'</b>'+
+   '<br>👤 '+adminEscape(x.first_name||x.username||'بدون اسم')+
+   '<br>🆔 '+adminEscape(x.telegram_id)+
+   '<br>🕒 '+new Date(x.requested_at).toLocaleString('ar-SA')+
+   '</div><div class="admin-row-actions">'+durationButtons(x.telegram_id)+
+   '<button class="danger" onclick="adminReject('+x.id+')">رفض الطلب</button></div></div>').join('');
+  document.getElementById('adminRequests').innerHTML='<h4>🔐 طلبات الدخول المعلقة</h4>'+
+   (html||'<p>لا توجد طلبات معلقة</p>');
+ }catch(e){document.getElementById('adminRequests').textContent='تعذر تحميل الطلبات: '+e.message;}
+}
+async function adminReject(id){
+ if(!confirm('رفض طلب الدخول؟'))return;
+ try{
+  await api('/api/admin/access-requests/'+id+'/reject',{method:'POST'});
+  await loadAdminRequests();
+  alert('تم رفض الطلب');
+ }catch(e){alert('تعذر رفض الطلب: '+e.message);}
+}
+async function loadAdminTerms(){
+ try{
+  const rows=await api('/api/admin/terms');
+  document.getElementById('adminContent').innerHTML='<h4>📋 الموافقات</h4>'+
+   (rows.map(x=>'<div class="admin-row">• '+adminEscape(x.first_name||x.username||'بدون اسم')+' — <b>'+adminEscape(x.telegram_id)+'</b> — الإصدار '+adminEscape(x.version)+' — '+new Date(x.accepted_at).toLocaleString('ar-SA')+'</div>').join('')||'<p>لا توجد موافقات</p>');
+ }catch(e){document.getElementById('adminContent').textContent='تعذر تحميل سجل الموافقات: '+e.message;}
 }
 async function loadAdminTerms(){
  try{
