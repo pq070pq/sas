@@ -10,8 +10,7 @@ from .news import company_news
 # - منهج فيصل: السلوك، الفوليوم، RVOL، الدعم/المقاومة والثبات.
 MIN_PRICE = 0.50
 MAX_PRICE = 30.00
-DISCOVERY_LIMIT = 300
-CANDIDATE_LIMIT = 15
+# لا يوجد حد ثابت لعدد الأسهم: يتم مسح كامل الكون المؤهل ثم تمرير المطابق فقط.
 ALLOWED_EXCHANGES = {"NASDAQ", "NYSE", "AMEX", "NYSE AMERICAN", "NYSEAMERICAN"}
 
 
@@ -137,7 +136,7 @@ async def _discover_us_exchanges(client):
                 "source": "Nasdaq Screener",
             })
     out.sort(key=lambda x: x["change_pct"], reverse=True)
-    return out[:DISCOVERY_LIMIT]
+    return out
 
 async def _discover_twelvedata(client):
     # Optional fallback only. /market_movers may require a higher plan.
@@ -181,7 +180,7 @@ async def _discover_panwatch(client):
     try:
         r = await client.get(
             f"{base}/api/discovery/stocks",
-            params={"market": "US", "mode": "gainers", "limit": DISCOVERY_LIMIT},
+            params={"market": "US", "mode": "gainers", "limit": 5000},
         )
         r.raise_for_status()
         rows = r.json()
@@ -221,7 +220,7 @@ async def discover_low_price_stocks():
             seen.add(symbol)
             merged.append(row)
 
-    return merged[:DISCOVERY_LIMIT]
+    return merged
 
 
 async def _get_analysis_candles(client, symbol: str):
@@ -503,5 +502,6 @@ async def scan_us_low_price_stocks():
         ),
         reverse=True,
     )
-    # Keep diagnostics available for the API without changing the public stock list.
-    return results[:CANDIDATE_LIMIT]
+    # لا نختار عدداً ثابتاً من النتائج: نعيد كل الأسهم التي اكتملت شروط المنهج فقط.
+    # السهم غير المطابق لا يظهر، ويمكن أن يدخل لاحقاً عند تحقق الشروط في دورة مسح جديدة.
+    return results
