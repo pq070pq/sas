@@ -173,10 +173,13 @@ async def require_terms(user=Depends(telegram_user), db: AsyncSession = Depends(
     return user
 
 async def require_pro(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    # المالك يدخل لوحة الإدارة مباشرة ولا يخضع للاشتراك أو شاشة الشروط.
+    if int(user["id"]) == int(settings.owner_telegram_id):
+        return user
     async with SessionLocal() as db:
         row = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
         if not row or row.terms_version != TERMS_VERSION or not row.terms_accepted_at:
-            raise HTTPException(409, "يجب الموافقة على شروط استخدام SAS PRO أولاً")
+            raise HTTPException(409, "يجب الموافقة على الشروط أولاً")
         sub = (await db.execute(
             select(Subscription)
             .where(Subscription.telegram_id == user["id"], Subscription.active == True)
@@ -334,20 +337,39 @@ async def accept_terms(user=Depends(telegram_user), db: AsyncSession = Depends(g
 async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     existing = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
     if not existing:
-        db.add(User(telegram_id=user["id"], username=user.get("username"), first_name=user.get("first_name")))
+        existing = User(telegram_id=user["id"], username=user.get("username"), first_name=user.get("first_name"), last_name=user.get("last_name"))
+        db.add(existing)
         await db.commit()
+        await db.refresh(existing)
+    else:
+        existing.username = user.get("username")
+        existing.first_name = user.get("first_name")
+        existing.last_name = user.get("last_name")
+        existing.updated_at = utcnow()
+        await db.commit()
+
     sub = (await db.execute(
-        select(Subscription)
-        .where(Subscription.telegram_id == user["id"], Subscription.active == True)
+        select(Subscription).where(Subscription.telegram_id == user["id"], Subscription.active == True)
         .order_by(Subscription.expires_at.desc())
     )).scalars().first()
+    if sub:
+        await sync_user_subscription(db, existing, sub) if False else None
+    admin = int(user["id"]) == int(settings.owner_telegram_id)
+    pro = admin or (active_subscription(existing) if existing.subscription_expires else is_active(sub))
+    expires = None
+    if sub and not admin:
+        expires = aware(sub.expires_at).isoformat()
+    elif existing.subscription_expires and not admin:
+        expires = aware(existing.subscription_expires).isoformat()
     return {
         "user": user,
-        "pro": is_active(sub),
-        "expires_at": sub.expires_at.isoformat() if sub else None,
-        "trial_available": bool(existing and existing.terms_accepted_at and existing.terms_version == TERMS_VERSION and existing.trial_used_at is None),
-        "terms_accepted": bool(existing and existing.terms_accepted_at and existing.terms_version == TERMS_VERSION),
-        "terms_version": existing.terms_version if existing else None,
+        "admin": admin,
+        "pro": pro,
+        "expires_at": expires,
+        "trial_available": existing.trial_used_at is None and not admin,
+        "trial_expires": existing.trial_expires.isoformat() if existing.trial_expires else None,
+        "terms_accepted": bool(existing.terms_accepted_at and existing.terms_version == TERMS_VERSION),
+        "terms_version": existing.terms_version,
     }
 
 @app.get("/api/market/status")
