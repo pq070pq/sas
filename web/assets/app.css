@@ -56,3 +56,7 @@ nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(920px,
 .home-tools button{border:0;background:transparent;border-radius:12px;cursor:pointer}
 
 .home-refresh{position:absolute;right:4%;bottom:1.7%;font-size:clamp(6px,.8vw,9px);color:#71eaf1;z-index:4;opacity:.8}
+
+.home-market.session-premarket strong{color:#ffd447}
+.home-market.session-afterhours strong{color:#ffb14a}
+.home-market.session-holiday strong,.home-market.session-weekend strong,.home-market.session-overnight strong{color:#ff5964}
