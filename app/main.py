@@ -352,6 +352,19 @@ async def invoice(plan: str, user=Depends(telegram_user), db: AsyncSession = Dep
         "currency": "XTR",
         "prices": [{"label": f"SAS PRO {plan}", "amount": stars}],
     })
+    try:
+        await send_message(
+            user["id"],
+            "🧾 <b>تم إنشاء طلب الاشتراك</b>\n\n"
+            f"📦 الباقة: <b>{plan}</b>\n"
+            f"⏳ المدة: <b>{days} يوم</b>\n"
+            f"⭐ الرسوم: <b>{stars} نجمة</b>\n\n"
+            "💳 أكمل الدفع من الفاتورة المرفقة.\n"
+            "بعد إتمام الدفع يتم تفعيل الاشتراك تلقائيًا.\n\n"
+            "⚠️ إذا لم يتم الدفع، فلن يتم تفعيل الاشتراك ولن تُحتسب مدة الاشتراك."
+        )
+    except Exception:
+        pass
     return {"invoice_url": result, "stars": stars, "days": days}
 
 @app.post("/api/telegram/webhook")
