@@ -5,12 +5,13 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from .config import settings
-from .db import SessionLocal, Subscription, RadarSignal, ScheduledReport
+from .db import SessionLocal, Subscription, RadarSignal, RadarOutcome, ScheduledReport, User, ScheduledReport
 from .telegram import send_message, bot_api
 from .holiday_radar import publish_holiday_radar
 from .timeutil import utcnow, aware
 from zoneinfo import ZoneInfo
 from .market_calendar import market_status
+from sqlalchemy import func
 
 async def expiry_cycle():
     now = utcnow()
@@ -48,6 +49,93 @@ async def expiry_cycle():
                 except Exception:
                     pass
         await db.commit()
+
+
+async def evaluate_radar_outcomes():
+    """Evaluate sent radar signals against their targets/exit using fresh quotes."""
+    async with SessionLocal() as db:
+        signals = (await db.execute(select(RadarSignal))).scalars().all()
+        for signal in signals:
+            existing = (await db.execute(
+                select(RadarOutcome).where(RadarOutcome.radar_signal_id == signal.id)
+            )).scalars().first()
+            payload = json.loads(signal.payload or "{}")
+            tech = payload.get("targets") or {}
+            targets = tech.get("targets") or []
+            exit_level = tech.get("exit")
+            if existing and existing.status in {"target3", "target2", "target1", "failed"}:
+                continue
+            if existing is None:
+                existing = RadarOutcome(
+                    radar_signal_id=signal.id,
+                    symbol=signal.symbol,
+                    session_date=signal.session_date,
+                    target1=targets[0] if len(targets) > 0 else None,
+                    target2=targets[1] if len(targets) > 1 else None,
+                    target3=targets[2] if len(targets) > 2 else None,
+                    exit_level=exit_level,
+                )
+                db.add(existing)
+                await db.flush()
+            try:
+                from .market import quote
+                q = await quote(signal.symbol)
+                price = q.get("price")
+                if price is None:
+                    continue
+                price = float(price)
+                existing.current_price = price
+                existing.evaluated_at = utcnow()
+                if existing.target3 is not None and price >= existing.target3:
+                    existing.status, existing.achieved_target = "target3", 3
+                elif existing.target2 is not None and price >= existing.target2:
+                    existing.status, existing.achieved_target = "target2", 2
+                elif existing.target1 is not None and price >= existing.target1:
+                    existing.status, existing.achieved_target = "target1", 1
+                elif existing.exit_level is not None and price <= existing.exit_level:
+                    existing.status, existing.achieved_target = "failed", 0
+            except Exception:
+                continue
+        await db.commit()
+
+
+async def weekly_radar_report():
+    now = datetime.now(ZoneInfo("Asia/Riyadh"))
+    if now.weekday() != 5 or now.hour != 12:
+        return
+    key = f"weekly-radar:{now.strftime('%Y-%m-%d')}"
+    async with SessionLocal() as db:
+        sent = (await db.execute(select(ScheduledReport).where(ScheduledReport.report_key == key))).scalars().first()
+        if sent or not settings.telegram_channel_id or not settings.telegram_bot_token:
+            return
+        week_start = (now.date() - timedelta(days=6)).isoformat()
+        outcomes = (await db.execute(
+            select(RadarOutcome).where(RadarOutcome.session_date >= week_start)
+        )).scalars().all()
+        reached = [x for x in outcomes if x.achieved_target > 0]
+        failed = [x for x in outcomes if x.status == "failed"]
+        active = [x for x in outcomes if x.status == "active"]
+        lines = [
+            "📊 <b>SAS PRO — التقرير الأسبوعي للرادار</b>",
+            "",
+            f"📅 الفترة: {week_start} → {now.strftime('%Y-%m-%d')}",
+            f"🔎 الفرص المرصودة: <b>{len(outcomes)}</b>",
+            f"🎯 حققت هدفًا: <b>{len(reached)}</b>",
+            f"❌ لم تحقق الهدف/وصلت لحد الخروج: <b>{len(failed)}</b>",
+            f"⏳ ما زالت مفتوحة: <b>{len(active)}</b>",
+            "",
+            "━━━━━━━━━━━━━━",
+            "",
+            "🎯 <b>الأسهم التي حققت أهدافًا</b>",
+        ]
+        lines += [f"• {x.symbol} — الهدف {x.achieved_target}" for x in reached] or ["• لا توجد حالات مكتملة هذا الأسبوع"]
+        lines += ["", "❌ <b>الأسهم التي لم تحقق الهدف</b>"]
+        lines += [f"• {x.symbol} — {x.status}" for x in failed] or ["• لا توجد حالات مسجلة"]
+        lines += ["", "⚠️ الإحصائية مبنية على أسعار السوق مقارنة بالأهداف وحد الخروج المسجلين وقت إرسال الرادار.", "", "🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️"]
+        await send_message(settings.telegram_channel_id, "\n".join(lines))
+        db.add(ScheduledReport(report_key=key))
+        await db.commit()
+
 
 _radar_open_announced = False
 _radar_seen = set()
@@ -225,6 +313,8 @@ async def scheduler():
     while True:
         try:
             await expiry_cycle()
+            await evaluate_radar_outcomes()
+            await weekly_radar_report()
             await stock_radar_cycle()
             await weekly_radar_report()
         except Exception:
