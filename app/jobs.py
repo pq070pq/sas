@@ -1,9 +1,11 @@
 import asyncio
 import json
+import httpx
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from .config import settings
-from .db import SessionLocal, Subscription, RadarSignal
+from .db import SessionLocal, Subscription, RadarSignal, ScheduledReport
 from .telegram import send_message, bot_api
 from .holiday_radar import publish_holiday_radar
 from .timeutil import utcnow, aware
@@ -141,11 +143,90 @@ async def stock_radar_cycle():
         return
 
 
+
+async def weekly_radar_report():
+    if not settings.telegram_channel_id or not settings.telegram_bot_token:
+        return
+    now_riyadh = datetime.now(ZoneInfo("Asia/Riyadh"))
+    if now_riyadh.weekday() != 5 or now_riyadh.hour != 12:
+        return
+    report_key = now_riyadh.strftime("weekly-radar-%G-W%V")
+    async with SessionLocal() as db:
+        exists = (await db.execute(select(ScheduledReport).where(ScheduledReport.report_key == report_key))).scalars().first()
+        if exists:
+            return
+        week_start = (now_riyadh - timedelta(days=7)).date().isoformat()
+        week_end = (now_riyadh - timedelta(days=1)).date().isoformat()
+        rows = (await db.execute(select(RadarSignal).where(RadarSignal.session_date >= week_start, RadarSignal.session_date <= week_end).order_by(RadarSignal.created_at.asc()))).scalars().all()
+        hit1 = hit2 = hit3 = missed = pending = 0
+        details = []
+        async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
+            for signal in rows:
+                try:
+                    payload = json.loads(signal.payload)
+                    targets = (payload.get("targets") or {}).get("targets") or []
+                    if not targets:
+                        pending += 1
+                        continue
+                    base = settings.panwatch_base_url.rstrip("/")
+                    r = await client.get(f"{base}/api/klines/{signal.symbol}", params={"market": "US", "days": 90, "interval": "1d"})
+                    r.raise_for_status()
+                    candles = r.json().get("klines", [])
+                    highs = []
+                    for candle in candles:
+                        date_value = str(candle.get("datetime") or candle.get("date") or "")[:10]
+                        if date_value > signal.session_date:
+                            try:
+                                highs.append(float(candle.get("high")))
+                            except Exception:
+                                pass
+                    if not highs:
+                        pending += 1
+                        continue
+                    max_high = max(highs)
+                    reached = [max_high >= float(t) for t in targets[:3]]
+                    if reached and reached[0]:
+                        hit1 += 1
+                        if len(reached) > 1 and reached[1]:
+                            hit2 += 1
+                        if len(reached) > 2 and reached[2]:
+                            hit3 += 1
+                        details.append(f"✅ {signal.symbol} — أعلى هدف محقق: {min(3, sum(reached))}")
+                    else:
+                        missed += 1
+                        details.append(f"❌ {signal.symbol} — الهدف الأول لم يتحقق")
+                except Exception:
+                    pending += 1
+        total = len(rows)
+        evaluated = hit1 + missed
+        rate = (hit1 / evaluated * 100) if evaluated else 0
+        text = (
+            "📊 <b>SAS PRO — الإحصائية الأسبوعية</b>\n\n"
+            f"📅 الفترة: {week_start} → {week_end}\n"
+            f"📌 إجمالي فرص الرادار: <b>{total}</b>\n"
+            f"🎯 حققت الهدف الأول: <b>{hit1}</b>\n"
+            f"🎯 حققت الهدف الثاني: <b>{hit2}</b>\n"
+            f"🎯 حققت الهدف الثالث: <b>{hit3}</b>\n"
+            f"❌ لم تحقق الهدف الأول: <b>{missed}</b>\n"
+            f"⏳ لم يمكن تقييمها بعد: <b>{pending}</b>\n"
+            f"📈 نسبة تحقق الهدف الأول من الحالات المقيمة: <b>{rate:.1f}%</b>\n\n"
+            "━━━━━━━━━━━━━━\n\n<b>تفاصيل الفرص</b>\n"
+        )
+        text += "\n".join(details[:80]) if details else "لا توجد فرص مرصودة خلال الفترة."
+        text += "\n\n━━━━━━━━━━━━━━\n⚠️ الإحصائية تقيس وصول السعر إلى المستويات المحسوبة، ولا تعني نتيجة تداول فعلية أو ضمانًا مستقبليًا."
+        try:
+            await send_message(settings.telegram_channel_id, text)
+            db.add(ScheduledReport(report_key=report_key))
+            await db.commit()
+        except Exception:
+            await db.rollback()
+
 async def scheduler():
     while True:
         try:
             await expiry_cycle()
             await stock_radar_cycle()
+            await weekly_radar_report()
         except Exception:
             pass
         await asyncio.sleep(900)
