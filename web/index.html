@@ -157,12 +157,7 @@ async function showEntryTerms(){
  if(btn)btn.textContent='أوافق وأدخل SAS PRO';
  btn.onclick=acceptTermsOnly;
  const trialBtn=document.getElementById('trialButton');
- if(trialBtn){
-   try{
-     const me=await api('/api/me');
-     trialBtn.hidden=!me.trial_available;
-   }catch(e){trialBtn.hidden=true;}
- }
+ if(trialBtn) trialBtn.hidden=false;
 }
 function openPurchaseTerms(plan){
  pendingPlan=plan;
