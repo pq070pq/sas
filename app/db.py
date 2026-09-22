@@ -38,6 +38,15 @@ class Payment(Base):
     telegram_charge_id: Mapped[str] = mapped_column(String(255), unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
+class RadarSignal(Base):
+    __tablename__ = "radar_signals"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(24), index=True)
+    session_date: Mapped[str] = mapped_column(String(16), index=True)
+    payload: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    __table_args__ = (UniqueConstraint("symbol", "session_date", name="uq_radar_symbol_session"),)
+
 class StockAnalysis(Base):
     __tablename__ = "stock_analyses"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
