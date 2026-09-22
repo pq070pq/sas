@@ -21,7 +21,16 @@ from .timeutil import utcnow, aware
 app = FastAPI(title="SAS PRO", version="2.1.0")
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
 
-DISCLAIMER = "🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️"
+TERMS_VERSION = "1.0"
+TERMS_TEXT = """شروط استخدام SAS PRO:
+• الخدمة معلوماتية وتعليمية وليست توصية أو مشورة استثمارية شخصية.
+• الأهداف والمستويات توقعات تحليلية وليست ضمانًا للنتائج أو الأرباح.
+• الأسعار والبيانات قد تتغير، وقد تحتوي البيانات على أخطاء أو تأخير.
+• المستخدم مسؤول عن قرارات التداول وإدارة المخاطر والنتائج المترتبة عليها.
+• يحظر استخدام الخدمة على أنها ضمان للربح أو بديل عن التقييم المستقل.
+• استمرار استخدام الخدمة يعني قبول هذه الشروط.
+"""
+DISCLAIMER = "🚨 SAS PRO معلومات وتحليل فقط وليست توصية أو مشورة استثمارية. الأهداف تحليلية وليست ضمانًا للنتيجة، وقرار التداول وإدارة المخاطر مسؤولية المستخدم ⚠️"
 PLANS = {
     "monthly": (settings.pro_monthly_stars, 30),
     "3month": (settings.pro_3month_stars, 90),
@@ -122,6 +131,21 @@ async def home():
 @app.get("/health")
 async def health():
     return {"ok": True, "app": "SAS PRO", "version": app.version}
+
+@app.get("/api/terms")
+async def terms():
+    return {"version": TERMS_VERSION, "text": TERMS_TEXT}
+
+@app.post("/api/terms/accept")
+async def accept_terms(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    row = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
+    if not row:
+        row = User(telegram_id=user["id"], username=user.get("username"), first_name=user.get("first_name"))
+        db.add(row)
+    row.terms_accepted_at = utcnow()
+    row.terms_version = TERMS_VERSION
+    await db.commit()
+    return {"ok": True, "version": TERMS_VERSION}
 
 @app.get("/api/me")
 async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
@@ -271,9 +295,12 @@ async def revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncSession
     return {"ok": True}
 
 @app.post("/api/payments/invoice/{plan}")
-async def invoice(plan: str, user=Depends(telegram_user)):
+async def invoice(plan: str, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     if plan not in PLANS:
         raise HTTPException(400, "Invalid plan")
+    row = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
+    if not row or row.terms_version != TERMS_VERSION or not row.terms_accepted_at:
+        raise HTTPException(409, "يجب الموافقة على شروط استخدام SAS PRO أولاً")
     stars, days = PLANS[plan]
     payload = f"saspro:{plan}:{user['id']}:{int(datetime.now().timestamp())}"
     result = await bot_api("createInvoiceLink", {
