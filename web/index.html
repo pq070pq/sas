@@ -69,7 +69,6 @@
 
 <div id="result" class="result">
   <div class="report-head">📡 SAS PRO RADAR</div>
-  <div class="report-notice">⛔ شرعية الاسهم مسؤوليتك ⛔</div>
   <div id="report-content" class="report-empty">اختر سهمًا ثم ابدأ التحليل.</div>
 </div>
 
@@ -151,8 +150,37 @@ function showAlerts(){document.getElementById('report-content').textContent='ت�
 function showSettings(){document.getElementById('report-content').textContent='إعدادات SAS PRO.';}
 function setMode(){focusSearch();}
 function scrollToTop(){window.scrollTo({top:0,behavior:'smooth'});}
-async function buy(plan){try{const d=await api('/api/payments/invoice/'+plan,{method:'POST'});if(tg&&tg.openInvoice)tg.openInvoice(d.invoice_url);else location.href=d.invoice_url;}catch(e){document.getElementById('report-content').textContent=e.message;}}
+let pendingPlan=null;
+function openTerms(plan){pendingPlan=plan;document.getElementById('termsAgree').checked=false;document.getElementById('termsModal').hidden=false;}
+function closeTerms(){document.getElementById('termsModal').hidden=true;}
+async function acceptAndBuy(){
+ if(!document.getElementById('termsAgree').checked){alert('يرجى الموافقة على الشروط أولًا');return;}
+ try{
+  await api('/api/terms/accept',{method:'POST'});
+  const d=await api('/api/payments/invoice/'+pendingPlan,{method:'POST'});
+  closeTerms();
+  if(tg&&tg.openInvoice)tg.openInvoice(d.invoice_url);else location.href=d.invoice_url;
+ }catch(e){alert(e.message);}
+}
+async function buy(plan){openTerms(plan);}
 load();setInterval(load,60000);
 </script>
+<div id="termsModal" class="terms-modal" hidden>
+  <div class="terms-card">
+    <h3>📋 شروط استخدام SAS PRO</h3>
+    <div class="terms-body">
+      <p>• الخدمة معلوماتية وتعليمية وليست توصية أو مشورة استثمارية شخصية.</p>
+      <p>• الأهداف والمستويات تحليلية وليست ضمانًا للنتائج أو الأرباح.</p>
+      <p>• البيانات والأسعار قد تتغير وقد يحدث تأخير أو خطأ في البيانات.</p>
+      <p>• المستخدم مسؤول عن قرارات التداول وإدارة المخاطر والنتائج المترتبة عليها.</p>
+      <p>• لا يجوز اعتبار SAS PRO ضمانًا للربح أو بديلًا عن التقييم المستقل.</p>
+    </div>
+    <label class="terms-check"><input id="termsAgree" type="checkbox"> أوافق على شروط استخدام SAS PRO.</label>
+    <div class="terms-actions">
+      <button onclick="closeTerms()">إلغاء</button>
+      <button onclick="acceptAndBuy()">أوافق وأتابع الاشتراك</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
