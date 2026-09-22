@@ -4,361 +4,178 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#020912">
-<title>SAS PRO</title>
+<title>SAS PRO — الاشتراك</title>
 <link rel="stylesheet" href="/assets/app.css">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app">
+  <section id="subscriptionPage" class="subscription-page">
+    <div class="poster-wrap">
+      <img src="/assets/sas-pro-home.png" class="poster" alt="SAS PRO">
+      <div class="poster-overlay">
+        <div class="brand">SAS PRO</div>
+        <div class="brand-sub">سوق الأسهم الأمريكية</div>
+      </div>
+    </div>
 
-<section class="home-stage" aria-label="SAS PRO">
-  <img src="/assets/sas-pro-home.png" alt="SAS PRO" class="home-image">
+    <section class="status-card">
+      <div class="section-head"><b>👤 حسابك</b><span id="userName">جاري التحقق...</span></div>
+      <div class="status-grid">
+        <div><small>حالة الاشتراك</small><strong id="subStatus">—</strong></div>
+        <div><small>الباقة</small><strong id="subPlan">—</strong></div>
+        <div><small>البداية</small><strong id="subStart">—</strong></div>
+        <div><small>الانتهاء</small><strong id="subEnd">—</strong></div>
+        <div><small>المتبقي</small><strong id="subDays">—</strong></div>
+        <div><small>التجربة</small><strong id="trialState">—</strong></div>
+      </div>
+    </section>
 
-  <!-- الصورة ثابتة كما هي؛ هذه الطبقات شفافة وتملأ الفراغات فقط. -->
-  <button class="home-hit zone-market-data" onclick="setMode('analysis')" aria-label="تحليل السوق"></button>
-  <button class="home-hit zone-news" onclick="showNews()" aria-label="الأخبار"></button>
-  <button class="home-hit zone-company" onclick="showEvents()" aria-label="بيانات الشركات"></button>
-  <button class="home-hit zone-opportunities" onclick="setMode('radar')" aria-label="الفرص المرصودة"></button>
-  <button class="access-request" id="accessRequestBtn" onclick="requestAccessFlow()" aria-label="طلب إذن الدخول">🔐 طلب إذن الدخول</button>
-  <button class="home-hit zone-scan" onclick="setMode('radar')" aria-label="الرادار"></button>
-  <button class="home-hit zone-settings" onclick="showSettings()" aria-label="الإعدادات"></button>
+    <section class="trial-card" id="trialCard">
+      <div>
+        <b>🎁 ابدأ تجربتك المجانية</b>
+        <p>3 أيام • قناة تجربة منفصلة • رابط خاص للاستخدام مرة واحدة وصالح 48 ساعة.</p>
+      </div>
+      <button id="trialBtn" onclick="openTerms('trial')">ابدأ التجربة المجانية</button>
+    </section>
 
-  <button class="analysis-launch" onclick="focusSearch()" aria-label="تحليل الأسهم">
-    <span class="analysis-icon">⌁</span>
-    <strong>تحليل الأسهم</strong>
-    <small>تحليل SAS PRO</small>
-  </button>
+    <section class="plans">
+      <div class="section-head"><b>💎 باقات SAS PRO</b><span>Telegram Stars فقط</span></div>
+      <div id="plans" class="plan-grid"><div class="loading">جاري تحميل الباقات...</div></div>
+    </section>
 
-  <div class="home-ticker" aria-label="الأسعار الحية">
-    <button onclick="showMacro('BTC')" aria-label="Bitcoin"><b>BTC</b><strong id="homeBtc">—</strong><em id="homeBtcCh">—</em></button>
-    <button onclick="showMacro('GOLD')" aria-label="Gold"><b>GOLD</b><strong id="homeGold">—</strong><em id="homeGoldCh">—</em></button>
-    <button onclick="showMacro('OIL')" aria-label="Oil"><b>OIL</b><strong id="homeOil">—</strong><em id="homeOilCh">—</em></button>
-    <button onclick="showMacro('S&P 500')" aria-label="S&P 500"><b>S&amp;P 500</b><strong id="homeSp500">—</strong><em id="homeSp500Ch">—</em></button>
-    <button onclick="showMacro('NASDAQ')" aria-label="NASDAQ"><b>NASDAQ</b><strong id="homeNasdaq">—</strong><em id="homeNasdaqCh">—</em></button>
-    <button onclick="showMacro('VIX')" aria-label="VIX"><b>VIX</b><strong id="homeVix">—</strong><em id="homeVixCh">—</em></button>
-  </div>
+    <section class="terms-note">
+      <b>📋 الشروط قبل الانضمام والدفع</b>
+      <p>يجب قراءة الشروط والموافقة عليها قبل بدء التجربة أو شراء أي باقة.</p>
+      <button onclick="openTerms('view')">عرض الشروط</button>
+    </section>
+  </section>
 
-  <button class="macro-hit macro-btc" onclick="showMacro('BTC')" aria-label="BTC"></button>
-  <button class="macro-hit macro-gold" onclick="showMacro('GOLD')" aria-label="Gold"></button>
-  <button class="macro-hit macro-oil" onclick="showMacro('OIL')" aria-label="Oil"></button>
-  <button class="macro-hit macro-sp500" onclick="showMacro('S&P 500')" aria-label="S&P 500"></button>
-  <button class="macro-hit macro-nasdaq" onclick="showMacro('NASDAQ')" aria-label="NASDAQ"></button>
-  <button class="macro-hit macro-vix" onclick="showMacro('VIX')" aria-label="VIX"></button>
+  <section id="adminPage" class="admin-page" hidden>
+    <header class="admin-header">
+      <div><b>🛠️ SAS PRO</b><span>إدارة المشتركين</span></div>
+      <button onclick="adminRefresh()">↻ تحديث</button>
+    </header>
 
-  <div class="home-market" id="homeMarketBox" aria-live="polite">
-    <span>حالة السوق الأمريكي</span>
-    <strong id="homeMarketState">جاري التحقق...</strong>
-    <small id="homeMarketSession">—</small>
-  </div>
+    <section class="admin-stats" id="adminStats"></section>
 
+    <section class="admin-panel">
+      <div class="section-head"><b>🔎 البحث عن مستخدم</b><span>Telegram ID أو Username</span></div>
+      <div class="search-row"><input id="adminSearch" placeholder="مثال: 123456789 أو username"><button onclick="adminSearch()">بحث</button></div>
+      <div id="adminUsers"></div>
+    </section>
 
-
-  <button class="radar-live" onclick="showRadar()" aria-label="رصد SAS PRO">
-    <span>📡</span><strong>الرصد</strong><small id="homeRadarStatus">جاري التحقق...</small>
-  </button>
-
-  <!-- تلوين أحمر للشريط الموجود أصلًا أسفل الصورة، بدون إنشاء شريط جديد. -->
-  <div class="image-disclaimer-red" aria-hidden="true"></div>
-
-  <div class="home-refresh" id="homeRefresh">تحديث تلقائي</div>
-</section></section>
-
-<section class="search-card" id="analysisBox">
-  <div class="search-title"><span>🧠</span><div><b>تحليل SAS PRO</b><small>تحليل متعدد الوكلاء + قراءة فنية</small></div></div>
-  <div class="search"><input id="symbol" placeholder="اكتب رمز السهم مثل AAPL" autocomplete="off"><button onclick="runAnalysis()">تحليل الآن</button></div>
-</section>
-
-<div id="result" class="result">
-  <div class="report-head">📡 SAS PRO RADAR</div>
-  <div id="report-content" class="report-empty">جاري التحقق من حالة الرادار...</div>
+    <section class="admin-panel">
+      <div class="section-head"><b>⚙️ الباقات والأسعار</b><span>التعديل محفوظ في قاعدة البيانات</span></div>
+      <div id="planEditor"></div>
+      <button class="save-btn" onclick="savePlans()">💾 حفظ إعدادات الباقات</button>
+    </section>
+  </section>
 </div>
 
-
-
-<section id="adminPanel" class="panel admin-panel" hidden>
-  <div class="section-title"><b>🛠️ إدارة SAS PRO</b><span>للمالك فقط</span></div>
-  <div class="admin-actions">
-    <button onclick="loadAdminSubs()">🔄 تحديث الاشتراكات</button>
-    <button onclick="loadAdminTerms()">📋 سجل الموافقات</button><button onclick="loadAdminRequests()">🔐 طلبات الدخول</button>
+<div id="termsModal" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head"><b>📋 شروط استخدام SAS PRO</b><button onclick="closeTerms()">×</button></div>
+    <div id="termsText" class="terms-text"></div>
+    <label class="terms-check"><input id="termsAgree" type="checkbox" onchange="toggleTermsButton()"> <span>أقر بقراءة الشروط وفهم مخاطر التداول والموافقة عليها.</span></label>
+    <div class="modal-actions">
+      <button onclick="closeTerms()">إلغاء</button>
+      <button id="termsContinue" disabled onclick="continueTerms()">أوافق وأتابع</button>
+    </div>
   </div>
-  <div id="adminContent">جارٍ التحميل...</div>
-  <div id="adminRequests"></div>
-  <div class="admin-help">اختر مدة الاعتماد مباشرة. التجديد يضيف المدة إلى تاريخ الانتهاء الحالي ولا يلغي المتبقي.</div>
-</section>
-
-<div class="legal">⚠️ 🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</div>
-
-<nav>
-  <button class="active" onclick="scrollToTop()">⌂<span>الرئيسية</span></button>
-  <button onclick="focusSearch()">⌕<span>التحليل</span></button>
-  <button onclick="showNews()">▤<span>الأخبار</span></button>
-  <button onclick="showHistory()">◷<span>التاريخ</span></button>
-</nav>
 </div>
 
 <script>
 const tg=window.Telegram&&window.Telegram.WebApp;
 if(tg){tg.ready();tg.expand();try{tg.setHeaderColor('#020912');tg.setBackgroundColor('#020912');}catch(e){}}
-function headers(){return {'X-Telegram-Init-Data':tg?tg.initData:''};}
+const headers=()=>({'X-Telegram-Init-Data':tg?tg.initData:''});
 async function api(path,opt={}){opt.headers=Object.assign(headers(),opt.headers||{});const r=await fetch(path,opt);if(!r.ok)throw new Error(await r.text());return r.json();}
-function symbol(){return document.getElementById('symbol').value.trim().toUpperCase();}
-function money(v){return v==null?'غير واضح':'$'+Number(v).toFixed(2);}
-function fmtPrice(v){
- if(v==null||v==='') return '—';
- const n=Number(v);
- return Number.isFinite(n)?(Math.abs(n)>=1000?n.toLocaleString('en-US',{maximumFractionDigits:2}):n.toFixed(2)):'—';
-}
-function fmtChange(v){
- if(v==null||v==='') return '—';
- const n=Number(v);
- return Number.isFinite(n)?(n>=0?'+':'')+n.toFixed(2)+'%':'—';
-}
-function setHomeQuote(id,changeId,item){
- document.getElementById(id).textContent=fmtPrice(item?.price);
- const ch=document.getElementById(changeId);
- ch.textContent=fmtChange(item?.change_pct);
- ch.className=(Number(item?.change_pct)>=0)?'up':'down';
-}
-function renderHomeTicker(d){
- const map=Object.fromEntries((d||[]).map(x=>[x.label,x]));
- setHomeQuote('homeBtc','homeBtcCh',map.BTC);
- setHomeQuote('homeGold','homeGoldCh',map.GOLD);
- setHomeQuote('homeOil','homeOilCh',map.OIL);
- setHomeQuote('homeSp500','homeSp500Ch',map['S&P 500']);
- setHomeQuote('homeNasdaq','homeNasdaqCh',map.NASDAQ);
- setHomeQuote('homeVix','homeVixCh',map.VIX);
-}
-async function requestAccessFlow(){
-  const modal=document.getElementById('termsModal');
-  const body=document.querySelector('.terms-body');
-  const agree=document.getElementById('termsAgree');
-  const action=document.getElementById('termsPrimary');
-  agree.checked=false; action.disabled=true; action.textContent='أوافق وأرسل طلب الدخول';
-  body.innerHTML='<p>جاري تحميل شروط استخدام SAS PRO...</p>';
-  document.getElementById('termsVersion').textContent='';
-  modal.hidden=false;
-  try{
-   const d=await api('/api/terms');
-   const text=String(d.text||'').trim();
-   body.innerHTML=text.split(/\n\s*\n/).map(x=>'<p>'+x.replace(/\n/g,'<br>')+'</p>').join('');
-   document.getElementById('termsVersion').textContent='الإصدار '+(d.version||'—');
-   action.disabled=false;
-  }catch(e){body.innerHTML='<p>تعذر تحميل الشروط. لا يمكن إرسال الطلب قبل عرضها.</p>';}
-}
-async function acceptAndRequestAccess(){
- if(!document.getElementById('termsAgree').checked){alert('يرجى الموافقة على الشروط أولًا');return;}
- try{
-  await api('/api/terms/accept',{method:'POST'});
-  const d=await api('/api/access/request',{method:'POST'});
-  closeTerms();
-  const out=document.getElementById('report-content');
-  out.dataset.userAction='1';
-  out.textContent='🔐 SAS PRO\n\n'+(d.message||'تم إرسال طلب إذن الدخول للإدارة.');
-  document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
-  load();
- }catch(e){alert(e.message);}
-}
-function adminEscape(v){
- return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-}
-async function adminAction(url,days){
- try{
-  await api(url+(days?('?days='+encodeURIComponent(days)):''),{method:'POST'});
-  await loadAdminRequests();
-  await loadAdminSubs();
-  alert('تم تنفيذ العملية بنجاح');
- }catch(e){alert('تعذر تنفيذ العملية: '+e.message);}
-}
-function durationButtons(id){
- return '<div class="admin-duration">'+
-  '<button onclick="adminAction(\'/api/admin/grant/'+id+'\',30)">30 يوم</button>'+
-  '<button onclick="adminAction(\'/api/admin/grant/'+id+'\',90)">3 أشهر</button>'+
-  '<button onclick="adminAction(\'/api/admin/grant/'+id+'\',180)">6 أشهر</button>'+
-  '<button onclick="adminAction(\'/api/admin/grant/'+id+'\',365)">سنة</button>'+
-  '<button onclick="adminCustomGrant('+id+')">مدة مخصصة</button></div>';
-}
-async function adminCustomGrant(id){
- const d=prompt('أدخل عدد أيام الاشتراك:', '30');
- if(d===null)return;
- const days=Number(d);
- if(!Number.isInteger(days)||days<=0){alert('أدخل عدد أيام صحيح');return;}
- await adminAction('/api/admin/grant/'+id,days);
-}
-async function loadAdminSubs(){
- try{
-  const rows=await api('/api/admin/subscriptions');
-  const html=rows.map(x=>'<div class="admin-row"><div><b>👤 '+adminEscape(x.telegram_id)+'</b> — '+adminEscape(x.plan)+
-   '<br>📅 الانتهاء: <b>'+new Date(x.expires_at).toLocaleDateString('ar-SA')+'</b> — '+(x.active?'🟢 فعال':'🔴 منتهي')+
-   '</div><div class="admin-row-actions">'+durationButtons(x.telegram_id)+
-   '<button class="danger" onclick="adminAction(\'/api/admin/revoke/'+x.telegram_id+'\')">⛔ إيقاف</button></div></div>').join('');
-  document.getElementById('adminContent').innerHTML='<h4>👥 الاشتراكات</h4>'+(html||'<p>لا توجد اشتراكات</p>');
- }catch(e){document.getElementById('adminContent').textContent='تعذر تحميل الاشتراكات: '+e.message;}
-}
-async function loadAdminRequests(){
- try{
-  const rows=await api('/api/admin/access-requests');
-  const pending=rows.filter(x=>x.status==='pending');
-  const html=pending.map(x=>'<div class="admin-row request-row"><div><b>🔐 طلب #'+x.id+'</b>'+
-   '<br>👤 '+adminEscape(x.first_name||x.username||'بدون اسم')+
-   '<br>🆔 '+adminEscape(x.telegram_id)+
-   '<br>🕒 '+new Date(x.requested_at).toLocaleString('ar-SA')+
-   '</div><div class="admin-row-actions">'+durationButtons(x.telegram_id)+
-   '<button class="danger" onclick="adminReject('+x.id+')">رفض الطلب</button></div></div>').join('');
-  document.getElementById('adminRequests').innerHTML='<h4>🔐 طلبات الدخول المعلقة</h4>'+
-   (html||'<p>لا توجد طلبات معلقة</p>');
- }catch(e){document.getElementById('adminRequests').textContent='تعذر تحميل الطلبات: '+e.message;}
-}
-async function adminReject(id){
- if(!confirm('رفض طلب الدخول؟'))return;
- try{
-  await api('/api/admin/access-requests/'+id+'/reject',{method:'POST'});
-  await loadAdminRequests();
-  alert('تم رفض الطلب');
- }catch(e){alert('تعذر رفض الطلب: '+e.message);}
-}
-async function loadAdminTerms(){
- try{
-  const rows=await api('/api/admin/terms');
-  document.getElementById('adminContent').innerHTML='<h4>📋 الموافقات</h4>'+
-   (rows.map(x=>'<div class="admin-row">• '+adminEscape(x.first_name||x.username||'بدون اسم')+' — <b>'+adminEscape(x.telegram_id)+'</b> — الإصدار '+adminEscape(x.version)+' — '+new Date(x.accepted_at).toLocaleString('ar-SA')+'</div>').join('')||'<p>لا توجد موافقات</p>');
- }catch(e){document.getElementById('adminContent').textContent='تعذر تحميل سجل الموافقات: '+e.message;}
-}
-async function loadAdminTerms(){
- try{
-  const rows=await api('/api/admin/terms');
-  document.getElementById('adminContent').innerHTML='<h4>📋 الموافقات</h4>'+rows.map(x=>'• '+(x.first_name||x.username||'بدون اسم')+' — <b>'+x.telegram_id+'</b> — الإصدار '+x.version+' — '+new Date(x.accepted_at).toLocaleString('ar-SA')).join('<br>')||'لا توجد موافقات';
- }catch(e){document.getElementById('adminContent').textContent='غير مصرح أو تعذر التحميل';}
-}
+const fmtDate=v=>v?new Date(v).toLocaleDateString('ar-SA'):'—';
+const fmtDays=(a,b)=>{if(!a||!b)return'—';const n=Math.ceil((new Date(b)-new Date(a))/86400000);return n>0?n+' يوم':'منتهي';};
+let me=null,plans=null,termAction=null;
+
 async function load(){
  try{
-  const me=await api('/api/me');
-  const accessBtn=document.getElementById('accessRequestBtn');
-  if(accessBtn)accessBtn.hidden=!!me.pro;
-
-  document.getElementById('adminPanel').hidden=true;
-  if(me.user&&me.user.id){
-   try{await api('/api/admin/subscriptions');document.getElementById('adminPanel').hidden=false;loadAdminRequests();}catch(e){}
-  }
-
-  if(!me.pro){
-   document.getElementById('homeMarketState').textContent='🔒 الوصول غير مفعل';
-   document.getElementById('homeMarketSession').textContent='بانتظار اعتماد الإدارة';
-   document.getElementById('homeRadarStatus').textContent='غير متاح';
-   document.getElementById('report-content').textContent='🔒 SAS PRO\n\nالوصول غير مفعل حاليًا.\nوافق على الشروط وأرسل طلب إذن الدخول. بعد اعتماد المدة من الإدارة يُفتح التحليل والرادار والقناة حسب الصلاحية.';
-   return;
-  }
-
-  const [quotes,home]=await Promise.all([
-   api('/api/market/ticker'),
-   api('/api/dashboard/home')
-  ]);
-  renderHomeTicker(quotes);
-  const m=home.market||{};
-  const marketBox=document.getElementById('homeMarketBox');
-  if(marketBox)marketBox.className='home-market session-'+(m.session||'unknown');
-  document.getElementById('homeMarketState').textContent=m.label_ar||'غير متاح';
-  document.getElementById('homeMarketSession').textContent=m.session==='regular'?'التداول الرئيسي':(m.short_ar||'—');
-
-  const r=home.radar||{};
-  document.getElementById('homeRadarStatus').textContent=r.enabled?'الرصد يعمل الآن':'خارج وقت الرصد';
-  document.getElementById('homeRefresh').textContent='آخر تحديث '+new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
-  if(!document.getElementById('report-content').dataset.userAction){
-   document.getElementById('report-content').textContent=r.enabled
-    ? '📡 SAS PRO RADAR\n\n🟢 الرصد يعمل الآن. اضغط الرصد لبدء الفحص الحقيقي.'
-    : '📡 SAS PRO RADAR\n\n'+(m.label_ar||'الرصد متوقف حاليًا.')+'\nلن يتم اختلاق فرص خارج وقت الرصد.';
-  }
- }catch(e){
-  document.getElementById('homeMarketState').textContent='تعذر التحقق من حالة الدخول';
-  document.getElementById('homeRadarStatus').textContent='غير متاح';
- }
+  me=await api('/api/me');
+  if(me.admin){document.getElementById('subscriptionPage').hidden=true;document.getElementById('adminPage').hidden=false;await adminRefresh();return;}
+  document.getElementById('userName').textContent=me.user?.first_name||me.user?.username||'مستخدم SAS PRO';
+  renderStatus(me);
+  plans=await api('/api/subscription/plans');
+  renderPlans(plans.plans||{});
+ }catch(e){document.body.innerHTML='<div class="fatal">تعذر التحقق من Telegram. افتح SAS PRO من داخل Telegram.</div>';}
 }
-async function runAnalysis(){
- const s=symbol();if(!s)return focusSearch();
- document.getElementById('report-content').textContent='جاري التحليل من PanWatch...';
+
+function renderStatus(x){
+ const active=!!x.pro;
+ document.getElementById('subStatus').textContent=active?'🟢 فعال':'🔒 غير مشترك';
+ document.getElementById('subStatus').className=active?'ok':'bad';
+ document.getElementById('subPlan').textContent=active?(x.user?.plan||'اشتراك'):'—';
+ document.getElementById('subStart').textContent='—';
+ document.getElementById('subEnd').textContent=x.expires_at?fmtDate(x.expires_at):'—';
+ document.getElementById('subDays').textContent=x.expires_at?fmtDays(new Date(),x.expires_at):'—';
+ document.getElementById('trialState').textContent=x.trial_available?'🟢 متاحة مرة واحدة':(x.trial_expires?'منتهية/مستخدمة':'غير متاحة');
+ if(x.trial_expires&&new Date(x.trial_expires)>new Date()){document.getElementById('trialState').textContent='🎁 فعالة حتى '+fmtDate(x.trial_expires);}
+ if(!x.trial_available)document.getElementById('trialBtn').disabled=true;
+}
+
+function renderPlans(p){
+ const names={monthly:'شهري', '3month':'3 أشهر','6month':'6 أشهر',yearly:'سنة'};
+ document.getElementById('plans').innerHTML=Object.entries(p).map(([k,x])=>
+  '<article class="plan"><b>'+names[k]+'</b><strong>'+x.sar+' ريال</strong><span>'+x.days+' يوم</span>'+
+  '<em>'+ (x.stars>0?x.stars+' ⭐':'سعر Stars غير مضبوط') +'</em>'+
+  '<button '+(x.stars>0?'':'disabled')+' onclick="buyPlan(\''+k+'\')">الدفع عبر Stars</button></article>'
+ ).join('');
+}
+
+function openTerms(action){termAction=action;document.getElementById('termsAgree').checked=false;document.getElementById('termsContinue').disabled=action==='view';document.getElementById('termsText').textContent='جاري تحميل الشروط...';document.getElementById('termsModal').hidden=false;api('/api/subscription/plans').then(d=>{document.getElementById('termsText').textContent=d.terms_text||'';}).catch(e=>{document.getElementById('termsText').textContent=e.message;});}
+function toggleTermsButton(){if(termAction!=='view')document.getElementById('termsContinue').disabled=!document.getElementById('termsAgree').checked;}
+function closeTerms(){document.getElementById('termsModal').hidden=true;termAction=null;}
+async function continueTerms(){
+ if(!document.getElementById('termsAgree').checked)return;
  try{
-  const d=await api('/api/stocks/'+encodeURIComponent(s)+'/analyze',{method:'POST'});
-  renderReport(d);
- }catch(e){document.getElementById('report-content').textContent=e.message;}
+  await api('/api/terms/accept',{method:'POST'});
+  if(termAction==='trial'){
+   const d=await api('/api/subscription/trial',{method:'POST'});
+   closeTerms();
+   if(tg?.openLink)tg.openLink(d.invite_link);
+   else window.open(d.invite_link,'_blank');
+  }else if(termAction?.startsWith('buy:')){
+   const plan=termAction.slice(4);
+   const d=await api('/api/subscription/invoice/'+encodeURIComponent(plan),{method:'POST'});
+   closeTerms();
+   if(tg?.openInvoice)tg.openInvoice(d.invoice_link,()=>setTimeout(load,1200));
+   else if(tg?.openLink)tg.openLink(d.invoice_link);
+  }else closeTerms();
+ }catch(e){alert(e.message);}
 }
-function renderReport(d){
- const s=d.sas_pro||{},q=d.quote||{},t=s.targets||{},c=s.classification||{},targets=(t.targets||[]).slice(0,3);
- const vr=t.volume_ratio, trading=vr!=null&&vr>=1.15?'قوي':'عادي', liquidity=vr!=null&&vr>=1.5?'عالية':'مو واضحة', strength=vr!=null&&vr>=1.5?'قوية':'متوسطة';
- const type=c.emoji&&c.type?c.emoji+' '+c.type:'⚪ غير واضح';
- const targetText=targets.map((x,i)=>['1️⃣','2️⃣','3️⃣'][i]+' الهدف '+['الأول','الثاني','الثالث'][i]+': '+money(x)).join('\n')||'الأهداف: غير واضحة';
- document.getElementById('report-content').textContent=
- '✳️ السهم: '+s.symbol+'\n💵 السعر: '+money(q.price)+'\n📈 مرتفع/منخفض: '+(q.change_pct==null?'غير واضح':(Number(q.change_pct)>=0?'+':'')+Number(q.change_pct).toFixed(2)+'%')+
- '\n📊 التداول: '+trading+'\n💰 السيولة: '+liquidity+'\n🔥 حركة السهم: '+strength+'\n🏷️ نوع السهم: '+type+
- '\n🧭 السلوك: '+(c.behavior||'غير واضح')+'\n        🔎 ↳ '+(c.reason||'بيانات غير كافية')+
- '\n\n━━━━━━━━━━━━━━\n\n🤖 قراءة SAS PRO\n\n📈 الاتجاه: طالع إذا حافظ على مستوياته الحالية\n💪 قوة الحركة: '+strength+
- '\n📊 التداول: '+(vr!=null&&vr>=1.15?'يدعم استمرار الحركة':'يحتاج متابعة')+'\n⚠️ مستوى الخطورة: '+(vr!=null&&vr>=1.5?'مرتفع':'متوسط')+
- '\n\n━━━━━━━━━━━━━━\n\n🎯 الأهداف\n\n'+targetText+'\n\n🛑 حد الخروج: '+money(t.exit)+
- '\n\n━━━━━━━━━━━━━━\n\n💡 التحليل الفني :\n\n🔔 الأهداف محسوبة من مقاومات فعلية ظهرت في بيانات السعر،\nوما ينحط هدف رقمي إذا ما فيه مستوى واضح.\n\n🚨 إذا ضعف التداول أو انكسر حد الخروج، تتغير نظرة السهم.\n\n🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️';
-}
-function focusSearch(){document.getElementById('analysisBox').scrollIntoView({behavior:'smooth'});setTimeout(()=>document.getElementById('symbol').focus(),250);}
-async function showMacro(label){
+async function buyPlan(k){
+ if(!me.terms_accepted){openTerms('buy:'+k);return;}
  try{
-  const rows=await api('/api/market/ticker');
-  const item=(rows||[]).find(x=>x.label===label);
-  document.getElementById('report-content').textContent=item
-    ? '📊 '+label+'\\n\\nالسعر: '+fmtPrice(item.price)+'\\nالتغير: '+fmtChange(item.change_pct)+'\\nالمصدر: '+(item.source||'بيانات السوق')
-    : 'لا توجد بيانات حية متاحة حاليًا لـ '+label+'.';
-  document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
- }catch(e){document.getElementById('report-content').textContent=e.message;}
+  const d=await api('/api/subscription/invoice/'+encodeURIComponent(k),{method:'POST'});
+  if(tg?.openInvoice)tg.openInvoice(d.invoice_link,()=>setTimeout(load,1200));
+  else if(tg?.openLink)tg.openLink(d.invoice_link);
+ }catch(e){alert(e.message);}
 }
-async function showNews(){const s=symbol();if(!s)return focusSearch();try{document.getElementById('report-content').textContent=JSON.stringify(await api('/api/stocks/'+encodeURIComponent(s)+'/news'),null,2);}catch(e){document.getElementById('report-content').textContent=e.message;}}
-async function showEvents(){const s=symbol();if(!s)return focusSearch();try{document.getElementById('report-content').textContent=JSON.stringify(await api('/api/stocks/'+encodeURIComponent(s)+'/events'),null,2);}catch(e){document.getElementById('report-content').textContent=e.message;}}
-async function showHistory(){const s=symbol();if(!s)return focusSearch();try{document.getElementById('report-content').textContent=JSON.stringify(await api('/api/history/'+encodeURIComponent(s)),null,2);}catch(e){document.getElementById('report-content').textContent=e.message;}}
-function showFavorites(){focusSearch();document.getElementById('report-content').textContent='قائمتك المفضلة ستظهر هنا.';}
-function showNewStocks(){focusSearch();document.getElementById('report-content').textContent='الأسهم الجديدة ستظهر هنا عند توفر البيانات.';}
-function showDividends(){focusSearch();document.getElementById('report-content').textContent='توزيعات الأرباح ستظهر هنا عند توفر بيانات الشركات.';}
-function showAlerts(){document.getElementById('report-content').textContent='تنبيهات الأسعار.';}
-function showSettings(){document.getElementById('report-content').textContent='إعدادات SAS PRO.';}
-function setMode(mode){if(mode==='radar'){showRadar();return;}focusSearch();}
-async function showRadar(){
-  const out=document.getElementById('report-content');
-  out.dataset.userAction='1';
-  out.textContent='📡 SAS PRO RADAR\n\nجاري فحص الأسعار والـ RVOL والدعم والمقاومة...';
-  document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
-  try{
-    const d=await api('/api/radar/scan');
-    if(!d.enabled){
-      out.textContent='📡 SAS PRO RADAR\n\n'+(d.reason||'الرصد متوقف حاليًا.')+'\nلا توجد فرص مصطنعة خارج وقت الرصد.';
-      return;
-    }
-    const diag=d.diagnostics||{};
-    const stocks=d.stocks||[];
-    let text='📡 SAS PRO RADAR\n\n'
-      +'🔎 تم فحص: '+(diag.candidates??0)+' سهم\n'
-      +'✅ اجتاز الشروط: '+(diag.passed??stocks.length)+'\n'
-      +'🚫 مستبعد: '+(diag.filtered??0)+'\n'
-      +'⚠️ أخطاء بيانات: '+(diag.errors??0)+'\n\n━━━━━━━━━━━━━━\n\n';
-    if(!stocks.length){
-      out.textContent=text+'لا توجد فرصة مستوفية للشروط في هذا الفحص.';
-      return;
-    }
-    text+=stocks.slice(0,50).map((x,i)=>{
-      const p=x.live_price!=null?x.live_price:x.price;
-      const ch=x.live_change_pct!=null?x.live_change_pct:x.change_pct;
-      return (i+1)+'. '+x.symbol+' — '+(p!=null?money(p):'السعر غير متاح')+' — '+(ch!=null?fmtChange(ch):'—')+' — '+(x.live_price_source||x.source||'مصدر البيانات');
-    }).join('\n');
-    out.textContent=text;
-  }catch(e){
-    out.textContent='📡 SAS PRO RADAR\n\nتعذر تنفيذ الفحص الحقيقي: '+e.message;
-  }
+
+async function adminRefresh(){await Promise.all([loadAdminStats(),loadAdminPlans(),adminSearch()]);}
+async function loadAdminStats(){const d=await api('/api/admin/overview');document.getElementById('adminStats').innerHTML=
+ [['active','🟢 النشطون'],['expired','🔴 المنتهية'],['trial_users','🎁 التجارب'],['new_users','👥 الجدد'],['payments','💳 المدفوعات'],['stars','⭐ Stars']].map(x=>'<div><small>'+x[1]+'</small><strong>'+d[x[0]]+'</strong></div>').join('');}
+async function adminSearch(){try{const q=document.getElementById('adminSearch').value.trim();const rows=await api('/api/admin/users'+(q?'?q='+encodeURIComponent(q):''));document.getElementById('adminUsers').innerHTML=rows.map(u=>{
+ const status=u.free_access?'♾️ دائم':(u.subscription_expires&&new Date(u.subscription_expires)>new Date()?'🟢 فعال':'🔴 منتهي');
+ return '<div class="user-row"><div><b>'+esc(u.first_name||u.username||'بدون اسم')+'</b><br><small>ID: '+esc(u.telegram_id)+' '+(u.username?'@'+esc(u.username):'')+'</small><br><small>'+status+' — '+fmtDate(u.subscription_expires)+'</small></div>'+
+ '<div class="user-actions"><button onclick="adminGrant('+u.telegram_id+',30)">30 يوم</button><button onclick="adminGrant('+u.telegram_id+',90)">3 أشهر</button><button onclick="adminGrant('+u.telegram_id+',365)">سنة</button><button onclick="adminGrant('+u.telegram_id+',\'forever\')">دائم</button><button class="danger" onclick="adminRevoke('+u.telegram_id+')">إلغاء</button></div></div>';
+ }).join('')||'<p>لا توجد نتائج.</p>';}catch(e){document.getElementById('adminUsers').textContent=e.message;}}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+async function adminGrant(id,d){try{await api('/api/admin/grant/'+id+'?days='+encodeURIComponent(d),{method:'POST'});await adminRefresh();}catch(e){alert(e.message);}}
+async function adminRevoke(id){if(!confirm('إلغاء وصول هذا المستخدم؟'))return;try{await api('/api/admin/revoke/'+id,{method:'POST'});await adminRefresh();}catch(e){alert(e.message);}}
+async function loadAdminPlans(){const p=await api('/api/admin/plans');const names={monthly:'شهري', '3month':'3 أشهر','6month':'6 أشهر',yearly:'سنة'};document.getElementById('planEditor').innerHTML=Object.entries(p).map(([k,x])=>
+ '<div class="plan-edit"><b>'+names[k]+'</b><label>ريال<input id="sar_'+k+'" type="number" value="'+x.sar+'"></label><label>أيام<input id="days_'+k+'" type="number" value="'+x.days+'"></label><label>Stars<input id="stars_'+k+'" type="number" value="'+x.stars+'"></label></div>'
+).join('');}
+async function savePlans(){
+ const p={};for(const k of ['monthly','3month','6month','yearly'])p[k]={sar:Number(document.getElementById('sar_'+k).value),days:Number(document.getElementById('days_'+k).value),stars:Number(document.getElementById('stars_'+k).value)};
+ try{await api('/api/admin/plans',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});alert('تم حفظ الباقات');await loadAdminPlans();}catch(e){alert(e.message);}
 }
-function scrollToTop(){window.scrollTo({top:0,behavior:'smooth'});}
-load();setInterval(load,30000);
+load();
 </script>
-<div id="termsModal" class="terms-modal" hidden>
-  <div class="terms-card">
-    <h3>📋 شروط استخدام SAS PRO <small id="termsVersion"></small></h3>
-    <div class="terms-body"><p>جاري تحميل الشروط...</p></div>
-    <label class="terms-check"><input id="termsAgree" type="checkbox"> أوافق على شروط استخدام SAS PRO.</label>
-    <div class="terms-actions">
-      <button onclick="closeTerms()">إلغاء</button>
-      <button id="termsPrimary" onclick="acceptAndRequestAccess()" disabled>أوافق وأرسل طلب الدخول</button>
-    </div>
-  </div>
-</div>
 </body>
 </html>
