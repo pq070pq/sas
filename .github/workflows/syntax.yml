@@ -13,3 +13,5 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m compileall -q app
+      - run: pip install -r requirements.txt
+      - run: python -c "import app.main; print('SAS PRO import OK')"
