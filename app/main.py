@@ -592,6 +592,7 @@ async def telegram_webhook(request: Request):
                 "الأوامر:\n"
                 "/grant ID DAYS — تفعيل اشتراك\n"
                 "/revoke ID — إيقاف اشتراك\n"
+                "/requests — طلبات إذن الدخول\n"
                 "/subs — عرض الاشتراكات"
             )
             await send_message(chat_id, msg)
