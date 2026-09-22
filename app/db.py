@@ -100,6 +100,10 @@ async def init_db():
         # Safe SQLite migration for existing production databases.
         if engine.url.get_backend_name() == "sqlite":
             cols = {row[1] for row in (await conn.execute(text("PRAGMA table_info(users)"))).fetchall()}
+            if "terms_accepted_at" not in cols:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN terms_accepted_at DATETIME"))
+            if "terms_version" not in cols:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN terms_version VARCHAR(32)"))
             if "trial_used_at" not in cols:
                 await conn.execute(text("ALTER TABLE users ADD COLUMN trial_used_at DATETIME"))
             if "channel_join_requested_at" not in cols:
