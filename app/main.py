@@ -554,7 +554,7 @@ async def admin_subscriptions(user=Depends(telegram_user), db: AsyncSession = De
     if user["id"] != settings.owner_telegram_id:
         raise HTTPException(403, "Admin only")
     rows = (await db.execute(select(Subscription).order_by(Subscription.expires_at.desc()))).scalars().all()
-    return [{"telegram_id": s.telegram_id, "plan": s.plan, "active": is_active(s), "expires_at": s.expires_at.isoformat(), "warning_3d_sent_at": s.warning_3d_sent_at.isoformat() if s.warning_3d_sent_at else None} for s in rows]
+    return [{"id": s.id, "telegram_id": s.telegram_id, "plan": s.plan, "active": is_active(s), "starts_at": aware(s.starts_at).isoformat(), "expires_at": aware(s.expires_at).isoformat(), "warning_3d_sent_at": aware(s.warning_3d_sent_at).isoformat() if s.warning_3d_sent_at else None} for s in rows]
 
 @app.get("/api/admin/radar")
 async def admin_radar(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
@@ -567,14 +567,33 @@ async def admin_radar(user=Depends(telegram_user), db: AsyncSession = Depends(ge
 async def grant(telegram_id: int, days: int = 30, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     if user["id"] != settings.owner_telegram_id:
         raise HTTPException(403, "Admin only")
-    if days <= 0:
-        raise HTTPException(400, "days must be positive")
+    if days <= 0 or days > 3650:
+        raise HTTPException(400, "مدة الاشتراك يجب أن تكون بين 1 و3650 يومًا")
     now = utcnow()
-    exp = now + timedelta(days=days)
-    await db.execute(update(Subscription).where(
-        Subscription.telegram_id == telegram_id, Subscription.active == True
-    ).values(active=False))
-    db.add(Subscription(telegram_id=telegram_id, plan="admin", starts_at=now, expires_at=exp, active=True))
+
+    active = (await db.execute(
+        select(Subscription)
+        .where(Subscription.telegram_id == telegram_id, Subscription.active == True)
+        .order_by(Subscription.expires_at.desc())
+    )).scalars().first()
+
+    # التجديد يضيف المدة إلى المتبقي بدل حذف الاشتراك الحالي.
+    if active and is_active(active):
+        base = aware(active.expires_at)
+        exp = base + timedelta(days=days)
+        active.expires_at = exp
+        active.warning_3d_sent_at = None
+        active.plan = "admin"
+    else:
+        await db.execute(update(Subscription).where(
+            Subscription.telegram_id == telegram_id, Subscription.active == True
+        ).values(active=False))
+        exp = now + timedelta(days=days)
+        db.add(Subscription(
+            telegram_id=telegram_id, plan="admin",
+            starts_at=now, expires_at=exp, active=True
+        ))
+
     req = (await db.execute(select(AccessRequest).where(
         AccessRequest.telegram_id == telegram_id, AccessRequest.status == "pending"
     ).order_by(AccessRequest.requested_at.desc()))).scalars().first()
@@ -582,18 +601,42 @@ async def grant(telegram_id: int, days: int = 30, user=Depends(telegram_user), d
         req.status = "approved"
         req.decided_at = now
         req.decided_days = days
+
     await db.commit()
-    channel_result = await set_channel_access(telegram_id, allow=True, expires_at=exp)
+    await set_channel_access(telegram_id, allow=True, expires_at=exp)
     try:
         await send_message(telegram_id,
-            "✅ <b>تم قبول طلب إذن الدخول إلى SAS PRO</b>\n\n"
-            f"⏳ مدة الوصول: <b>{days} يوم</b>\n"
-            f"📅 ينتهي: <b>{exp.strftime('%d/%m/%Y')}</b>\n\n"
+            "✅ <b>تم اعتماد دخولك إلى SAS PRO</b>\n\n"
+            f"⏳ المدة المضافة: <b>{days} يوم</b>\n"
+            f"📅 تاريخ الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>\n\n"
             "يمكنك الآن فتح Mini App واستخدام مزايا SAS PRO."
         )
     except Exception:
         pass
     return {"ok": True, "expires_at": exp.isoformat(), "days": days}
+
+@app.post("/api/admin/access-requests/{request_id}/reject")
+async def reject_access_request(request_id: int, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    if user["id"] != settings.owner_telegram_id:
+        raise HTTPException(403, "Admin only")
+    req = await db.get(AccessRequest, request_id)
+    if not req:
+        raise HTTPException(404, "طلب الدخول غير موجود")
+    if req.status != "pending":
+        raise HTTPException(409, "الطلب تمت معالجته مسبقًا")
+    now = utcnow()
+    req.status = "rejected"
+    req.decided_at = now
+    req.admin_note = "تم رفض طلب الدخول من الإدارة"
+    await db.commit()
+    try:
+        await send_message(req.telegram_id,
+            "⛔ <b>تم رفض طلب دخول SAS PRO حاليًا</b>\n\n"
+            "يمكنك تقديم طلب جديد لاحقًا."
+        )
+    except Exception:
+        pass
+    return {"ok": True, "status": "rejected"}
 
 @app.post("/api/admin/revoke/{telegram_id}")
 async def revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
