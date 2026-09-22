@@ -86,7 +86,6 @@
   <div class="admin-actions">
     <button onclick="loadAdminSubs()">🔄 تحديث الاشتراكات</button>
     <button onclick="loadAdminTerms()">📋 سجل الموافقات</button>
-    <button onclick="loadAdminRadar()">📡 سجل الرادار</button>
   </div>
   <div id="adminContent">جارٍ التحميل...</div>
 </section>
@@ -140,12 +139,6 @@ async function loadAdminTerms(){
  try{
   const rows=await api('/api/admin/terms');
   document.getElementById('adminContent').innerHTML='<h4>📋 الموافقات</h4>'+rows.map(x=>'• '+(x.first_name||x.username||'بدون اسم')+' — <b>'+x.telegram_id+'</b> — الإصدار '+x.version+' — '+new Date(x.accepted_at).toLocaleString('ar-SA')).join('<br>')||'لا توجد موافقات';
- }catch(e){document.getElementById('adminContent').textContent='غير مصرح أو تعذر التحميل';}
-}
-async function loadAdminRadar(){
- try{
-  const rows=await api('/api/admin/radar');
-  document.getElementById('adminContent').innerHTML='<h4>📡 آخر إشارات الرادار</h4>'+rows.map(x=>'• <b>'+x.symbol+'</b> — '+x.session_date).join('<br>')||'لا توجد إشارات';
  }catch(e){document.getElementById('adminContent').textContent='غير مصرح أو تعذر التحميل';}
 }
 async function load(){
