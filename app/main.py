@@ -900,6 +900,51 @@ async def telegram_webhook(request: Request):
 
     # Admin commands are available only to the owner.
     if telegram_id == settings.owner_telegram_id:
+        if text.upper() == "/STATUS":
+            async with SessionLocal() as db:
+                now = utcnow()
+                users = (await db.execute(select(User))).scalars().all()
+                payments_rows = (await db.execute(select(Payment))).scalars().all()
+            active = sum(1 for u in users if u.free_access or (u.subscription_expires and aware(u.subscription_expires) > now and u.status == "active"))
+            expired = sum(1 for u in users if u.subscription_expires and aware(u.subscription_expires) <= now and not u.free_access)
+            trials = sum(1 for u in users if u.trial_used_at)
+            new_users = sum(1 for u in users if u.created_at and (now - aware(u.created_at)).days < 30)
+            await send_message(chat_id, "🛠️ <b>SAS PRO — STATUS</b>\n\n"
+                f"🟢 النشطون: <b>{active}</b>\n🔴 المنتهية: <b>{expired}</b>\n"
+                f"🎁 مستخدمو التجربة: <b>{trials}</b>\n👥 الجدد: <b>{new_users}</b>\n"
+                f"💳 عمليات الدفع: <b>{len(payments_rows)}</b>\n⭐ إجمالي Stars: <b>{sum(p.stars for p in payments_rows)}</b>")
+            return {"ok": True}
+
+        if text.startswith("/grant "):
+            parts = text.split()
+            try:
+                target = int(parts[1]); duration = parts[2]
+                exp, link, link_exp = await grant_access(target, forever=(duration.lower()=="forever"), days=None if duration.lower()=="forever" else int(duration))
+                await send_message(chat_id, f"✅ تم منح الوصول للمستخدم <code>{target}</code> حتى <b>{exp.strftime('%d/%m/%Y')}</b>")
+                try:
+                    await send_message(target, "🚀 <b>تم تفعيل SAS PRO</b>\n\nرابط الدخول:", {"inline_keyboard":[[{"text":"🚀 دخول SAS PRO","url":link}]]})
+                except Exception:
+                    pass
+            except Exception:
+                await send_message(chat_id, "❌ الصيغة: /grant TELEGRAM_ID DAYS أو /grant TELEGRAM_ID forever")
+            return {"ok": True}
+
+        if text.startswith("/revoke "):
+            parts = text.split()
+            try:
+                target = int(parts[1])
+                async with SessionLocal() as db:
+                    await db.execute(update(Subscription).where(Subscription.telegram_id == target, Subscription.active == True).values(active=False))
+                    row = (await db.execute(select(User).where(User.telegram_id == target))).scalars().first()
+                    if row:
+                        row.status = "revoked"; row.free_access = False; row.subscription_expires = utcnow(); row.updated_at = utcnow()
+                    await db.commit()
+                await set_channel_access(target, allow=False)
+                await send_message(chat_id, f"⛔ تم إلغاء وصول <code>{target}</code>")
+            except Exception:
+                await send_message(chat_id, "❌ الصيغة: /revoke TELEGRAM_ID")
+            return {"ok": True}
+
         if text == "/admin":
             async with SessionLocal() as db:
                 users = len((await db.execute(select(User))).scalars().all())
@@ -1030,34 +1075,17 @@ async def telegram_webhook(request: Request):
         return {"ok": True}
 
     if text.startswith("/start"):
-        async with SessionLocal() as db:
-            sub = (await db.execute(
-                select(Subscription)
-                .where(Subscription.telegram_id == telegram_id, Subscription.active == True)
-                .order_by(Subscription.expires_at.desc())
-            )).scalars().first()
-
         name = sender.get("first_name") or sender.get("username") or "عزيزي المستخدم"
-        if is_active(sub):
-            msg = (
-                f"👋 <b>أهلًا {name}</b>\n\n"
-                "🚀 <b>مرحبًا بك في SAS PRO</b>\n\n"
-                "🟢 <b>اشتراكك فعال</b>\n"
-                f"📅 تاريخ الانتهاء: <b>{sub.expires_at.strftime('%d/%m/%Y')}</b>\n\n"
-                "يمكنك الآن الدخول إلى Mini App واستخدام مزايا SAS PRO."
-            )
-        else:
-            msg = (
-                f"👋 <b>أهلًا {name}</b>\n\n"
-                "🚀 <b>مرحبًا بك في SAS PRO</b>\n\n"
-                "🔒 <b>لا يوجد إذن دخول فعال حاليًا</b>\n\n"
-                "🔐 أرسل <code>/access</code> لفتح SAS PRO وقراءة الشروط وإرسال طلب الدخول للإدارة.\n\n"
-                "⚡ <b>SAS PRO</b>\n"
-                "الدقة أولًا • بدون مطاردة • بدون إشارات وهمية"
-            )
-        await send_message(chat_id, msg)
+        kb = {"inline_keyboard": [[{"text": "🚀 دخول SAS PRO", "web_app": {"url": settings.app_base_url}}]]} if settings.app_base_url else None
+        await send_message(
+            chat_id,
+            f"👋 <b>أهلًا {name}</b>\n\n"
+            "🚀 <b>SAS PRO — سوق الأسهم الأمريكية</b>\n\n"
+            "التجربة والاشتراك والدخول للقناة تتم من Mini App.\n"
+            "⭐ الدفع عبر Telegram Stars فقط.",
+            kb,
+        )
         return {"ok": True}
-
     return {"ok": True}
 
 
