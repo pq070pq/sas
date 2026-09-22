@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 from .config import settings
 
@@ -20,20 +21,25 @@ async def quote(symbol: str):
     }
 
 async def ticker():
-    symbols = {
-        "BTC/USD": "BTC",
-        "XAU/USD": "GOLD",
-        "WTI/USD": "OIL",
-        "SPX": "S&P 500",
-        "IXIC": "NASDAQ",
-        "DJI": "DOW JONES",
-    }
-    out = []
-    for symbol, label in symbols.items():
+    symbols = [
+        ("BTC/USD", "BTC"),
+        ("XAU/USD", "GOLD"),
+        ("WTI/USD", "OIL"),
+        ("SPX", "S&P 500"),
+        ("IXIC", "NASDAQ"),
+        ("DJI", "DOW JONES"),
+        ("VIX", "VIX"),
+    ]
+
+    async def one(symbol, label):
         try:
             item = await quote(symbol)
             item["label"] = label
+            return item
         except Exception:
-            item = {"symbol": symbol, "label": label, "price": None, "change_pct": None, "source": "error"}
-        out.append(item)
-    return out
+            return {
+                "symbol": symbol, "label": label,
+                "price": None, "change_pct": None, "source": "error",
+            }
+
+    return await asyncio.gather(*(one(symbol, label) for symbol, label in symbols))
