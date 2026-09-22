@@ -17,6 +17,8 @@ class User(Base):
     username: Mapped[str | None] = mapped_column(String(128))
     first_name: Mapped[str | None] = mapped_column(String(128))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    terms_version: Mapped[str | None] = mapped_column(String(32))
 
 class Subscription(Base):
     __tablename__ = "subscriptions"
