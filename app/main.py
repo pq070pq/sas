@@ -1160,18 +1160,39 @@ async def telegram_webhook(request: Request):
 
     if text.startswith("/start"):
         name = sender.get("first_name") or sender.get("username") or "عزيزي المستخدم"
-        kb = {"inline_keyboard": [[{"text": "🚀 دخول SAS PRO", "web_app": {"url": settings.app_base_url}}]]} if settings.app_base_url else None
+        if telegram_id == settings.owner_telegram_id:
+            await send_message(
+                chat_id,
+                f"👋 <b>أهلًا {name}</b>\n\n"
+                "🛠️ <b>لوحة إدارة SAS PRO</b>\n"
+                "هذه الصفحة مخصصة لإدارة المشتركين فقط.",
+                {"inline_keyboard": [[{"text": "🛠️ فتح لوحة الإدارة", "web_app": {"url": settings.app_base_url}}]]},
+            )
+            return {"ok": True}
+        async with SessionLocal() as db:
+            sub = (await db.execute(
+                select(Subscription)
+                .where(Subscription.telegram_id == telegram_id, Subscription.active == True)
+                .order_by(Subscription.expires_at.desc())
+            )).scalars().first()
+        if is_active(sub):
+            msg = (
+                f"👋 <b>أهلًا {name}</b>\n\n"
+                "🚀 <b>SAS PRO</b>\n"
+                "اشتراكك فعال ويمكنك الدخول إلى الخدمة."
+            )
+        else:
+            msg = (
+                f"👋 <b>أهلًا {name}</b>\n\n"
+                "🚀 <b>SAS PRO — سوق الأسهم الأمريكية</b>\n"
+                "الاشتراك والتجربة والدخول تتم من داخل Mini App."
+            )
         await send_message(
             chat_id,
-            f"👋 <b>أهلًا {name}</b>\n\n"
-            "🚀 <b>SAS PRO — سوق الأسهم الأمريكية</b>\n\n"
-            "التجربة والاشتراك والدخول للقناة تتم من Mini App.\n"
-            "⭐ الدفع عبر Telegram Stars فقط.",
-            kb,
+            msg,
+            {"inline_keyboard": [[{"text": "🚀 دخول SAS PRO", "web_app": {"url": settings.app_base_url}}]]},
         )
         return {"ok": True}
-    return {"ok": True}
-
 
 @app.post("/api/telegram/precheckout")
 async def precheckout(request: Request):
