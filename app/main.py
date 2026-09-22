@@ -1129,7 +1129,7 @@ async def successful_payment(request: Request, db: AsyncSession = Depends(get_se
         await sync_payment([
             telegram_id, message.get("from", {}).get("username") or "",
             result["plan"]["label"], result["plan"]["sar"], result["plan"]["stars"],
-            utcnow().isoformat(), result["expires_at"].strftime("%Y-%m-%d"),
+            utcnow().isoformat(), result["starts_at"].strftime("%Y-%m-%d"),
             result["expires_at"].strftime("%Y-%m-%d"),
             "active", "paid", "لا", utcnow().isoformat()
         ])
