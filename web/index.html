@@ -179,15 +179,31 @@ async function loadAdminTerms(){
 }
 async function load(){
  try{
-  const [quotes,home,me]=await Promise.all([
+  const me=await api('/api/me');
+  const accessBtn=document.getElementById('accessRequestBtn');
+  if(accessBtn)accessBtn.hidden=!!me.pro;
+
+  document.getElementById('adminPanel').hidden=true;
+  if(me.user&&me.user.id){
+   try{await api('/api/admin/subscriptions');document.getElementById('adminPanel').hidden=false;loadAdminRequests();}catch(e){}
+  }
+
+  if(!me.pro){
+   document.getElementById('homeMarketState').textContent='🔒 الوصول غير مفعل';
+   document.getElementById('homeMarketSession').textContent='بانتظار اعتماد الإدارة';
+   document.getElementById('homeRadarStatus').textContent='غير متاح';
+   document.getElementById('report-content').textContent='🔒 SAS PRO\n\nالوصول غير مفعل حاليًا.\nوافق على الشروط وأرسل طلب إذن الدخول. بعد اعتماد المدة من الإدارة يُفتح التحليل والرادار والقناة حسب الصلاحية.';
+   return;
+  }
+
+  const [quotes,home]=await Promise.all([
    api('/api/market/ticker'),
-   api('/api/dashboard/home'),
-   api('/api/me')
+   api('/api/dashboard/home')
   ]);
   renderHomeTicker(quotes);
   const m=home.market||{};
   const marketBox=document.getElementById('homeMarketBox');
-  marketBox.className='home-market session-'+(m.session||'unknown');
+  if(marketBox)marketBox.className='home-market session-'+(m.session||'unknown');
   document.getElementById('homeMarketState').textContent=m.label_ar||'غير متاح';
   document.getElementById('homeMarketSession').textContent=m.session==='regular'?'التداول الرئيسي':(m.short_ar||'—');
 
@@ -195,26 +211,13 @@ async function load(){
   document.getElementById('homeRadarStatus').textContent=r.enabled?'الرصد يعمل الآن':'خارج وقت الرصد';
   document.getElementById('homeRefresh').textContent='آخر تحديث '+new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
   if(!document.getElementById('report-content').dataset.userAction){
-    document.getElementById('report-content').textContent=r.enabled
-      ? '📡 SAS PRO RADAR\\n\\n🟢 الرصد يعمل الآن.\\nاضغط على الرادار لبدء الفحص الحقيقي وعرض الأسهم التي اجتازت الشروط.'
-      : '📡 SAS PRO RADAR\\n\\n'+(m.label_ar||'الرصد متوقف حاليًا.')+'\\nالرادار لا يختلق فرصًا خارج الجلسة الرئيسية.';
+   document.getElementById('report-content').textContent=r.enabled
+    ? '📡 SAS PRO RADAR\n\n🟢 الرصد يعمل الآن. اضغط الرصد لبدء الفحص الحقيقي.'
+    : '📡 SAS PRO RADAR\n\n'+(m.label_ar||'الرصد متوقف حاليًا.')+'\nلن يتم اختلاق فرص خارج وقت الرصد.';
   }
-
-  const pro=!!me.pro;
-  document.getElementById('homeSubscriptionText').textContent=pro?'SAS PRO فعال':'اشترك في SAS PRO';
-  document.getElementById('homeSubscriptionExpiry').textContent=pro&&me.expires_at
-   ?'فعال حتى '+new Date(me.expires_at).toLocaleDateString('ar-SA')
-   :'اضغط لعرض الباقات';
-  document.getElementById('homeSubscriptionIcon').textContent=pro?'PRO':'SAS';
-
-  if(me.user&&me.user.id){
-   try{await api('/api/admin/subscriptions');document.getElementById('adminPanel').hidden=false;}catch(e){}
-  }
-  // لا يفتح الشروط تلقائيًا؛ تظهر فقط عند طلب إذن الدخول.
  }catch(e){
-  document.getElementById('homeMarketState').textContent='تعذر تحديث البيانات';
-  document.getElementById('homeSubscriptionText').textContent='تعذر التحقق';
-  document.getElementById('homeRadarStatus').textContent='تعذر التحديث';
+  document.getElementById('homeMarketState').textContent='تعذر التحقق من حالة الدخول';
+  document.getElementById('homeRadarStatus').textContent='غير متاح';
  }
 }
 async function runAnalysis(){
