@@ -9,7 +9,7 @@
 <div class="app">
 <header><div class="logo">🐬 <b>SAS PRO</b></div><span id="market">السوق الأمريكي</span></header>
 <div class="ticker"><div id="ticker">جاري تحميل السوق...</div></div>
-<div class="warning">🕌 الفحص الشرعي متعدد المصادر — عند اختلاف المصادر يظهر: غير واضح / يحتاج تحقق</div>
+
 <section class="hero"><small>مرحبًا بك</small><h1>لوحة السوق الذكية</h1><p>تحليل الأسهم والأخبار والأحداث من مكان واحد.</p>
 <div class="search"><input id="symbol" placeholder="رمز السهم مثل AAPL" autocomplete="off"><button onclick="runAnalysis()">تحليل</button></div></section>
 <section class="status" id="account">جارٍ التحقق من الاشتراك...</section>
@@ -18,7 +18,7 @@
 <button onclick="showNews()"><b>📰 الأخبار</b><span>أخبار السهم واتجاهها</span></button>
 <button onclick="showEvents()"><b>📅 الأحداث</b><span>أرباح وتوزيعات وتقسيمات</span></button>
 <button onclick="runAnalysis()"><b>🧠 تحليل PanWatch</b><span>تحليل متعدد الوكلاء</span></button>
-<button onclick="showHistory()"><b>📈 التاريخ</b><span>سجل التحليلات السابقة</span></button>\n<button onclick="showShariah()"><b>🕌 الشرعية</b><span>فحص من أكثر من مصدر</span></button>
+<button onclick="showHistory()"><b>📈 التاريخ</b><span>سجل التحليلات السابقة</span></button>
 </div>
 <div id="result" class="result">اختر سهمًا ثم ابدأ.</div>
 <section class="plans">
@@ -60,11 +60,6 @@ async function showNews(){
 async function showEvents(){
  const s=symbol();if(!s)return;
  try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/events');document.getElementById('result').textContent=JSON.stringify(d,null,2);}
- catch(e){document.getElementById('result').textContent=e.message;}
-}
-async async function showShariah(){
- const s=symbol();if(!s)return;
- try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/shariah');document.getElementById('result').textContent=JSON.stringify(d,null,2);}
  catch(e){document.getElementById('result').textContent=e.message;}
 }
 function showHistory(){
