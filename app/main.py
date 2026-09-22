@@ -297,17 +297,7 @@ async def request_access(user=Depends(telegram_user), db: AsyncSession = Depends
 async def terms():
     return {"version": TERMS_VERSION, "text": TERMS_TEXT}
 
-@app.get("/api/plans")
-async def plans(_: dict = Depends(telegram_user)):
-    return {
-        key: {"sar": label, "stars": stars, "days": days}
-        for key, (stars, days), label in [
-            ("monthly", PLANS["monthly"], "150 ريال"),
-            ("3month", PLANS["3month"], "405 ريال"),
-            ("6month", PLANS["6month"], "720 ريال"),
-            ("yearly", PLANS["yearly"], "1260 ريال"),
-        ]
-    }
+
 
 @app.get("/api/terms/my")
 async def my_terms(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
@@ -391,11 +381,11 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
     }
 
 @app.get("/api/market/status")
-async def market_status_api(_: dict = Depends(telegram_user)):
+async def market_status_api(_: dict = Depends(require_pro)):
     return market_status()
 
 @app.get("/api/radar/status-message")
-async def radar_status_message(_: dict = Depends(telegram_user)):
+async def radar_status_message(_: dict = Depends(require_pro)):
     status = market_status()
     active = stock_radar_enabled()
     if active:
@@ -421,7 +411,7 @@ async def radar_status_message(_: dict = Depends(telegram_user)):
     }
 
 @app.get("/api/market/radar-status")
-async def radar_status(_: dict = Depends(telegram_user)):
+async def radar_status(_: dict = Depends(require_pro)):
     status = market_status()
     return {
         **status,
@@ -430,12 +420,12 @@ async def radar_status(_: dict = Depends(telegram_user)):
     }
 
 @app.get("/api/market/ticker")
-async def market_ticker(_: dict = Depends(telegram_user)):
+async def market_ticker(_: dict = Depends(require_pro)):
     return await ticker()
 
 
 @app.get("/api/dashboard/home")
-async def dashboard_home(_: dict = Depends(telegram_user)):
+async def dashboard_home(_: dict = Depends(require_pro)):
     status = market_status()
     # Radar signals use the same New York trading date as the market calendar.
     session_date = status["date"]
@@ -472,7 +462,7 @@ async def dashboard_home(_: dict = Depends(telegram_user)):
     }
 
 @app.get("/api/radar/scan")
-async def radar_scan(_: dict = Depends(telegram_user)):
+async def radar_scan(_: dict = Depends(require_pro)):
     from .scanner import scan_us_low_price_stocks
     status = market_status()
     if not stock_radar_enabled():
@@ -494,15 +484,15 @@ async def radar_scan(_: dict = Depends(telegram_user)):
     }
 
 @app.get("/api/stocks/{symbol}/news")
-async def stock_news(symbol: str, _: dict = Depends(telegram_user)):
+async def stock_news(symbol: str, _: dict = Depends(require_pro)):
     return await company_news(symbol.upper())
 
 @app.get("/api/stocks/{symbol}/events")
-async def stock_events(symbol: str, _: dict = Depends(telegram_user)):
+async def stock_events(symbol: str, _: dict = Depends(require_pro)):
     return await corporate_events(symbol.upper())
 
 @app.get("/api/stocks/{symbol}/quote")
-async def stock_quote(symbol: str, _: dict = Depends(telegram_user)):
+async def stock_quote(symbol: str, _: dict = Depends(require_pro)):
     return await quote(symbol.upper())
 
 @app.post("/api/stocks/{symbol}/analyze")
