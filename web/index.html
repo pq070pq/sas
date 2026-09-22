@@ -29,6 +29,7 @@
         <div><small>المتبقي</small><strong id="subDays">—</strong></div>
         <div><small>التجربة</small><strong id="trialState">—</strong></div>
       </div>
+      <button id="terminalBtn" class="terminal-btn" hidden onclick="openTerminal()">🖥️ فتح SAS PRO Terminal</button>
     </section>
 
     <section class="trial-card" id="trialCard">
@@ -113,7 +114,8 @@ function renderStatus(x){
  document.getElementById('subStart').textContent='—';
  document.getElementById('subEnd').textContent=x.expires_at?fmtDate(x.expires_at):'—';
  document.getElementById('subDays').textContent=x.expires_at?fmtDays(new Date(),x.expires_at):'—';
- document.getElementById('trialState').textContent=x.trial_available?'🟢 متاحة مرة واحدة':(x.trial_expires?'منتهية/مستخدمة':'غير متاحة');
+ document.getElementById('trialState').textContent=x.trial_available?'متاحة مرة واحدة':(x.trial_expires?'منتهية/مستخدمة':'غير متاحة');
+ document.getElementById('terminalBtn').hidden=!active;
  if(x.trial_expires&&new Date(x.trial_expires)>new Date()){document.getElementById('trialState').textContent='🎁 فعالة حتى '+fmtDate(x.trial_expires);}
  if(!x.trial_available)document.getElementById('trialBtn').disabled=true;
 }
@@ -146,6 +148,13 @@ async function continueTerms(){
    if(tg?.openInvoice)tg.openInvoice(d.invoice_link,()=>setTimeout(load,1200));
    else if(tg?.openLink)tg.openLink(d.invoice_link);
   }else closeTerms();
+ }catch(e){alert(e.message);}
+}
+async function openTerminal(){
+ try{
+  const d=await api('/api/terminal/access');
+  if(tg?.openLink) tg.openLink(d.url);
+  else window.open(d.url,'_blank');
  }catch(e){alert(e.message);}
 }
 async function buyPlan(k){
