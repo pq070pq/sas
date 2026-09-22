@@ -377,7 +377,8 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
     )).scalars().first()
     if sub:
         await sync_user_subscription(db, existing, sub) if False else None
-    admin = int(user["id"]) == int(settings.owner_telegram_id)
+    admin_info = await get_admin(int(user["id"]))
+    admin = bool(admin_info)
     pro = admin or (active_subscription(existing) if existing.subscription_expires else is_active(sub))
     expires = None
     if sub and not admin:
@@ -387,6 +388,8 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
     return {
         "user": user,
         "admin": admin,
+        "admin_role": admin_info.get("role") if admin_info else None,
+        "admin_permissions": admin_info.get("permissions", []) if admin_info else [],
         "pro": pro,
         "expires_at": expires,
         "trial_available": existing.trial_used_at is None and not admin,
@@ -439,8 +442,7 @@ async def subscription_invoice(plan: str, user=Depends(telegram_user)):
 
 @app.get("/api/admin/overview")
 async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
-    if int(user["id"]) != int(settings.owner_telegram_id):
-        raise HTTPException(403, "Admin only")
+    await require_admin_permission(user, "users")
     now = utcnow()
     users = (await db.execute(select(User))).scalars().all()
     active = 0
@@ -465,8 +467,7 @@ async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends
 
 @app.get("/api/admin/users")
 async def admin_users(q: str = "", user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
-    if int(user["id"]) != int(settings.owner_telegram_id):
-        raise HTTPException(403, "Admin only")
+    await require_admin_permission(user, "users")
     q = q.strip()
     stmt = select(User).order_by(User.created_at.desc()).limit(100)
     if q:
@@ -489,14 +490,12 @@ async def admin_users(q: str = "", user=Depends(telegram_user), db: AsyncSession
 
 @app.get("/api/admin/plans")
 async def admin_plans(user=Depends(telegram_user)):
-    if int(user["id"]) != int(settings.owner_telegram_id):
-        raise HTTPException(403, "Admin only")
+    await require_admin_permission(user, "settings")
     return await get_plans()
 
 @app.post("/api/admin/plans")
 async def admin_update_plans(request: Request, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
-    if int(user["id"]) != int(settings.owner_telegram_id):
-        raise HTTPException(403, "Admin only")
+    await require_admin_permission(user, "settings")
     body = await request.json()
     for key in ("monthly", "3month", "6month", "yearly"):
         item = body.get(key) or {}
@@ -513,8 +512,7 @@ async def admin_update_plans(request: Request, user=Depends(telegram_user), db: 
 
 @app.post("/api/admin/grant/{telegram_id}")
 async def admin_grant(telegram_id: int, days: str = "30", user=Depends(telegram_user)):
-    if int(user["id"]) != int(settings.owner_telegram_id):
-        raise HTTPException(403, "Admin only")
+    await require_admin_permission(user, "subscriptions")
     if days.lower() == "forever":
         exp, link, link_exp = await grant_access(telegram_id, forever=True)
     else:
@@ -538,8 +536,7 @@ async def admin_grant(telegram_id: int, days: str = "30", user=Depends(telegram_
 
 @app.post("/api/admin/revoke/{telegram_id}")
 async def admin_revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
-    if int(user["id"]) != int(settings.owner_telegram_id):
-        raise HTTPException(403, "Admin only")
+    await require_admin_permission(user, "subscriptions")
     await db.execute(update(Subscription).where(Subscription.telegram_id == telegram_id, Subscription.active == True).values(active=False))
     row = (await db.execute(select(User).where(User.telegram_id == telegram_id))).scalars().first()
     if row:
