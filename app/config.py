@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     expiry_warning_hours: int = 72
     holiday_radar_interval_minutes: int = 30
     cron_secret: str = ""
+    openterminal_base_url: str = ""
+    sas_terminal_secret: str = ""
     google_sheets_id: str = ""
     google_sheets_range: str = "Subscriptions"
     google_service_account_json: str = ""
