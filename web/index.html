@@ -80,10 +80,10 @@
 <section class="plans">
   <div class="section-title"><b>اشتراكات SAS PRO</b><span>اختر خطتك</span></div>
   <div class="plan-grid">
-    <div class="plan"><b>الاشتراك الشهري</b><strong>150 ريال</strong><small>30 يومًا • 3077 ⭐</small><button onclick="buy('monthly')">📋 الشروط والموافقة ثم الاشتراك</button></div>
-    <div class="plan"><b>3 أشهر</b><strong>405 ريال</strong><small>خصم 10% • 8308 ⭐</small><button onclick="buy('3month')">📋 الشروط والموافقة ثم الاشتراك</button></div>
-    <div class="plan"><b>6 أشهر</b><strong>720 ريال</strong><small>خصم 20% • 14770 ⭐</small><button onclick="buy('6month')">📋 الشروط والموافقة ثم الاشتراك</button></div>
-    <div class="plan featured"><label>خصم 30%</label><b>سنة كاملة</b><strong>1260 ريال</strong><small>365 يومًا • 25847 ⭐</small><button onclick="buy('yearly')">📋 الشروط والموافقة ثم الاشتراك</button></div>
+    <div class="plan"><b>الاشتراك الشهري</b><strong>150 ريال</strong><small id="planMonthlyStars">30 يومًا • جاري التحقق…</small><button onclick="buy('monthly')">📋 الشروط والموافقة ثم الاشتراك</button></div>
+    <div class="plan"><b>3 أشهر</b><strong>405 ريال</strong><small id="plan3Stars">خصم 10% • جاري التحقق…</small><button onclick="buy('3month')">📋 الشروط والموافقة ثم الاشتراك</button></div>
+    <div class="plan"><b>6 أشهر</b><strong>720 ريال</strong><small id="plan6Stars">خصم 20% • جاري التحقق…</small><button onclick="buy('6month')">📋 الشروط والموافقة ثم الاشتراك</button></div>
+    <div class="plan featured"><label>خصم 30%</label><b>سنة كاملة</b><strong>1260 ريال</strong><small id="planYearlyStars">365 يومًا • جاري التحقق…</small><button onclick="buy('yearly')">📋 الشروط والموافقة ثم الاشتراك</button></div>
   </div>
 </section>
 
@@ -241,6 +241,16 @@ function renderReport(d){
 }
 function focusSearch(){document.getElementById('analysisBox').scrollIntoView({behavior:'smooth'});setTimeout(()=>document.getElementById('symbol').focus(),250);}
 function openPlans(){document.querySelector('.plans').scrollIntoView({behavior:'smooth',block:'start'});}
+async function loadPlans(){
+ try{
+  const p=await api('/api/plans');
+  const set=(id,txt)=>{const e=document.getElementById(id);if(e)e.textContent=txt;};
+  if(p.monthly)set('planMonthlyStars','30 يومًا • '+p.monthly.stars+' ⭐');
+  if(p['3month'])set('plan3Stars','خصم 10% • '+p['3month'].stars+' ⭐');
+  if(p['6month'])set('plan6Stars','خصم 20% • '+p['6month'].stars+' ⭐');
+  if(p.yearly)set('planYearlyStars','365 يومًا • '+p.yearly.stars+' ⭐');
+ }catch(e){}
+}
 async function showRadarStatus(){
  try{
   const d=await api('/api/radar/status-message');
@@ -266,7 +276,20 @@ function showNewStocks(){focusSearch();document.getElementById('report-content')
 function showDividends(){focusSearch();document.getElementById('report-content').textContent='توزيعات الأرباح ستظهر هنا عند توفر بيانات الشركات.';}
 function showAlerts(){document.getElementById('report-content').textContent='تنبيهات الأسعار.';}
 function showSettings(){document.getElementById('report-content').textContent='إعدادات SAS PRO.';}
-function setMode(){focusSearch();}
+function setMode(mode){if(mode==='radar'){showRadar();return;}focusSearch();}
+async function showRadar(){
+ try{
+  const d=await api('/api/radar/scan');
+  if(!d.enabled){document.getElementById('report-content').textContent=d.reason||'الرصد متوقف حاليًا.';}
+  else if(!d.stocks||!d.stocks.length){document.getElementById('report-content').textContent='📡 SAS PRO RADAR\\n\\nلا توجد فرصة مستوفية للشروط حاليًا.';}
+  else{
+   document.getElementById('report-content').textContent=d.stocks.slice(0,20).map((x,i)=>
+    (i+1)+'. '+x.symbol+' — '+(x.price!=null?money(x.price):'السعر غير واضح')+' — '+(x.change_pct!=null?fmtChange(x.change_pct):'—')
+   ).join('\\n');
+  }
+  document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(e){document.getElementById('report-content').textContent=e.message;}
+}
 function scrollToTop(){window.scrollTo({top:0,behavior:'smooth'});}
 let pendingPlan=null;
 function openTerms(plan){pendingPlan=plan;document.getElementById('termsAgree').checked=false;document.getElementById('termsModal').hidden=false;}
@@ -297,7 +320,7 @@ async function acceptAndBuy(){
  }catch(e){alert(e.message);}
 }
 async function buy(plan){openPurchaseTerms(plan);}
-load();setInterval(load,30000);
+load();loadPlans();setInterval(load,30000);
 </script>
 <div id="termsModal" class="terms-modal" hidden>
   <div class="terms-card">
