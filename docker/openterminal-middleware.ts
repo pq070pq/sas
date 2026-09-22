@@ -10,7 +10,7 @@ function decodeToken(token: string) {
   const [body, sig] = token.split(".");
   if (!body || !sig) return null;
   const expected = crypto.createHmac("sha256", SECRET).update(body).digest("base64url");
-  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
   try {
     const data = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
     if (!data.exp || Number(data.exp) <= Math.floor(Date.now() / 1000)) return null;
