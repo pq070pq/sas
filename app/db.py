@@ -47,6 +47,12 @@ class RadarSignal(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     __table_args__ = (UniqueConstraint("symbol", "session_date", name="uq_radar_symbol_session"),)
 
+class ScheduledReport(Base):
+    __tablename__ = "scheduled_reports"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    report_key: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
 class StockAnalysis(Base):
     __tablename__ = "stock_analyses"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
