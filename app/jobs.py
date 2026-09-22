@@ -249,6 +249,18 @@ async def stock_radar_cycle():
                     continue
 
                 q = await quote(symbol)
+                # Keep the radar price populated from the scan row when the
+                # live quote provider is temporarily unavailable.
+                if q.get("price") is None:
+                    fallback_price = row.get("live_price") or row.get("price")
+                    fallback_change = row.get("live_change_pct")
+                    if fallback_price is not None:
+                        q = {
+                            "symbol": symbol,
+                            "price": fallback_price,
+                            "change_pct": fallback_change if fallback_change is not None else row.get("change_pct"),
+                            "source": row.get("live_price_source") or row.get("source") or "scan data",
+                        }
                 classification = row.get("classification") or {}
                 tech = row.get("targets") or {}
                 report = build_report(symbol, q, tech, classification)
