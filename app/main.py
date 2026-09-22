@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
-from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, AccessRequest, get_session, init_db
+from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, AccessRequest, Setting, get_session, init_db
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets
@@ -17,48 +17,19 @@ from .market_calendar import market_status
 from .holiday_radar import stock_radar_enabled
 from .holiday_radar import holiday_radar_scheduler
 from .timeutil import utcnow, aware
+from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings
 
 app = FastAPI(title="SAS PRO", version="2.1.0")
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
 
-TERMS_VERSION = "1.4"
-TERMS_TEXT = """⚠️ إقرار وشروط استخدام SAS PRO:
-
-أقر أنا المتداول أن SAS PRO والقناة تقدمان معلومات وتحليلات عامة لأغراض تعليمية ومعلوماتية، وليستا توصية أو نصيحة استثمارية شخصية.
-
-🎯 الأهداف والمستويات والإشارات التي تظهر في التطبيق هي نتائج تحليل فني وبيانات متاحة وقت التحليل، وليست وعدًا بالربح ولا ضمانًا لتحقيق أي نتيجة.
-
-📊 أسعار الأسهم والأخبار والبيانات قد تتأخر أو تتغير أو تحتوي على أخطاء. لذلك أتحمل مسؤولية التحقق من المعلومات قبل اتخاذ أي قرار.
-
-💰 SAS PRO والقناة لا تستلمان أموالي، ولا تديران محفظتي، ولا تنفذان صفقات نيابة عني، ولا تضمنان أرباحًا أو تمنعان الخسائر.
-
-⚠️ أفهم أن التداول والاستثمار فيهما مخاطر، وقد أخسر جزءًا من رأس المال أو كامل المبلغ الذي أستخدمه.
-
-🧑‍💼 أنا المتداول المسؤول عن قراراتي: الشراء والبيع، اختيار السهم، حجم الصفقة، رأس المال، وإدارة المخاطر. وأتحمل نتائج قرارات التداول والخسائر التي قد تنتج عنها.
-
-🚫 لا أعتبر أي محتوى أو تنبيه أو تحليل في SAS PRO أو القناة تفويضًا لإدارة أموالي أو محفظتي أو تنفيذ صفقات نيابة عني، ولا أعتبره ضمانًا للربح.
-
-🔐 طلب إذن الدخول:
-أطلب إذن الدخول إلى SAS PRO بعد قراءة هذه الشروط والموافقة عليها. لا يتم تفعيل أي مدة تلقائيًا؛ الإدارة هي التي تقرر مدة الوصول وتاريخ انتهائه بحسب الطلب.
-
-"""
-DISCLAIMER = "⚠️ تنبيه: المعلومات والتحليلات الواردة هنا لأغراض معلوماتية وتعليمية عامة، ولا تُعد توصية أو مشورة استثمارية، ولا تراعي أهداف المتداول أو وضعه المالي أو احتياجاته الاستثمارية. 🎯 الأهداف والمستويات المذكورة هي نتائج تحليلية وليست ضمانًا لتحقيق أي نتيجة أو ربح. قرار الاستثمار والتداول وإدارة المخاطر مسؤولية المتداول." 
-PLANS = {
-    "monthly": (settings.pro_monthly_stars, 30),
-    "3month": (settings.pro_3month_stars, 90),
-    "6month": (settings.pro_6month_stars, 180),
-    "yearly": (settings.pro_yearly_stars, 365),
-}
-PLAN_LABELS = {
-    "monthly": "شهري — 150 ريال",
-    "3month": "3 أشهر — خصم 10%",
-    "6month": "6 أشهر — خصم 20%",
-    "yearly": "سنة — خصم 30%",
-}
+DISCLAIMER = "⚠️ تنبيه: المعلومات والتحليلات الواردة هنا لأغراض معلوماتية وتعليمية عامة، ولا تُعد توصية أو مشورة استثمارية. قرار الاستثمار والتداول وإدارة المخاطر مسؤولية المتداول."
+PLANS = {}
+PLAN_LABELS = {}
 
 @app.on_event("startup")
 async def startup():
     await init_db()
+    await ensure_subscription_settings()
     asyncio.create_task(scheduler())
     asyncio.create_task(holiday_radar_scheduler())
 
