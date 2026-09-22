@@ -60,6 +60,23 @@
 
     <section class="admin-stats" id="adminStats"></section>
 
+    <section class="admin-panel" id="staffPanel" hidden>
+      <div class="section-head"><b>🛡️ المشرفون والصلاحيات</b><span>إدارة الوصول الإداري</span></div>
+      <div class="search-row">
+        <input id="staffId" inputmode="numeric" placeholder="Telegram ID للمشرف">
+        <select id="staffRole">
+          <option value="admin">Admin</option>
+          <option value="moderator">Moderator</option>
+          <option value="radar_manager">Radar Manager</option>
+          <option value="subscription_manager">Subscription Manager</option>
+          <option value="viewer">Viewer</option>
+        </select>
+        <button onclick="addStaff()">إضافة/تحديث</button>
+      </div>
+      <div id="staffPermissions" class="staff-permissions"></div>
+      <div id="staffList"></div>
+    </section>
+
     <section class="admin-panel">
       <div class="section-head"><b>🔎 البحث عن مستخدم</b><span>Telegram ID أو Username</span></div>
       <div class="search-row"><input id="adminSearch" placeholder="مثال: 123456789 أو username"><button onclick="adminSearch()">بحث</button></div>
@@ -98,7 +115,9 @@ let me=null,plans=null,termAction=null;
 async function load(){
  try{
   me=await api('/api/me');
-  if(me.admin){document.getElementById('subscriptionPage').hidden=true;document.getElementById('adminPage').hidden=false;await adminRefresh();return;}
+  if(me.admin){document.getElementById('subscriptionPage').hidden=true;document.getElementById('adminPage').hidden=false;
+   if((me.admin_permissions||[]).includes('admins')){document.getElementById('staffPanel').hidden=false;await loadStaff();}
+   await adminRefresh();return;}
   document.getElementById('userName').textContent=me.user?.first_name||me.user?.username||'مستخدم SAS PRO';
   renderStatus(me);
   plans=await api('/api/subscription/plans');
@@ -166,7 +185,39 @@ async function buyPlan(k){
  }catch(e){alert(e.message);}
 }
 
-async function adminRefresh(){await Promise.all([loadAdminStats(),loadAdminPlans(),adminSearch()]);}
+async function adminRefresh(){
+ const p=me?.admin_permissions||[];
+ const tasks=[];
+ if(p.includes('users')){tasks.push(loadAdminStats(),adminSearch());}
+ if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;tasks.push(loadAdminPlans());}
+ else {document.getElementById('planEditor').closest('.admin-panel').hidden=true;}
+ await Promise.all(tasks);
+}
+async function loadStaff(){
+ try{
+  const d=await api('/api/admin/staff');
+  const mePerms=me?.admin_permissions||[];
+  const catalog=d.find(x=>x.role==='owner')?.permissions||[];
+  const labels={users:'إدارة المشتركين',subscriptions:'إدارة الاشتراكات',channel:'إدارة القناة',radar:'إدارة الرصد',payments:'إدارة المدفوعات',admins:'إدارة المشرفين',settings:'إعدادات النظام',audit:'سجل العمليات'};
+  document.getElementById('staffPermissions').innerHTML=Object.entries(labels).map(([k,v])=>
+   '<label><input type="checkbox" class="perm" value="'+k+'"> '+v+'</label>'
+  ).join('');
+  document.getElementById('staffList').innerHTML=d.map(x=>{
+   const canEdit=x.role!=='owner';
+   return '<div class="user-row"><div><b>'+esc(x.role)+' — '+esc(x.telegram_id)+'</b><br><small>'+esc((x.permissions||[]).join('، '))+' — '+(x.enabled?'🟢 فعال':'🔴 معطل')+'</small></div>'+
+    (canEdit?'<div class="user-actions">'+(x.enabled?'<button class="danger" onclick="staffToggle('+x.telegram_id+',false)">تعطيل</button>':'<button onclick="staffToggle('+x.telegram_id+',true)">تفعيل</button>')+'<button class="danger" onclick="staffDelete('+x.telegram_id+')">حذف</button></div>':'')+'</div>';
+  }).join('');
+ }catch(e){document.getElementById('staffList').textContent=e.message;}
+}
+async function addStaff(){
+ const id=Number(document.getElementById('staffId').value); const role=document.getElementById('staffRole').value;
+ const permissions=[...document.querySelectorAll('.perm:checked')].map(x=>x.value);
+ if(!id){alert('أدخل Telegram ID');return;}
+ try{await api('/api/admin/staff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_id:id,role,permissions})});await loadStaff();alert('تم حفظ صلاحيات المشرف');}catch(e){alert(e.message);}
+}
+async function staffToggle(id,enabled){try{await api('/api/admin/staff/'+id+'/'+(enabled?'enable':'disable'),{method:'POST'});await loadStaff();}catch(e){alert(e.message);}}
+async function staffDelete(id){if(!confirm('حذف هذا المشرف؟'))return;try{await api('/api/admin/staff/'+id,{method:'DELETE'});await loadStaff();}catch(e){alert(e.message);}}
+
 async function loadAdminStats(){const d=await api('/api/admin/overview');document.getElementById('adminStats').innerHTML=
  [['active','🟢 النشطون'],['expired','🔴 المنتهية'],['trial_users','🎁 التجارب'],['new_users','👥 الجدد'],['payments','💳 المدفوعات'],['stars','⭐ Stars']].map(x=>'<div><small>'+x[1]+'</small><strong>'+d[x[0]]+'</strong></div>').join('');}
 async function adminSearch(){try{const q=document.getElementById('adminSearch').value.trim();const rows=await api('/api/admin/users'+(q?'?q='+encodeURIComponent(q):''));document.getElementById('adminUsers').innerHTML=rows.map(u=>{
