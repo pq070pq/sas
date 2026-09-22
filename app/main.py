@@ -21,7 +21,7 @@ from .timeutil import utcnow, aware
 app = FastAPI(title="SAS PRO", version="2.1.0")
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
 
-TERMS_VERSION = "1.2"
+TERMS_VERSION = "1.3"
 TERMS_TEXT = """⚠️ إقرار وشروط استخدام SAS PRO:
 
 أقر أنا المتداول أن SAS PRO والقناة تقدمان معلومات وتحليلات عامة لأغراض تعليمية ومعلوماتية، وليستا توصية أو نصيحة استثمارية شخصية.
@@ -38,7 +38,8 @@ TERMS_TEXT = """⚠️ إقرار وشروط استخدام SAS PRO:
 
 🚫 لا أعتبر أي محتوى أو تنبيه أو تحليل في SAS PRO أو القناة تفويضًا لإدارة أموالي أو محفظتي أو تنفيذ صفقات نيابة عني، ولا أعتبره ضمانًا للربح.
 
-📌 إذا استخدمت SAS PRO أو وافقت على هذه الشروط، فهذا يعني أنني قرأت الشروط وفهمتها ووافقت عليها.
+🎁 التجربة المجانية:
+يمكنني تفعيل تجربة مجانية لمدة 3 أيام مرة واحدة فقط بعد الموافقة على هذه الشروط. تنتهي التجربة تلقائيًا بعد 3 أيام، وإذا لم يتم التجديد بباقة مدفوعة يتم إيقاف وصولي إلى مزايا PRO.
 
 تنبيه تنظيمي: هذه الشروط توضح طبيعة الخدمة ومسؤوليات المتداول، ولا تعني أن SAS PRO أو القناة مرخصتان من هيئة السوق المالية. ويجب الرجوع إلى الأنظمة واللوائح المحدثة ومتطلبات الترخيص المعمول بها في المملكة العربية السعودية.
 """
@@ -46,7 +47,14 @@ DISCLAIMER = "⚠️ تنبيه: المعلومات والتحليلات الو�
 PLANS = {
     "monthly": (settings.pro_monthly_stars, 30),
     "3month": (settings.pro_3month_stars, 90),
+    "6month": (settings.pro_6month_stars, 180),
     "yearly": (settings.pro_yearly_stars, 365),
+}
+PLAN_LABELS = {
+    "monthly": "شهري — 150 ريال",
+    "3month": "3 أشهر — خصم 10%",
+    "6month": "6 أشهر — خصم 20%",
+    "yearly": "سنة — خصم 30%",
 }
 
 @app.on_event("startup")
@@ -214,6 +222,7 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
         "user": user,
         "pro": is_active(sub),
         "expires_at": sub.expires_at.isoformat() if sub else None,
+        "trial_available": bool(existing and existing.terms_accepted_at and existing.terms_version == TERMS_VERSION and existing.trial_used_at is None),
         "terms_accepted": bool(existing and existing.terms_accepted_at and existing.terms_version == TERMS_VERSION),
         "terms_version": existing.terms_version if existing else None,
     }
@@ -408,6 +417,42 @@ async def revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncSession
     await db.commit()
     return {"ok": True}
 
+@app.post("/api/trial/start")
+async def start_trial(user=Depends(require_terms), db: AsyncSession = Depends(get_session)):
+    row = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
+    if not row:
+        raise HTTPException(404, "المستخدم غير موجود")
+    if row.trial_used_at is not None:
+        raise HTTPException(409, "تم استخدام التجربة المجانية سابقًا")
+    active = (await db.execute(
+        select(Subscription).where(
+            Subscription.telegram_id == user["id"],
+            Subscription.active == True
+        ).order_by(Subscription.expires_at.desc())
+    )).scalars().first()
+    if is_active(active):
+        raise HTTPException(409, "لديك اشتراك فعال حاليًا")
+    now = utcnow()
+    exp = now + timedelta(days=3)
+    row.trial_used_at = now
+    db.add(Subscription(
+        telegram_id=user["id"], plan="trial",
+        starts_at=now, expires_at=exp, active=True,
+        warning_3d_sent_at=now,
+    ))
+    await db.commit()
+    try:
+        await send_message(
+            user["id"],
+            "🎁 <b>بدأت تجربتك المجانية</b>\n\n"
+            "⏳ المدة: <b>3 أيام</b>\n"
+            f"📅 الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>\n\n"
+            "بعد انتهاء التجربة سيتم إيقاف مزايا PRO تلقائيًا إذا لم يتم التجديد باشتراك مدفوع. 🚀"
+        )
+    except Exception:
+        pass
+    return {"ok": True, "trial": True, "expires_at": exp.isoformat(), "days": 3}
+
 @app.post("/api/payments/invoice/{plan}")
 async def invoice(plan: str, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     if plan not in PLANS:
@@ -418,7 +463,7 @@ async def invoice(plan: str, user=Depends(telegram_user), db: AsyncSession = Dep
     stars, days = PLANS[plan]
     payload = f"saspro:{plan}:{user['id']}:{int(datetime.now().timestamp())}"
     result = await bot_api("createInvoiceLink", {
-        "title": f"SAS PRO {plan}",
+        "title": f"SAS PRO — {PLAN_LABELS.get(plan, plan)}",
         "description": f"اشتراك SAS PRO لمدة {days} يوم",
         "payload": payload,
         "currency": "XTR",
@@ -428,7 +473,7 @@ async def invoice(plan: str, user=Depends(telegram_user), db: AsyncSession = Dep
         await send_message(
             user["id"],
             "🧾 <b>تم إنشاء طلب الاشتراك</b>\n\n"
-            f"📦 الباقة: <b>{plan}</b>\n"
+            f"📦 الباقة: <b>{PLAN_LABELS.get(plan, plan)}</b>\n"
             f"⏳ المدة: <b>{days} يوم</b>\n"
             f"⭐ الرسوم: <b>{stars} نجمة</b>\n\n"
             "💳 أكمل الدفع من الفاتورة المرفقة.\n"
