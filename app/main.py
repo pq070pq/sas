@@ -22,7 +22,6 @@ app = FastAPI(title="SAS PRO", version="2.1.0")
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
 
 DISCLAIMER = "🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️"
-SHARIAH_NOTICE = "⛔ شرعية الاسهم مسؤوليتك ⛔"
 PLANS = {
     "monthly": (settings.pro_monthly_stars, 30),
     "3month": (settings.pro_3month_stars, 90),
@@ -64,7 +63,6 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
 
     return (
         f"🚨 SAS PRO RADAR\n\n"
-        f"{SHARIAH_NOTICE}\n\n"
         f"🔹 السهم: {symbol}\n"
         f"💵 السعر: {_money(float(price)) if price is not None else 'غير واضح'}\n"
         f"📈 مرتفع/منخفض: {move}\n"
