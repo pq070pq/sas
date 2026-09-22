@@ -224,7 +224,8 @@ async def stock_radar_cycle():
         from .main import build_report
         from .market import quote
 
-        rows = await scan_us_low_price_stocks()
+        scan_result = await scan_us_low_price_stocks()
+        rows = scan_result.get("stocks", [])
         session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
         async with SessionLocal() as db:
