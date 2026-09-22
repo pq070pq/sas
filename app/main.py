@@ -224,7 +224,29 @@ async def market_status_api(_: dict = Depends(telegram_user)):
 
 @app.get("/api/radar/status-message")
 async def radar_status_message(_: dict = Depends(telegram_user)):
-    return {"active": stock_radar_enabled(), "message": "📡 SAS PRO RADAR ⏳\n\n🟢 الرصد مستمر الآن... 🕒\n\n🛰️ نتابع السوق لحظة بلحظة\n📊 نفحص الأسهم والنماذج والسلوك\n🎯 لا يتم إرسال أي سهم إلا بعد تحقق الشروط المطلوبة\n\n⏳ لا توجد فرصة مؤكدة حاليًا\n\n🚨 عند ظهور فرصة مستوفية للشروط،\nسيتم إرسالها مباشرة هنا.\n\n⚠️ تحذير مهم\n📈 الأسهم المضاربية عالية المخاطر\n💰 قد تتغير الأسعار بسرعة وقد تحدث خسائر كبيرة\n🛑 لا تدخل بأموال لا تتحمل خسارتها\n\n🚨 هذا الرصد لأغراض تعليمية ومعلوماتية فقط،\nولا يُعد توصية شراء أو بيع.\nقرار التداول وإدارة المخاطر مسؤولية المتداول 🚨\n\n⚡ SAS PRO ⚡\nالدقة أولًا • بدون مطاردة • بدون إشارات وهمية"}
+    status = market_status()
+    active = stock_radar_enabled()
+    if active:
+        message = (
+            "📡 SAS PRO RADAR\n\n"
+            "🟢 الرصد يعمل الآن... 🕒\n\n"
+            "🛰️ نتابع السوق لحظة بلحظة\n"
+            "📊 نفحص الأسهم والنماذج والسلوك\n"
+            "🎯 لا يتم إرسال أي سهم إلا بعد تحقق الشروط المطلوبة."
+        )
+    else:
+        message = (
+            "📡 SAS PRO RADAR\n\n"
+            f"{status['label_ar']}\n\n"
+            "⏸️ رصد الأسهم الأمريكي متوقف خارج الجلسة الرئيسية.\n"
+            "📌 لن يتم إرسال فرص وهمية قبل الافتتاح أو بعد الإغلاق.\n"
+            "🛰️ يعود الرصد تلقائيًا مع بداية الجلسة الرئيسية."
+        )
+    return {
+        "active": active,
+        "session": status["session"],
+        "message": message + "\n\n⚠️ قرار التداول وإدارة المخاطر مسؤولية المتداول."
+    }
 
 @app.get("/api/market/radar-status")
 async def radar_status(_: dict = Depends(telegram_user)):
