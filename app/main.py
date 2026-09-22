@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
-from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, get_session, init_db
+from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, get_session, init_db
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets
@@ -144,6 +144,10 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
 async def market_status_api(_: dict = Depends(telegram_user)):
     return market_status()
 
+@app.get("/api/radar/status-message")
+async def radar_status_message(_: dict = Depends(telegram_user)):
+    return {"active": stock_radar_enabled(), "message": "📡 SAS PRO RADAR ⏳\n\n🟢 الرصد مستمر الآن... 🕒\n\n🛰️ نتابع السوق لحظة بلحظة\n📊 نفحص الأسهم والنماذج والسلوك\n🎯 لا يتم إرسال أي سهم إلا بعد تحقق الشروط المطلوبة\n\n⏳ لا توجد فرصة مؤكدة حاليًا\n\n🚨 عند ظهور فرصة مستوفية للشروط،\nسيتم إرسالها مباشرة هنا.\n\n⚠️ تحذير مهم\n📈 الأسهم المضاربية عالية المخاطر\n💰 قد تتغير الأسعار بسرعة وقد تحدث خسائر كبيرة\n🛑 لا تدخل بأموال لا تتحمل خسارتها\n\n🚨 هذا الرصد لأغراض تعليمية ومعلوماتية فقط،\nولا يُعد توصية شراء أو بيع.\nقرار التداول وإدارة المخاطر مسؤولية المتداول 🚨\n\n⚡ SAS PRO ⚡\nالدقة أولًا • بدون مطاردة • بدون إشارات وهمية"}
+
 @app.get("/api/market/radar-status")
 async def radar_status(_: dict = Depends(telegram_user)):
     status = market_status()
@@ -231,6 +235,20 @@ async def admin_stats(user=Depends(telegram_user), db: AsyncSession = Depends(ge
         "payments": len(payments),
         "stars": sum(p.stars for p in payments),
     }
+
+@app.get("/api/admin/subscriptions")
+async def admin_subscriptions(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    if user["id"] != settings.owner_telegram_id:
+        raise HTTPException(403, "Admin only")
+    rows = (await db.execute(select(Subscription).order_by(Subscription.expires_at.desc()))).scalars().all()
+    return [{"telegram_id": s.telegram_id, "plan": s.plan, "active": is_active(s), "expires_at": s.expires_at.isoformat(), "warning_3d_sent_at": s.warning_3d_sent_at.isoformat() if s.warning_3d_sent_at else None} for s in rows]
+
+@app.get("/api/admin/radar")
+async def admin_radar(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    if user["id"] != settings.owner_telegram_id:
+        raise HTTPException(403, "Admin only")
+    rows = (await db.execute(select(RadarSignal).order_by(RadarSignal.created_at.desc()).limit(100))).scalars().all()
+    return [{"symbol": r.symbol, "session_date": r.session_date, "created_at": r.created_at.isoformat(), "payload": json.loads(r.payload)} for r in rows]
 
 @app.post("/api/admin/grant/{telegram_id}")
 async def grant(telegram_id: int, days: int = 30, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
