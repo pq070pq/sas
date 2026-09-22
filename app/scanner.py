@@ -58,12 +58,80 @@ def _near(level, price, pct=0.04):
     return price > 0 and abs(level - price) / price <= pct
 
 
-async def _discover_twelvedata(client):
-    if not settings.twelve_data_api_key:
+def _parse_money(value):
+    if value is None:
+        return 0.0
+    text = str(value).replace("$", "").replace(",", "").replace("%", "").strip()
+    try:
+        return float(text)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+async def _discover_nasdaq(client):
+    # Nasdaq public screener supplies current price/change/volume in one pull.
+    # This avoids requiring Twelve Data /market_movers for radar discovery.
+    try:
+        r = await client.get(
+            "https://api.nasdaq.com/api/screener/stocks",
+            params={
+                "tableonly": "true",
+                "limit": 5000,
+                "offset": 0,
+                "exchange": "NASDAQ",
+                "download": "true",
+            },
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/146.0.0.0 Safari/537.36"
+                ),
+                "Accept": "application/json,text/plain,*/*",
+                "Origin": "https://www.nasdaq.com",
+                "Referer": "https://www.nasdaq.com/market-activity/stocks/screener",
+            },
+        )
+        r.raise_for_status()
+        payload = r.json()
+        rows = ((payload.get("data") or {}).get("rows") or [])
+    except Exception:
         return []
 
-    # market_movers غير متاح لبعض خطط Twelve Data، لذلك لا نعتمد عليه.
-    # هذه الدالة تبقى مصدرًا احتياطيًا إذا أصبح endpoint متاحًا لاحقًا.
+    out = []
+    excluded_words = (
+        "WARRANT", "RIGHT", "UNIT", "PREFERRED", "ETF",
+        "NOTE", "DEPOSITARY", "TRUST",
+    )
+    for row in rows:
+        symbol = str(row.get("symbol") or "").upper().strip()
+        name = str(row.get("name") or "").strip()
+        price = _parse_money(row.get("lastsale"))
+        change_pct = _parse_money(row.get("pctchange"))
+        volume = _parse_money(row.get("volume"))
+        if not symbol or not name:
+            continue
+        if any(word in name.upper() for word in excluded_words):
+            continue
+        if not (MIN_PRICE <= price <= MAX_PRICE):
+            continue
+        out.append({
+            "symbol": symbol,
+            "name": name,
+            "price": price,
+            "change_pct": change_pct,
+            "volume": volume,
+            "exchange": "NASDAQ",
+            "source": "Nasdaq Screener",
+        })
+    out.sort(key=lambda x: x["change_pct"], reverse=True)
+    return out[:DISCOVERY_LIMIT]
+
+
+async def _discover_twelvedata(client):
+    # Optional fallback only. /market_movers may require a higher plan.
+    if not settings.twelve_data_api_key:
+        return []
     try:
         r = await client.get(
             "https://api.twelvedata.com/market_movers/stocks",
@@ -75,10 +143,9 @@ async def _discover_twelvedata(client):
             },
         )
         r.raise_for_status()
-        rows = (r.json().get("values") or [])
+        rows = r.json().get("values") or []
     except Exception:
         return []
-
     out = []
     for row in rows:
         if not _is_nasdaq(row):
@@ -124,6 +191,7 @@ async def _discover_panwatch(client):
 async def discover_low_price_stocks():
     async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
         sources = await asyncio.gather(
+            _discover_nasdaq(client),
             _discover_twelvedata(client),
             _discover_panwatch(client),
             return_exceptions=True,
