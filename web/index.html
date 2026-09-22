@@ -281,11 +281,11 @@ async function showRadar(){
  try{
   const d=await api('/api/radar/scan');
   if(!d.enabled){document.getElementById('report-content').textContent=d.reason||'الرصد متوقف حاليًا.';}
-  else if(!d.stocks||!d.stocks.length){document.getElementById('report-content').textContent='📡 SAS PRO RADAR\\n\\nلا توجد فرصة مستوفية للشروط حاليًا.';}
+  else if(!d.stocks||!d.stocks.length){document.getElementById('report-content').textContent='📡 SAS PRO RADAR\n\nلا توجد فرصة مستوفية للشروط حاليًا.';}
   else{
    document.getElementById('report-content').textContent=d.stocks.slice(0,20).map((x,i)=>
     (i+1)+'. '+x.symbol+' — '+(x.price!=null?money(x.price):'السعر غير واضح')+' — '+(x.change_pct!=null?fmtChange(x.change_pct):'—')
-   ).join('\\n');
+   ).join('\n');
   }
   document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(e){document.getElementById('report-content').textContent=e.message;}
