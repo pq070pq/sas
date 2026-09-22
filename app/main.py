@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
-from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, get_session, init_db
+from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, AccessRequest, get_session, init_db
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets
@@ -38,8 +38,8 @@ TERMS_TEXT = """⚠️ إقرار وشروط استخدام SAS PRO:
 
 🚫 لا أعتبر أي محتوى أو تنبيه أو تحليل في SAS PRO أو القناة تفويضًا لإدارة أموالي أو محفظتي أو تنفيذ صفقات نيابة عني، ولا أعتبره ضمانًا للربح.
 
-🎁 التجربة المجانية:
-يمكنني تفعيل تجربة مجانية لمدة 3 أيام مرة واحدة فقط بعد الموافقة على هذه الشروط. تنتهي التجربة تلقائيًا بعد 3 أيام، وإذا لم يتم التجديد بباقة مدفوعة يتم إيقاف وصولي إلى مزايا PRO.
+🔐 طلب إذن الدخول:
+أطلب إذن الدخول إلى SAS PRO بعد قراءة هذه الشروط والموافقة عليها. لا يتم تفعيل أي مدة تلقائيًا؛ الإدارة هي التي تقرر مدة الوصول وتاريخ انتهائه بحسب الطلب.
 
 تنبيه تنظيمي: هذه الشروط توضح طبيعة الخدمة ومسؤوليات المتداول، ولا تعني أن SAS PRO أو القناة مرخصتان من هيئة السوق المالية. ويجب الرجوع إلى الأنظمة واللوائح المحدثة ومتطلبات الترخيص المعمول بها في المملكة العربية السعودية.
 """
@@ -161,6 +161,50 @@ async def home():
 async def health():
     return {"ok": True, "app": "SAS PRO", "version": app.version}
 
+
+@app.post("/api/access/request")
+async def request_access(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    row = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
+    if not row:
+        row = User(telegram_id=user["id"], username=user.get("username"), first_name=user.get("first_name"))
+        db.add(row)
+        await db.flush()
+    if row.terms_version != TERMS_VERSION or not row.terms_accepted_at:
+        raise HTTPException(409, "يجب الموافقة على شروط استخدام SAS PRO أولاً")
+    active = (await db.execute(select(Subscription).where(
+        Subscription.telegram_id == user["id"], Subscription.active == True
+    ).order_by(Subscription.expires_at.desc()))).scalars().first()
+    if is_active(active):
+        return {"ok": True, "status": "active", "message": "لديك إذن دخول فعال حاليًا.", "expires_at": active.expires_at.isoformat()}
+    pending = (await db.execute(select(AccessRequest).where(
+        AccessRequest.telegram_id == user["id"], AccessRequest.status == "pending"
+    ).order_by(AccessRequest.requested_at.desc()))).scalars().first()
+    if pending:
+        return {"ok": True, "status": "pending", "request_id": pending.id, "message": "طلبك موجود لدى الإدارة وتحت المراجعة."}
+    req = AccessRequest(
+        telegram_id=user["id"],
+        username=user.get("username"),
+        first_name=user.get("first_name"),
+        terms_version=TERMS_VERSION,
+        status="pending",
+    )
+    db.add(req)
+    await db.commit()
+    try:
+        await send_message(
+            settings.owner_telegram_id,
+            "🔐 <b>طلب إذن دخول جديد — SAS PRO</b>\n\n"
+            f"👤 الاسم: <b>{user.get('first_name') or 'بدون اسم'}</b>\n"
+            f"🔗 المستخدم: <b>{('@'+user.get('username')) if user.get('username') else 'بدون اسم مستخدم'}</b>\n"
+            f"🆔 Telegram ID: <code>{user['id']}</code>\n"
+            f"📋 الشروط المقبولة: <b>{TERMS_VERSION}</b>\n"
+            f"📝 رقم الطلب: <b>#{req.id}</b>\n\n"
+            "استخدم: <code>/grant ID DAYS</code> لتحديد مدة الدخول، أو <code>/revoke ID</code> للإلغاء."
+        )
+    except Exception:
+        pass
+    return {"ok": True, "status": "pending", "request_id": req.id, "message": "تم إرسال طلبك للإدارة. بعد القرار ستصلك مدة الوصول من SAS PRO."}
+
 @app.get("/api/terms")
 async def terms():
     return {"version": TERMS_VERSION, "text": TERMS_TEXT}
@@ -188,6 +232,25 @@ async def my_terms(user=Depends(telegram_user), db: AsyncSession = Depends(get_s
         "accepted_at": aware(row.terms_accepted_at).isoformat(),
         "text": TERMS_TEXT,
     }
+
+
+@app.get("/api/admin/access-requests")
+async def admin_access_requests(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    if user["id"] != settings.owner_telegram_id:
+        raise HTTPException(403, "Admin only")
+    rows = (await db.execute(select(AccessRequest).order_by(AccessRequest.requested_at.desc()).limit(100))).scalars().all()
+    return [{
+        "id": r.id,
+        "telegram_id": r.telegram_id,
+        "username": r.username,
+        "first_name": r.first_name,
+        "terms_version": r.terms_version,
+        "requested_at": aware(r.requested_at).isoformat(),
+        "status": r.status,
+        "decided_at": aware(r.decided_at).isoformat() if r.decided_at else None,
+        "decided_days": r.decided_days,
+        "admin_note": r.admin_note,
+    } for r in rows]
 
 @app.get("/api/admin/terms")
 async def admin_terms(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
@@ -429,72 +492,14 @@ async def revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncSession
     await db.commit()
     return {"ok": True}
 
+
 @app.post("/api/trial/start")
-async def start_trial(user=Depends(require_terms), db: AsyncSession = Depends(get_session)):
-    row = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
-    if not row:
-        raise HTTPException(404, "المستخدم غير موجود")
-    if row.trial_used_at is not None:
-        raise HTTPException(409, "تم استخدام التجربة المجانية سابقًا")
-    active = (await db.execute(
-        select(Subscription).where(
-            Subscription.telegram_id == user["id"],
-            Subscription.active == True
-        ).order_by(Subscription.expires_at.desc())
-    )).scalars().first()
-    if is_active(active):
-        raise HTTPException(409, "لديك اشتراك فعال حاليًا")
-    now = utcnow()
-    exp = now + timedelta(days=3)
-    row.trial_used_at = now
-    db.add(Subscription(
-        telegram_id=user["id"], plan="trial",
-        starts_at=now, expires_at=exp, active=True,
-        warning_3d_sent_at=now,
-    ))
-    await db.commit()
-    try:
-        await send_message(
-            user["id"],
-            "🎁 <b>بدأت تجربتك المجانية</b>\n\n"
-            "⏳ المدة: <b>3 أيام</b>\n"
-            f"📅 الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>\n\n"
-            "بعد انتهاء التجربة سيتم إيقاف مزايا PRO تلقائيًا إذا لم يتم التجديد باشتراك مدفوع. 🚀"
-        )
-    except Exception:
-        pass
-    return {"ok": True, "trial": True, "expires_at": exp.isoformat(), "days": 3}
+async def start_trial():
+    raise HTTPException(410, "التجربة التلقائية غير مستخدمة. اطلب إذن الدخول وتنتظر قرار الإدارة.")
 
 @app.post("/api/payments/invoice/{plan}")
-async def invoice(plan: str, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
-    if plan not in PLANS:
-        raise HTTPException(400, "Invalid plan")
-    row = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
-    if not row or row.terms_version != TERMS_VERSION or not row.terms_accepted_at:
-        raise HTTPException(409, "يجب الموافقة على شروط استخدام SAS PRO أولاً")
-    stars, days = PLANS[plan]
-    payload = f"saspro:{plan}:{user['id']}:{int(datetime.now().timestamp())}"
-    result = await bot_api("createInvoiceLink", {
-        "title": f"SAS PRO — {PLAN_LABELS.get(plan, plan)}",
-        "description": f"اشتراك SAS PRO لمدة {days} يوم",
-        "payload": payload,
-        "currency": "XTR",
-        "prices": [{"label": f"SAS PRO {plan}", "amount": stars}],
-    })
-    try:
-        await send_message(
-            user["id"],
-            "🧾 <b>تم إنشاء طلب الاشتراك</b>\n\n"
-            f"📦 الباقة: <b>{PLAN_LABELS.get(plan, plan)}</b>\n"
-            f"⏳ المدة: <b>{days} يوم</b>\n"
-            f"⭐ الرسوم: <b>{stars} نجمة</b>\n\n"
-            "💳 أكمل الدفع من الفاتورة المرفقة.\n"
-            "بعد إتمام الدفع يتم تفعيل الاشتراك تلقائيًا.\n\n"
-            "⚠️ إذا لم يتم الدفع، فلن يتم تفعيل الاشتراك ولن تُحتسب مدة الاشتراك."
-        )
-    except Exception:
-        pass
-    return {"invoice_url": result, "stars": stars, "days": days}
+async def invoice(plan: str):
+    raise HTTPException(410, "نظام الاشتراك بالأسعار مخفي. يتم تفعيل SAS PRO يدويًا بعد طلب إذن الدخول وقرار الإدارة.")
 
 @app.post("/api/telegram/webhook")
 async def telegram_webhook(request: Request):
@@ -573,6 +578,13 @@ async def telegram_webhook(request: Request):
                         telegram_id=target, plan="admin",
                         starts_at=now, expires_at=exp, active=True
                     ))
+                    req = (await db.execute(select(AccessRequest).where(
+                        AccessRequest.telegram_id == target, AccessRequest.status == "pending"
+                    ).order_by(AccessRequest.requested_at.desc()))).scalars().first()
+                    if req:
+                        req.status = "approved"
+                        req.decided_at = now
+                        req.decided_days = days
                     await db.commit()
                 await send_message(
                     chat_id,
@@ -598,6 +610,18 @@ async def telegram_webhook(request: Request):
                 await send_message(chat_id, f"⛔ <b>تم إيقاف اشتراك</b>\nالمستخدم: <code>{target}</code>")
             except Exception:
                 await send_message(chat_id, "❌ الصيغة الصحيحة: /revoke ID")
+            return {"ok": True}
+
+        if text == "/requests":
+            async with SessionLocal() as db:
+                rows = (await db.execute(
+                    select(AccessRequest).where(AccessRequest.status == "pending").order_by(AccessRequest.requested_at.asc())
+                )).scalars().all()
+            lines = ["🔐 <b>طلبات إذن الدخول المعلقة</b>", ""]
+            for r in rows:
+                name = r.first_name or (f"@{r.username}" if r.username else "بدون اسم")
+                lines.append(f"• #{r.id} — {name} — <code>{r.telegram_id}</code> — {r.requested_at.strftime('%d/%m/%Y %H:%M')}")
+            await send_message(chat_id, "\n".join(lines) if len(lines) > 2 else "لا توجد طلبات معلقة.")
             return {"ok": True}
 
         if text == "/subs":
