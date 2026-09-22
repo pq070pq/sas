@@ -14,47 +14,55 @@
 <section class="home-stage" aria-label="SAS PRO">
   <img src="/assets/sas-pro-home.png" alt="SAS PRO" class="home-image">
 
-  <!-- Transparent click zones only: no text is painted over the artwork. -->
-  <button class="home-hit card-invest" onclick="setMode('analysis')" aria-label="بيانات السوق"></button>
-  <button class="home-hit card-market" onclick="focusSearch()" aria-label="حالة السوق"></button>
-  <button class="home-hit card-growth" onclick="setMode('growth')" aria-label="فرص النمو"></button>
-  <button class="home-hit card-radar" onclick="setMode('radar')" aria-label="الرادار"></button>
-  <button class="home-hit card-dividends" onclick="showDividends()" aria-label="توزيعات الأرباح"></button>
-  <button class="home-hit card-new" onclick="showNewStocks()" aria-label="بيانات السوق"></button>
-  <button class="home-hit card-news" onclick="showNews()" aria-label="الأخبار"></button>
-  <button class="home-hit card-fav" onclick="showFavorites()" aria-label="المفضلة"></button>
-  <button class="home-hit zone-nasdaq" onclick="focusSearch()" aria-label="NASDAQ"></button>
-  <button class="home-hit zone-sp500" onclick="focusSearch()" aria-label="S&P 500"></button>
-  <button class="home-hit zone-dow" onclick="focusSearch()" aria-label="Dow Jones"></button>
-  <button class="home-hit zone-macro" onclick="showNews()" aria-label="Bitcoin الذهب النفط"></button>
-  <button class="home-hit zone-market-data" onclick="setMode('analysis')" aria-label="بيانات السوق"></button>
-  <button class="home-hit zone-news" onclick="showNews()" aria-label="آخر الأخبار"></button>
+  <!-- الصورة ثابتة كما هي؛ هذه الطبقات شفافة وتملأ الفراغات فقط. -->
+  <button class="home-hit zone-market-data" onclick="setMode('analysis')" aria-label="تحليل السوق"></button>
+  <button class="home-hit zone-news" onclick="showNews()" aria-label="الأخبار"></button>
   <button class="home-hit zone-company" onclick="showEvents()" aria-label="بيانات الشركات"></button>
   <button class="home-hit zone-opportunities" onclick="setMode('radar')" aria-label="الفرص المرصودة"></button>
-  <button class="home-hit zone-alerts" onclick="showAlerts()" aria-label="التنبيهات"></button>
-  <button class="home-hit zone-activity" onclick="setMode('radar')" aria-label="نشاط السوق"></button>
-  <button class="home-hit zone-active" onclick="setMode('radar')" aria-label="الأسهم النشطة"></button>
-  <button class="home-hit zone-daily" onclick="setMode('radar')" aria-label="الرادار اليومي"></button>
-  <button class="home-hit zone-plans" onclick="document.querySelector('.plans').scrollIntoView({behavior:'smooth'})" aria-label="الاشتراك والباقات"></button>
-  <button class="home-hit zone-scan" onclick="setMode('radar')" aria-label="بدء الرصد"></button>
+  <button class="home-hit zone-plans" onclick="openPlans()" aria-label="الاشتراك والباقات"></button>
+  <button class="home-hit zone-scan" onclick="setMode('radar')" aria-label="الرادار"></button>
   <button class="home-hit zone-settings" onclick="showSettings()" aria-label="الإعدادات"></button>
 
-  <div class="live-top-ticker" aria-label="الأسعار الحية">
-    <div><b>₿ BTC</b><strong id="homeBtc">—</strong><em id="homeBtcCh">—</em></div>
-    <div><b>🥇 GOLD</b><strong id="homeGold">—</strong><em id="homeGoldCh">—</em></div>
-    <div><b>🛢️ OIL</b><strong id="homeOil">—</strong><em id="homeOilCh">—</em></div>
+  <button class="analysis-launch" onclick="focusSearch()" aria-label="تحليل الأسهم">
+    <span class="analysis-icon">⌁</span>
+    <strong>تحليل الأسهم</strong>
+    <small>تحليل SAS PRO</small>
+  </button>
+
+  <div class="home-ticker" aria-label="الأسعار الحية">
+    <button onclick="showMacro('BTC')" aria-label="Bitcoin"><b>BTC</b><strong id="homeBtc">—</strong><em id="homeBtcCh">—</em></button>
+    <button onclick="showMacro('GOLD')" aria-label="Gold"><b>GOLD</b><strong id="homeGold">—</strong><em id="homeGoldCh">—</em></button>
+    <button onclick="showMacro('OIL')" aria-label="Oil"><b>OIL</b><strong id="homeOil">—</strong><em id="homeOilCh">—</em></button>
+    <button onclick="showMacro('S&P 500')" aria-label="S&P 500"><b>S&amp;P 500</b><strong id="homeSp500">—</strong><em id="homeSp500Ch">—</em></button>
+    <button onclick="showMacro('NASDAQ')" aria-label="NASDAQ"><b>NASDAQ</b><strong id="homeNasdaq">—</strong><em id="homeNasdaqCh">—</em></button>
+    <button onclick="showMacro('VIX')" aria-label="VIX"><b>VIX</b><strong id="homeVix">—</strong><em id="homeVixCh">—</em></button>
   </div>
 
-  <div class="live-disclaimer" aria-label="إخلاء المسؤولية">
-    <span>🚨 لا يعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</span>
+  <button class="macro-hit macro-btc" onclick="showMacro('BTC')" aria-label="BTC"></button>
+  <button class="macro-hit macro-gold" onclick="showMacro('GOLD')" aria-label="Gold"></button>
+  <button class="macro-hit macro-oil" onclick="showMacro('OIL')" aria-label="Oil"></button>
+  <button class="macro-hit macro-sp500" onclick="showMacro('S&P 500')" aria-label="S&P 500"></button>
+  <button class="macro-hit macro-nasdaq" onclick="showMacro('NASDAQ')" aria-label="NASDAQ"></button>
+  <button class="macro-hit macro-vix" onclick="showMacro('VIX')" aria-label="VIX"></button>
+
+  <div class="home-market" id="homeMarketBox" aria-live="polite">
+    <span>حالة السوق الأمريكي</span>
+    <strong id="homeMarketState">جاري التحقق...</strong>
+    <small id="homeMarketSession">—</small>
   </div>
 
-  <div class="live-market-state" id="homeMarketState" aria-live="polite">جاري التحقق...</div>
-  <div class="live-market-session" id="homeMarketSession">—</div>
+  <button class="subscription-badge" onclick="openPlans()" aria-label="حالة اشتراك SAS PRO">
+    <span id="homeSubscriptionIcon">SAS</span>
+    <strong id="homeSubscriptionText">جاري التحقق من الاشتراك...</strong>
+    <small id="homeSubscriptionExpiry">—</small>
+  </button>
 
-  <div class="live-stats" aria-hidden="true">
-    <b id="homeOpps">0</b><b id="homeWatched">0</b><b id="homeTopMove">0%</b><b id="homeTopVolume">0</b>
-  </div>
+  <button class="radar-live" onclick="showRadarStatus()" aria-label="رصد SAS PRO">
+    <span>📡</span><strong>الرصد</strong><small id="homeRadarStatus">جاري التحقق...</small>
+  </button>
+
+  <!-- تلوين أحمر للشريط الموجود أصلًا أسفل الصورة، بدون إنشاء شريط جديد. -->
+  <div class="image-disclaimer-red" aria-hidden="true"></div>
 
   <div class="home-refresh" id="homeRefresh">تحديث تلقائي</div>
 </section></section>
@@ -226,6 +234,24 @@ function renderReport(d){
  '\n\n━━━━━━━━━━━━━━\n\n💡 التحليل الفني :\n\n🔔 الأهداف محسوبة من مقاومات فعلية ظهرت في بيانات السعر،\nوما ينحط هدف رقمي إذا ما فيه مستوى واضح.\n\n🚨 إذا ضعف التداول أو انكسر حد الخروج، تتغير نظرة السهم.\n\n🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️';
 }
 function focusSearch(){document.getElementById('analysisBox').scrollIntoView({behavior:'smooth'});setTimeout(()=>document.getElementById('symbol').focus(),250);}
+function openPlans(){document.querySelector('.plans').scrollIntoView({behavior:'smooth',block:'start'});}
+async function showRadarStatus(){
+ try{
+  const d=await api('/api/radar/status-message');
+  document.getElementById('report-content').textContent=d.message||'لا توجد حالة رصد متاحة.';
+  document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(e){document.getElementById('report-content').textContent=e.message;}
+}
+async function showMacro(label){
+ try{
+  const rows=await api('/api/market/ticker');
+  const item=(rows||[]).find(x=>x.label===label);
+  document.getElementById('report-content').textContent=item
+    ? '📊 '+label+'\\n\\nالسعر: '+fmtPrice(item.price)+'\\nالتغير: '+fmtChange(item.change_pct)+'\\nالمصدر: '+(item.source||'بيانات السوق')
+    : 'لا توجد بيانات حية متاحة حاليًا لـ '+label+'.';
+  document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(e){document.getElementById('report-content').textContent=e.message;}
+}
 async function showNews(){const s=symbol();if(!s)return focusSearch();try{document.getElementById('report-content').textContent=JSON.stringify(await api('/api/stocks/'+encodeURIComponent(s)+'/news'),null,2);}catch(e){document.getElementById('report-content').textContent=e.message;}}
 async function showEvents(){const s=symbol();if(!s)return focusSearch();try{document.getElementById('report-content').textContent=JSON.stringify(await api('/api/stocks/'+encodeURIComponent(s)+'/events'),null,2);}catch(e){document.getElementById('report-content').textContent=e.message;}}
 async function showHistory(){const s=symbol();if(!s)return focusSearch();try{document.getElementById('report-content').textContent=JSON.stringify(await api('/api/history/'+encodeURIComponent(s)),null,2);}catch(e){document.getElementById('report-content').textContent=e.message;}}
