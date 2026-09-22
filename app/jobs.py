@@ -6,6 +6,7 @@ from .db import SessionLocal, Subscription
 from .telegram import send_message, bot_api
 from .holiday_radar import publish_holiday_radar
 from .timeutil import utcnow, aware
+from .market_calendar import market_status
 
 async def expiry_cycle():
     now = utcnow()
@@ -43,10 +44,82 @@ async def expiry_cycle():
                     pass
         await db.commit()
 
+_radar_open_announced = False
+_radar_seen = set()
+
+RADAR_STATUS = """📡 SAS PRO RADAR ⏳
+
+🟢 الرصد مستمر الآن... 🕒
+
+🛰️ نتابع السوق لحظة بلحظة
+📊 نفحص الأسهم والنماذج والسلوك
+🎯 لا يتم إرسال أي سهم إلا بعد تحقق الشروط المطلوبة
+
+⏳ لا توجد فرصة مؤكدة حاليًا
+
+🚨 عند ظهور فرصة مستوفية للشروط،
+سيتم إرسالها مباشرة هنا.
+
+⚠️ تحذير مهم
+📈 الأسهم المضاربية عالية المخاطر
+💰 قد تتغير الأسعار بسرعة وقد تحدث خسائر كبيرة
+🛑 لا تدخل بأموال لا تتحمل خسارتها
+
+🚨 هذا الرصد لأغراض تعليمية ومعلوماتية فقط،
+ولا يُعد توصية شراء أو بيع.
+قرار التداول وإدارة المخاطر مسؤولية المتداول 🚨
+
+⚡ SAS PRO ⚡
+الدقة أولًا • بدون مطاردة • بدون إشارات وهمية"""
+
+
+async def stock_radar_cycle():
+    global _radar_open_announced
+
+    if not settings.telegram_channel_id or not settings.telegram_bot_token:
+        return
+
+    status = market_status()
+    if not status["open"]:
+        _radar_open_announced = False
+        return
+
+    if not _radar_open_announced:
+        try:
+            await send_message(settings.telegram_channel_id, RADAR_STATUS)
+            _radar_open_announced = True
+        except Exception:
+            return
+
+    try:
+        from .scanner import scan_us_low_price_stocks
+        from .main import build_report
+        from .market import quote
+
+        rows = await scan_us_low_price_stocks()
+        for row in rows:
+            symbol = str(row.get("symbol") or "").upper()
+            if not symbol or symbol in _radar_seen:
+                continue
+
+            q = await quote(symbol)
+            classification = row.get("classification") or {}
+            tech = row.get("targets") or {}
+            report = build_report(symbol, q, tech, classification)
+            try:
+                await send_message(settings.telegram_channel_id, report)
+                _radar_seen.add(symbol)
+            except Exception:
+                continue
+    except Exception:
+        return
+
+
 async def scheduler():
     while True:
         try:
             await expiry_cycle()
+            await stock_radar_cycle()
         except Exception:
             pass
-        await asyncio.sleep(3600)
+        await asyncio.sleep(900)
