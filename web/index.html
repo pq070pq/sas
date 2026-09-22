@@ -1,149 +1,163 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#030a14"><title>SAS PRO</title>
-<link rel="stylesheet" href="/assets/app.css"><script src="https://telegram.org/js/telegram-web-app.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#020912">
+<title>SAS PRO</title>
+<link rel="stylesheet" href="/assets/app.css">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
 <div class="app">
-<header><div class="logo">🐬 <b>SAS PRO</b></div><span id="market">السوق الأمريكي</span></header>
+
+<header class="topbar">
+  <div class="brand"><div class="brand-mark">SAS<span>↗</span></div><div><b>SAS PRO</b><small>لسوق الأسهم</small></div></div>
+  <div class="market-pill"><i></i><span>السوق الأمريكي</span></div>
+</header>
+
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-copy">
+    <span>تحليلات أدق • فرص أفضل • مستقبل أقوى</span>
+    <h1>SAS</h1>
+    <h2>لسوق الأسهم</h2>
+    <em>S A S &nbsp; P R O</em>
+  </div>
+  <div class="hero-side">TRADE<br>SMARTER<br>LIVE<br>BETTER</div>
+</section>
+
 <div class="ticker"><div id="ticker">جاري تحميل السوق...</div></div>
 
-<section class="hero"><small>مرحبًا بك</small><h1>لوحة السوق الذكية</h1><p>تحليل الأسهم والأخبار والأحداث من مكان واحد.</p>
-<div class="search"><input id="symbol" placeholder="رمز السهم مثل AAPL" autocomplete="off"><button onclick="runAnalysis()">تحليل</button></div></section>
-<section class="status" id="account">جارٍ التحقق من الاشتراك...</section>
-<main>
-<div class="cards">
-<button onclick="showNews()"><b>📰 الأخبار</b><span>أخبار السهم واتجاهها</span></button>
-<button onclick="showEvents()"><b>📅 الأحداث</b><span>أرباح وتوزيعات وتقسيمات</span></button>
-<button onclick="runAnalysis()"><b>🧠 تحليل PanWatch</b><span>تحليل متعدد الوكلاء</span></button>
-<button onclick="showHistory()"><b>📈 التاريخ</b><span>سجل التحليلات السابقة</span></button>
-</div>
-<div id="result" class="result">
-<div class="report-head">📡 SAS PRO RADAR</div>
-<div class="report-notice">⛔ شرعية الاسهم مسؤوليتك ⛔</div>
-<div id="report-content" class="report-empty">اختر سهمًا ثم ابدأ.</div>
-</div>
-<section class="plans">
-<h2>اشتراك SAS PRO</h2>
-<div class="plan"><b>شهري</b><strong>500 ⭐</strong><button onclick="buy('monthly')">اشتراك</button></div>
-<div class="plan"><b>3 أشهر</b><strong>1200 ⭐</strong><button onclick="buy('3month')">اشتراك</button></div>
-<div class="plan"><b>سنوي</b><strong>3500 ⭐</strong><button onclick="buy('yearly')">اشتراك</button></div>
+<section class="feature-grid">
+  <button onclick="setMode('radar')"><strong>🔥 الأسهم الرخيصة</strong><small>تحركات قوية حاليًا</small></button>
+  <button onclick="setMode('growth')"><strong>🚀 أسهم النمو</strong><small>فرص عالية النمو</small></button>
+  <button onclick="setMode('swing')"><strong>📈 مؤشرات التداول</strong><small>إشارات دقيقة وفعالة</small></button>
+  <button onclick="setMode('analysis')"><strong>📊 تحليل الأسهم</strong><small>فرص يومية مميزة</small></button>
+  <button onclick="showFavorites()"><strong>⭐ قائمتي المفضلة</strong><small>الأسهم التي تتابعها</small></button>
+  <button onclick="showNews()"><strong>📰 آخر الأخبار</strong><small>أخبار السوق والشركات</small></button>
+  <button onclick="showNewStocks()"><strong>💡 الأسهم الجديدة</strong><small>اكتتابات وفرص قادمة</small></button>
+  <button onclick="showDividends()"><strong>🟡 توزيعات الأرباح</strong><small>شركات توزع أرباح</small></button>
 </section>
-</main>
-<nav><button class="active">الرئيسية</button><button onclick="runAnalysis()">التحليل</button><button onclick="showNews()">الأخبار</button><button onclick="showHistory()">التاريخ</button></nav>
+
+<section class="market-strip" id="macro"></section>
+
+<section class="dashboard-grid">
+  <div class="panel stats">
+    <h3>📊 إحصائيات اليوم</h3>
+    <div><span>عدد الفرص</span><b id="opps">0</b></div>
+    <div><span>الأسهم المرصودة</span><b id="watched">0</b></div>
+    <div><span>أعلى ارتفاع</span><b id="topMove">0%</b></div>
+    <div><span>أعلى حجم تداول</span><b id="topVolume">0</b></div>
+  </div>
+
+  <div class="panel market-state">
+    <h3>حالة السوق الأمريكي</h3>
+    <strong id="marketState">جارٍ التحقق...</strong>
+    <div id="marketDate">—</div>
+  </div>
+
+  <div class="panel tools-panel">
+    <h3>أدوات سريعة</h3>
+    <div class="quick-tools">
+      <button onclick="focusSearch()">🔎<span>بحث عن سهم</span></button>
+      <button onclick="showAlerts()">🔔<span>تنبيهات الأسعار</span></button>
+      <button onclick="showSettings()">⚙️<span>الإعدادات</span></button>
+    </div>
+  </div>
+</section>
+
+<section class="search-card" id="analysisBox">
+  <div class="search-title"><span>🧠</span><div><b>تحليل SAS PRO</b><small>تحليل متعدد الوكلاء + قراءة فنية</small></div></div>
+  <div class="search"><input id="symbol" placeholder="اكتب رمز السهم مثل AAPL" autocomplete="off"><button onclick="runAnalysis()">تحليل الآن</button></div>
+</section>
+
+<div id="result" class="result">
+  <div class="report-head">📡 SAS PRO RADAR</div>
+  <div class="report-notice">⛔ شرعية الاسهم مسؤوليتك ⛔</div>
+  <div id="report-content" class="report-empty">اختر سهمًا ثم ابدأ التحليل.</div>
 </div>
+
+<section class="plans">
+  <div class="section-title"><b>اشتراكات SAS PRO</b><span>اختر خطتك</span></div>
+  <div class="plan-grid">
+    <div class="plan"><b>تجربة مجانية</b><strong>$0</strong><small>لمدة 3 أيام</small><button onclick="buy('monthly')">ابدأ التجربة الآن</button></div>
+    <div class="plan"><b>الاشتراك الشهري</b><strong>500 ⭐</strong><small>شهريًا</small><button onclick="buy('monthly')">اشترك الآن</button></div>
+    <div class="plan featured"><label>الأفضل</label><b>الاشتراك السنوي</b><strong>3500 ⭐</strong><small>سنويًا</small><button onclick="buy('yearly')">اشترك الآن</button></div>
+  </div>
+</section>
+
+<div class="legal">⚠️ 🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</div>
+
+<nav>
+  <button class="active" onclick="scrollToTop()">⌂<span>الرئيسية</span></button>
+  <button onclick="focusSearch()">⌕<span>التحليل</span></button>
+  <button onclick="showNews()">▤<span>الأخبار</span></button>
+  <button onclick="showHistory()">◷<span>التاريخ</span></button>
+</nav>
+</div>
+
 <script>
 const tg=window.Telegram&&window.Telegram.WebApp;
-if(tg){tg.ready();tg.expand();}
+if(tg){tg.ready();tg.expand();try{tg.setHeaderColor('#020912');tg.setBackgroundColor('#020912');}catch(e){}}
 function headers(){return {'X-Telegram-Init-Data':tg?tg.initData:''};}
 async function api(path,opt={}){opt.headers=Object.assign(headers(),opt.headers||{});const r=await fetch(path,opt);if(!r.ok)throw new Error(await r.text());return r.json();}
+function symbol(){return document.getElementById('symbol').value.trim().toUpperCase();}
+function money(v){return v==null?'غير واضح':'$'+Number(v).toFixed(2);}
+function renderTicker(d){
+ document.getElementById('ticker').innerHTML=(d||[]).map(x=>'<span><b>'+x.label+'</b> '+(x.price??'—')+' <em>'+((x.change_pct??'') )+'</em></span>').join('');
+}
+function renderMacro(d){
+ document.getElementById('macro').innerHTML=(d||[]).map(x=>'<div><b>'+x.label+'</b><strong>'+money(x.price)+'</strong><em>'+((x.change_pct??''))+'</em></div>').join('');
+}
 async function load(){
- try{
-  const d=await api('/api/market/ticker');
-  document.getElementById('ticker').innerHTML=d.map(x=>'<span>'+x.label+': <b>'+(x.price??'—')+'</b> '+(x.change_pct??'')+'</span>').join(' • ');
- }catch(e){document.getElementById('ticker').textContent='بيانات السوق غير متاحة';}
+ try{const d=await api('/api/market/ticker');renderTicker(d);renderMacro(d);}catch(e){document.getElementById('ticker').textContent='بيانات السوق غير متاحة';}
  try{
   const d=await api('/api/me');
-  document.getElementById('account').innerHTML=d.pro?'🟢 اشتراكك فعال حتى '+new Date(d.expires_at).toLocaleDateString('ar-SA'):'🔒 لا يوجد اشتراك PRO فعال';
- }catch(e){document.getElementById('account').textContent='افتح التطبيق من Telegram للتحقق من الحساب';}
+  document.getElementById('accountStatus')?.remove();
+  document.getElementById('marketState').textContent=d.pro?'مشترك PRO فعال':'الحساب غير مشترك';
+ }catch(e){}
+ try{
+  const d=await api('/api/market/status');
+  document.getElementById('marketState').textContent=d.open?'مفتوح الآن 🟢':'مغلق الآن 🔴';
+  document.getElementById('marketDate').textContent=new Date().toLocaleString('ar-SA',{weekday:'long',year:'numeric',month:'long',day:'numeric',hour:'numeric',minute:'2-digit'});
+ }catch(e){}
 }
-function symbol(){return document.getElementById('symbol').value.trim().toUpperCase();}
-function renderReport(d){
- const s=d.sas_pro||{};
- const q=d.quote||{};
- const t=s.targets||{};
- const c=s.classification||{};
- const targets=(t.targets||[]).slice(0,3);
- const money=v=>v==null?'غير واضح':'
 async function runAnalysis(){
- const s=symbol();if(!s)return;
+ const s=symbol();if(!s)return focusSearch();
  document.getElementById('report-content').textContent='جاري التحليل من PanWatch...';
- try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/analyze',{method:'POST'});renderReport(d);}
- catch(e){document.getElementById('report-content').textContent=e.message;}
+ try{
+  const d=await api('/api/stocks/'+encodeURIComponent(s)+'/analyze',{method:'POST'});
+  renderReport(d);
+ }catch(e){document.getElementById('report-content').textContent=e.message;}
 }
-async function showNews(){
- const s=symbol();if(!s)return;
- try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/news');document.getElementById('result').textContent=JSON.stringify(d,null,2);}
- catch(e){document.getElementById('result').textContent=e.message;}
-}
-async function showEvents(){
- const s=symbol();if(!s)return;
- try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/events');document.getElementById('result').textContent=JSON.stringify(d,null,2);}
- catch(e){document.getElementById('result').textContent=e.message;}
-}
-function showHistory(){
- const s=symbol();if(!s)return;
- try{const d=await api('/api/history/'+encodeURIComponent(s));document.getElementById('result').textContent=JSON.stringify(d,null,2);}
- catch(e){document.getElementById('result').textContent=e.message;}
-}
-async function buy(plan){
- try{const d=await api('/api/payments/invoice/'+plan,{method:'POST'});if(tg&&tg.openInvoice)tg.openInvoice(d.invoice_url);else location.href=d.invoice_url;}
- catch(e){document.getElementById('result').textContent=e.message;}
-}
-load();setInterval(load,60000);
-</script>
-</body></html>
-+Number(v).toFixed(2);
- const move=q.change_pct==null?'غير واضح':(Number(q.change_pct)>=0?'+':'')+Number(q.change_pct).toFixed(2)+'%';
- const vr=t.volume_ratio;
- const trading=vr!=null&&vr>=1.15?'قوي':'عادي';
- const liquidity=vr!=null&&vr>=1.5?'عالية':'مو واضحة';
- const strength=vr!=null&&vr>=1.5?'قوية':'متوسطة';
+function renderReport(d){
+ const s=d.sas_pro||{},q=d.quote||{},t=s.targets||{},c=s.classification||{},targets=(t.targets||[]).slice(0,3);
+ const vr=t.volume_ratio, trading=vr!=null&&vr>=1.15?'قوي':'عادي', liquidity=vr!=null&&vr>=1.5?'عالية':'مو واضحة', strength=vr!=null&&vr>=1.5?'قوية':'متوسطة';
  const type=c.emoji&&c.type?c.emoji+' '+c.type:'⚪ غير واضح';
  const targetText=targets.map((x,i)=>['1️⃣','2️⃣','3️⃣'][i]+' الهدف '+['الأول','الثاني','الثالث'][i]+': '+money(x)).join('\n')||'الأهداف: غير واضحة';
- document.getElementById('report-content').innerHTML=
- '✳️ السهم: '+symbol()+'\n'+
- '💵 السعر: '+money(q.price)+'\n'+
- '📈 مرتفع/منخفض: '+move+'\n'+
- '📊 التداول: '+trading+'\n'+
- '💰 السيولة: '+liquidity+'\n'+
- '🔥 حركة السهم: '+strength+'\n'+
- '🏷️ نوع السهم: '+type+'\n'+
- '🧭 السلوك: '+(c.behavior||'غير واضح')+'\n'+
- '        🔎 ↳ '+(c.reason||'بيانات غير كافية')+'\n\n'+
- '━━━━━━━━━━━━━━\n\n'+
- '🤖 قراءة SAS PRO\n\n'+
- '📈 الاتجاه: طالع إذا حافظ على مستوياته الحالية\n'+
- '💪 قوة الحركة: '+strength+'\n'+
- '📊 التداول: '+(vr!=null&&vr>=1.15?'يدعم استمرار الحركة':'يحتاج متابعة')+'\n'+
- '⚠️ مستوى الخطورة: '+(vr!=null&&vr>=1.5?'مرتفع':'متوسط')+'\n\n'+
- '━━━━━━━━━━━━━━\n\n'+
- '🎯 الأهداف\n\n'+targetText+'\n\n'+
- '🛑 حد الخروج: '+money(t.exit)+'\n\n'+
- '━━━━━━━━━━━━━━\n\n'+
- '💡 التحليل الفني :\n\n'+
- '🔔 الأهداف محسوبة من مقاومات فعلية ظهرت في بيانات السعر،\n'+
- 'وما ينحط هدف رقمي إذا ما فيه مستوى واضح.\n\n'+
- '🚨 إذا ضعف التداول أو انكسر حد الخروج، تتغير نظرة السهم.\n\n'+
- '🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️';
+ document.getElementById('report-content').textContent=
+ '✳️ السهم: '+s.symbol+'\n💵 السعر: '+money(q.price)+'\n📈 مرتفع/منخفض: '+(q.change_pct==null?'غير واضح':(Number(q.change_pct)>=0?'+':'')+Number(q.change_pct).toFixed(2)+'%')+
+ '\n📊 التداول: '+trading+'\n💰 السيولة: '+liquidity+'\n🔥 حركة السهم: '+strength+'\n🏷️ نوع السهم: '+type+
+ '\n🧭 السلوك: '+(c.behavior||'غير واضح')+'\n        🔎 ↳ '+(c.reason||'بيانات غير كافية')+
+ '\n\n━━━━━━━━━━━━━━\n\n🤖 قراءة SAS PRO\n\n📈 الاتجاه: طالع إذا حافظ على مستوياته الحالية\n💪 قوة الحركة: '+strength+
+ '\n📊 التداول: '+(vr!=null&&vr>=1.15?'يدعم استمرار الحركة':'يحتاج متابعة')+'\n⚠️ مستوى الخطورة: '+(vr!=null&&vr>=1.5?'مرتفع':'متوسط')+
+ '\n\n━━━━━━━━━━━━━━\n\n🎯 الأهداف\n\n'+targetText+'\n\n🛑 حد الخروج: '+money(t.exit)+
+ '\n\n━━━━━━━━━━━━━━\n\n💡 التحليل الفني :\n\n🔔 الأهداف محسوبة من مقاومات فعلية ظهرت في بيانات السعر،\nوما ينحط هدف رقمي إذا ما فيه مستوى واضح.\n\n🚨 إذا ضعف التداول أو انكسر حد الخروج، تتغير نظرة السهم.\n\n🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️';
 }
-async function runAnalysis(){
- const s=symbol();if(!s)return;
- document.getElementById('report-content').textContent='جاري التحليل من PanWatch...';
- try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/analyze',{method:'POST'});renderReport(d);}
- catch(e){document.getElementById('report-content').textContent=e.message;}
-}
-async function showNews(){
- const s=symbol();if(!s)return;
- try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/news');document.getElementById('result').textContent=JSON.stringify(d,null,2);}
- catch(e){document.getElementById('result').textContent=e.message;}
-}
-async function showEvents(){
- const s=symbol();if(!s)return;
- try{const d=await api('/api/stocks/'+encodeURIComponent(s)+'/events');document.getElementById('result').textContent=JSON.stringify(d,null,2);}
- catch(e){document.getElementById('result').textContent=e.message;}
-}
-function showHistory(){
- const s=symbol();if(!s)return;
- try{const d=await api('/api/history/'+encodeURIComponent(s));document.getElementById('result').textContent=JSON.stringify(d,null,2);}
- catch(e){document.getElementById('result').textContent=e.message;}
-}
-async function buy(plan){
- try{const d=await api('/api/payments/invoice/'+plan,{method:'POST'});if(tg&&tg.openInvoice)tg.openInvoice(d.invoice_url);else location.href=d.invoice_url;}
- catch(e){document.getElementById('result').textContent=e.message;}
-}
+function focusSearch(){document.getElementById('analysisBox').scrollIntoView({behavior:'smooth'});setTimeout(()=>document.getElementById('symbol').focus(),250);}
+async function showNews(){const s=symbol();if(!s)return focusSearch();try{document.getElementById('report-content').textContent=JSON.stringify(await api('/api/stocks/'+encodeURIComponent(s)+'/news'),null,2);}catch(e){document.getElementById('report-content').textContent=e.message;}}
+async function showEvents(){const s=symbol();if(!s)return focusSearch();try{document.getElementById('report-content').textContent=JSON.stringify(await api('/api/stocks/'+encodeURIComponent(s)+'/events'),null,2);}catch(e){document.getElementById('report-content').textContent=e.message;}}
+async function showHistory(){const s=symbol();if(!s)return focusSearch();try{document.getElementById('report-content').textContent=JSON.stringify(await api('/api/history/'+encodeURIComponent(s)),null,2);}catch(e){document.getElementById('report-content').textContent=e.message;}}
+function showFavorites(){focusSearch();document.getElementById('report-content').textContent='قائمتك المفضلة ستظهر هنا.';}
+function showNewStocks(){focusSearch();document.getElementById('report-content').textContent='الأسهم الجديدة ستظهر هنا عند توفر البيانات.';}
+function showDividends(){focusSearch();document.getElementById('report-content').textContent='توزيعات الأرباح ستظهر هنا عند توفر بيانات الشركات.';}
+function showAlerts(){document.getElementById('report-content').textContent='تنبيهات الأسعار.';}
+function showSettings(){document.getElementById('report-content').textContent='إعدادات SAS PRO.';}
+function setMode(){focusSearch();}
+function scrollToTop(){window.scrollTo({top:0,behavior:'smooth'});}
+async function buy(plan){try{const d=await api('/api/payments/invoice/'+plan,{method:'POST'});if(tg&&tg.openInvoice)tg.openInvoice(d.invoice_url);else location.href=d.invoice_url;}catch(e){document.getElementById('report-content').textContent=e.message;}}
 load();setInterval(load,60000);
 </script>
-</body></html>
+</body>
+</html>
