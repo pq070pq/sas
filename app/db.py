@@ -47,6 +47,22 @@ class RadarSignal(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     __table_args__ = (UniqueConstraint("symbol", "session_date", name="uq_radar_symbol_session"),)
 
+class RadarOutcome(Base):
+    __tablename__ = "radar_outcomes"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    radar_signal_id: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    symbol: Mapped[str] = mapped_column(String(24), index=True)
+    session_date: Mapped[str] = mapped_column(String(16), index=True)
+    target1: Mapped[float | None] = mapped_column()
+    target2: Mapped[float | None] = mapped_column()
+    target3: Mapped[float | None] = mapped_column()
+    exit_level: Mapped[float | None] = mapped_column()
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    achieved_target: Mapped[int] = mapped_column(Integer, default=0)
+    current_price: Mapped[float | None] = mapped_column()
+    evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
 class ScheduledReport(Base):
     __tablename__ = "scheduled_reports"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
