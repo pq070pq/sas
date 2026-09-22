@@ -9,6 +9,7 @@ services:
       - saspro_data:/app/data
     depends_on:
       - panwatch
+      - openterminal-web
   panwatch:
     build:
       context: ./vendor/PanWatch
@@ -18,3 +19,38 @@ services:
       - "8000"
 volumes:
   saspro_data:
+
+
+  openterminal-api:
+    build:
+      context: .
+      dockerfile: docker/openterminal-api.Dockerfile
+    restart: unless-stopped
+    environment:
+      - API_HOST=0.0.0.0
+      - API_KEY=${OPENTERMINAL_API_KEY:-}
+      - WEB_ORIGIN=${OPENTERMINAL_BASE_URL:-}
+      - API_PORT=4000
+    expose:
+      - "4000"
+
+  openterminal-web:
+    build:
+      context: .
+      dockerfile: docker/openterminal-web.Dockerfile
+    restart: unless-stopped
+    environment:
+      - API_URL=http://openterminal-api:4000
+      - API_KEY=${OPENTERMINAL_API_KEY:-}
+      - API_KEY_FILE=/app/data/.api-key
+      - SAS_TERMINAL_SECRET=${SAS_TERMINAL_SECRET:-}
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - openterminal_data:/app/data:ro
+    depends_on:
+      - openterminal-api
+
+volumes:
+  saspro_data:
+  openterminal_data:
