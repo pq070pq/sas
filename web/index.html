@@ -170,7 +170,7 @@ async function continueTerms(){
    const d=await api('/api/subscription/trial',{method:'POST'});
    closeTerms();
    if(tg?.openLink)tg.openLink(d.channel_link);
-   else window.open(d.invite_link,'_blank');
+   else window.open(d.channel_link,'_blank');
   }else if(termAction?.startsWith('buy:')){
    const plan=termAction.slice(4);
    const d=await api('/api/subscription/invoice/'+encodeURIComponent(plan),{method:'POST'});
