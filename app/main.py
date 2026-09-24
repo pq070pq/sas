@@ -548,16 +548,21 @@ async def admin_update_plans(request: Request, user=Depends(telegram_user), db: 
 @app.post("/api/admin/grant/{telegram_id}")
 async def admin_grant(telegram_id: int, days: str = "30", user=Depends(telegram_user)):
     await require_admin_permission(user, "subscriptions")
-    if days.lower() == "forever":
-        exp, link, link_exp = await grant_access(telegram_id, forever=True)
-    else:
-        try:
-            n = int(days)
-        except ValueError:
-            raise HTTPException(400, "استخدم /grant ID DAYS أو forever")
-        if n <= 0 or n > 3650:
-            raise HTTPException(400, "المدة يجب أن تكون بين 1 و3650 يومًا")
-        exp, link, link_exp = await grant_access(telegram_id, days=n)
+    try:
+        if days.lower() == "forever":
+            exp, link, link_exp = await grant_access(telegram_id, forever=True)
+        else:
+            try:
+                n = int(days)
+            except ValueError:
+                raise HTTPException(400, "استخدم مدة صحيحة أو forever")
+            if n <= 0 or n > 3650:
+                raise HTTPException(400, "المدة يجب أن تكون بين 1 و3650 يومًا")
+            exp, link, link_exp = await grant_access(telegram_id, days=n)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(400, f"تعذر تفعيل الاشتراك: {exc}")
     await audit(int(user["id"]), "grant_access_legacy", telegram_id, {"days": days})
     try:
         await send_message(telegram_id,
