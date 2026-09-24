@@ -35,7 +35,7 @@
     <section class="trial-card" id="trialCard">
       <div>
         <b>🎁 ابدأ تجربتك المجانية</b>
-        <p>3 أيام • قناة تجربة منفصلة • رابط خاص للاستخدام مرة واحدة وصالح 48 ساعة.</p>
+        <p>3 أيام • انضمام للقناة بطلب دخول • تتم الموافقة تلقائيًا عند تفعيل التجربة.</p>
       </div>
       <button id="trialBtn" onclick="openTerms('trial')">ابدأ التجربة المجانية</button>
     </section>
@@ -158,7 +158,7 @@ async function continueTerms(){
   if(termAction==='trial'){
    const d=await api('/api/subscription/trial',{method:'POST'});
    closeTerms();
-   if(tg?.openLink)tg.openLink(d.invite_link);
+   if(tg?.openLink)tg.openLink(d.channel_link);
    else window.open(d.invite_link,'_blank');
   }else if(termAction?.startsWith('buy:')){
    const plan=termAction.slice(4);
