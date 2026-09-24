@@ -301,6 +301,4 @@ async def grant_access(telegram_id, days=None, forever=False):
         user.warning_sent_at = None
         user.updated_at = now
         await db.commit()
-    await bot_api("unbanChatMember", {"chat_id": settings.telegram_channel_id, "user_id": telegram_id, "only_if_banned": True})
-    link, link_exp = await create_private_invite(telegram_id, "paid", settings.telegram_channel_id, int(settings.invite_hours))
-    return exp, link, link_exp
+    # فك الحظر خطوة اختيارية؛ لا يجب أن تمنع تفعيل الاشتراك إذا رفضها Telegram\n    try:\n        await bot_api("unbanChatMember", {"chat_id": settings.telegram_channel_id, "user_id": telegram_id, "only_if_banned": True})\n    except Exception:\n        pass\n    link, link_exp = await create_private_invite(telegram_id, "paid", settings.telegram_channel_id, int(settings.invite_hours))    return exp, link, link_exp
