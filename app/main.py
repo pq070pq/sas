@@ -1353,8 +1353,7 @@ async def telegram_webhook(request: Request):
         else:
             msg = (
                 f"👋 <b>أهلًا {name}</b>\n\n"
-                "🚀 <b>SAS PRO — سوق الأسهم الأمريكية</b>\n"
-                "الاشتراك والتجربة والدخول تتم من داخل Mini App."
+                "🚀 <b>SAS PRO — 🇺🇲 سوق الأسهم الأمريكية</b>"
             )
         await send_message(
             chat_id,
