@@ -107,7 +107,7 @@
 const tg=window.Telegram&&window.Telegram.WebApp;
 if(tg){tg.ready();tg.expand();try{tg.setHeaderColor('#020912');tg.setBackgroundColor('#020912');}catch(e){}}
 const headers=()=>({'X-Telegram-Init-Data':tg?tg.initData:''});
-async function api(path,opt={}){opt.headers=Object.assign(headers(),opt.headers||{});const r=await fetch(path,opt);if(!r.ok)throw new Error(await r.text());return r.json();}
+async function api(path,opt={}){opt.headers=Object.assign(headers(),opt.headers||{});const r=await fetch(path,opt);if(!r.ok){let msg='تعذر تنفيذ العملية';try{const d=await r.json();msg=d.detail||d.message||msg;}catch(e){try{const t=(await r.text()).trim();if(t)msg=t;}catch(_){} }throw new Error(msg);}return r.json();}
 const fmtDate=v=>v?new Date(v).toLocaleDateString('ar-SA'):'—';
 const fmtDays=(a,b)=>{if(!a||!b)return'—';const n=Math.ceil((new Date(b)-new Date(a))/86400000);return n>0?n+' يوم':'منتهي';};
 let me=null,plans=null,termAction=null;
