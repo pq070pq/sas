@@ -20,7 +20,7 @@ from .market_calendar import market_status
 from .holiday_radar import stock_radar_enabled
 from .holiday_radar import holiday_radar_scheduler
 from .timeutil import utcnow, aware
-from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings, get_channel_join_link
+from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, get_subscription_config, setting_set, setting_get, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings, get_channel_join_link
 from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
 
 app = FastAPI(title="SAS PRO", version="2.1.0")
@@ -508,6 +508,29 @@ async def admin_users(q: str = "", user=Depends(telegram_user), db: AsyncSession
         "subscription_expires": aware(u.subscription_expires).isoformat() if u.subscription_expires else None,
         "plan": u.plan, "free_access": u.free_access, "terms_accepted_at": aware(u.terms_accepted_at).isoformat() if u.terms_accepted_at else None,
     } for u in rows]
+
+@app.get("/api/subscription/config")
+async def subscription_config(user=Depends(telegram_user)):
+    return await get_subscription_config()
+
+@app.get("/api/admin/subscription-config")
+async def admin_subscription_config(user=Depends(telegram_user)):
+    await require_admin_permission(user, "settings")
+    return await get_subscription_config()
+
+@app.post("/api/admin/subscription-config")
+async def admin_update_subscription_config(request: Request, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    await require_admin_permission(user, "settings")
+    body = await request.json()
+    paid_visible = bool(body.get("paid_plans_visible", True))
+    trial_days = int(body.get("trial_days", 3))
+    if trial_days < 1 or trial_days > 365:
+        raise HTTPException(400, "مدة التجربة يجب أن تكون بين 1 و365 يومًا")
+    await setting_set(db, "paid_plans_visible", "1" if paid_visible else "0")
+    await setting_set(db, "trial_days", trial_days)
+    await db.commit()
+    await audit(int(user["id"]), "subscription_visibility_updated", None, {"paid_plans_visible": paid_visible, "trial_days": trial_days})
+    return {"ok": True, **await get_subscription_config()}
 
 @app.get("/api/admin/plans")
 async def admin_plans(user=Depends(telegram_user)):
