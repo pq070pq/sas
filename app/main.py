@@ -449,18 +449,21 @@ async def subscription_trial(user=Depends(telegram_user)):
     try:
         result = await start_trial_for_user(user)
         try:
-            await send_message(user["id"],
+            await send_message(
+                user["id"],
                 "🎁 <b>بدأت تجربتك المجانية في SAS PRO</b>\n\n"
-                "⏳ المدة: <b>3 أيام</b>\n"
+                f"⏳ المدة: <b>{settings.trial_days} أيام</b>\n"
                 f"📅 تنتهي: <b>{result['trial_expires'].strftime('%d/%m/%Y %H:%M')}</b>\n\n"
-                "🚀 رابط دخول قناة التجربة الخاص بك:",
-                {"inline_keyboard": [[{"text": "🎁 دخول قناة التجربة", "url": result["invite_link"]}]]},
+                "اضغط «انضمام للقناة» وسيتم قبول طلبك تلقائيًا لأن تجربتك مفعلة.",
+                {"inline_keyboard": [[{"text": "🚀 انضمام لقناة SAS PRO", "url": result["channel_link"]}]]},
             )
         except Exception:
             pass
-        return {"ok": True, **result, "trial_expires": result["trial_expires"].isoformat(), "invite_expires": result["invite_expires"].isoformat()}
+        return {"ok": True, **result, "trial_expires": result["trial_expires"].isoformat()}
     except ValueError as exc:
         raise HTTPException(409, str(exc))
+    except Exception as exc:
+        raise HTTPException(400, f"تعذر بدء التجربة: {exc}")
 
 @app.post("/api/subscription/invoice/{plan}")
 async def subscription_invoice(plan: str, user=Depends(telegram_user)):
@@ -550,7 +553,7 @@ async def admin_grant(telegram_id: int, days: str = "30", user=Depends(telegram_
     await require_admin_permission(user, "subscriptions")
     try:
         if days.lower() == "forever":
-            exp, link, link_exp = await grant_access(telegram_id, forever=True)
+            exp, channel_link = await grant_access(telegram_id, forever=True)
         else:
             try:
                 n = int(days)
@@ -558,22 +561,23 @@ async def admin_grant(telegram_id: int, days: str = "30", user=Depends(telegram_
                 raise HTTPException(400, "استخدم مدة صحيحة أو forever")
             if n <= 0 or n > 3650:
                 raise HTTPException(400, "المدة يجب أن تكون بين 1 و3650 يومًا")
-            exp, link, link_exp = await grant_access(telegram_id, days=n)
+            exp, channel_link = await grant_access(telegram_id, days=n)
     except HTTPException:
         raise
     except Exception as exc:
         raise HTTPException(400, f"تعذر تفعيل الاشتراك: {exc}")
     await audit(int(user["id"]), "grant_access_legacy", telegram_id, {"days": days})
     try:
-        await send_message(telegram_id,
-            "✅ <b>تم تفعيل وصول SAS PRO</b>\n\n"
+        await send_message(
+            telegram_id,
+            "✅ <b>تم تفعيل اشتراك SAS PRO</b>\n\n"
             f"📅 تاريخ الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>\n\n"
-            "🚀 رابط دخول القناة:",
-            {"inline_keyboard": [[{"text": "🚀 دخول قناة SAS PRO", "url": link}], [{"text": "📱 فتح SAS PRO", "web_app": {"url": settings.app_base_url}}]]},
+            "اضغط «انضمام للقناة» وسيتم قبول طلبك تلقائيًا.",
+            {"inline_keyboard": [[{"text": "🚀 انضمام لقناة SAS PRO", "url": channel_link}]]},
         )
     except Exception:
         pass
-    return {"ok": True, "expires_at": exp.isoformat(), "invite_expires": link_exp.isoformat()}
+    return {"ok": True, "expires_at": exp.isoformat(), "channel_link": channel_link}
 
 @app.post("/api/admin/revoke/{telegram_id}")
 async def admin_revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
