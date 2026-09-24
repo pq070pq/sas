@@ -133,7 +133,6 @@ async def set_channel_access(telegram_id: int, allow: bool, expires_at=None):
         except Exception as exc:
             return {"ok": False, "reason": str(exc)}
 
-    # Remove any previous ban first.
     try:
         await bot_api("unbanChatMember", {
             "chat_id": settings.telegram_channel_id,
@@ -143,7 +142,6 @@ async def set_channel_access(telegram_id: int, allow: bool, expires_at=None):
     except Exception:
         pass
 
-    # If the user has an outstanding join request, approve it automatically.
     try:
         await bot_api("approveChatJoinRequest", {
             "chat_id": settings.telegram_channel_id,
@@ -153,32 +151,17 @@ async def set_channel_access(telegram_id: int, allow: bool, expires_at=None):
     except Exception:
         pass
 
-    # Telegram Bot API cannot silently add an arbitrary user to a private
-    # channel. Give the approved user a one-use invite as the fallback.
     try:
-        payload = {
-            "chat_id": settings.telegram_channel_id,
-            "name": f"SAS PRO {telegram_id}",
-            "member_limit": 1,
-            "creates_join_request": False,
-        }
-        if expires_at:
-            payload["expire_date"] = int(expires_at.timestamp())
-        link = await bot_api("createChatInviteLink", payload)
-        invite = link.get("invite_link") if isinstance(link, dict) else link
-        if invite:
-            await send_message(
-                telegram_id,
-                "✅ <b>تم قبول إذن دخولك إلى قناة SAS PRO</b>\n\n"
-                "رابط الدخول الخاص بك مرفق أدناه.\n"
-                f"⏳ ينتهي الإذن: <b>{expires_at.strftime('%d/%m/%Y')}</b>",
-                {"inline_keyboard": [[{"text": "🚀 دخول قناة SAS PRO", "url": invite}]]},
-            )
-            return {"ok": True, "action": "invite_sent"}
+        channel_link = await get_channel_join_link(settings.telegram_channel_id)
+        await send_message(
+            telegram_id,
+            "✅ <b>تم تفعيل وصولك إلى SAS PRO</b>\n\n"
+            "اضغط «انضمام لقناة SAS PRO» ثم سيوافق البوت على طلبك تلقائيًا.",
+            {"inline_keyboard": [[{"text": "🚀 انضمام لقناة SAS PRO", "url": channel_link}]]},
+        )
+        return {"ok": True, "action": "join_link_sent"}
     except Exception as exc:
         return {"ok": False, "reason": str(exc)}
-
-    return {"ok": False, "reason": "channel_access_not_granted"}
 
 def is_active(sub):
     return bool(sub and sub.active and aware(sub.expires_at) > utcnow())
