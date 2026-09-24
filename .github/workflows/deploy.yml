@@ -29,6 +29,7 @@ jobs:
             systemctl disable saspro.service 2>/dev/null || true
             git fetch origin main
             git reset --hard origin/main
+rm -f web/assets/sas-pro-home.png
             docker compose pull || true
             docker compose up -d --build --remove-orphans
             docker image prune -f
