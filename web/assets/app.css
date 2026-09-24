@@ -7,21 +7,23 @@
 }
 html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:"Cairo","Tajawal",system-ui,-apple-system,"Segoe UI",Tahoma,Arial,sans-serif}
 body{direction:rtl;background:
- radial-gradient(circle at 50% 5%,rgba(15,126,142,.13),transparent 34%),
- radial-gradient(circle at 15% 45%,rgba(7,76,91,.10),transparent 30%),
+ linear-gradient(180deg,rgba(2,8,13,.22),rgba(2,8,13,.92) 68%,#010509 100%),
+ url("/assets/sas-pro-home.webp?v=20260924") center top/100% auto no-repeat,
+ radial-gradient(circle at 50% 5%,rgba(15,126,142,.18),transparent 34%),
  linear-gradient(180deg,#031016 0,#02080d 62%,#010509 100%);
+ background-attachment:scroll;
 }
 button,input,select{font:inherit}
 button{transition:.2s ease;cursor:pointer}
 button:active{transform:translateY(1px)}
-.app{width:min(1040px,100%);margin:auto;min-height:100vh;position:relative;overflow:hidden;padding-bottom:34px}
+.app{width:min(1040px,100%);margin:auto;min-height:100vh;position:relative;overflow:hidden;padding-bottom:34px;background:linear-gradient(180deg,rgba(2,8,13,.04) 0,rgba(2,8,13,.34) 42%,rgba(2,8,13,.88) 78%,rgba(1,5,9,.98) 100%);}
 .app:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.12;background-image:linear-gradient(rgba(45,244,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(45,244,255,.04) 1px,transparent 1px);background-size:34px 34px;mask-image:linear-gradient(to bottom,#000,transparent 85%)}
 
 /* HERO */
-.subscription-page{padding-bottom:30px;background:radial-gradient(circle at 50% 8%,rgba(16,109,124,.18),transparent 30%),linear-gradient(180deg,#03131a 0,#020b11 48%,#02070b 100%)}
-.poster-wrap{position:relative;overflow:hidden;border-bottom:1px solid var(--line);line-height:0;background:#03131a;isolation:isolate}
-.poster-wrap:before{content:"";position:absolute;inset:-24px;background-image:url("/assets/sas-pro-home.webp?v=20260924");background-size:cover;background-position:center top;filter:blur(24px) brightness(.48) saturate(1.15);transform:scale(1.08);opacity:.7;z-index:-2}
-.poster{display:block;width:100%;height:auto;min-height:0;object-fit:contain;object-position:center top;filter:none;image-rendering:auto;position:relative;z-index:1}
+.subscription-page{padding-bottom:30px;background:linear-gradient(180deg,rgba(2,8,13,.02) 0,rgba(2,8,13,.12) 28%,rgba(2,8,13,.72) 58%,rgba(2,8,13,.97) 100%)}
+.poster-wrap{position:relative;overflow:hidden;border-bottom:1px solid var(--line);line-height:0;background:transparent;isolation:isolate}
+.poster-wrap:before{content:"";position:absolute;inset:-34px;background-image:url("/assets/sas-pro-home.webp?v=20260924");background-size:cover;background-position:center top;filter:blur(28px) brightness(.48) saturate(1.18);transform:scale(1.1);opacity:.82;z-index:-2}
+.poster{display:block;width:100%;height:auto;min-height:0;object-fit:contain;object-position:center top;filter:saturate(1.02) contrast(1.04) brightness(.96);image-rendering:auto;position:relative;z-index:1}
 .poster-wrap:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(1,7,12,0) 72%,rgba(1,7,12,.58) 100%);pointer-events:none;z-index:2}
 .poster-overlay{position:absolute;z-index:2;left:0;right:0;bottom:0;padding:58px 22px 22px;text-align:center;background:linear-gradient(transparent,rgba(1,7,13,.96))}
 .brand{font-size:clamp(27px,7vw,58px);font-weight:1000;letter-spacing:5px;color:#eaffff;text-shadow:0 0 20px rgba(45,244,255,.45),0 0 55px rgba(45,244,255,.2);line-height:1.05}
@@ -29,7 +31,7 @@ button:active{transform:translateY(1px)}
 
 /* COMMON CARDS */
 .status-card,.trial-card,.plans,.terms-note,.admin-panel{
- margin:14px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(145deg,rgba(7,31,42,.92),rgba(2,13,21,.97));
+ margin:14px;border:1px solid rgba(45,244,255,.28);border-radius:22px;background:linear-gradient(145deg,rgba(5,29,39,.84),rgba(2,12,19,.93));
  box-shadow:var(--shadow);padding:17px;backdrop-filter:blur(12px)
 }
 .status-card{position:relative;overflow:hidden}
@@ -39,7 +41,7 @@ button:active{transform:translateY(1px)}
 .section-head b{font-size:15px;letter-spacing:.2px}
 .section-head span{font-size:10px;color:var(--muted)}
 .status-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
-.status-grid div{border:1px solid var(--line2);border-radius:15px;padding:12px;background:linear-gradient(145deg,rgba(4,23,32,.9),rgba(2,12,19,.9));box-shadow:inset 0 1px rgba(255,255,255,.025)}
+.status-grid div{border:1px solid rgba(45,244,255,.12);border-radius:15px;padding:12px;background:linear-gradient(145deg,rgba(5,28,37,.78),rgba(2,12,19,.84));box-shadow:inset 0 1px rgba(255,255,255,.025)}
 .status-grid small,.status-grid strong{display:block}
 .status-grid small{color:#78949e;font-size:9px}
 .status-grid strong{margin-top:6px;font-size:13px}
@@ -127,7 +129,8 @@ button:active{transform:translateY(1px)}
 
 /* SAS PRO mobile polish */
 @media(max-width:700px){
-  .poster-wrap{width:100%;height:auto;min-height:0;background:#03131a}
+  body{background-size:100% auto;background-position:center top}
+  .poster-wrap{width:100%;height:auto;min-height:0;background:transparent}
   .poster{display:block;width:100%;height:auto;min-height:0;object-fit:contain;object-position:center top;filter:none}
   .poster-overlay{display:none}
   .subscription-page{background:radial-gradient(circle at 50% 0,rgba(15,108,124,.16),transparent 28%),linear-gradient(180deg,#03131a 0,#020b11 55%,#02070b 100%)}
