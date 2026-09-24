@@ -59,11 +59,19 @@ async def ensure_subscription_settings():
             "6month_sar": settings.six_month_sar, "6month_days": 180, "6month_stars": settings.pro_6month_stars,
             "yearly_sar": settings.yearly_sar, "yearly_days": 365, "yearly_stars": settings.pro_yearly_stars,
             "trial_days": settings.trial_days, "invite_hours": settings.invite_hours,
+            "paid_plans_visible": 1,
         }
         for key, value in defaults.items():
             if await db.get(Setting, key) is None:
                 await setting_set(db, key, value)
         await db.commit()
+
+async def get_subscription_config():
+    async with SessionLocal() as db:
+        return {
+            "paid_plans_visible": (await setting_get(db, "paid_plans_visible", 1) or "0") in ("1", "true", "True"),
+            "trial_days": int(await setting_get(db, "trial_days", settings.trial_days) or settings.trial_days),
+        }
 
 async def get_plans():
     async with SessionLocal() as db:
