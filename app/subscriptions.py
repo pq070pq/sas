@@ -155,6 +155,9 @@ async def start_trial_for_user(user_data):
     return {"trial_expires": trial_exp, "channel_link": channel_link}
 
 async def create_invoice_for_user(user_data, plan_key):
+    config = await get_subscription_config()
+    if not config["paid_plans_visible"]:
+        raise ValueError("الاشتراكات المدفوعة مخفية حاليًا. التجربة المجانية فقط متاحة.")
     plans = await get_plans()
     if plan_key not in plans:
         raise ValueError("الباقة غير موجودة")
