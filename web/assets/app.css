@@ -125,6 +125,12 @@ button:active{transform:translateY(1px)}
 }
 
 /* SAS PRO mobile polish */
-.poster{display:block;width:100%;height:auto;min-height:0;object-fit:contain;object-position:center top;filter:saturate(.98) contrast(1.03) brightness(.92)}.poster-overlay{display:none}.subscription-page{background:linear-gradient(180deg,rgba(3,14,20,.1),rgba(1,7,12,.98) 36%)}.section-head b{font-size:14px}.section-head span{font-size:9px}.trial-card p{font-size:10px}.plan{padding:14px 9px}.plan strong{font-size:22px}}
-
-@media(max-width:700px){.poster-wrap{width:100%;height:auto;min-height:0;aspect-ratio:auto}.poster{display:block;width:100%;height:auto;min-height:0;object-fit:contain}.subscription-page{background:linear-gradient(180deg,#02080d 0%,#02080d 100%)}main,.subscription-page{padding-top:0}.poster-wrap + *{margin-top:0}.section,.card,.trial-card,.plans-section{margin-top:10px}}
+@media(max-width:700px){
+  .poster-wrap{width:100%;height:auto;min-height:0;background:#02080d}
+  .poster{display:block;width:100%;height:auto;min-height:0;object-fit:contain;object-position:center top;filter:saturate(.98) contrast(1.03) brightness(.92)}
+  .poster-overlay{display:none}
+  .subscription-page{background:#02080d}
+  main,.subscription-page{padding-top:0}
+  .poster-wrap + *{margin-top:0}
+  .status-card,.trial-card,.plans,.terms-note{margin-top:10px}
+}
