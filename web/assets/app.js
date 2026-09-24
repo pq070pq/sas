@@ -137,6 +137,25 @@ async function loadSubscriptionConfig(){
  document.getElementById('trialDays').value=d.trial_days||3;
  document.getElementById('plansEditorPanel').hidden=!d.paid_plans_visible;
 }
+async function loadAdminPlans(){
+ const p=await api('/api/admin/plans');
+ const names={monthly:'شهري','3month':'3 أشهر','6month':'6 أشهر',yearly:'سنة'};
+ document.getElementById('planEditor').innerHTML=Object.entries(p).map(([k,x])=>
+  '<div class="plan-edit"><b>'+names[k]+'</b><label>ريال<input id="sar_'+k+'" type="number" value="'+x.sar+'"></label><label>أيام<input id="days_'+k+'" type="number" value="'+x.days+'"></label><label>Stars<input id="stars_'+k+'" type="number" value="'+x.stars+'"></label></div>'
+ ).join('');
+}
+async function savePlans(){
+ const p={};
+ for(const k of ['monthly','3month','6month','yearly']){
+  p[k]={sar:Number(document.getElementById('sar_'+k).value),days:Number(document.getElementById('days_'+k).value),stars:Number(document.getElementById('stars_'+k).value)};
+ }
+ try{
+  await api('/api/admin/plans',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
+  alert('تم حفظ الباقات');
+  await loadAdminPlans();
+ }catch(e){alert(e.message);}
+}
+
 async function saveSubscriptionConfig(){
  const paid=!!document.getElementById('paidPlansVisible').checked;
  const days=Number(document.getElementById('trialDays').value||3);
