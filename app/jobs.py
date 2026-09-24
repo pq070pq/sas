@@ -56,15 +56,15 @@ async def expiry_cycle():
                 except Exception:
                     pass
 
-        # انتهاء التجارب المجانية: فصل المستخدم عن قناة التجربة فقط.
+        # انتهاء التجربة: استبعاد المستخدم من قناة SAS PRO الرئيسية.
         trial_users = (await db.execute(select(User).where(User.trial_expires.is_not(None), User.trial_expires <= now, User.status == "trial"))).scalars().all()
         for user in trial_users:
             user.status = "expired"
             user.updated_at = now
-            if settings.trial_channel_id:
+            if settings.telegram_channel_id:
                 try:
                     await bot_api("banChatMember", {
-                        "chat_id": settings.trial_channel_id,
+                        "chat_id": settings.telegram_channel_id,
                         "user_id": user.telegram_id,
                         "revoke_messages": False,
                     })
@@ -73,7 +73,7 @@ async def expiry_cycle():
             try:
                 await send_message(user.telegram_id,
                     "⏳ <b>انتهت تجربتك المجانية في SAS PRO</b>\n\n"
-                    "يمكنك اختيار إحدى الباقات المدفوعة من Mini App للاستمرار."
+                    "تم إيقاف وصولك للقناة. يمكنك اختيار إحدى الباقات المدفوعة من Mini App للاستمرار."
                 )
             except Exception:
                 pass
