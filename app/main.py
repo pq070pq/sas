@@ -585,6 +585,35 @@ async def admin_grant(telegram_id: int, days: str = "30", user=Depends(telegram_
         pass
     return {"ok": True, "expires_at": exp.isoformat(), "channel_link": channel_link}
 
+@app.post("/api/admin/free-extend/{telegram_id}")
+async def admin_free_extend(telegram_id: int, days: int = 3, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    await require_admin_permission(user, "subscriptions")
+    if days < 1 or days > 365:
+        raise HTTPException(400, "مدة التمديد المجاني يجب أن تكون بين 1 و365 يومًا")
+    row = (await db.execute(select(User).where(User.telegram_id == telegram_id))).scalars().first()
+    if not row:
+        raise HTTPException(404, "المستخدم غير موجود")
+    now = utcnow()
+    active_paid = (await db.execute(select(Subscription).where(
+        Subscription.telegram_id == telegram_id, Subscription.active == True
+    ).order_by(Subscription.expires_at.desc()))).scalars().first()
+    if active_paid and is_active(active_paid) and not row.free_access:
+        raise HTTPException(400, "لدى المستخدم اشتراك مدفوع فعال")
+    base = aware(row.trial_expires) if row.trial_expires and aware(row.trial_expires) > now else now
+    row.trial_start = row.trial_start or now
+    row.trial_expires = base + timedelta(days=days)
+    row.trial_used_at = row.trial_used_at or now
+    row.status = "trial"
+    row.free_access = False
+    row.updated_at = now
+    await db.commit()
+    try:
+        await bot_api("unbanChatMember", {"chat_id": settings.telegram_channel_id, "user_id": telegram_id, "only_if_banned": True})
+    except Exception:
+        pass
+    await audit(int(user["id"]), "free_access_extended", telegram_id, {"days": days, "expires_at": row.trial_expires.isoformat()})
+    return {"ok": True, "expires_at": row.trial_expires.isoformat()}
+
 @app.post("/api/admin/revoke/{telegram_id}")
 async def admin_revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     await require_admin_permission(user, "subscriptions")
