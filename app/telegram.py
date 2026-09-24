@@ -32,10 +32,13 @@ async def bot_api(method: str, payload: dict):
     url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/{method}"
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.post(url, json=payload)
-        r.raise_for_status()
-        data = r.json()
-        if not data.get("ok"):
-            raise RuntimeError(data.get("description", "Telegram API error"))
+        try:
+            data = r.json()
+        except Exception:
+            data = {}
+        if not r.is_success or not data.get("ok"):
+            description = data.get("description") or f"Telegram API HTTP {r.status_code}"
+            raise RuntimeError(description)
         return data["result"]
 
 async def send_message(chat_id: int | str, text: str, reply_markup: dict | None = None):
