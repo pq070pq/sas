@@ -20,7 +20,7 @@ button:active{transform:translateY(1px)}
 /* HERO */
 .subscription-page{padding-bottom:30px;background:radial-gradient(circle at 50% 8%,rgba(16,109,124,.18),transparent 30%),linear-gradient(180deg,#03131a 0,#020b11 48%,#02070b 100%)}
 .poster-wrap{position:relative;overflow:hidden;border-bottom:1px solid var(--line);line-height:0;background:#03131a;isolation:isolate}
-.poster-wrap:before{content:"";position:absolute;inset:-24px;background-image:url("/assets/sas-pro-home.webp");background-size:cover;background-position:center top;filter:blur(24px) brightness(.48) saturate(1.15);transform:scale(1.08);opacity:.7;z-index:-2}
+.poster-wrap:before{content:"";position:absolute;inset:-24px;background-image:url("/assets/sas-pro-home.webp?v=20260924");background-size:cover;background-position:center top;filter:blur(24px) brightness(.48) saturate(1.15);transform:scale(1.08);opacity:.7;z-index:-2}
 .poster{display:block;width:100%;height:auto;min-height:0;object-fit:contain;object-position:center top;filter:none;image-rendering:auto;position:relative;z-index:1}
 .poster-wrap:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(1,7,12,0) 72%,rgba(1,7,12,.58) 100%);pointer-events:none;z-index:2}
 .poster-overlay{position:absolute;z-index:2;left:0;right:0;bottom:0;padding:58px 22px 22px;text-align:center;background:linear-gradient(transparent,rgba(1,7,13,.96))}
