@@ -40,7 +40,7 @@
       <button id="trialBtn" onclick="openTerms('trial')">ابدأ التجربة المجانية</button>
     </section>
 
-    <section class="plans">
+    <section class="plans" id="paidPlansSection">
       <div class="section-head"><b>💎 SAS PRO PLANS</b><span>Telegram Stars</span></div>
       <div id="plans" class="plan-grid"><div class="loading">جاري تحميل الباقات...</div></div>
     </section>
@@ -84,7 +84,16 @@
     </section>
 
     <section class="admin-panel">
-      <div class="section-head"><b>⚙️ الباقات والأسعار</b><span>التعديل محفوظ في قاعدة البيانات</span></div>
+      <div class="section-head"><b>⚙️ إعدادات الاشتراك</b><span>التحكم في ظهور الباقات والتجربة المجانية</span></div>
+      <div class="subscription-controls">
+        <label class="toggle-row"><span><b>إظهار الاشتراكات المدفوعة</b><small>عند الإخفاء يظهر للمستخدم خيار التجربة المجانية فقط.</small></span><input id="paidPlansVisible" type="checkbox"></label>
+        <label class="trial-days-row"><span>مدة المجاني</span><input id="trialDays" type="number" min="1" max="365" value="3"><small>يوم — قابلة للتعديل والتمديد من الإدارة.</small></label>
+        <button class="save-btn" onclick="saveSubscriptionConfig()">💾 حفظ إعدادات الاشتراك</button>
+      </div>
+    </section>
+
+    <section class="admin-panel" id="plansEditorPanel">
+      <div class="section-head"><b>💎 الباقات والأسعار</b><span>التعديل محفوظ في قاعدة البيانات</span></div>
       <div id="planEditor"></div>
       <button class="save-btn" onclick="savePlans()">💾 حفظ إعدادات الباقات</button>
     </section>
@@ -120,12 +129,15 @@ async function load(){
    await adminRefresh();return;}
   document.getElementById('userName').textContent=me.user?.first_name||me.user?.username||'مستخدم SAS PRO';
   renderStatus(me);
+  const cfg=await api('/api/subscription/config');
   plans=await api('/api/subscription/plans');
+  renderTrialCard(cfg.trial_days);
+  document.getElementById('paidPlansSection').hidden=!cfg.paid_plans_visible;
   renderPlans(plans.plans||{});
  }catch(e){document.body.innerHTML='<div class="fatal">تعذر التحقق من Telegram. افتح SAS PRO من داخل Telegram.</div>';}
 }
 
-function renderStatus(x){
+function renderTrialCard(days){document.querySelector("#trialCard p").textContent=days+" أيام • تجربة مجانية • يمكن تمديدها أو تعديل مدتها من الإدارة.";}\n\nfunction renderStatus(x){
  const active=!!x.pro;
  document.getElementById('subStatus').textContent=active?'🟢 فعال':'🔒 غير مشترك';
  document.getElementById('subStatus').className=active?'ok':'bad';
@@ -189,8 +201,8 @@ async function adminRefresh(){
  const p=me?.admin_permissions||[];
  const tasks=[];
  if(p.includes('users')){tasks.push(loadAdminStats(),adminSearch());}
- if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;tasks.push(loadAdminPlans());}
- else {document.getElementById('planEditor').closest('.admin-panel').hidden=true;}
+ if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;document.getElementById('plansEditorPanel').hidden=false;tasks.push(loadAdminPlans(),loadSubscriptionConfig());}
+ else {document.getElementById('planEditor').closest('.admin-panel').hidden=true;document.getElementById('plansEditorPanel').hidden=true;document.getElementById('planEditor').closest('.admin-panel').previousElementSibling.hidden=true;}
  await Promise.all(tasks);
 }
 async function loadStaff(){
@@ -228,6 +240,22 @@ async function adminSearch(){try{const q=document.getElementById('adminSearch').
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
 async function adminGrant(id,d){try{await api('/api/admin/grant/'+id+'?days='+encodeURIComponent(d),{method:'POST'});await adminRefresh();}catch(e){alert(e.message);}}
 async function adminRevoke(id){if(!confirm('إلغاء وصول هذا المستخدم؟'))return;try{await api('/api/admin/revoke/'+id,{method:'POST'});await adminRefresh();}catch(e){alert(e.message);}}
+async function loadSubscriptionConfig(){
+ const d=await api('/api/admin/subscription-config');
+ document.getElementById('paidPlansVisible').checked=!!d.paid_plans_visible;
+ document.getElementById('trialDays').value=d.trial_days||3;
+ document.getElementById('plansEditorPanel').hidden=!d.paid_plans_visible;
+}
+async function saveSubscriptionConfig(){
+ const paid=!!document.getElementById('paidPlansVisible').checked;
+ const days=Number(document.getElementById('trialDays').value||3);
+ try{
+  const d=await api('/api/admin/subscription-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paid_plans_visible:paid,trial_days:days})});
+  document.getElementById('plansEditorPanel').hidden=!d.paid_plans_visible;
+  alert(d.paid_plans_visible?'تم إظهار الاشتراكات المدفوعة.':'تم إخفاء الاشتراكات المدفوعة وإبقاء المجاني فقط.');
+ }catch(e){alert(e.message);}
+}
+document.addEventListener('change',e=>{if(e.target?.id==='paidPlansVisible')document.getElementById('plansEditorPanel').hidden=!e.target.checked;});
 async function loadAdminPlans(){const p=await api('/api/admin/plans');const names={monthly:'شهري', '3month':'3 أشهر','6month':'6 أشهر',yearly:'سنة'};document.getElementById('planEditor').innerHTML=Object.entries(p).map(([k,x])=>
  '<div class="plan-edit"><b>'+names[k]+'</b><label>ريال<input id="sar_'+k+'" type="number" value="'+x.sar+'"></label><label>أيام<input id="days_'+k+'" type="number" value="'+x.days+'"></label><label>Stars<input id="stars_'+k+'" type="number" value="'+x.stars+'"></label></div>'
 ).join('');}
