@@ -1175,7 +1175,7 @@ async def telegram_webhook(request: Request):
                 exp, link, link_exp = await grant_access(target, forever=(duration.lower()=="forever"), days=None if duration.lower()=="forever" else int(duration))
                 await send_message(chat_id, f"✅ تم منح الوصول للمستخدم <code>{target}</code> حتى <b>{exp.strftime('%d/%m/%Y')}</b>")
                 try:
-                    await send_message(target, "🚀 <b>تم تفعيل SAS PRO</b>\n\nرابط الدخول:", {"inline_keyboard":[[{"text":"🚀 دخول SAS PRO","url":link}]]})
+                    await send_message(target, "🚀 <b>تم تفعيل SAS PRO</b>\n\nرابط الدخول:", {"inline_keyboard":[[{"text":"🚀 دخول إلى SAS PRO","url":link}]]})
                 except Exception:
                     pass
             except Exception:
@@ -1359,7 +1359,7 @@ async def telegram_webhook(request: Request):
         await send_message(
             chat_id,
             msg,
-            {"inline_keyboard": [[{"text": "🚀 دخول SAS PRO", "web_app": {"url": settings.app_base_url}}]]},
+            {"inline_keyboard": [[{"text": "🚀 دخول إلى SAS PRO", "web_app": {"url": settings.app_base_url}}]]},
         )
         return {"ok": True}
 
