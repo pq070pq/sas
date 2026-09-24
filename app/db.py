@@ -176,6 +176,14 @@ async def init_db():
                 "payload": "VARCHAR(128) DEFAULT ''",
                 "paid_at": "DATETIME",
             })
+            # أي مستخدم بدأ تجربة قديمة يُعتبر قد استخدم التجربة بالفعل.
+            # هذا يمنع إعادة التجربة بعد التحديث إلى النظام النهائي.
+            await conn.execute(text("""
+                UPDATE users
+                SET trial_used_at = COALESCE(trial_used_at, trial_start, trial_expires)
+                WHERE trial_used_at IS NULL
+                  AND (trial_start IS NOT NULL OR trial_expires IS NOT NULL)
+            """))
 
 async def get_session():
     async with SessionLocal() as session:
