@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     telegram_webapp_short_name: str = ""
     telegram_webhook_secret: str = ""
     telegram_channel_id: str = ""
+    telegram_channel_link: str = ""
     owner_telegram_id: int = 0
     twelve_data_api_key: str = ""
     finnhub_api_key: str = ""
