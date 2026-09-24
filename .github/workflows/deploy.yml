@@ -16,8 +16,8 @@ jobs:
       - name: Deploy to OVH
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.OVH_HOST }}
-          username: ${{ secrets.OVH_USER }}
+          host: vps-b67ef07b.vps.ovh.ca
+          username: root
           key: ${{ secrets.OVH_SSH_KEY }}
           script_stop: true
           script: |
