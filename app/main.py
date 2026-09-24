@@ -20,7 +20,7 @@ from .market_calendar import market_status
 from .holiday_radar import stock_radar_enabled
 from .holiday_radar import holiday_radar_scheduler
 from .timeutil import utcnow, aware
-from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings
+from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings, get_channel_join_link
 from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
 
 app = FastAPI(title="SAS PRO", version="2.1.0")
@@ -1098,7 +1098,7 @@ async def telegram_webhook(request: Request):
                     Subscription.telegram_id == telegram_id,
                     Subscription.active == True
                 ).order_by(Subscription.expires_at.desc()))).scalars().first()
-                active = is_active(sub)
+                active = bool(row and (row.free_access or (row.trial_expires and aware(row.trial_expires) > now) or is_active(sub)))
                 await db.commit()
             if active:
                 try:
@@ -1410,8 +1410,8 @@ async def successful_payment(request: Request, db: AsyncSession = Depends(get_se
             f"📦 الباقة: <b>{result['plan']['label']}</b>\n"
             f"💰 القيمة: <b>{result['plan']['sar']} ريال</b> / <b>{result['plan']['stars']} ⭐</b>\n"
             f"📅 الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>\n\n"
-            "🚀 رابط الدخول الخاص بك صالح للاستخدام مرة واحدة لمدة 48 ساعة:",
-            {"inline_keyboard": [[{"text": "🚀 دخول قناة SAS PRO", "url": result["invite_link"]}], [{"text": "📱 فتح SAS PRO", "web_app": {"url": settings.app_base_url}}]]},
+            "🚀 اضغط «انضمام للقناة» وسيتم قبول طلبك تلقائيًا لأن اشتراكك فعال.",
+            {"inline_keyboard": [[{"text": "🚀 انضمام لقناة SAS PRO", "url": result["channel_link"]}], [{"text": "📱 فتح SAS PRO", "web_app": {"url": settings.app_base_url}}]]},
         )
     except Exception:
         pass
@@ -1426,4 +1426,4 @@ async def successful_payment(request: Request, db: AsyncSession = Depends(get_se
         ])
     except Exception:
         pass
-    return {"ok": True, "expires_at": exp.isoformat(), "invite_expires": result["invite_expires"].isoformat()}
+    return {"ok": True, "expires_at": exp.isoformat(), "channel_link": result["channel_link"]}
