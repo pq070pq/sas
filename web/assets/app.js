@@ -6,8 +6,11 @@ async function api(path,opt={}){opt.headers=Object.assign(headers(),opt.headers|
 const fmtDate=v=>v?new Date(v).toLocaleDateString('ar-SA'):'—';
 const fmtDays=(a,b)=>{if(!a||!b)return'—';const n=Math.ceil((new Date(b)-new Date(a))/86400000);return n>0?n+' يوم':'منتهي';};
 let me=null,plans=null,termAction=null;
+let loadStarted=false;
 
 async function load(){
+ if(loadStarted)return;
+ loadStarted=true;
  try{
   me=await api('/api/me');
   if(me.admin){document.getElementById('subscriptionPage').hidden=true;document.getElementById('adminPage').hidden=false;
