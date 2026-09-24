@@ -107,7 +107,7 @@ button:active{transform:translateY(1px)}
 .loading,.fatal{text-align:center;padding:34px;color:var(--muted)}.fatal{margin:30px 14px;border:1px solid var(--line);border-radius:16px;background:var(--panel)}
 
 /* MOBILE */
-.poster{display:block;width:100%;height:auto;min-height:0;object-fit:contain;object-position:center top;filter:saturate(.98) contrast(1.03) brightness(.92)}
+.poster{display:block;width:100%;height:auto;min-height:0;object-fit:cover;object-position:center top;filter:none;image-rendering:auto}
  .poster-overlay{padding:55px 16px 18px}.brand{letter-spacing:3px}
  .status-grid{grid-template-columns:repeat(2,1fr)}
  .plan-grid{grid-template-columns:repeat(2,1fr)}
