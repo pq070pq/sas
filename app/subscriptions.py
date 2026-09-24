@@ -105,19 +105,31 @@ async def sync_user_subscription(db, user, sub=None):
     user.updated_at = utcnow()
 
 async def get_channel_join_link(channel_id: str):
-    """Return a reusable channel link; the bot then auto-approves eligible join requests."""
+    """Return one reusable join-request link; eligible users are auto-approved by the webhook."""
     if not channel_id:
         raise RuntimeError("لم يتم إعداد قناة SAS PRO")
+    async with SessionLocal() as db:
+        key = f"channel_join_request_link:{channel_id}"
+        cached = await setting_get(db, key)
+        if cached:
+            return cached
     chat = await bot_api("getChat", {"chat_id": channel_id})
     username = chat.get("username") if isinstance(chat, dict) else None
     if username:
+        # Public channels cannot force a join request; use the public channel URL.
         return f"https://t.me/{username}"
-    link = await bot_api("exportChatInviteLink", {"chat_id": channel_id})
+    link = await bot_api("createChatInviteLink", {
+        "chat_id": channel_id,
+        "name": "SAS PRO Join Requests",
+        "creates_join_request": True,
+    })
     invite = link.get("invite_link") if isinstance(link, dict) else None
     if not invite:
-        raise RuntimeError("تعذر الحصول على رابط الانضمام للقناة")
+        raise RuntimeError("تعذر إنشاء رابط طلب الانضمام للقناة")
+    async with SessionLocal() as db:
+        await setting_set(db, f"channel_join_request_link:{channel_id}", invite)
+        await db.commit()
     return invite
-
 
 async def start_trial_for_user(user_data):
     telegram_id = int(user_data["id"])
