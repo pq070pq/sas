@@ -13,11 +13,7 @@
   <section id="subscriptionPage" class="subscription-page">
     <div class="poster-wrap">
       <img src="/assets/sas-pro-home.webp" class="poster" alt="SAS PRO">
-      <div class="poster-overlay">
-        <div class="brand">SAS PRO</div>
-        <div class="brand-sub">سوق الأسهم الأمريكية</div>
-      </div>
-    </div>
+          </div>
 
     <section class="status-card">
       <div class="section-head"><b>👤 حسابك</b><span id="userName">جاري التحقق...</span></div>
@@ -137,7 +133,9 @@ async function load(){
  }catch(e){document.body.innerHTML='<div class="fatal">تعذر التحقق من Telegram. افتح SAS PRO من داخل Telegram.</div>';}
 }
 
-function renderTrialCard(days){document.querySelector("#trialCard p").textContent=days+" أيام • تجربة مجانية • يمكن تمديدها أو تعديل مدتها من الإدارة.";}\n\nfunction renderStatus(x){
+function renderTrialCard(days){document.querySelector("#trialCard p").textContent=days+" أيام • تجربة مجانية • يمكن تمديدها أو تعديل مدتها من الإدارة.";}
+
+function renderStatus(x){
  const active=!!x.pro;
  document.getElementById('subStatus').textContent=active?'🟢 فعال':'🔒 غير مشترك';
  document.getElementById('subStatus').className=active?'ok':'bad';
