@@ -19,9 +19,9 @@ button:active{transform:translateY(1px)}
 
 /* HERO */
 .subscription-page{padding-bottom:30px}
-.poster-wrap{position:relative;overflow:hidden;border-bottom:1px solid var(--line);line-height:0;background:#02080d;min-height:360px}
-.poster{display:block;width:100%;height:auto;min-height:360px;object-fit:cover;object-position:center top;filter:saturate(.98) contrast(1.03) brightness(.86)}
-.poster-wrap:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(1,7,12,.04) 0%,rgba(1,8,12,.12) 55%,rgba(1,7,13,.82) 100%);pointer-events:none}
+.poster-wrap{position:relative;overflow:hidden;border-bottom:1px solid var(--line);line-height:0;background:#02080d}
+.poster{display:block;width:100%;height:auto;min-height:0;object-fit:contain;object-position:center top;filter:saturate(.98) contrast(1.03) brightness(.92)}
+.poster-wrap:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(1,7,12,0) 55%,rgba(1,7,12,.72) 100%);pointer-events:none}
 .poster-overlay{position:absolute;z-index:2;left:0;right:0;bottom:0;padding:58px 22px 22px;text-align:center;background:linear-gradient(transparent,rgba(1,7,13,.96))}
 .brand{font-size:clamp(27px,7vw,58px);font-weight:1000;letter-spacing:5px;color:#eaffff;text-shadow:0 0 20px rgba(45,244,255,.45),0 0 55px rgba(45,244,255,.2);line-height:1.05}
 .brand-sub{font-size:clamp(11px,2.4vw,17px);color:#bdeff3;margin-top:7px;letter-spacing:1px}
@@ -106,8 +106,7 @@ button:active{transform:translateY(1px)}
 .loading,.fatal{text-align:center;padding:34px;color:var(--muted)}.fatal{margin:30px 14px;border:1px solid var(--line);border-radius:16px;background:var(--panel)}
 
 /* MOBILE */
-@media(max-width:700px){
- .poster-wrap{min-height:330px}.poster{min-height:330px}
+.poster{display:block;width:100%;height:auto;min-height:0;object-fit:contain;object-position:center top;filter:saturate(.98) contrast(1.03) brightness(.92)}
  .poster-overlay{padding:55px 16px 18px}.brand{letter-spacing:3px}
  .status-grid{grid-template-columns:repeat(2,1fr)}
  .plan-grid{grid-template-columns:repeat(2,1fr)}
@@ -126,4 +125,6 @@ button:active{transform:translateY(1px)}
 }
 
 /* SAS PRO mobile polish */
-@media(max-width:700px){.poster-wrap{min-height:0;aspect-ratio:1/2.98}.poster{min-height:0;width:100%;height:100%;object-fit:cover}.poster-overlay{display:none}.subscription-page{background:linear-gradient(180deg,rgba(3,14,20,.1),rgba(1,7,12,.98) 36%)}.section-head b{font-size:14px}.section-head span{font-size:9px}.trial-card p{font-size:10px}.plan{padding:14px 9px}.plan strong{font-size:22px}}
+.poster{display:block;width:100%;height:auto;min-height:0;object-fit:contain;object-position:center top;filter:saturate(.98) contrast(1.03) brightness(.92)}.poster-overlay{display:none}.subscription-page{background:linear-gradient(180deg,rgba(3,14,20,.1),rgba(1,7,12,.98) 36%)}.section-head b{font-size:14px}.section-head span{font-size:9px}.trial-card p{font-size:10px}.plan{padding:14px 9px}.plan strong{font-size:22px}}
+
+@media(max-width:700px){.poster-wrap{width:100%;height:auto;min-height:0;aspect-ratio:auto}.poster{display:block;width:100%;height:auto;min-height:0;object-fit:contain}.subscription-page{background:linear-gradient(180deg,#02080d 0%,#02080d 100%)}main,.subscription-page{padding-top:0}.poster-wrap + *{margin-top:0}.section,.card,.trial-card,.plans-section{margin-top:10px}}
