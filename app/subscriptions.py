@@ -155,13 +155,13 @@ async def start_trial_for_user(user_data):
             raise ValueError("التجربة المجانية فعالة حاليًا")
         days = int(await setting_get(db, "trial_days", settings.trial_days) or 3)
         trial_exp = now + timedelta(days=days)
+        channel_link = await get_channel_join_link(settings.telegram_channel_id)
         user.trial_start = now
         user.trial_expires = trial_exp
         user.trial_used_at = now
         user.status = "trial"
         user.updated_at = now
         await db.commit()
-    channel_link = await get_channel_join_link(settings.telegram_channel_id)
     return {"trial_expires": trial_exp, "channel_link": channel_link}
 
 async def create_invoice_for_user(user_data, plan_key):
