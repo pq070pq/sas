@@ -104,32 +104,20 @@ async def sync_user_subscription(db, user, sub=None):
         user.status = "expired"
     user.updated_at = utcnow()
 
-async def create_private_invite(telegram_id: int, kind: str, channel_id: str, hours: int = 48):
+async def get_channel_join_link(channel_id: str):
+    """Return a reusable channel link; the bot then auto-approves eligible join requests."""
     if not channel_id:
-        raise RuntimeError(f"لم يتم إعداد قناة {kind}")
-    expires = utcnow() + timedelta(hours=hours)
-    link = await bot_api("createChatInviteLink", {
-        "chat_id": channel_id,
-        "name": f"SAS PRO {kind} {telegram_id}",
-        "expire_date": int(expires.timestamp()),
-        "member_limit": 1,
-        "creates_join_request": False,
-    })
-    invite_link = link.get("invite_link") if isinstance(link, dict) else None
-    if not invite_link:
-        raise RuntimeError("Telegram لم يُرجع رابط دعوة صالحًا")
-    async with SessionLocal() as db:
-        db.add(Invite(
-            telegram_id=telegram_id,
-            kind=kind,
-            channel_id=str(channel_id),
-            invite_link=invite_link,
-            expires_at=expires,
-            member_limit=1,
-            used=False,
-        ))
-        await db.commit()
-    return invite_link, expires
+        raise RuntimeError("لم يتم إعداد قناة SAS PRO")
+    chat = await bot_api("getChat", {"chat_id": channel_id})
+    username = chat.get("username") if isinstance(chat, dict) else None
+    if username:
+        return f"https://t.me/{username}"
+    link = await bot_api("exportChatInviteLink", {"chat_id": channel_id})
+    invite = link.get("invite_link") if isinstance(link, dict) else None
+    if not invite:
+        raise RuntimeError("تعذر الحصول على رابط الانضمام للقناة")
+    return invite
+
 
 async def start_trial_for_user(user_data):
     telegram_id = int(user_data["id"])
@@ -154,17 +142,15 @@ async def start_trial_for_user(user_data):
         if user.trial_expires and aware(user.trial_expires) > now:
             raise ValueError("التجربة المجانية فعالة حاليًا")
         days = int(await setting_get(db, "trial_days", settings.trial_days) or 3)
-    link, link_expires = await create_private_invite(telegram_id, "trial", settings.trial_channel_id, int(settings.invite_hours))
-    trial_exp = now + timedelta(days=days)
-    async with SessionLocal() as db:
-        user = (await db.execute(__import__("sqlalchemy").select(User).where(User.telegram_id == telegram_id))).scalars().first()
+        trial_exp = now + timedelta(days=days)
         user.trial_start = now
         user.trial_expires = trial_exp
         user.trial_used_at = now
         user.status = "trial"
         user.updated_at = now
         await db.commit()
-    return {"trial_expires": trial_exp, "invite_link": link, "invite_expires": link_expires}
+    channel_link = await get_channel_join_link(settings.telegram_channel_id)
+    return {"trial_expires": trial_exp, "channel_link": channel_link}
 
 async def create_invoice_for_user(user_data, plan_key):
     plans = await get_plans()
@@ -258,14 +244,16 @@ async def apply_successful_payment(message, db):
     ))
     await db.commit()
 
-    await bot_api("unbanChatMember", {"chat_id": settings.telegram_channel_id, "user_id": telegram_id, "only_if_banned": True})
-    invite_link, invite_exp = await create_private_invite(telegram_id, "paid", settings.telegram_channel_id, int(settings.invite_hours))
+    try:
+        await bot_api("unbanChatMember", {"chat_id": settings.telegram_channel_id, "user_id": telegram_id, "only_if_banned": True})
+    except Exception:
+        pass
+    channel_link = await get_channel_join_link(settings.telegram_channel_id)
     return {
         "ok": True,
         "expires_at": expires,
         "starts_at": start,
-        "invite_link": invite_link,
-        "invite_expires": invite_exp,
+        "channel_link": channel_link,
         "plan": plan,
         "telegram_id": telegram_id,
         "charge_id": charge,
@@ -301,4 +289,9 @@ async def grant_access(telegram_id, days=None, forever=False):
         user.warning_sent_at = None
         user.updated_at = now
         await db.commit()
-    # فك الحظر خطوة اختيارية؛ لا يجب أن تمنع تفعيل الاشتراك إذا رفضها Telegram\n    try:\n        await bot_api("unbanChatMember", {"chat_id": settings.telegram_channel_id, "user_id": telegram_id, "only_if_banned": True})\n    except Exception:\n        pass\n    link, link_exp = await create_private_invite(telegram_id, "paid", settings.telegram_channel_id, int(settings.invite_hours))    return exp, link, link_exp
+    try:
+        await bot_api("unbanChatMember", {"chat_id": settings.telegram_channel_id, "user_id": telegram_id, "only_if_banned": True})
+    except Exception:
+        pass
+    channel_link = await get_channel_join_link(settings.telegram_channel_id)
+    return exp, channel_link
