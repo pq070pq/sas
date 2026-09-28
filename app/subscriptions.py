@@ -168,7 +168,7 @@ async def start_trial_for_user(user_data):
             raise ValueError("التجربة المجانية فعالة حاليًا")
         days = int(await setting_get(db, "trial_days", settings.trial_days) or 30)
         trial_exp = now + timedelta(days=days)
-        channel_link, invite_expires = await create_user_channel_invite(telegram_id, "TRIAL", trial_exp)
+        channel_link, invite_expires = await create_user_channel_invite(telegram_id, "TRIAL")
         user.trial_start = now
         user.trial_expires = trial_exp
         user.trial_used_at = now
@@ -277,7 +277,7 @@ async def apply_successful_payment(message, db):
         await bot_api("unbanChatMember", {"chat_id": settings.telegram_channel_id, "user_id": telegram_id, "only_if_banned": True})
     except Exception:
         pass
-    channel_link, invite_expires = await create_user_channel_invite(telegram_id, "PRO", expires)
+    channel_link, invite_expires = await create_user_channel_invite(telegram_id, "PRO")
     return {
         "ok": True,
         "expires_at": expires,
@@ -323,5 +323,5 @@ async def grant_access(telegram_id, days=None, forever=False):
         await bot_api("unbanChatMember", {"chat_id": settings.telegram_channel_id, "user_id": telegram_id, "only_if_banned": True})
     except Exception:
         pass
-    channel_link, invite_expires = await create_user_channel_invite(telegram_id, "ADMIN", exp)
+    channel_link, invite_expires = await create_user_channel_invite(telegram_id, "ADMIN")
     return exp, channel_link, invite_expires
