@@ -142,3 +142,6 @@ button:active{transform:translateY(1px)}
   .poster-wrap + *{margin-top:0}
   .status-card,.trial-card,.plans,.terms-note{margin-top:10px}
 }
+
+.access-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.channel-btn,.terminal-btn{width:100%}.channel-btn{border:1px solid rgba(45,244,255,.45);border-radius:13px;padding:11px 15px;background:rgba(45,244,255,.08);color:#dffcff;font-weight:1000;white-space:nowrap}.channel-btn:hover{background:rgba(45,244,255,.14)}
+@media(max-width:560px){.access-actions{grid-template-columns:1fr}}
