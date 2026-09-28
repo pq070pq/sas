@@ -38,6 +38,7 @@ function renderStatus(x){
  document.getElementById('subDays').textContent=x.expires_at?fmtDays(new Date(),x.expires_at):'—';
  document.getElementById('trialState').textContent=x.trial_available?'متاحة مرة واحدة':(x.trial_expires?'منتهية/مستخدمة':'غير متاحة');
  document.getElementById('terminalBtn').hidden=!active;
+ document.getElementById('channelBtn').hidden=!active;
  if(x.trial_expires&&new Date(x.trial_expires)>new Date()){document.getElementById('trialState').textContent='🎁 فعالة حتى '+fmtDate(x.trial_expires);}
  if(!x.trial_available)document.getElementById('trialBtn').disabled=true;
 }
@@ -62,7 +63,7 @@ async function continueTerms(){
   if(termAction==='trial'){
    const d=await api('/api/subscription/trial',{method:'POST'});
    closeTerms();
-   if(tg?.openLink)tg.openLink(d.channel_link);
+   if(tg?.openTelegramLink)tg.openTelegramLink(d.channel_link); else if(tg?.openLink)tg.openLink(d.channel_link);
    else window.open(d.channel_link,'_blank');
   }else if(termAction?.startsWith('buy:')){
    const plan=termAction.slice(4);
@@ -71,6 +72,14 @@ async function continueTerms(){
    if(tg?.openInvoice)tg.openInvoice(d.invoice_link,()=>setTimeout(load,1200));
    else if(tg?.openLink)tg.openLink(d.invoice_link);
   }else closeTerms();
+ }catch(e){alert(e.message);}
+}
+async function openChannel(){
+ try{
+  const d=await api('/api/channel/access');
+  if(tg?.openTelegramLink)tg.openTelegramLink(d.url);
+  else if(tg?.openLink)tg.openLink(d.url);
+  else window.open(d.url,'_blank');
  }catch(e){alert(e.message);}
 }
 async function openTerminal(){
