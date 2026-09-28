@@ -349,14 +349,59 @@ async def terms():
 
 @app.post("/api/terms/accept")
 async def accept_terms(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    now = utcnow()
     row = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
     if not row:
-        row = User(telegram_id=user["id"], username=user.get("username"), first_name=user.get("first_name"))
+        row = User(
+            telegram_id=user["id"],
+            username=user.get("username"),
+            first_name=user.get("first_name"),
+            last_name=user.get("last_name"),
+        )
         db.add(row)
-    row.terms_accepted_at = utcnow()
+        await db.flush()
+    else:
+        row.username = user.get("username")
+        row.first_name = user.get("first_name")
+        row.last_name = user.get("last_name")
+    row.terms_accepted_at = now
     row.terms_version = TERMS_VERSION
+    row.updated_at = now
     await db.commit()
-    return {"ok": True, "version": TERMS_VERSION}
+
+    # أول موافقة على الشروط تمنح المستخدم شهرًا مجانيًا مرة واحدة.
+    # يتم إنشاء رابط قناة أحادي الاستخدام ثم فتحه مباشرة من Mini App.
+    trial = None
+    if (
+        int(user["id"]) != int(settings.owner_telegram_id)
+        and not row.trial_used_at
+        and not row.free_access
+        and not (
+            row.subscription_expires
+            and aware(row.subscription_expires) > now
+            and row.status == "active"
+        )
+    ):
+        try:
+            trial = await start_trial_for_user(user)
+        except Exception:
+            # لا نفشل قبول الشروط إذا تعذر إنشاء رابط القناة مؤقتًا؛
+            # يستطيع المستخدم إعادة فتح التطبيق والمحاولة مرة أخرى.
+            trial = None
+
+    return {
+        "ok": True,
+        "version": TERMS_VERSION,
+        "trial_started": bool(trial),
+        "trial": (
+            {
+                "trial_expires": trial["trial_expires"].isoformat(),
+                "channel_link": trial["channel_link"],
+                "invite_expires": trial["invite_expires"].isoformat(),
+            }
+            if trial else None
+        ),
+    }
 
 @app.get("/api/me")
 async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
@@ -485,6 +530,14 @@ async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends
             trial += 1
     payments = (await db.execute(select(Payment))).scalars().all()
     owner = (await db.execute(select(User).where(User.telegram_id == int(settings.owner_telegram_id)))).scalars().first()
+    # إذا كان المالك هو المستخدم الحالي، نستخدم بيانات Telegram مباشرة حتى لا
+    # تظهر بطاقة OWNER فارغة عند عدم وجود سجل قديم في قاعدة البيانات.
+    owner_data = {
+        "telegram_id": int(settings.owner_telegram_id),
+        "first_name": owner.first_name if owner else (user.get("first_name") if int(user["id"]) == int(settings.owner_telegram_id) else None),
+        "last_name": owner.last_name if owner else (user.get("last_name") if int(user["id"]) == int(settings.owner_telegram_id) else None),
+        "username": owner.username if owner else (user.get("username") if int(user["id"]) == int(settings.owner_telegram_id) else None),
+    }
     return {
         "active": active,
         "expired": expired,
@@ -492,12 +545,7 @@ async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends
         "new_users": len([u for u in users if u.created_at and (now - aware(u.created_at)).days < 30]),
         "payments": len(payments),
         "stars": sum(p.stars for p in payments),
-        "owner": {
-            "telegram_id": int(settings.owner_telegram_id),
-            "first_name": owner.first_name if owner else None,
-            "last_name": owner.last_name if owner else None,
-            "username": owner.username if owner else None,
-        },
+        "owner": owner_data,
     }
 
 @app.get("/api/admin/users")
