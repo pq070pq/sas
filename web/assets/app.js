@@ -26,7 +26,7 @@ async function load(){
  }catch(e){document.body.innerHTML='<div class="fatal">تعذر التحقق من Telegram. افتح SAS PRO من داخل Telegram.</div>';}
 }
 
-function renderTrialCard(days){document.querySelector("#trialCard p").textContent=days+" أيام • تجربة مجانية • يمكن تمديدها أو تعديل مدتها من الإدارة.";}
+function renderTrialCard(days){document.querySelector("#trialCard p").textContent=days+" يوم • تجربة مجانية • دخول للقناة بطلب يتم قبوله تلقائيًا بعد التفعيل.";}
 
 function renderStatus(x){
  const active=!!x.pro;
@@ -38,6 +38,7 @@ function renderStatus(x){
  document.getElementById('subDays').textContent=x.expires_at?fmtDays(new Date(),x.expires_at):'—';
  document.getElementById('trialState').textContent=x.trial_available?'متاحة مرة واحدة':(x.trial_expires?'منتهية/مستخدمة':'غير متاحة');
  document.getElementById('terminalBtn').hidden=!active;
+ document.getElementById('channelBtn').hidden=!active;
  if(x.trial_expires&&new Date(x.trial_expires)>new Date()){document.getElementById('trialState').textContent='🎁 فعالة حتى '+fmtDate(x.trial_expires);}
  if(!x.trial_available)document.getElementById('trialBtn').disabled=true;
 }
@@ -62,7 +63,7 @@ async function continueTerms(){
   if(termAction==='trial'){
    const d=await api('/api/subscription/trial',{method:'POST'});
    closeTerms();
-   if(tg?.openLink)tg.openLink(d.channel_link);
+   if(tg?.openTelegramLink)tg.openTelegramLink(d.channel_link); else if(tg?.openLink)tg.openLink(d.channel_link);
    else window.open(d.channel_link,'_blank');
   }else if(termAction?.startsWith('buy:')){
    const plan=termAction.slice(4);
@@ -71,6 +72,14 @@ async function continueTerms(){
    if(tg?.openInvoice)tg.openInvoice(d.invoice_link,()=>setTimeout(load,1200));
    else if(tg?.openLink)tg.openLink(d.invoice_link);
   }else closeTerms();
+ }catch(e){alert(e.message);}
+}
+async function openChannel(){
+ try{
+  const d=await api('/api/channel/access');
+  if(tg?.openTelegramLink)tg.openTelegramLink(d.url);
+  else if(tg?.openLink)tg.openLink(d.url);
+  else window.open(d.url,'_blank');
  }catch(e){alert(e.message);}
 }
 async function openTerminal(){
@@ -121,7 +130,15 @@ async function addStaff(){
 }
 async function staffToggle(id,enabled){try{await api('/api/admin/staff/'+id+'/'+(enabled?'enable':'disable'),{method:'POST'});await loadStaff();}catch(e){alert(e.message);}}
 async function staffDelete(id){if(!confirm('حذف هذا المشرف؟'))return;try{await api('/api/admin/staff/'+id,{method:'DELETE'});await loadStaff();}catch(e){alert(e.message);}}
-async function loadAdminStats(){const d=await api('/api/admin/overview');document.getElementById('adminStats').innerHTML=[['active','🟢 النشطون'],['expired','🔴 المنتهية'],['trial_users','🎁 التجارب'],['new_users','👥 الجدد'],['payments','💳 المدفوعات'],['stars','⭐ Stars']].map(x=>'<div><small>'+x[1]+'</small><strong>'+d[x[0]]+'</strong></div>').join('');}
+async function loadAdminStats(){
+ const d=await api('/api/admin/overview');
+ document.getElementById('adminStats').innerHTML=[['active','🟢 النشطون'],['expired','🔴 المنتهية'],['trial_users','🎁 التجارب'],['new_users','👥 الجدد'],['payments','💳 المدفوعات'],['stars','⭐ Stars']].map(x=>'<div><small>'+x[1]+'</small><strong>'+d[x[0]]+'</strong></div>').join('');
+ const o=d.owner||{};
+ const full=[o.first_name,o.last_name].filter(Boolean).join(' ')||'مالك SAS PRO';
+ document.getElementById('ownerName').textContent=full;
+ document.getElementById('ownerUsername').textContent=o.username?'@'+o.username:'بدون Username';
+ document.getElementById('ownerId').textContent='Telegram ID: '+(o.telegram_id||'—');
+}
 async function adminSearch(){try{const q=document.getElementById('adminSearch').value.trim();const rows=await api('/api/admin/users'+(q?'?q='+encodeURIComponent(q):''));document.getElementById('adminUsers').innerHTML=rows.map(u=>{
  const status=u.free_access?'♾️ دائم':(u.subscription_expires&&new Date(u.subscription_expires)>new Date()?'🟢 فعال':'🔴 منتهي');
  return '<div class="user-row"><div><b>'+esc(u.first_name||u.username||'بدون اسم')+'</b><br><small>ID: '+esc(u.telegram_id)+' '+(u.username?'@'+esc(u.username):'')+'</small><br><small>'+status+' — '+fmtDate(u.subscription_expires)+'</small></div>'+

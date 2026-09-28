@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_webapp_short_name: str = ""
     telegram_webhook_secret: str = ""
+    telegram_webhook_auto_configure: bool = True
     telegram_channel_id: str = ""
     telegram_channel_link: str = ""
     owner_telegram_id: int = 0
@@ -22,10 +23,10 @@ class Settings(BaseSettings):
     three_month_sar: int = 250
     six_month_sar: int = 500
     yearly_sar: int = 1000
-    trial_days: int = 3
+    trial_days: int = 30
     invite_hours: int = 48
     trial_channel_id: str = ""
-    expiry_warning_hours: int = 168
+    expiry_warning_hours: int = 72
     holiday_radar_interval_minutes: int = 30
     radar_interval_minutes: int = 10
     cron_secret: str = ""

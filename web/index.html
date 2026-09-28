@@ -25,7 +25,7 @@
         <div><small>المتبقي</small><strong id="subDays">—</strong></div>
         <div><small>التجربة</small><strong id="trialState">—</strong></div>
       </div>
-      <button id="terminalBtn" class="terminal-btn" hidden onclick="openTerminal()">🚀 فتح SAS PRO TERMINAL</button>
+      <div class="access-actions"><button id="channelBtn" class="channel-btn" hidden onclick="openChannel()">📡 دخول إلى قناة SAS PRO</button><button id="terminalBtn" class="terminal-btn" hidden onclick="openTerminal()">🚀 فتح SAS PRO TERMINAL</button></div>
     </section>
 
     <section class="trial-card" id="trialCard">
@@ -56,6 +56,16 @@
 
     <section class="admin-stats" id="adminStats"></section>
 
+    <section class="owner-card admin-panel" id="ownerCard">
+      <div class="owner-badge">OWNER</div>
+      <div class="owner-main">
+        <div class="owner-title">🛡️ مالك SAS PRO</div>
+        <div class="owner-name" id="ownerName">جاري التحقق...</div>
+        <div class="owner-meta"><span id="ownerUsername">—</span><span id="ownerId">Telegram ID: —</span></div>
+      </div>
+      <div class="owner-lock">🔒 صلاحيات كاملة</div>
+    </section>
+
     <section class="admin-panel" id="staffPanel" hidden>
       <div class="section-head"><b>🛡️ المشرفون والصلاحيات</b><span>إدارة الوصول الإداري</span></div>
       <div class="search-row">
@@ -83,7 +93,7 @@
       <div class="section-head"><b>⚙️ إعدادات الاشتراك</b><span>التحكم في ظهور الباقات والتجربة المجانية</span></div>
       <div class="subscription-controls">
         <label class="toggle-row"><span><b>إظهار الاشتراكات المدفوعة</b><small>عند الإخفاء يظهر للمستخدم خيار التجربة المجانية فقط.</small></span><input id="paidPlansVisible" type="checkbox"></label>
-        <label class="trial-days-row"><span>مدة المجاني</span><input id="trialDays" type="number" min="1" max="365" value="3"><small>يوم — قابلة للتعديل والتمديد من الإدارة.</small></label>
+        <label class="trial-days-row"><span>مدة المجاني</span><input id="trialDays" type="number" min="1" max="365" value="30"><small>يوم — قابلة للتعديل والتمديد من الإدارة.</small></label>
         <button class="save-btn" onclick="saveSubscriptionConfig()">💾 حفظ إعدادات الاشتراك</button>
       </div>
     </section>

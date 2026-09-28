@@ -15,7 +15,7 @@ from sqlalchemy import func
 
 async def expiry_cycle():
     now = utcnow()
-    horizon = now + timedelta(days=7)
+    horizon = now + timedelta(hours=settings.expiry_warning_hours)
     async with SessionLocal() as db:
         subs = (await db.execute(select(Subscription).where(Subscription.active == True))).scalars().all()
         for sub in subs:
@@ -46,8 +46,9 @@ async def expiry_cycle():
                 try:
                     await send_message(sub.telegram_id,
                         "⚠️ <b>تنبيه الاشتراك</b>\n\n"
-                        "متبقي على اشتراكك <b>7 أيام</b>.\n"
-                        "يمكنك التجديد الآن والاستمرار بدون انقطاع."
+                        "متبقي على اشتراكك <b>3 أيام أو أقل</b>.\n"
+                        "بادر بالتجديد من صفحة التطبيق حتى يستمر وصولك بدون انقطاع.",
+                        {"inline_keyboard": [[{"text": "📱 فتح صفحة الاشتراك", "web_app": {"url": settings.app_base_url}}]]} if settings.app_base_url else None
                     )
                     sub.warning_3d_sent_at = now
                     if user:
@@ -55,6 +56,29 @@ async def expiry_cycle():
                         user.updated_at = now
                 except Exception:
                     pass
+
+        # تنبيه التجربة قبل انتهائها بثلاثة أيام، مرة واحدة فقط.
+        trial_warning_users = (await db.execute(select(User).where(
+            User.trial_expires.is_not(None),
+            User.trial_expires > now,
+            User.trial_expires <= horizon,
+            User.status == "trial",
+            User.warning_sent_at.is_(None),
+        ))).scalars().all()
+        for user in trial_warning_users:
+            remaining_days = max(1, int((aware(user.trial_expires) - now).total_seconds() // 86400))
+            try:
+                await send_message(user.telegram_id,
+                    "⚠️ <b>تنبيه قرب انتهاء التجربة المجانية</b>\n\n"
+                    f"متبقي على تجربتك المجانية <b>{remaining_days} يوم</b>.\n"
+                    "بادر بالاشتراك من صفحة التطبيق قبل انتهاء التجربة حتى لا يتوقف وصولك للقناة.\n\n"
+                    "📱 افتح صفحة SAS PRO واختر الباقة المناسبة.",
+                    {"inline_keyboard": [[{"text": "📱 فتح صفحة الاشتراك", "web_app": {"url": settings.app_base_url}}]]} if settings.app_base_url else None
+                )
+                user.warning_sent_at = now
+                user.updated_at = now
+            except Exception:
+                pass
 
         # انتهاء التجربة: استبعاد المستخدم من قناة SAS PRO الرئيسية.
         trial_users = (await db.execute(select(User).where(User.trial_expires.is_not(None), User.trial_expires <= now, User.status == "trial"))).scalars().all()
