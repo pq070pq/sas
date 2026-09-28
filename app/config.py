@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_webapp_short_name: str = ""
     telegram_webhook_secret: str = ""
+    telegram_webhook_auto_configure: bool = True
     telegram_channel_id: str = ""
     telegram_channel_link: str = ""
     owner_telegram_id: int = 0
