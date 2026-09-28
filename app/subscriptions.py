@@ -172,6 +172,7 @@ async def start_trial_for_user(user_data):
         user.trial_start = now
         user.trial_expires = trial_exp
         user.trial_used_at = now
+        user.warning_sent_at = None
         user.status = "trial"
         user.updated_at = now
         await db.commit()
