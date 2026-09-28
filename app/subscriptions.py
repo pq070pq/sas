@@ -113,11 +113,12 @@ async def sync_user_subscription(db, user, sub=None):
     user.updated_at = utcnow()
 
 async def create_user_channel_invite(telegram_id: int, kind: str, expires_at=None):
-    """Create a short-lived, user-specific join-request link.
+    """Create a short-lived, single-use direct invite for one SAS PRO user.
     
-    Telegram does not allow a bot to silently add a user to a channel. The
-    user taps the invite, Telegram creates a join request, and the webhook
-    approves it immediately after verifying active access.
+    The Mini App opens this Telegram link immediately after activation. Telegram
+    still requires the user to confirm joining the channel; a bot cannot silently
+    add a user to a private channel. The link is limited to one member and expires
+    automatically so it cannot be reused by other users.
     """
     if not settings.telegram_channel_id:
         raise RuntimeError("لم يتم إعداد قناة SAS PRO")
@@ -126,7 +127,8 @@ async def create_user_channel_invite(telegram_id: int, kind: str, expires_at=Non
         "chat_id": settings.telegram_channel_id,
         "name": f"SAS {kind} {int(telegram_id)}"[:32],
         "expire_date": int(expires_at.timestamp()),
-        "creates_join_request": True,
+        "member_limit": 1,
+        "creates_join_request": False,
     })
     link = result.get("invite_link") if isinstance(result, dict) else result
     if not link:
