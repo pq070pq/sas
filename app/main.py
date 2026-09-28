@@ -811,6 +811,14 @@ async def terminal_access(user=Depends(require_pro), db: AsyncSession = Depends(
         "expires_at": expires.isoformat(),
     }
 
+@app.get("/api/channel/access")
+async def channel_access(user=Depends(require_pro)):
+    try:
+        link, expires = await create_user_channel_invite(int(user["id"]), "APP")
+        return {"ok": True, "url": link, "invite_expires": expires.isoformat()}
+    except Exception as exc:
+        raise HTTPException(503, str(exc))
+
 @app.get("/api/market/status")
 async def market_status_api(_: dict = Depends(require_pro)):
     return market_status()
