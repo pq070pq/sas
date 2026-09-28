@@ -47,7 +47,8 @@ async def expiry_cycle():
                     await send_message(sub.telegram_id,
                         "⚠️ <b>تنبيه الاشتراك</b>\n\n"
                         "متبقي على اشتراكك <b>3 أيام أو أقل</b>.\n"
-                        "بادر بالتجديد من صفحة التطبيق حتى يستمر وصولك بدون انقطاع."
+                        "بادر بالتجديد من صفحة التطبيق حتى يستمر وصولك بدون انقطاع.",
+                        {"inline_keyboard": [[{"text": "📱 فتح صفحة الاشتراك", "web_app": {"url": settings.app_base_url}}]]} if settings.app_base_url else None
                     )
                     sub.warning_3d_sent_at = now
                     if user:
@@ -71,7 +72,8 @@ async def expiry_cycle():
                     "⚠️ <b>تنبيه قرب انتهاء التجربة المجانية</b>\n\n"
                     f"متبقي على تجربتك المجانية <b>{remaining_days} يوم</b>.\n"
                     "بادر بالاشتراك من صفحة التطبيق قبل انتهاء التجربة حتى لا يتوقف وصولك للقناة.\n\n"
-                    "📱 افتح SAS PRO من البوت واختر الباقة المناسبة."
+                    "📱 افتح صفحة SAS PRO واختر الباقة المناسبة.",
+                    {"inline_keyboard": [[{"text": "📱 فتح صفحة الاشتراك", "web_app": {"url": settings.app_base_url}}]]} if settings.app_base_url else None
                 )
                 user.warning_sent_at = now
                 user.updated_at = now
