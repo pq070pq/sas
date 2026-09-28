@@ -692,14 +692,26 @@ async def scan_us_low_price_stocks():
         ),
         reverse=True,
     )
+    filtered = [x for x in diagnostics if x.get("status") == "filtered"]
+    errors = [x for x in diagnostics if x.get("status") == "error"]
+
     return {
         "stocks": results,
         "diagnostics": {
             "candidates": candidate_count,
             "shortlist": len(shortlist),
             "passed": len(results),
-            "filtered": sum(1 for x in diagnostics if x.get("status") == "filtered"),
-            "errors": sum(1 for x in diagnostics if x.get("status") == "error"),
+            "filtered": len(filtered),
+            "errors": len(errors),
+            "filtered_examples": [
+                {"symbol": x.get("symbol"), "reason": x.get("reason"), "data_source": x.get("data_source")}
+                for x in filtered[:20]
+            ],
+            "error_examples": [
+                {"symbol": x.get("symbol"), "reason": x.get("reason")}
+                for x in errors[:10]
+            ],
+            "passed_examples": [x.get("symbol") for x in results[:20]],
             "price_source": "Nasdaq Screener/Twelve Data + live quote for passed symbols",
         },
     }
