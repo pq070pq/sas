@@ -20,7 +20,7 @@ from .market_calendar import market_status
 from .holiday_radar import stock_radar_enabled
 from .holiday_radar import holiday_radar_scheduler
 from .timeutil import utcnow, aware
-from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, get_subscription_config, setting_set, setting_get, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings, get_channel_join_link
+from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, get_subscription_config, setting_set, setting_get, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings, create_user_channel_invite
 from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
 
 app = FastAPI(title="SAS PRO", version="2.1.0")
@@ -152,14 +152,14 @@ async def set_channel_access(telegram_id: int, allow: bool, expires_at=None):
         pass
 
     try:
-        channel_link = await get_channel_join_link(settings.telegram_channel_id)
+        channel_link, invite_expires = await create_user_channel_invite(telegram_id, "ACCESS", expires_at)
         await send_message(
             telegram_id,
             "✅ <b>تم تفعيل وصولك إلى SAS PRO</b>\n\n"
-            "اضغط «انضمام لقناة SAS PRO» ثم سيوافق البوت على طلبك تلقائيًا.",
-            {"inline_keyboard": [[{"text": "🚀 انضمام لقناة SAS PRO", "url": channel_link}]]},
+            "اضغط «انضمام الآن» وسيتم قبول طلب دخولك تلقائيًا لأن وصولك فعال.",
+            {"inline_keyboard": [[{"text": "🚀 انضمام الآن إلى SAS PRO", "url": channel_link}]]},
         )
-        return {"ok": True, "action": "join_link_sent"}
+        return {"ok": True, "action": "join_link_sent", "invite_expires": invite_expires.isoformat()}
     except Exception as exc:
         return {"ok": False, "reason": str(exc)}
 
@@ -477,6 +477,7 @@ async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends
         if u.trial_used_at:
             trial += 1
     payments = (await db.execute(select(Payment))).scalars().all()
+    owner = (await db.execute(select(User).where(User.telegram_id == int(settings.owner_telegram_id)))).scalars().first()
     return {
         "active": active,
         "expired": expired,
@@ -484,6 +485,12 @@ async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends
         "new_users": len([u for u in users if u.created_at and (now - aware(u.created_at)).days < 30]),
         "payments": len(payments),
         "stars": sum(p.stars for p in payments),
+        "owner": {
+            "telegram_id": int(settings.owner_telegram_id),
+            "first_name": owner.first_name if owner else None,
+            "last_name": owner.last_name if owner else None,
+            "username": owner.username if owner else None,
+        },
     }
 
 @app.get("/api/admin/users")
