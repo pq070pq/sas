@@ -1,5 +1,6 @@
 import asyncio
 import httpx
+import time
 from .config import settings
 from .panwatch import technical_targets
 from .news import company_news
@@ -12,6 +13,12 @@ from .market import quote
 MIN_PRICE = 0.30
 MAX_PRICE = 6.00
 ALLOWED_EXCHANGES = {"NASDAQ"}
+
+# Daily candles change slowly, so cache them between 5-minute radar cycles.
+_CANDLE_CACHE_TTL = 900
+_candle_cache = {}
+_panwatch_semaphore = asyncio.Semaphore(8)
+_twelvedata_fallback_semaphore = asyncio.Semaphore(1)
 
 
 def _f(value, default=0.0):
@@ -341,50 +348,65 @@ async def discover_low_price_stocks():
     return merged
 
 
-async def _get_analysis_candles(client, symbol: str):
-    """Get daily OHLCV from PanWatch, with Twelve Data fallback."""
-    base = settings.panwatch_base_url.rstrip("/")
+async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool = False):
+    """Get daily OHLCV with caching and a strictly limited Twelve Data fallback."""
+    key = symbol.upper()
+    now = time.monotonic()
+    cached = _candle_cache.get(key)
+    if cached and now - cached[0] < _CANDLE_CACHE_TTL:
+        return cached[1], cached[2]
 
-    # Primary: PanWatch
+    base = settings.panwatch_base_url.rstrip("/")
+    candles = []
+
+    # Primary: PanWatch, rate-limited so the radar never floods the service.
     try:
-        r = await client.get(
-            f"{base}/api/klines/{symbol.upper()}",
-            params={"market": "US", "days": 90, "interval": "1d"},
-        )
+        async with _panwatch_semaphore:
+            r = await client.get(
+                f"{base}/api/klines/{key}",
+                params={"market": "US", "days": 90, "interval": "1d"},
+            )
         r.raise_for_status()
         candles = _parse_candles(r.json().get("klines", []))
         if len(candles) >= 30:
+            _candle_cache[key] = (now, candles, "PanWatch")
             return candles, "PanWatch"
     except Exception:
-        pass
+        candles = []
 
-    # Fallback: Twelve Data daily candles
-    if settings.twelve_data_api_key:
+    # Only the most important shortlist symbols get a single Twelve Data fallback.
+    # This prevents 429 storms when 100+ symbols have no PanWatch candles.
+    if allow_twelve_fallback and settings.twelve_data_api_key:
         try:
-            r = await client.get(
-                "https://api.twelvedata.com/time_series",
-                params={
-                    "symbol": symbol.upper(),
-                    "interval": "1day",
-                    "outputsize": 90,
-                    "apikey": settings.twelve_data_api_key,
-                },
-            )
+            async with _twelvedata_fallback_semaphore:
+                r = await client.get(
+                    "https://api.twelvedata.com/time_series",
+                    params={
+                        "symbol": key,
+                        "interval": "1day",
+                        "outputsize": 90,
+                        "apikey": settings.twelve_data_api_key,
+                    },
+                )
             r.raise_for_status()
             payload = r.json()
             candles = _parse_candles(payload.get("values", []))
             if len(candles) >= 30:
                 candles.reverse()
+                _candle_cache[key] = (now, candles, "Twelve Data")
                 return candles, "Twelve Data"
         except Exception:
             pass
 
+    # Cache the failure briefly too, so the same unavailable symbol is not hammered
+    # again on every 5-minute cycle.
+    _candle_cache[key] = (now, [], "unavailable")
     return [], "unavailable"
 
 
-async def classify_faisal(symbol: str, quote: dict | None = None):
-    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
-        candles, data_source = await _get_analysis_candles(client, symbol)
+async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_fallback: bool = False):
+    async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 30)) as client:
+        candles, data_source = await _get_analysis_candles(client, symbol, allow_twelve_fallback)
 
     if len(candles) < 30:
         return {
@@ -625,12 +647,22 @@ async def scan_us_low_price_stocks():
 
     # Keep the radar responsive: analyze the staged shortlist concurrently.
     semaphore = asyncio.Semaphore(16)
+    # Twelve Data fallback is reserved for the top 30 symbols only.
+    twelve_fallback_symbols = {
+        str(row.get("symbol") or "").upper()
+        for row in shortlist[:30]
+        if row.get("symbol")
+    }
 
     async def analyze_candidate(row):
         symbol = str(row.get("symbol") or "").upper()
         async with semaphore:
             try:
-                classification = await classify_faisal(symbol, row)
+                classification = await classify_faisal(
+                    symbol,
+                    row,
+                    allow_twelve_fallback=symbol in twelve_fallback_symbols,
+                )
                 if not classification.get("pass"):
                     return None, {
                         "symbol": symbol,
