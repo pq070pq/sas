@@ -17,7 +17,6 @@ _btc_alert_reference = None
 MACRO = [
     ("BTC/USD", "₿ بيتكوين"),
     ("XAU/USD", "🥇 الذهب"),
-    ("WTI/USD", "🛢 النفط"),
 ]
 
 
@@ -52,7 +51,7 @@ async def holiday_snapshot():
 
 
 async def publish_holiday_radar():
-    """في عطلة السوق/نهاية الأسبوع: عرض دوري لبيتكوين والذهب والنفط."""
+    """في عطلة السوق/نهاية الأسبوع: عرض دوري لبيتكوين والذهب."""
     global _last_snapshot_at, _last_btc_alert_at, _btc_alert_reference
 
     if not settings.telegram_channel_id or not settings.telegram_bot_token:
@@ -121,7 +120,7 @@ async def publish_holiday_radar():
 
         await send_message(settings.telegram_channel_id, "\n".join(lines))
         _last_snapshot_at = now
-        return {"sent": True, "assets": ["BTC", "GOLD", "OIL"]}
+        return {"sent": True, "assets": ["BTC", "GOLD"]}
 
     except Exception as exc:
         return {"sent": False, "reason": f"holiday radar failed: {exc}"}
