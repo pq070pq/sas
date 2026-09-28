@@ -640,14 +640,36 @@ async def scan_us_low_price_stocks():
                         "data_source": classification.get("data_source"),
                     }
 
-                # هذه الثلاث عمليات مستقلة، لذلك ننفذها بالتوازي للسهم المقبول.
-                targets, news, live = await asyncio.gather(
+                # الأهداف والأخبار مستقلان ويمكن جلبهما بالتوازي.
+                # لا نطلب Twelve Data quote لكل سهم مقبول؛ مصدر الاكتشاف
+                # يحمل السعر/التغير بالفعل، واستدعاء quote الجماعي يسبب 429
+                # ويمنع الإشارة من الوصول للقناة. نستخدم quote فقط إذا لم
+                # يتوفر سعر صالح من بيانات الاكتشاف.
+                targets, news = await asyncio.gather(
                     technical_targets(symbol),
                     company_news(symbol, days=2),
-                    quote(symbol),
                 )
-                live_price = _f(live.get("price"), 0)
-                live_change = live.get("change_pct")
+
+                live_price = _f(row.get("live_price"), 0)
+                if live_price <= 0:
+                    live_price = _f(row.get("price"), 0)
+
+                live_change = row.get("live_change_pct")
+                if live_change is None:
+                    live_change = row.get("change_pct")
+
+                live_source = row.get("live_price_source") or row.get("source") or "scan data"
+
+                # fallback وحيد عند الحاجة فقط.
+                if live_price <= 0:
+                    try:
+                        live = await quote(symbol)
+                        live_price = _f(live.get("price"), 0)
+                        live_change = live.get("change_pct") if live.get("change_pct") is not None else live_change
+                        live_source = live.get("source") or "Twelve Data"
+                    except Exception:
+                        pass
+
                 result_row = {
                     **row,
                     "symbol": symbol,
@@ -658,12 +680,14 @@ async def scan_us_low_price_stocks():
                     "news_count": len(news) if isinstance(news, list) else 0,
                     "live_price": live_price if live_price > 0 else None,
                     "live_change_pct": live_change,
-                    "live_price_source": live.get("source") or "unavailable",
+                    "live_price_source": live_source,
                 }
+
                 if live_price > 0:
                     result_row["price"] = live_price
-                    if live_change is not None:
-                        result_row["change_pct"] = live_change
+                if live_change is not None:
+                    result_row["change_pct"] = live_change
+
                 return (result_row, None)
             except Exception as exc:
                 return None, {
