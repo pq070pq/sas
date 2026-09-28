@@ -545,12 +545,7 @@ async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends
         "new_users": len([u for u in users if u.created_at and (now - aware(u.created_at)).days < 30]),
         "payments": len(payments),
         "stars": sum(p.stars for p in payments),
-        "owner": {
-            "telegram_id": int(settings.owner_telegram_id),
-            "first_name": owner.first_name if owner else None,
-            "last_name": owner.last_name if owner else None,
-            "username": owner.username if owner else None,
-        },
+        "owner": owner_data,
     }
 
 @app.get("/api/admin/users")
