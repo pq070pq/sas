@@ -36,6 +36,8 @@ services:
     build:
       context: .
       dockerfile: docker/openterminal-web.Dockerfile
+      args:
+        NEXT_BASE_PATH: ${OPENTERMINAL_BASE_PATH:-/terminal}
     restart: unless-stopped
     environment:
       - API_URL=http://openterminal-api:4000
