@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     trial_channel_id: str = ""
     expiry_warning_hours: int = 168
     holiday_radar_interval_minutes: int = 30
-    radar_interval_minutes: int = 5
+    radar_interval_minutes: int = 10
     cron_secret: str = ""
     openterminal_base_url: str = ""
     openterminal_api_url: str = "http://openterminal-api:4000"
