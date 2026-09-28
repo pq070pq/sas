@@ -601,8 +601,30 @@ async def scan_us_low_price_stocks():
     diagnostics = []
     candidate_count = len(candidates)
 
-    # Keep the radar responsive: analyze candidates concurrently, but cap concurrency.
-    semaphore = asyncio.Semaphore(8)
+    # رادار مستمر كل 5 دقائق: نستخدم مسحاً مرحلياً حتى لا تعلق دورة الرصد
+    # على آلاف طلبات البيانات. نأخذ أعلى الأسهم حركةً + أعلى الأسهم تداولاً،
+    # ثم نطبق منهج فيصل كاملاً على هذه القائمة.
+    by_change = sorted(
+        candidates,
+        key=lambda x: float(x.get("change_pct") or 0),
+        reverse=True,
+    )
+    by_volume = sorted(
+        candidates,
+        key=lambda x: float(x.get("volume") or 0),
+        reverse=True,
+    )
+    shortlist = []
+    seen_shortlist = set()
+    for row in by_change[:120] + by_volume[:80]:
+        symbol = str(row.get("symbol") or "").upper()
+        if not symbol or symbol in seen_shortlist:
+            continue
+        seen_shortlist.add(symbol)
+        shortlist.append(row)
+
+    # Keep the radar responsive: analyze the staged shortlist concurrently.
+    semaphore = asyncio.Semaphore(16)
 
     async def analyze_candidate(row):
         symbol = str(row.get("symbol") or "").upper()
@@ -617,9 +639,13 @@ async def scan_us_low_price_stocks():
                         "reason": classification.get("reason"),
                         "data_source": classification.get("data_source"),
                     }
-                targets = await technical_targets(symbol)
-                news = await company_news(symbol, days=2)
-                live = await quote(symbol)
+
+                # هذه الثلاث عمليات مستقلة، لذلك ننفذها بالتوازي للسهم المقبول.
+                targets, news, live = await asyncio.gather(
+                    technical_targets(symbol),
+                    company_news(symbol, days=2),
+                    quote(symbol),
+                )
                 live_price = _f(live.get("price"), 0)
                 live_change = live.get("change_pct")
                 result_row = {
@@ -648,7 +674,7 @@ async def scan_us_low_price_stocks():
                 }
 
     analyzed = await asyncio.gather(
-        *(analyze_candidate(row) for row in candidates),
+        *(analyze_candidate(row) for row in shortlist),
         return_exceptions=False,
     )
 
@@ -666,12 +692,11 @@ async def scan_us_low_price_stocks():
         ),
         reverse=True,
     )
-    # لا نختار عدداً ثابتاً من النتائج: نعيد كل الأسهم التي اكتملت شروط المنهج فقط.
-    # السهم غير المطابق لا يظهر، ويمكن أن يدخل لاحقاً عند تحقق الشروط في دورة مسح جديدة.
     return {
         "stocks": results,
         "diagnostics": {
             "candidates": candidate_count,
+            "shortlist": len(shortlist),
             "passed": len(results),
             "filtered": sum(1 for x in diagnostics if x.get("status") == "filtered"),
             "errors": sum(1 for x in diagnostics if x.get("status") == "error"),
