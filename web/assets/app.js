@@ -71,14 +71,14 @@ async function continueTerms(){
    if(tg?.openTelegramLink)tg.openTelegramLink(accepted.trial.channel_link);
    else if(tg?.openLink)tg.openLink(accepted.trial.channel_link);
    else window.open(accepted.trial.channel_link,'_blank');
-   setTimeout(load,900);
+   setTimeout(()=>{loadStarted=false;load();},900);
    return;
   }
 
   if(termAction?.startsWith('buy:')){
    const plan=termAction.slice(4);
    const d=await api('/api/subscription/invoice/'+encodeURIComponent(plan),{method:'POST'});
-   if(tg?.openInvoice)tg.openInvoice(d.invoice_link,()=>setTimeout(load,1200));
+   if(tg?.openInvoice)tg.openInvoice(d.invoice_link,()=>setTimeout(()=>{loadStarted=false;load();},1200));
    else if(tg?.openLink)tg.openLink(d.invoice_link);
   }
  }catch(e){alert(e.message);}
