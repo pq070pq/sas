@@ -15,7 +15,7 @@ MAX_PRICE = 6.00
 ALLOWED_EXCHANGES = {"NASDAQ"}
 
 # Daily candles change slowly, so cache them between 5-minute radar cycles.
-_CANDLE_CACHE_TTL = 900
+_CANDLE_CACHE_TTL = 600
 _candle_cache = {}
 _panwatch_semaphore = asyncio.Semaphore(8)
 _twelvedata_fallback_semaphore = asyncio.Semaphore(1)
