@@ -430,4 +430,4 @@ async def scheduler():
             await weekly_radar_report()
         except Exception:
             pass
-        await asyncio.sleep(max(60, int(settings.radar_interval_minutes) * 60))
+        await asyncio.sleep(max(600, int(settings.radar_interval_minutes) * 60))
