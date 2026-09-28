@@ -51,6 +51,13 @@ async def startup():
                         {"command":"revoke","description":"إلغاء اشتراك"},
                     ],
                 })
+            if settings.telegram_webhook_auto_configure and settings.app_base_url and settings.telegram_webhook_secret:
+                await bot_api("setWebhook", {
+                    "url": settings.app_base_url.rstrip("/") + "/api/telegram/webhook",
+                    "secret_token": settings.telegram_webhook_secret,
+                    "allowed_updates": ["message", "chat_join_request", "chat_member", "pre_checkout_query"],
+                    "drop_pending_updates": False,
+                })
         except Exception:
             pass
     asyncio.create_task(scheduler())
