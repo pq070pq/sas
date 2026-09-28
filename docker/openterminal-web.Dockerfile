@@ -1,4 +1,6 @@
 FROM node:22-slim AS build
+ARG NEXT_BASE_PATH=""
+ENV NEXT_BASE_PATH=$NEXT_BASE_PATH
 WORKDIR /app
 COPY vendor/OpenTerminal/package.json ./
 COPY vendor/OpenTerminal/web/package.json web/
