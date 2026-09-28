@@ -26,7 +26,11 @@ async function load(){
  }catch(e){document.body.innerHTML='<div class="fatal">تعذر التحقق من Telegram. افتح SAS PRO من داخل Telegram.</div>';}
 }
 
-function renderTrialCard(days){document.querySelector("#trialCard p").textContent=days+" يوم • تجربة مجانية • دخول للقناة بطلب يتم قبوله تلقائيًا بعد التفعيل.";}
+function renderTrialCard(days){
+ const d=Number(days||30);
+ document.querySelector("#trialCard p").textContent=d+" يومًا للمستخدم الجديد • تبدأ تلقائيًا بعد الموافقة على الشروط، ثم يفتح رابط القناة مباشرة.";
+ document.getElementById("trialBtn").textContent=d===30?"قراءة الشروط وبدء الشهر المجاني":"قراءة الشروط وبدء التجربة";
+}
 
 function renderStatus(x){
  const active=!!x.pro;
@@ -59,19 +63,24 @@ function closeTerms(){document.getElementById('termsModal').hidden=true;termActi
 async function continueTerms(){
  if(!document.getElementById('termsAgree').checked)return;
  try{
-  await api('/api/terms/accept',{method:'POST'});
-  if(termAction==='trial'){
-   const d=await api('/api/subscription/trial',{method:'POST'});
-   closeTerms();
-   if(tg?.openTelegramLink)tg.openTelegramLink(d.channel_link); else if(tg?.openLink)tg.openLink(d.channel_link);
-   else window.open(d.channel_link,'_blank');
-  }else if(termAction?.startsWith('buy:')){
+  const accepted=await api('/api/terms/accept',{method:'POST'});
+  closeTerms();
+
+  // أول موافقة تمنح الشهر المجاني تلقائيًا. نفتح رابط القناة مباشرة.
+  if(accepted.trial_started && accepted.trial?.channel_link){
+   if(tg?.openTelegramLink)tg.openTelegramLink(accepted.trial.channel_link);
+   else if(tg?.openLink)tg.openLink(accepted.trial.channel_link);
+   else window.open(accepted.trial.channel_link,'_blank');
+   setTimeout(load,900);
+   return;
+  }
+
+  if(termAction?.startsWith('buy:')){
    const plan=termAction.slice(4);
    const d=await api('/api/subscription/invoice/'+encodeURIComponent(plan),{method:'POST'});
-   closeTerms();
    if(tg?.openInvoice)tg.openInvoice(d.invoice_link,()=>setTimeout(load,1200));
    else if(tg?.openLink)tg.openLink(d.invoice_link);
-  }else closeTerms();
+  }
  }catch(e){alert(e.message);}
 }
 async function openChannel(){
