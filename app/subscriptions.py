@@ -112,14 +112,37 @@ async def sync_user_subscription(db, user, sub=None):
         user.status = "expired"
     user.updated_at = utcnow()
 
-async def get_channel_join_link(channel_id: str):
-    """Return the fixed SAS PRO channel link; never create temporary invite links."""
-    if not channel_id:
+async def create_user_channel_invite(telegram_id: int, kind: str, expires_at=None):
+    """Create a short-lived, user-specific join-request link.
+    
+    Telegram does not allow a bot to silently add a user to a channel. The
+    user taps the invite, Telegram creates a join request, and the webhook
+    approves it immediately after verifying active access.
+    """
+    if not settings.telegram_channel_id:
         raise RuntimeError("لم يتم إعداد قناة SAS PRO")
-    link = getattr(settings, "telegram_channel_link", "") or ""
+    expires_at = aware(expires_at) if expires_at else utcnow() + timedelta(hours=settings.invite_hours)
+    result = await bot_api("createChatInviteLink", {
+        "chat_id": settings.telegram_channel_id,
+        "name": f"SAS {kind} {int(telegram_id)}"[:32],
+        "expire_date": int(expires_at.timestamp()),
+        "creates_join_request": True,
+    })
+    link = result.get("invite_link") if isinstance(result, dict) else result
     if not link:
-        raise RuntimeError("لم يتم إعداد رابط قناة SAS PRO")
-    return link
+        raise RuntimeError("تعذر إنشاء رابط دخول القناة")
+    async with SessionLocal() as db:
+        db.add(Invite(
+            telegram_id=int(telegram_id),
+            kind=kind,
+            channel_id=str(settings.telegram_channel_id),
+            invite_link=link,
+            expires_at=expires_at,
+            member_limit=1,
+            used=False,
+        ))
+        await db.commit()
+    return link, expires_at
 
 async def start_trial_for_user(user_data):
     telegram_id = int(user_data["id"])
@@ -143,16 +166,16 @@ async def start_trial_for_user(user_data):
             raise ValueError("التجربة المجانية استُخدمت سابقًا")
         if user.trial_expires and aware(user.trial_expires) > now:
             raise ValueError("التجربة المجانية فعالة حاليًا")
-        days = int(await setting_get(db, "trial_days", settings.trial_days) or 3)
+        days = int(await setting_get(db, "trial_days", settings.trial_days) or 30)
         trial_exp = now + timedelta(days=days)
-        channel_link = await get_channel_join_link(settings.telegram_channel_id)
+        channel_link, invite_expires = await create_user_channel_invite(telegram_id, "TRIAL", trial_exp)
         user.trial_start = now
         user.trial_expires = trial_exp
         user.trial_used_at = now
         user.status = "trial"
         user.updated_at = now
         await db.commit()
-    return {"trial_expires": trial_exp, "channel_link": channel_link}
+    return {"trial_expires": trial_exp, "channel_link": channel_link, "invite_expires": invite_expires}
 
 async def create_invoice_for_user(user_data, plan_key):
     config = await get_subscription_config()
@@ -253,12 +276,13 @@ async def apply_successful_payment(message, db):
         await bot_api("unbanChatMember", {"chat_id": settings.telegram_channel_id, "user_id": telegram_id, "only_if_banned": True})
     except Exception:
         pass
-    channel_link = await get_channel_join_link(settings.telegram_channel_id)
+    channel_link, invite_expires = await create_user_channel_invite(telegram_id, "PRO", expires)
     return {
         "ok": True,
         "expires_at": expires,
         "starts_at": start,
         "channel_link": channel_link,
+        "invite_expires": invite_expires,
         "plan": plan,
         "telegram_id": telegram_id,
         "charge_id": charge,
@@ -298,5 +322,5 @@ async def grant_access(telegram_id, days=None, forever=False):
         await bot_api("unbanChatMember", {"chat_id": settings.telegram_channel_id, "user_id": telegram_id, "only_if_banned": True})
     except Exception:
         pass
-    channel_link = await get_channel_join_link(settings.telegram_channel_id)
-    return exp, channel_link
+    channel_link, invite_expires = await create_user_channel_invite(telegram_id, "ADMIN", exp)
+    return exp, channel_link, invite_expires
