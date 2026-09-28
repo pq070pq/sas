@@ -87,7 +87,7 @@ async def publish_holiday_radar():
         for label, q in rows:
             lines.append(
                 f"{label}: <b>{_fmt_price(q.get('price'))}</b> "
-                f"({_format_pct(q.get('change_pct'))})"
+                f"({_fmt_pct(q.get('change_pct'))})"
             )
 
         alert_line = None
