@@ -13,14 +13,13 @@ _last_snapshot_at = None
 _last_btc_alert_at = None
 _btc_alert_reference = None
 
+# أثناء عطلات سوق الأسهم ونهاية الأسبوع نعرض فقط الأصول التي طلبها SAS PRO.
 MACRO = [
-    ("BTC/USD", "₿ BTC"),
-    ("XAU/USD", "🥇 Gold"),
-    ("WTI/USD", "🛢 Oil"),
-    ("SPX", "📊 S&P 500"),
-    ("IXIC", "💻 Nasdaq"),
-    ("DJI", "📈 Dow Jones"),
+    ("BTC/USD", "₿ بيتكوين"),
+    ("XAU/USD", "🥇 الذهب"),
+    ("WTI/USD", "🛢 النفط"),
 ]
+
 
 def _fmt_price(value):
     if value is None:
@@ -31,6 +30,7 @@ def _fmt_price(value):
     except Exception:
         return str(value)
 
+
 def _fmt_pct(value):
     if value is None:
         return "—"
@@ -38,6 +38,7 @@ def _fmt_pct(value):
         return f"{float(value):+.2f}%"
     except Exception:
         return str(value)
+
 
 async def holiday_snapshot():
     rows = []
@@ -49,9 +50,10 @@ async def holiday_snapshot():
             rows.append((label, {"price": None, "change_pct": None}))
     return rows
 
+
 async def publish_holiday_radar():
-    """في عطلة السوق/نهاية الأسبوع: راقب بيتكوين بنفس شروط الرادار السابقة."""
-    global _last_btc_alert_at, _btc_alert_reference
+    """في عطلة السوق/نهاية الأسبوع: عرض دوري لبيتكوين والذهب والنفط."""
+    global _last_snapshot_at, _last_btc_alert_at, _btc_alert_reference
 
     if not settings.telegram_channel_id or not settings.telegram_bot_token:
         return {"sent": False, "reason": "Telegram channel/bot is not configured"}
@@ -61,47 +63,69 @@ async def publish_holiday_radar():
         return {"sent": False, "reason": "Stock radar session is available"}
 
     now = datetime.now(timezone.utc)
+    interval = max(10, settings.holiday_radar_interval_minutes) * 60
 
-    # نفس شرط الرادار السابق: حركة 1.50% على الأقل + مهلة 90 دقيقة.
+    # هذه الدالة تُستدعى من أكثر من دورة؛ لا ترسل رسالة كل 5 دقائق.
+    if _last_snapshot_at is not None:
+        elapsed = (now - _last_snapshot_at).total_seconds()
+        if elapsed < interval:
+            return {"sent": False, "reason": "holiday snapshot interval not reached"}
+
     try:
-        btc = await quote("BTC/USD")
-        price = btc.get("price")
-        if price is None:
-            return {"sent": False, "reason": "BTC price unavailable"}
+        rows = await holiday_snapshot()
+        btc = next((q for label, q in rows if label == "₿ بيتكوين"), None)
+        btc_price = float(btc.get("price")) if btc and btc.get("price") is not None else None
 
-        price = float(price)
-        if _btc_alert_reference in (None, 0):
-            _btc_alert_reference = price
-            return {"sent": False, "reason": "BTC reference initialized"}
+        period = "عطلة السوق" if status["holiday"] else "نهاية الأسبوع"
+        lines = [
+            "🌙 <b>SAS PRO HOLIDAY RADAR</b>",
+            "",
+            f"🇺🇸 الوضع: <b>{period}</b>",
+            "",
+        ]
 
-        movement = abs((price - _btc_alert_reference) / _btc_alert_reference) * 100
-        cooldown_ok = (
-            _last_btc_alert_at is None
-            or (now - _last_btc_alert_at).total_seconds() >= 5400
-        )
-
-        if movement >= 1.50 and cooldown_ok:
-            direction = "📈 صعود" if price > _btc_alert_reference else "📉 هبوط"
-            period = "عطلة السوق" if status["holiday"] else "نهاية الأسبوع"
-            text = (
-                "₿ <b>SAS BTC RADAR</b>\n\n"
-                f"🇺🇸 الوضع: <b>{period}</b>\n"
-                f"{direction} <b>{movement:.2f}%</b> منذ آخر تنبيه.\n"
-                f"💵 السعر الحالي: <b>{_fmt_price(price)}</b>\n"
-                f"🕐 {datetime.now(RIYADH).strftime('%H:%M')} بتوقيت السعودية\n\n"
-                "🔕 نفس شروط رادار بيتكوين السابقة."
+        for label, q in rows:
+            lines.append(
+                f"{label}: <b>{_fmt_price(q.get('price'))}</b> "
+                f"({_format_pct(q.get('change_pct'))})"
             )
-            try:
-                await send_message(settings.telegram_channel_id, text)
-                _last_btc_alert_at = now
-                _btc_alert_reference = price
-                return {"sent": True, "asset": "BTC", "movement_pct": movement}
-            except Exception:
-                return {"sent": False, "reason": "telegram send failed"}
 
-        return {"sent": False, "reason": "no BTC movement threshold"}
-    except Exception:
-        return {"sent": False, "reason": "BTC quote failed"}
+        alert_line = None
+        if btc_price is not None:
+            if _btc_alert_reference in (None, 0):
+                _btc_alert_reference = btc_price
+            else:
+                movement = abs((btc_price - _btc_alert_reference) / _btc_alert_reference) * 100
+                cooldown_ok = (
+                    _last_btc_alert_at is None
+                    or (now - _last_btc_alert_at).total_seconds() >= 5400
+                )
+                if movement >= 1.50 and cooldown_ok:
+                    direction = "📈 صعود" if btc_price > _btc_alert_reference else "📉 هبوط"
+                    alert_line = f"🚨 BTC: {direction} <b>{movement:.2f}%</b> منذ آخر تنبيه"
+                    _last_btc_alert_at = now
+                    _btc_alert_reference = btc_price
+
+        lines += [
+            "",
+            f"🕐 {datetime.now(RIYADH).strftime('%H:%M')} بتوقيت السعودية",
+        ]
+
+        if alert_line:
+            lines += ["", alert_line, "🔕 نفس شروط تنبيه بيتكوين السابقة."]
+
+        lines += [
+            "",
+            "⚠️ رصد معلوماتي للأسعار فقط أثناء عطلة السوق.",
+        ]
+
+        await send_message(settings.telegram_channel_id, "\n".join(lines))
+        _last_snapshot_at = now
+        return {"sent": True, "assets": ["BTC", "GOLD", "OIL"]}
+
+    except Exception as exc:
+        return {"sent": False, "reason": f"holiday radar failed: {exc}"}
+
 
 async def holiday_radar_scheduler():
     interval = max(10, settings.holiday_radar_interval_minutes) * 60
@@ -112,7 +136,8 @@ async def holiday_radar_scheduler():
             pass
         await asyncio.sleep(interval)
 
+
 def stock_radar_enabled() -> bool:
-    """Stock radar works all weekday hours; holidays/weekends switch to BTC radar."""
+    """Stock radar works continuously across weekday extended hours; holidays/weekends use holiday radar."""
     status = market_status()
     return not status["holiday"] and status["session"] != "weekend"
