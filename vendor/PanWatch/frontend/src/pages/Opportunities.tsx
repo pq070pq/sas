@@ -77,10 +77,10 @@ const toneClass = (item: StrategySignalItem) => {
   const action = (item.action || '').toLowerCase()
   const score = Number(item.rank_score || item.score || 0)
   if (action === 'buy') {
-    return 'border-rose-500/35 bg-[linear-gradient(140deg,hsl(var(--rose-500)/0.14),hsl(var(--card)/0.96),hsl(var(--card)/0.98))]'
+    return 'border-market-up/35 bg-market-up/10'
   }
   if (action === 'add') {
-    return 'border-emerald-500/35 bg-[linear-gradient(140deg,hsl(var(--emerald-500)/0.13),hsl(var(--card)/0.96),hsl(var(--card)/0.98))]'
+    return 'border-market-up/35 bg-market-up/10'
   }
   if (score >= 85) {
     return 'border-primary/35 bg-[linear-gradient(140deg,hsl(var(--primary)/0.12),hsl(var(--card)/0.96),hsl(var(--card)/0.98))]'
@@ -90,8 +90,7 @@ const toneClass = (item: StrategySignalItem) => {
 
 const actionBadgeClass = (action?: string) => {
   const key = (action || '').toLowerCase()
-  if (key === 'buy') return 'bg-rose-500/15 text-rose-400 border border-rose-500/35'
-  if (key === 'add') return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/35'
+  if (key === 'buy' || key === 'add') return 'bg-market-up/15 text-market-up border border-market-up/35'
   if (key === 'hold') return 'bg-blue-500/15 text-blue-400 border border-blue-500/35'
   return 'bg-accent text-muted-foreground border border-border/50'
 }
@@ -203,8 +202,8 @@ const formatEntryDisplay = (action: string | undefined, entryLow: number | null,
 }
 
 const regimeToneClass = (regime?: string) => {
-  if (regime === 'bullish') return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-  if (regime === 'bearish') return 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+  if (regime === 'bullish') return 'bg-market-up/15 text-market-up border border-market-up/30'
+  if (regime === 'bearish') return 'bg-market-down/15 text-market-down border border-market-down/30'
   return 'bg-amber-500/12 text-amber-300 border border-amber-500/25'
 }
 
@@ -320,7 +319,7 @@ export default function OpportunitiesPage() {
             count: fallback.count || 0,
             items: (fallback.items || []).map(toSignalFromCandidate),
           }
-          setError(oppT('errors.timeout'))
+          setError(oppT('opportunities.errors.timeout'))
         }
       }
       if ((!data.items || data.items.length === 0) && market !== 'ALL') {
@@ -330,17 +329,17 @@ export default function OpportunitiesPage() {
           timeoutMs: 45000,
         })
         if (fallback.items && fallback.items.length > 0) {
-          setError(oppT('errors.noMarket', { market: oppT(`markets.${market}`) }))
+          setError(oppT('opportunities.errors.noMarket', { market: oppT(`opportunities.markets.${market}`) }))
           data = fallback
         }
       }
       setItems(data.items || [])
       setSnapshotDate(data.snapshot_date || '')
       if (!data.snapshot_date) {
-        setError(oppT('errors.noSnapshot'))
+        setError(oppT('opportunities.errors.noSnapshot'))
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : oppT('errors.loadFailed'))
+      setError(e instanceof Error ? e.message : oppT('opportunities.errors.loadFailed'))
       setItems([])
     } finally {
       setLoading(false)
@@ -361,7 +360,7 @@ export default function OpportunitiesPage() {
         const state = await recommendationsApi.getStrategyRefreshStatus()
         if (!state.running) {
           if (state.last_error) {
-            setError(oppT('errors.refreshBackground', { message: state.last_error }))
+            setError(oppT('opportunities.errors.refreshBackground', { message: state.last_error }))
           } else {
             setError('')
           }
@@ -374,7 +373,7 @@ export default function OpportunitiesPage() {
       await sleep(3000)
     }
     await Promise.all([load(), loadStats()])
-    setError((prev) => prev || oppT('errors.stillRunning'))
+    setError((prev) => prev || oppT('opportunities.errors.stillRunning'))
   }, [load, loadStats])
 
   const handleRefresh = async () => {
@@ -390,15 +389,15 @@ export default function OpportunitiesPage() {
         wait: false,
       })
       if (resp.queued) {
-        setError(resp.accepted ? oppT('errors.submitted') : oppT('errors.running'))
+        setError(resp.accepted ? oppT('opportunities.errors.submitted') : oppT('opportunities.errors.running'))
         void pollRefreshCompletion()
         return
       }
       await Promise.all([load(), loadStats()])
     } catch (e) {
-      const msg = e instanceof Error ? e.message : oppT('errors.refreshFailed')
+      const msg = e instanceof Error ? e.message : oppT('opportunities.errors.refreshFailed')
       if (/(timeout|timed out)/i.test(msg)) {
-        setError(oppT('errors.slow'))
+        setError(oppT('opportunities.errors.slow'))
         await load()
       } else {
         setError(msg)
@@ -773,12 +772,12 @@ export default function OpportunitiesPage() {
                 {item.factor_explain && (((item.factor_explain.positive?.length ?? 0) > 0) || ((item.factor_explain.negative?.length ?? 0) > 0)) && (
                   <div className="mt-2 flex flex-wrap gap-1">
                     {(item.factor_explain.positive ?? []).map((f) => (
-                      <span key={`p-${f.factor}`} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-green-500/15 text-green-400">
+                      <span key={`p-${f.factor}`} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-market-up/15 text-market-up">
                         {oppT(`opportunities.factors.${f.factor}`, { defaultValue: f.label || f.factor })} +{Math.abs(f.contribution).toFixed(1)}
                       </span>
                     ))}
                     {(item.factor_explain.negative ?? []).map((f) => (
-                      <span key={`n-${f.factor}`} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-red-500/15 text-red-400">
+                      <span key={`n-${f.factor}`} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-market-down/15 text-market-down">
                         {oppT(`opportunities.factors.${f.factor}`, { defaultValue: f.label || f.factor })} {f.contribution.toFixed(1)}
                       </span>
                     ))}

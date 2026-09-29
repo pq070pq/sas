@@ -46,6 +46,12 @@ def _duration_ms(started_at: float) -> int:
     return max(0, round((time.monotonic() - started_at) * 1000))
 
 
+def _stable_error_code(error: BaseException, fallback: str) -> str:
+    """Preserve an explicitly public host error code without coupling layers."""
+    code = getattr(error, "error_code", "")
+    return code if isinstance(code, str) and code else fallback
+
+
 class AgentRuntime:
     """A serial tool loop with hard limits and durable approval pauses.
 
@@ -144,9 +150,14 @@ class AgentRuntime:
             return await self._finish(
                 sink, request, RunStatus.CANCELLED, answer, tool_calls, "cancelled"
             )
-        except Exception:  # noqa: BLE001 - hosts receive a stable terminal runtime result
+        except Exception as exc:  # noqa: BLE001 - hosts receive a stable terminal runtime result
             return await self._finish(
-                sink, request, RunStatus.FAILED, answer, tool_calls, "runtime_failed"
+                sink,
+                request,
+                RunStatus.FAILED,
+                answer,
+                tool_calls,
+                _stable_error_code(exc, "runtime_failed"),
             )
 
         if remaining_pending:
@@ -228,6 +239,15 @@ class AgentRuntime:
                     {"step": current_step, "status": "running"},
                 )
                 current_tool_choice = self._tool_choice_for_turn(request, messages)
+                if current_tool_choice == _REQUIRED_TOOL_CHOICE and not model_tools:
+                    return await self._finish(
+                        sink,
+                        request,
+                        RunStatus.PARTIAL,
+                        answer,
+                        tool_calls,
+                        "permission_denied",
+                    )
                 model_started_at = time.monotonic()
                 try:
                     turn = await self._run_model_turn(
@@ -263,7 +283,7 @@ class AgentRuntime:
                         },
                     )
                     raise
-                except Exception:
+                except Exception as exc:
                     await self._publish(
                         sink,
                         request,
@@ -272,7 +292,7 @@ class AgentRuntime:
                             "source": "estimated",
                             "duration_ms": _duration_ms(model_started_at),
                             "usage_available": False,
-                            "error_code": "model_failed",
+                            "error_code": _stable_error_code(exc, "model_failed"),
                         },
                     )
                     raise
@@ -462,9 +482,14 @@ class AgentRuntime:
             return await self._finish(
                 sink, request, RunStatus.CANCELLED, answer, tool_calls, "cancelled"
             )
-        except Exception:  # noqa: BLE001 - hosts receive a stable terminal runtime result
+        except Exception as exc:  # noqa: BLE001 - hosts receive a stable terminal runtime result
             return await self._finish(
-                sink, request, RunStatus.FAILED, answer, tool_calls, "runtime_failed"
+                sink,
+                request,
+                RunStatus.FAILED,
+                answer,
+                tool_calls,
+                _stable_error_code(exc, "runtime_failed"),
             )
 
     async def _run_model_turn(
@@ -496,7 +521,20 @@ class AgentRuntime:
         deadline: float,
     ) -> tuple[list[ToolSpec], dict[str, tuple[ToolSpec, RuntimeExtension]]]:
         """Resolve registered tools plus virtual tools owned by extensions."""
-        model_tools = self._tools.model_tools(request, self._policy)
+        raw_allowed_tool_names = request.context.get("allowed_tool_names")
+        tools_are_restricted = raw_allowed_tool_names is not None
+        allowed_tool_names = (
+            [name for name in raw_allowed_tool_names if isinstance(name, str)]
+            if isinstance(raw_allowed_tool_names, (list, tuple, set))
+            else []
+        )
+        allowed_tool_name_set = set(allowed_tool_names)
+        model_tools = self._tools.model_tools(
+            request,
+            self._policy,
+            names=allowed_tool_names if tools_are_restricted else None,
+            include_deferred=tools_are_restricted,
+        )
         extension_tools: dict[str, tuple[ToolSpec, RuntimeExtension]] = {}
         for extension in self._extensions:
             extension_name = getattr(extension, "name", extension.__class__.__name__)
@@ -537,14 +575,21 @@ class AgentRuntime:
                 )
                 continue
             if decision is not None and decision.tool_names is not None:
+                selected_names = list(decision.tool_names)
+                if tools_are_restricted:
+                    selected_names = [
+                        name for name in selected_names if name in allowed_tool_name_set
+                    ]
                 model_tools = self._tools.model_tools(
                     request,
                     self._policy,
-                    names=list(decision.tool_names),
+                    names=selected_names,
                     include_deferred=True,
                 )
             if decision is not None and decision.additional_tools:
                 for tool in decision.additional_tools:
+                    if tools_are_restricted and tool.name not in allowed_tool_name_set:
+                        continue
                     if tool.name in extension_tools or any(
                         item.name == tool.name for item in model_tools
                     ):
@@ -612,8 +657,12 @@ class AgentRuntime:
                 )
         except TimeoutError:
             result = ToolResult.failure(summary="扩展工具调用超时", error_code="tool_timeout")
-        except Exception:  # noqa: BLE001 - extension is an optional boundary
-            result = ToolResult.failure(summary="扩展工具调用失败", error_code="tool_failed")
+        except Exception as exc:  # noqa: BLE001 - extension is an optional boundary
+            error_code = _stable_error_code(exc, "tool_failed")
+            result = ToolResult.failure(
+                summary="扩展工具调用失败",
+                error_code=error_code,
+            )
         if result is None:
             result = ToolResult.failure(
                 summary="请求的扩展工具不可用", error_code="unknown_tool"
@@ -736,6 +785,11 @@ class AgentRuntime:
                 "tool": call.name,
                 "ok": result.ok,
                 "summary": result.summary,
+                "data": result.model_dump(mode="json")["data"],
+                "sources": [source.model_dump(mode="json") for source in result.sources],
+                "observed_at": (
+                    result.observed_at.isoformat() if result.observed_at else None
+                ),
                 "error_code": result.error_code,
                 "duration_ms": duration_ms,
                 "attempt_count": attempt_count,

@@ -17,6 +17,56 @@ export interface ChatMessage {
   created_at: string
   /** Runtime facts captured while producing this assistant response. */
   trace?: AssistantTraceEvent[]
+  result?: AssistantResult | null
+}
+
+export interface AssistantEvidence {
+  id: string
+  tool_name: string
+  source_name: string
+  source_url?: string | null
+  summary: string
+  observed_at?: string | null
+  data_at?: string | null
+  period_start?: string | null
+  period_end?: string | null
+  freshness: 'fresh' | 'delayed' | 'stale' | 'unknown'
+  freshness_basis: 'published_at' | 'as_of' | 'observed_at' | 'unknown'
+  symbol?: string | null
+  market?: string | null
+}
+
+export interface AssistantSource {
+  name: string
+  url?: string | null
+  as_of?: string | null
+  published_at?: string | null
+  period_start?: string | null
+  period_end?: string | null
+}
+
+export interface AssistantFact {
+  text: string
+  evidence_ids: string[]
+}
+
+export interface AssistantNextAction {
+  id: string
+  kind: 'follow_up' | 'navigate' | 'tool_proposal'
+  label: string
+  payload: Record<string, any>
+  requires_approval: boolean
+}
+
+export interface AssistantResult {
+  schema_version: number
+  summary: string
+  facts: AssistantFact[]
+  inferences: string[]
+  risks: string[]
+  missing_data: string[]
+  evidence: AssistantEvidence[]
+  next_actions: AssistantNextAction[]
 }
 
 export interface ConversationDetail {
@@ -37,6 +87,7 @@ export interface AssistantTaskSnapshot {
   id: number
   conversation_id: number
   status: string
+  error_code?: string | null
   model?: string | null
   duration_ms?: number
   usage?: {
@@ -56,7 +107,10 @@ export interface AssistantTaskSnapshot {
     duration_ms: number
     attempt_count: number
     error_code?: string | null
+    sources?: AssistantSource[]
+    observed_at?: string | null
   }>
+  result?: AssistantResult | null
   pending_approvals: Array<{
     id: string
     call_id: string
@@ -240,7 +294,13 @@ export interface ChatStreamCallbacks {
   /** 模型开始调用工具（前端应清空当前 token 缓冲并展示"正在查询…"） */
   onToolCallStart?: (info: { name: string; arguments: Record<string, unknown> }) => void
   /** 工具执行完成 */
-  onToolResult?: (info: { name: string; ok: boolean; preview: string }) => void
+  onToolResult?: (info: {
+    name: string
+    ok: boolean
+    preview: string
+    sources: AssistantSource[]
+    observedAt?: string | null
+  }) => void
   /** 计划驱动(全面诊断持仓):计划生成/步骤推进/完成 */
   onPlan?: (info: {
     status: string
@@ -257,11 +317,17 @@ export interface ChatStreamCallbacks {
     resolvedStatus?: AssistantApproval['status']
   }) => void
   /** 最终回答（已落库） */
-  onDone?: (msg: { message_id: number; content: string; created_at: string }) => void
-  /** AI 服务异常（服务端已把错误文案落库） */
-  onError?: (message: string) => void
+  onDone?: (msg: { message_id: number; content: string; created_at: string; result?: AssistantResult | null }) => void
+  /** AI service failure with a safe stable code and localized fallback text. */
+  onError?: (error: AssistantStreamError) => void
   /** Factual runtime events for the user-facing trace panel. */
   onTrace?: (event: AssistantTraceEvent) => void
+}
+
+export interface AssistantStreamError {
+  code: string
+  message: string
+  retryable: boolean
 }
 
 export interface AssistantTraceEvent {
@@ -290,7 +356,7 @@ interface AssistantStreamState {
   lastEventId: number
   finished: boolean
   paused: boolean
-  terminalError: string
+  terminalError: AssistantStreamError | null
 }
 
 function dispatchAssistantEvent(
@@ -301,7 +367,10 @@ function dispatchAssistantEvent(
   if (ev.id > 0) state.lastEventId = ev.id
   const d = ev.data || {}
   if (TRACE_EVENTS.has(ev.event)) {
-    callbacks.onTrace?.({ event: ev.event, data: d, id: ev.id })
+    const traceData = ev.event === 'done'
+      ? Object.fromEntries(Object.entries(d).filter(([key]) => !['content', 'result'].includes(key)))
+      : d
+    callbacks.onTrace?.({ event: ev.event, data: traceData, id: ev.id })
   }
   switch (ev.event) {
     case 'task_created':
@@ -348,7 +417,13 @@ function dispatchAssistantEvent(
       callbacks.onToolCallStart?.({ name: d.name || d.tool || '', arguments: d.arguments || {} })
       break
     case 'tool_result':
-      callbacks.onToolResult?.({ name: d.name || d.tool || '', ok: !!d.ok, preview: d.preview || d.summary || '' })
+      callbacks.onToolResult?.({
+        name: d.name || d.tool || '',
+        ok: !!d.ok,
+        preview: d.preview || d.summary || '',
+        sources: Array.isArray(d.sources) ? d.sources : [],
+        observedAt: d.observed_at || null,
+      })
       break
     case 'plan':
       callbacks.onPlan?.({ status: d.status || '', steps: d.steps || [], current: d.current })
@@ -382,10 +457,15 @@ function dispatchAssistantEvent(
         message_id: d.message_id || 0,
         content: d.content || '',
         created_at: d.created_at || '',
+        result: d.result || null,
       })
       break
     case 'error':
-      state.terminalError = d.message || interfaceText('未知错误', 'Unknown error')
+      state.terminalError = {
+        code: d.code || 'assistant_unknown_error',
+        message: d.message || interfaceText('未知错误', 'Unknown error'),
+        retryable: d.retryable !== false,
+      }
       callbacks.onError?.(state.terminalError)
       break
   }
@@ -409,7 +489,7 @@ async function sendMessageStream(
     lastEventId: 0,
     finished: false,
     paused: false,
-    terminalError: '',
+    terminalError: null,
   }
   let primaryError: unknown = null
 
@@ -433,7 +513,7 @@ async function sendMessageStream(
     primaryError = error
   }
 
-  if (state.terminalError && !state.finished) throw new Error(state.terminalError)
+  if (state.terminalError && !state.finished) throw new Error(state.terminalError.message)
 
   // 连接被中断但生成未结束，经持久化任务事件流接回。
   let reconnects = 0
@@ -466,7 +546,7 @@ async function subscribeAssistantTaskStream(
     lastEventId: Math.max(0, afterEventId),
     finished: false,
     paused: false,
-    terminalError: '',
+    terminalError: null,
   }
   let primaryError: unknown = null
   let reconnects = 0
@@ -494,7 +574,7 @@ async function subscribeAssistantTaskStream(
     }
   }
 
-  if (state.terminalError && !state.finished) throw new Error(state.terminalError)
+  if (state.terminalError && !state.finished) throw new Error(state.terminalError.message)
   if (!state.finished && !state.paused && !signal?.aborted) {
     throw primaryError || new Error(interfaceText('任务事件流未完成', 'The task event stream did not complete.'))
   }
@@ -511,7 +591,7 @@ async function decideAssistantApprovalStream(
     lastEventId: 0,
     finished: false,
     paused: false,
-    terminalError: '',
+    terminalError: null,
   }
   let primaryError: unknown = null
   try {
@@ -551,6 +631,6 @@ async function decideAssistantApprovalStream(
     }
   }
 
-  if (state.terminalError && !state.finished) throw new Error(state.terminalError)
+  if (state.terminalError && !state.finished) throw new Error(state.terminalError.message)
   if (!state.finished && !state.paused) throw primaryError || new Error(interfaceText('流式回复未完成', 'The streaming response did not complete.'))
 }

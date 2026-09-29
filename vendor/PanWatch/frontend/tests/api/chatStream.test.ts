@@ -50,6 +50,7 @@ describe('assistant task stream', () => {
       message_id: 7,
       content: '完成',
       created_at: '',
+      result: null,
     })
   })
 
@@ -90,6 +91,63 @@ describe('assistant task stream', () => {
       message_id: 10,
       content: '全部完成',
       created_at: '',
+      result: null,
+    })
+  })
+
+  it('preserves a structured result on the terminal event', async () => {
+    const result = {
+      schema_version: 1,
+      summary: '结论',
+      facts: [],
+      inferences: [],
+      risks: [],
+      missing_data: [],
+      evidence: [],
+      next_actions: [],
+    }
+    readSSE.mockImplementation(async (_path: string, options: { onEvent: (event: unknown) => void }) => {
+      options.onEvent({
+        id: 4,
+        event: 'done',
+        data: { message_id: 7, content: '完成', created_at: '', result },
+      })
+      return { lastEventId: 4 }
+    })
+
+    const onDone = vi.fn()
+    await chatApi.sendAssistantMessageStream(1, '分析市场', { onDone })
+
+    expect(onDone).toHaveBeenCalledWith({
+      message_id: 7,
+      content: '完成',
+      created_at: '',
+      result,
+    })
+  })
+
+  it('preserves structured AI failure details from the task stream', async () => {
+    readSSE.mockImplementation(async (_path: string, options: { onEvent: (event: unknown) => void }) => {
+      options.onEvent({
+        id: 3,
+        event: 'error',
+        data: {
+          code: 'ai_quota_exhausted',
+          message: 'AI 服务额度已用尽，请充值或切换可用模型后重试。',
+          retryable: false,
+        },
+      })
+      return { lastEventId: 3 }
+    })
+
+    const onError = vi.fn()
+
+    await expect(chatApi.sendAssistantMessageStream(1, '分析市场', { onError }))
+      .rejects.toThrow('AI 服务额度已用尽')
+    expect(onError).toHaveBeenCalledWith({
+      code: 'ai_quota_exhausted',
+      message: 'AI 服务额度已用尽，请充值或切换可用模型后重试。',
+      retryable: false,
     })
   })
 })

@@ -7,6 +7,7 @@ import {
   type AssistantApproval,
   type AssistantContextDetail,
   type AssistantContextSnapshot,
+  type AssistantStreamError,
   type AssistantTraceEvent,
   type ChatConversation,
   type ChatMessage,
@@ -21,6 +22,7 @@ import { ContextUsageIndicator } from '@/components/assistant/ContextUsageIndica
 import { TraceTimeline } from '@/components/assistant/TraceTimeline'
 import { useChatAutoScroll } from '@/hooks/useChatAutoScroll'
 import { useTranslation } from 'react-i18next'
+import { AssistantResultCard } from '@/components/assistant/AssistantResultCard'
 
 interface StockContext {
   symbol: string
@@ -41,6 +43,8 @@ interface ChatWidgetProps {
   onConversationChange?: (conversationId: number | null, options?: ConversationChangeOptions) => void
   /** Stock context handed off by the application shell when a page opens “问 AI”. */
   initialStockContext?: StockContext | null
+  /** Navigate to a trusted application route selected from a result action. */
+  onNavigate?: (path: string) => void
 }
 
 function taskStorageKey(conversationId: number): string {
@@ -75,11 +79,29 @@ function safeStreamMarkdown(text: string): string {
   return fences % 2 === 1 ? `${text}\n\`\`\`` : text
 }
 
+function assistantFailureText(
+  assistantT: (key: string, options?: Record<string, unknown>) => string,
+  error: Pick<AssistantStreamError, 'code' | 'message'>,
+): string {
+  const fallback = error.message || assistantT('assistantPage.requestFailed')
+  return assistantT(`assistantPage.errors.${error.code}`, { defaultValue: fallback })
+}
+
+function requestFailureText(
+  assistantT: (key: string, options?: Record<string, unknown>) => string,
+  error: unknown,
+): string {
+  return error instanceof Error && error.message
+    ? error.message
+    : assistantT('assistantPage.requestFailed')
+}
+
 export default function ChatWidget({
   embedded = false,
   conversationIdFromUrl = null,
   onConversationChange,
   initialStockContext = null,
+  onNavigate,
 }: ChatWidgetProps) {
   const { t } = useTranslation('configuration')
   const assistantT = t as unknown as (key: string, options?: Record<string, unknown>) => string
@@ -270,12 +292,20 @@ export default function ChatWidget({
       setView('chat')
       setConversations((prev) => [conv, ...prev.filter((item) => item.id !== conv.id)])
       loadSuggestedQuestions(detail.symbol, detail.market)
-    }).catch(() => {
-      if (!cancelled) setView('chat')
+    }).catch((error) => {
+      if (!cancelled) {
+        setView('chat')
+        setMessages([{
+          id: Date.now(),
+          role: 'assistant',
+          content: requestFailureText(assistantT, error),
+          created_at: new Date().toISOString(),
+        }])
+      }
     })
 
     return () => { cancelled = true }
-  }, [embedded, initialStockContext, loadSuggestedQuestions, onConversationChange, resetFollowing, setActiveConversationId])
+  }, [assistantT, embedded, initialStockContext, loadSuggestedQuestions, onConversationChange, resetFollowing, setActiveConversationId])
 
   useEffect(() => {
     if (open) {
@@ -373,6 +403,15 @@ export default function ChatWidget({
           await loadMessages(conversationId)
           clearTask()
         } else if (latest.status === 'failed' || latest.status === 'cancelled') {
+          setMessages((previous) => [...previous, {
+            id: Date.now() + 1,
+            role: 'assistant',
+            content: assistantFailureText(assistantT, {
+              code: latest.error_code || 'assistant_unknown_error',
+              message: assistantT('assistantPage.requestFailed'),
+            }),
+            created_at: new Date().toISOString(),
+          }])
           clearTask()
         }
         if (isCurrent()) {
@@ -384,6 +423,16 @@ export default function ChatWidget({
 
       if (snapshot.status === 'completed') {
         await loadMessages(conversationId)
+      } else if (snapshot.status === 'failed' || snapshot.status === 'cancelled') {
+        setMessages((previous) => [...previous, {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: assistantFailureText(assistantT, {
+            code: snapshot.error_code || 'assistant_unknown_error',
+            message: assistantT('assistantPage.requestFailed'),
+          }),
+          created_at: new Date().toISOString(),
+        }])
       }
       clearTask()
       setSending(false)
@@ -404,7 +453,7 @@ export default function ChatWidget({
       cancelled = true
       controller.abort()
     }
-  }, [activeConvId, appendTrace, loadMessages, pushToken, resetStream])
+  }, [activeConvId, appendTrace, assistantT, loadMessages, pushToken, resetStream])
 
   useEffect(() => {
     followNewContent()
@@ -492,10 +541,16 @@ export default function ChatWidget({
       setStockContext(null)
       setSuggestedQuestions([])
       setConversations((prev) => [conv, ...prev])
-    } catch {
-      // ignore
+    } catch (error) {
+      setView('chat')
+      setMessages([{
+        id: Date.now(),
+        role: 'assistant',
+        content: requestFailureText(assistantT, error),
+        created_at: new Date().toISOString(),
+      }])
     }
-  }, [onConversationChange, resetFollowing])
+  }, [assistantT, onConversationChange, resetFollowing])
 
   const beginNewResearch = useCallback(() => {
     resetFollowing()
@@ -562,9 +617,16 @@ export default function ChatWidget({
         onConversationChange?.(conv.id)
         setConversations((prev) => [conv, ...prev])
         setView('chat')
-      } catch {
+      } catch (error) {
         sendingRef.current = false
         setSending(false)
+        setView('chat')
+        setMessages((previous) => [...previous, {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: requestFailureText(assistantT, error),
+          created_at: new Date().toISOString(),
+        }])
         return
       }
     }
@@ -588,7 +650,7 @@ export default function ChatWidget({
     resetStream()
     resetFollowing()
     let receivedAny = false
-    let streamError = ''
+    let streamError: AssistantStreamError | null = null
 
     try {
       // 优先走 SSE 流式（token 流 + 工具过程可视）
@@ -672,6 +734,7 @@ export default function ChatWidget({
             content: m.content,
             created_at: m.created_at || new Date().toISOString(),
             trace: completedTrace.length > 0 ? completedTrace : undefined,
+            result: m.result,
           }])
           traceEventsRef.current = []
           setTraceEvents([])
@@ -680,18 +743,20 @@ export default function ChatWidget({
           sessionStorage.removeItem(taskStorageKey(convId))
           requestAnimationFrame(() => inputRef.current?.focus())
         },
-        onError: (message) => {
+        onError: (error) => {
           receivedAny = true
-          streamError = message
+          streamError = error
         },
       })
       setConversations((prev) =>
         prev.map((c) => c.id === convId ? { ...c, title: c.title || content.slice(0, 20) } : c)
       )
     } catch {
-      const message = streamError || (receivedAny
-        ? assistantT('assistantPage.connectionInterrupted')
-        : assistantT('assistantPage.requestFailed'))
+      const message = streamError
+        ? assistantFailureText(assistantT, streamError)
+        : (receivedAny
+            ? assistantT('assistantPage.connectionInterrupted')
+            : assistantT('assistantPage.requestFailed'))
       setMessages((prev) => [...prev, {
         id: Date.now() + 1,
         role: 'assistant',
@@ -703,7 +768,7 @@ export default function ChatWidget({
       sendingRef.current = false
       setSending(false)
     }
-  }, [input, sending, pendingApprovals.length, activeConvId, stockContext, pushToken, resetStream, loadMessages, resetFollowing, onConversationChange, appendTrace])
+  }, [input, sending, pendingApprovals.length, activeConvId, stockContext, pushToken, resetStream, loadMessages, resetFollowing, onConversationChange, appendTrace, assistantT])
 
   const handleStockSelect = useCallback((stock: AssistantStockSearchResult) => {
     const nextContext: StockContext = {
@@ -729,7 +794,7 @@ export default function ChatWidget({
     setSending(true)
     resetStream()
     resetFollowing()
-    let streamError = ''
+    let streamError: AssistantStreamError | null = null
     let resolvedApprovalId = ''
 
     try {
@@ -780,6 +845,7 @@ export default function ChatWidget({
             content: message.content,
             created_at: message.created_at || new Date().toISOString(),
             trace: completedTrace.length > 0 ? completedTrace : undefined,
+            result: message.result,
           }])
           traceEventsRef.current = []
           setTraceEvents([])
@@ -788,12 +854,12 @@ export default function ChatWidget({
           sessionStorage.removeItem(taskStorageKey(convId))
           requestAnimationFrame(() => inputRef.current?.focus())
         },
-        onError: (message) => {
-          streamError = message
+        onError: (error) => {
+          streamError = error
         },
       }, taskId)
 
-      if (streamError) throw new Error(streamError)
+      if (streamError) throw new Error(assistantFailureText(assistantT, streamError))
       // New hosts return the resolved card status in `paused`; old hosts did
       // not, so keep a compatibility fallback for their one-card behavior.
       if (!resolvedApprovalId) {
@@ -847,7 +913,7 @@ export default function ChatWidget({
       setSending(false)
       setDecidingApprovalId(null)
     }
-  }, [activeConvId, taskId, decidingApprovalId, pushToken, resetStream, resetFollowing, loadMessages, appendTrace])
+  }, [activeConvId, taskId, decidingApprovalId, pushToken, resetStream, resetFollowing, loadMessages, appendTrace, assistantT])
 
   const interactionLocked = sending || pendingApprovals.length > 0
 
@@ -1082,6 +1148,18 @@ export default function ChatWidget({
                       msg.content
                     )}
                   </div>
+                  {msg.role === 'assistant' && msg.result && (
+                    <AssistantResultCard
+                      result={msg.result}
+                      disabled={interactionLocked}
+                      onPrefill={(prompt) => {
+                        setInput(prompt)
+                        requestAnimationFrame(() => inputRef.current?.focus())
+                      }}
+                      onNavigate={(path) => onNavigate?.(path)}
+                      onSubmitPrompt={(prompt) => { void handleSend(prompt) }}
+                    />
+                  )}
                   {msg.role === 'assistant' && msg.trace && msg.trace.length > 0 && (
                     <TraceTimeline events={msg.trace} />
                   )}
