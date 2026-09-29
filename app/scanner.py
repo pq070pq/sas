@@ -617,6 +617,99 @@ async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_f
     }
 
 
+
+
+_INTRADAY_CACHE_TTL = 600
+_intraday_cache = {}
+
+def _calc_intraday_liquidity(candles):
+    rows = _parse_candles(candles)
+    if len(rows) < 12:
+        return None
+    vols = [max(0.0, x["volume"]) for x in rows]
+    closes = [x["close"] for x in rows]
+    pv = sum(((x["high"] + x["low"] + x["close"]) / 3) * max(0.0, x["volume"]) for x in rows)
+    total_vol = sum(vols)
+    vwap = pv / total_vol if total_vol else None
+
+    baseline = sum(vols[-21:-1]) / max(1, len(vols[-21:-1]))
+    rvol = vols[-1] / baseline if baseline else 0.0
+    last5 = sum(vols[-5:])
+    prev5 = sum(vols[-10:-5])
+    acceleration = last5 / prev5 if prev5 else 0.0
+
+    up_vol = down_vol = 0.0
+    signed = 0.0
+    for i, row in enumerate(rows):
+        prev_close = rows[i-1]["close"] if i else row["open"]
+        if row["close"] >= prev_close:
+            up_vol += row["volume"]
+            signed += row["volume"]
+        else:
+            down_vol += row["volume"]
+            signed -= row["volume"]
+    buy_pressure = (up_vol / (up_vol + down_vol) * 100) if (up_vol + down_vol) else None
+    cvd_direction = "صاعد" if signed > 0 else ("هابط" if signed < 0 else "محايد")
+
+    return {
+        "vwap": round(vwap, 4) if vwap else None,
+        "intraday_rvol": round(rvol, 2),
+        "volume_acceleration": round(acceleration, 2),
+        "volume_spike": round((vols[-1] / baseline), 2) if baseline else 0.0,
+        "buy_pressure": round(buy_pressure, 1) if buy_pressure is not None else None,
+        "cvd_direction": cvd_direction,
+        "bars": len(rows),
+        "source": "Twelve Data 5m",
+        "data_note": "ضغط الشراء وCVD مؤشرات حجمية تقريبية وليست Level 2/Order Book."
+    }
+
+async def _get_intraday_liquidity(symbols):
+    symbols = [str(x).upper().strip() for x in symbols if x]
+    symbols = list(dict.fromkeys(symbols))[:20]
+    if not symbols or not settings.twelve_data_api_key:
+        return {}
+    now = time.monotonic()
+    out, missing = {}, []
+    for symbol in symbols:
+        cached = _intraday_cache.get(symbol)
+        if cached and now - cached[0] < _INTRADAY_CACHE_TTL:
+            out[symbol] = cached[1]
+        else:
+            missing.append(symbol)
+    if not missing:
+        return out
+
+    # طلب دفعة واحدة فقط للدورة بدل طلب مستقل لكل سهم.
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.get(
+                "https://api.twelvedata.com/time_series",
+                params={
+                    "symbol": ",".join(missing),
+                    "interval": "5min",
+                    "outputsize": 60,
+                    "apikey": settings.twelve_data_api_key,
+                    "prepost": "true",
+                },
+            )
+            r.raise_for_status()
+            payload = r.json()
+    except Exception:
+        return out
+
+    for symbol in missing:
+        data = payload.get(symbol) if isinstance(payload, dict) else None
+        values = data.get("values", []) if isinstance(data, dict) else []
+        if values:
+            values = list(reversed(values))
+            metrics = _calc_intraday_liquidity(values)
+        else:
+            metrics = None
+        _intraday_cache[symbol] = (now, metrics)
+        out[symbol] = metrics
+    return out
+
+
 async def scan_us_low_price_stocks():
     candidates = await discover_low_price_stocks()
     results = []
@@ -740,10 +833,24 @@ async def scan_us_low_price_stocks():
         if diagnostic:
             diagnostics.append(diagnostic)
 
+    # بعد اجتياز الفلتر الفني فقط، نجلب لقطة لحظية مجمعة لأعلى 20 مرشحاً.
+    # هذا لا يغير شروط المرور؛ يضيف VWAP وتسارع الحجم وضغط الشراء للتقرير.
+    intraday = await _get_intraday_liquidity([
+        x.get("symbol") for x in sorted(
+            results,
+            key=lambda x: int((x.get("classification") or {}).get("score") or 0),
+            reverse=True,
+        )[:20]
+    ])
+    for item in results:
+        metrics = intraday.get(str(item.get("symbol") or "").upper())
+        if metrics:
+            item["intraday"] = metrics
+
     results.sort(
         key=lambda x: (
             int((x.get("classification") or {}).get("score") or 0),
-            float((x.get("classification") or {}).get("rvol") or 0),
+            float((x.get("intraday") or {}).get("intraday_rvol") or 0),
             float(x.get("change_pct") or 0),
         ),
         reverse=True,
