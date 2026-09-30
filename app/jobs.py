@@ -17,6 +17,12 @@ from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+if not logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setLevel(logging.INFO)
+    _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    logger.addHandler(_handler)
+logger.propagate = False
 
 def _money(value):
     try:
