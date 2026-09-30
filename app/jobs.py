@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from .config import settings
 from .db import SessionLocal, Subscription, RadarSignal, RadarOutcome, ScheduledReport, User, ScheduledReport
 from .telegram import send_message, bot_api
-from .holiday_radar import publish_holiday_radar
+from .holiday_radar import publish_holiday_radar, publish_market_update
 from .timeutil import utcnow, aware
 from zoneinfo import ZoneInfo
 from .market_calendar import market_status
@@ -379,6 +379,10 @@ async def stock_radar_cycle():
         from .market import quote
 
         scan_result = await scan_us_low_price_stocks()
+        diagnostics = scan_result.get("diagnostics") or {}
+        if diagnostics.get("twelve_data_quota_exhausted"):
+            await publish_market_update("تم استنزاف رصيد Twelve Data اليوم — التحول إلى تحديث السوق الاحتياطي")
+            return
         rows = scan_result.get("stocks", [])
         session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
@@ -545,10 +549,10 @@ async def scheduler():
                 from .holiday_radar import publish_holiday_radar
                 await publish_holiday_radar()
             else:
-                # الأسهم: الرصد مستمر طوال اليوم في كل جلسات السوق.
+                # الأسهم: الرصد كل 30 دقيقة مع استهلاك محدود للبيانات.
                 await stock_radar_cycle()
 
             await weekly_radar_report()
         except Exception:
             pass
-        await asyncio.sleep(max(600, int(settings.radar_interval_minutes) * 60))
+        await asyncio.sleep(max(1800, int(settings.radar_interval_minutes) * 60))
