@@ -558,7 +558,7 @@ async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_f
     # تصنيف نمط التداول يعتمد على بيانات الرصد الفعلية، وليس على سعر السهم وحده.
     # الهدف وصف طبيعة الحركة/الأفق المحتمل للرصد وليس إعطاء توصية استثمارية.
     if (change_pct >= 8 and rvol >= 2.5) or rvol >= 4 or atr_pct >= 0.15:
-        stock_type = "مضاربي سريع"
+        stock_type = "مضاربي"
     elif momentum or sweep or rvol >= 2 or atr_pct >= 0.10:
         stock_type = "مضاربي"
     elif (sma20 >= sma50 * 1.02 and (accumulation or breakout or fill_gap)) or (
