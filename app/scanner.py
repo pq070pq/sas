@@ -15,7 +15,7 @@ MAX_PRICE = 15.00
 ALLOWED_EXCHANGES = {"NASDAQ"}
 
 # Daily candles change slowly, so cache them between radar cycles.
-_CANDLE_CACHE_TTL = 600
+_CANDLE_CACHE_TTL = 1800
 _candle_cache = {}
 _panwatch_semaphore = asyncio.Semaphore(8)
 _twelvedata_fallback_semaphore = asyncio.Semaphore(1)
@@ -327,7 +327,6 @@ async def discover_low_price_stocks():
         sources = await asyncio.gather(
             _discover_us_exchanges(client),
             _discover_openterminal(client),
-            _discover_twelvedata(client),
             _discover_panwatch(client),
             return_exceptions=True,
         )
@@ -362,12 +361,12 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
     # Primary: PanWatch, rate-limited and bounded so one slow request
     # cannot leave the whole radar waiting behind the semaphore.
     try:
-        async with asyncio.timeout(20):
+        async with asyncio.timeout(8):
             async with _panwatch_semaphore:
                 r = await client.get(
                     f"{base}/api/klines/{key}",
                     params={"market": "US", "days": 90, "interval": "1d"},
-                    timeout=15,
+                    timeout=7,
                 )
             r.raise_for_status()
             candles = _parse_candles(r.json().get("klines", []))
@@ -381,7 +380,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
     # This prevents 429 storms when 100+ symbols have no PanWatch candles.
     if allow_twelve_fallback and settings.twelve_data_api_key:
         try:
-            async with asyncio.timeout(20):
+            async with asyncio.timeout(8):
                 async with _twelvedata_fallback_semaphore:
                     r = await client.get(
                         "https://api.twelvedata.com/time_series",
@@ -391,7 +390,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
                             "outputsize": 90,
                             "apikey": settings.twelve_data_api_key,
                         },
-                        timeout=15,
+                        timeout=7,
                     )
                 r.raise_for_status()
                 payload = r.json()
@@ -766,9 +765,11 @@ async def scan_us_low_price_stocks():
     # Keep the radar responsive: analyze the staged shortlist concurrently.
     semaphore = asyncio.Semaphore(16)
     # Twelve Data fallback is reserved for the top 30 symbols only.
+    # Twelve Data fallback is deliberately limited per cycle to preserve
+    # the daily API allowance across the full trading day.
     twelve_fallback_symbols = {
         str(row.get("symbol") or "").upper()
-        for row in shortlist[:30]
+        for row in shortlist[:settings.twelve_data_scan_fallback_symbols]
         if row.get("symbol")
     }
 
@@ -858,8 +859,8 @@ async def scan_us_low_price_stocks():
         if diagnostic:
             diagnostics.append(diagnostic)
 
-    # Intraday liquidity is requested only for the top 20 passed symbols and
-    # cached for 10 minutes, keeping the radar cycle within the Twelve Data budget.
+    # Intraday liquidity is requested once per cycle for only the top few
+    # passed symbols. The result is cached for 30 minutes.
     results.sort(
         key=lambda x: (
             int((x.get("classification") or {}).get("score") or 0),
@@ -867,21 +868,8 @@ async def scan_us_low_price_stocks():
         ),
         reverse=True,
     )
-    intraday = await _get_intraday_liquidity([x.get("symbol") for x in results[:20]])
-    for item in results[:20]:
-        metrics = intraday.get(item.get("symbol"))
-        if metrics:
-            item["intraday"] = metrics
-
-    # بعد اجتياز الفلتر الفني فقط، نجلب لقطة لحظية مجمعة لأعلى 20 مرشحاً.
-    # هذا لا يغير شروط المرور؛ يضيف VWAP وتسارع الحجم وضغط الشراء للتقرير.
-    intraday = await _get_intraday_liquidity([
-        x.get("symbol") for x in sorted(
-            results,
-            key=lambda x: int((x.get("classification") or {}).get("score") or 0),
-            reverse=True,
-        )[:20]
-    ])
+    intraday_symbols = [x.get("symbol") for x in results[:settings.twelve_data_intraday_symbols]]
+    intraday = await _get_intraday_liquidity(intraday_symbols)
     for item in results:
         metrics = intraday.get(str(item.get("symbol") or "").upper())
         if metrics:
