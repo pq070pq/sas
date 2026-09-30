@@ -407,8 +407,10 @@ async def stock_radar_cycle():
                         ))
                     await db.commit()
                     _radar_seen.add(symbol)
+                    logger.info("Radar report sent successfully: %s", symbol)
                 except Exception:
                     await db.rollback()
+                    logger.exception("Radar report send failed: %s", symbol)
                     continue
     except Exception:
         logger.exception("Stock radar cycle failed.")
