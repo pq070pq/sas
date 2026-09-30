@@ -3,7 +3,7 @@ import httpx
 import time
 from .config import settings
 from .panwatch import technical_targets
-from .news import company_news
+from .news import company_news, select_catalyst
 from .market import quote
 
 # رادار SAS PRO:
@@ -954,6 +954,7 @@ async def scan_us_low_price_stocks():
                     "targets": targets,
                     "catalyst": bool(news),
                     "news_count": len(news) if isinstance(news, list) else 0,
+                    "catalyst_news": select_catalyst(news),
                     "live_price": live_price if live_price > 0 else None,
                     "live_change_pct": live_change,
                     "live_price_source": live_source,
