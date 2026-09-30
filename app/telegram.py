@@ -41,8 +41,29 @@ async def bot_api(method: str, payload: dict):
             raise RuntimeError(description)
         return data["result"]
 
-async def send_message(chat_id: int | str, text: str, reply_markup: dict | None = None):
+async def send_message(
+    chat_id: int | str,
+    text: str,
+    reply_markup: dict | None = None,
+    reply_to_message_id: int | None = None,
+):
     payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
     if reply_markup:
         payload["reply_markup"] = reply_markup
+    if reply_to_message_id:
+        payload["reply_parameters"] = {
+            "message_id": int(reply_to_message_id),
+            "allow_sending_without_reply": True,
+        }
     return await bot_api("sendMessage", payload)
+
+async def edit_message(chat_id: int | str, message_id: int, text: str):
+    return await bot_api(
+        "editMessageText",
+        {
+            "chat_id": chat_id,
+            "message_id": int(message_id),
+            "text": text,
+            "parse_mode": "HTML",
+        },
+    )
