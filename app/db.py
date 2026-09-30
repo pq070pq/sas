@@ -200,12 +200,12 @@ async def init_db():
                 WHERE trial_used_at IS NULL
                   AND (trial_start IS NOT NULL OR trial_expires IS NOT NULL)
             """))
-            # تحويل إعداد التجربة القديم (3 أيام) إلى شهر واحد للمستخدمين الجدد.
+            # توحيد إعداد التجربة الافتراضي القديم إلى 3 أيام للمستخدمين الجدد.
             # لا نغيّر إعدادًا مخصصًا بقيمة أخرى سبق أن ضبطها المالك.
             await conn.execute(text("""
                 UPDATE settings
-                SET value = '30', updated_at = CURRENT_TIMESTAMP
-                WHERE key = 'trial_days' AND value = '3'
+                SET value = '3', updated_at = CURRENT_TIMESTAMP
+                WHERE key = 'trial_days' AND value = '30'
             """))
 
 async def get_session():
