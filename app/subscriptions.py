@@ -75,6 +75,12 @@ async def get_subscription_config():
         return {
             "paid_plans_visible": (await setting_get(db, "paid_plans_visible", 1) or "0") in ("1", "true", "True"),
             "trial_days": int(await setting_get(db, "trial_days", settings.trial_days) or settings.trial_days),
+            "plan_visibility": {
+                "monthly": (await setting_get(db, "plan_monthly_visible", 1) or "0") in ("1", "true", "True"),
+                "3month": (await setting_get(db, "plan_3month_visible", 0) or "0") in ("1", "true", "True"),
+                "6month": (await setting_get(db, "plan_6month_visible", 0) or "0") in ("1", "true", "True"),
+                "yearly": (await setting_get(db, "plan_yearly_visible", 0) or "0") in ("1", "true", "True"),
+            },
         }
 
 async def get_plans():
