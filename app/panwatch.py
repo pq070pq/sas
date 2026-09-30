@@ -1,5 +1,6 @@
 import httpx
 from .config import settings
+from .twelve_guard import call as twelve_call
 
 
 async def analyze(symbol: str):
@@ -40,8 +41,7 @@ async def technical_targets(symbol: str):
             # Fallback to Twelve Data when PanWatch has no daily candles.
             if settings.twelve_data_api_key:
                 try:
-                    r = await client.get(
-                        "https://api.twelvedata.com/time_series",
+                    r = await twelve_call(client.get, "https://api.twelvedata.com/time_series",
                         params={
                             "symbol": symbol.upper(),
                             "interval": "1day",

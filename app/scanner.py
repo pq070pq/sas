@@ -5,6 +5,7 @@ from .config import settings
 from .panwatch import technical_targets
 from .news import company_news, select_catalyst
 from .market import quote
+from .twelve_guard import call as twelve_call
 
 # رادار SAS PRO:
 # - السوق: NASDAQ فقط
@@ -271,8 +272,7 @@ async def _discover_twelvedata(client):
     if not settings.twelve_data_api_key:
         return []
     try:
-        r = await client.get(
-            "https://api.twelvedata.com/market_movers/stocks",
+        r = await twelve_call(client.get, "https://api.twelvedata.com/market_movers/stocks",
             params={
                 "apikey": settings.twelve_data_api_key,
                 "direction": "gainers",
@@ -393,8 +393,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
         try:
             async with asyncio.timeout(8):
                 async with _twelvedata_fallback_semaphore:
-                    r = await client.get(
-                        "https://api.twelvedata.com/time_series",
+                    r = await twelve_call(client.get, "https://api.twelvedata.com/time_series",
                         params={
                             "symbol": key,
                             "interval": "1day",
@@ -730,8 +729,7 @@ async def _get_intraday_liquidity(symbols):
     # طلب دفعة واحدة فقط للدورة بدل طلب مستقل لكل سهم.
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            r = await client.get(
-                "https://api.twelvedata.com/time_series",
+            r = await twelve_call(client.get, "https://api.twelvedata.com/time_series",
                 params={
                     "symbol": ",".join(missing),
                     "interval": "5min",

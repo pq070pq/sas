@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     radar_interval_minutes: int = 30
     twelve_data_scan_fallback_symbols: int = 3
     twelve_data_intraday_symbols: int = 2
+    # Safety limits: Twelve Data is optional and must never be allowed to drain the account.
+    # 0 disables the local daily request cap; the credit reserve remains active when configured.
+    twelve_data_daily_request_cap: int = 30
+    twelve_data_reserve_credits: int = 100
     market_update_interval_minutes: int = 30
     cron_secret: str = ""
     openterminal_base_url: str = ""
