@@ -146,3 +146,12 @@ button:active{transform:translateY(1px)}
 
 .access-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.channel-btn,.terminal-btn{width:100%}.channel-btn{border:1px solid rgba(45,244,255,.45);border-radius:13px;padding:11px 15px;background:rgba(45,244,255,.08);color:#dffcff;font-weight:1000;white-space:nowrap}.channel-btn:hover{background:rgba(45,244,255,.14)}
 @media(max-width:560px){.access-actions{grid-template-columns:1fr}}
+
+/* TELEGRAM STARS WALLET */
+.stars-wallet-card{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.stars-wallet-card>div{border:1px solid rgba(45,244,255,.16);border-radius:15px;padding:14px;background:linear-gradient(145deg,rgba(7,31,42,.92),rgba(2,13,21,.96))}
+.stars-wallet-card small,.stars-wallet-card strong{display:block}.stars-wallet-card small{font-size:10px;color:var(--muted)}.stars-wallet-card strong{margin-top:5px;font-size:23px;color:var(--cyan)}
+.stars-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.stars-actions button{width:100%}
+.stars-note{margin-top:10px;padding:10px 12px;border:1px solid rgba(255,199,80,.18);border-radius:12px;color:#c9dadd;background:rgba(255,199,80,.04);font-size:10px;line-height:1.7}
+.stars-transactions{margin-top:12px}.stars-row{display:flex;justify-content:space-between;gap:10px;align-items:center;border-top:1px solid rgba(255,255,255,.06);padding:11px 0}.stars-row b{display:block}.stars-row small{display:block;color:var(--muted);font-size:9px;margin-top:3px}.stars-row code{max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8deff5;font-size:8px}
+@media(max-width:560px){.stars-actions,.stars-wallet-card{grid-template-columns:1fr}.stars-row{align-items:flex-start}.stars-row code{max-width:38%}}
