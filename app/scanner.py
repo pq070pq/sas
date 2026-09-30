@@ -559,27 +559,36 @@ async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_f
     }
     behavior, emoji = behavior_names[behavior_key]
 
-    # تصنيف نمط التداول يعتمد على بيانات الرصد الفعلية، وليس على سعر السهم وحده.
-    # الهدف وصف طبيعة الحركة/الأفق المحتمل للرصد وليس إعطاء توصية استثمارية.
-    if (change_pct >= 8 and rvol >= 2.5) or rvol >= 4 or atr_pct >= 0.15:
+    # تصنيف نوع السهم — أربع فئات فقط.
+    # الوصف مبني على الحركة/التذبذب/الحجم والسلوك المرصود، وليس توصية.
+    if (
+        (momentum and rvol >= 5)
+        or (former_runner and rvol >= 4)
+        or (sweep and rvol >= 5)
+        or atr_pct >= 0.15
+        or (change_pct >= 12 and rvol >= 3)
+    ):
+        stock_type = "مضاربي سريع خطير"
+    elif (
+        momentum
+        or sweep
+        or rvol >= 3
+        or atr_pct >= 0.10
+        or former_runner
+        or change_pct >= 8
+    ):
         stock_type = "مضاربي"
-    elif momentum or sweep or rvol >= 2 or atr_pct >= 0.10:
-        stock_type = "مضاربي"
-    elif (sma20 >= sma50 * 1.02 and (accumulation or breakout or fill_gap)) or (
-        accumulation and atr_pct < 0.10
+    elif (
+        accumulation
+        or w_pattern
+        or double_bottom_confirmed
+        or inverse_hs_confirmed
+        or breakout
+        or (sma20 >= sma50 * 1.02 and fill_gap)
     ):
         stock_type = "سوينق"
-    elif (
-        sma20 >= sma50
-        and higher_lows
-        and atr_pct < 0.06
-        and rvol < 1.5
-    ):
-        stock_type = "استثماري"
     else:
-        # لا نستخدم تصنيفاً خامساً في الرادار؛ نُسند الحالة الأقرب
-        # إلى أحد الأنواع الأربعة بناءً على طبيعة الحركة الحالية.
-        stock_type = "سوينق" if sma20 >= sma50 else "مضاربي"
+        stock_type = "استثماري"
 
     evidence = []
     if former_runner:
