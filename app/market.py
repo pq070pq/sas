@@ -2,6 +2,37 @@ import asyncio
 import httpx
 from .config import settings
 
+FINNHUB_SYMBOLS = {
+    "SPX": "^GSPC",
+    "IXIC": "^IXIC",
+    "DJI": "^DJI",
+    "BTC/USD": "BINANCE:BTCUSDT",
+    "XAU/USD": "OANDA:XAU_USD",
+}
+
+async def _finnhub_quote(symbol: str):
+    if not settings.finnhub_api_key:
+        return None
+    mapped = FINNHUB_SYMBOLS.get(symbol, symbol)
+    async with httpx.AsyncClient(timeout=8) as c:
+        r = await c.get(
+            "https://finnhub.io/api/v1/quote",
+            params={"symbol": mapped, "token": settings.finnhub_api_key},
+        )
+        r.raise_for_status()
+        d = r.json()
+    price = d.get("c")
+    if not _valid_price(price):
+        return None
+    return {
+        "symbol": symbol,
+        "price": price,
+        "change_pct": d.get("dp"),
+        "source": "Finnhub fallback",
+        "is_extended_hours": False,
+        "datetime": d.get("t"),
+    }
+
 
 def _valid_price(value):
     try:
@@ -12,9 +43,10 @@ def _valid_price(value):
 
 async def quote(symbol: str):
     if not settings.twelve_data_api_key:
-        return {"symbol": symbol, "price": None, "change_pct": None, "source": "not_configured"}
+        fallback = await _finnhub_quote(symbol)
+        return fallback or {"symbol": symbol, "price": None, "change_pct": None, "source": "not_configured"}
 
-    async with httpx.AsyncClient(timeout=15) as c:
+    async with httpx.AsyncClient(timeout=12) as c:
         params = {
             "symbol": symbol,
             "apikey": settings.twelve_data_api_key,
@@ -22,6 +54,11 @@ async def quote(symbol: str):
             "prepost": "true",
         }
         r = await c.get("https://api.twelvedata.com/quote", params=params)
+        if r.status_code == 429:
+            fallback = await _finnhub_quote(symbol)
+            if fallback:
+                return fallback
+            r.raise_for_status()
         r.raise_for_status()
         d = r.json()
 
