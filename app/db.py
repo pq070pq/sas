@@ -113,6 +113,7 @@ class RadarSignal(Base):
     session_date: Mapped[str] = mapped_column(String(16), index=True)
     payload: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    telegram_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     __table_args__ = (UniqueConstraint("symbol", "session_date", name="uq_radar_symbol_session"),)
 
 class RadarOutcome(Base):
@@ -175,6 +176,9 @@ async def init_db():
                 "terms_version": "VARCHAR(32)",
                 "trial_used_at": "DATETIME",
                 "channel_join_requested_at": "DATETIME",
+            })
+            await _sqlite_add_columns(conn, "radar_signals", {
+                "telegram_message_id": "INTEGER",
             })
             await _sqlite_add_columns(conn, "radar_outcomes", {
                 "target4": "FLOAT",
