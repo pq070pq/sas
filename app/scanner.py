@@ -381,7 +381,11 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
 
     # Only the most important shortlist symbols get a single Twelve Data fallback.
     # This prevents 429 storms when 100+ symbols have no PanWatch candles.
-    if allow_twelve_fallback and settings.twelve_data_api_key:
+    if (
+        allow_twelve_fallback
+        and settings.twelve_data_api_key
+        and not _twelve_data_quota_exhausted
+    ):
         try:
             async with asyncio.timeout(8):
                 async with _twelvedata_fallback_semaphore:
@@ -716,7 +720,7 @@ async def _get_intraday_liquidity(symbols):
             out[symbol] = cached[1]
         else:
             missing.append(symbol)
-    if not missing:
+    if not missing or _twelve_data_quota_exhausted:
         return out
 
     # طلب دفعة واحدة فقط للدورة بدل طلب مستقل لكل سهم.
@@ -850,6 +854,42 @@ async def scan_us_low_price_stocks():
                     live_change = row.get("change_pct")
 
                 live_source = row.get("live_price_source") or row.get("source") or "scan data"
+
+                # طابق الأهداف/الوقف مع آخر سعر حي للرادار. بيانات الشموع اليومية قد
+                # تكون أحدث/أقدم من لقطة الاكتشاف، لذلك لا نسمح بوقف فوق سعر الدخول
+                # أو بهدف أصبح أسفل/عند السعر الحالي.
+                if live_price > 0 and isinstance(targets, dict):
+                    raw_targets = []
+                    for value in (targets.get("targets") or [])[:5]:
+                        try:
+                            level = float(value)
+                        except (TypeError, ValueError):
+                            continue
+                        if level > live_price * 1.001:
+                            raw_targets.append(round(level, 4))
+
+                    atr = _f(targets.get("atr"), 0)
+                    exit_level = _f(targets.get("exit"), 0)
+
+                    if exit_level >= live_price or exit_level <= 0:
+                        exit_level = live_price - atr if atr > 0 else 0
+
+                    if not raw_targets or exit_level <= 0:
+                        return None, {
+                            "symbol": symbol,
+                            "exchange": row.get("exchange"),
+                            "status": "filtered",
+                            "reason": "لا يوجد هدف فوق السعر الحالي مع وقف أسفل سعر الدخول",
+                            "data_source": "PanWatch",
+                        }
+
+                    targets = {
+                        **targets,
+                        "targets": raw_targets,
+                        "resistances": raw_targets,
+                        "exit": round(exit_level, 4),
+                        "support": round(exit_level, 4),
+                    }
 
                 # fallback وحيد عند الحاجة فقط.
                 if live_price <= 0:
