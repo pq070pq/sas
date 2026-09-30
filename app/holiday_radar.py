@@ -190,7 +190,7 @@ async def publish_holiday_radar():
 
 
 async def holiday_radar_scheduler():
-    interval = max(10, settings.holiday_radar_interval_minutes) * 60
+    interval = max(180, settings.weekend_radar_interval_minutes, settings.holiday_radar_interval_minutes) * 60
     while True:
         try:
             await publish_holiday_radar()
