@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import json
 import httpx
 from datetime import datetime, timedelta, timezone
@@ -11,7 +12,10 @@ from .holiday_radar import publish_holiday_radar, publish_market_update
 from .timeutil import utcnow, aware
 from zoneinfo import ZoneInfo
 from .market_calendar import market_status
+from .market_brief import publish_market_brief
 from sqlalchemy import func
+
+logger = logging.getLogger(__name__)
 
 async def expiry_cycle():
     now = utcnow()
@@ -249,79 +253,6 @@ async def evaluate_radar_outcomes():
         await db.commit()
 
 
-async def weekly_radar_report():
-    now = datetime.now(ZoneInfo("Asia/Riyadh"))
-    if now.weekday() != 5 or now.hour != 12:
-        return
-    key = f"weekly-radar:{now.strftime('%Y-%m-%d')}"
-    async with SessionLocal() as db:
-        sent = (await db.execute(
-            select(ScheduledReport).where(ScheduledReport.report_key == key)
-        )).scalars().first()
-        if sent or not settings.telegram_channel_id or not settings.telegram_bot_token:
-            return
-
-        week_start = (now.date() - timedelta(days=6)).isoformat()
-        outcomes = (await db.execute(
-            select(RadarOutcome).where(RadarOutcome.session_date >= week_start)
-        )).scalars().all()
-
-        reached = [x for x in outcomes if x.achieved_target > 0]
-        failed = [x for x in outcomes if x.status == "failed"]
-        active = [x for x in outcomes if x.status == "active"]
-
-        lines = [
-            "📊 <b>SAS PRO — تقرير الرادار الأسبوعي</b>",
-            "",
-            f"📅 الفترة: {week_start} → {now.strftime('%Y-%m-%d')}",
-            f"🔎 عدد الأسهم التي رصدها الرادار: <b>{len(outcomes)}</b>",
-            f"🎯 وصلت للهدف: <b>{len(reached)}</b>",
-            f"❌ لم تصل للهدف/وصلت لحد الخروج: <b>{len(failed)}</b>",
-            f"⏳ ما زالت تحت المتابعة: <b>{len(active)}</b>",
-            "",
-            "━━━━━━━━━━━━━━",
-            "",
-            "🎯 <b>أسهم وصلت إلى أهدافها</b>",
-        ]
-        lines += [
-            f"• {x.symbol} — وصل للهدف {x.achieved_target} 🎯"
-            for x in reached
-        ] or ["• لا توجد أسهم وصلت إلى هدف خلال الفترة"]
-
-        lines += [
-            "",
-            "━━━━━━━━━━━━━━",
-            "",
-            "❌ <b>أسهم لم تصل إلى الهدف</b>",
-        ]
-        lines += [
-            f"• {x.symbol} — {('وصل لحد الخروج' if x.status == 'failed' else 'لم يصل للهدف')}"
-            for x in failed
-        ] or ["• لا توجد حالات مسجلة"]
-
-        lines += [
-            "",
-            "━━━━━━━━━━━━━━",
-            "",
-            "⏳ <b>أسهم ما زالت تحت المتابعة</b>",
-        ]
-        lines += [f"• {x.symbol}" for x in active] or ["• لا توجد أسهم مفتوحة حاليًا"]
-
-        lines += [
-            "",
-            "━━━━━━━━━━━━━━",
-            "",
-            "⚠️ الإحصائية تعتمد على سعر السوق مقارنة بالأهداف وحد الخروج المسجلين وقت إرسال الرادار.",
-            "",
-            "🚨 <b>SAS PRO معلومات وتحليل فقط وليست توصية أو مشورة استثمارية.</b>",
-            "الأهداف تحليلية وليست ضمانًا للنتيجة، وقرار الاستثمار والتداول وإدارة المخاطر مسؤولية المتداول ⚠️",
-        ]
-
-        await send_message(settings.telegram_channel_id, "\n".join(lines))
-        db.add(ScheduledReport(report_key=key))
-        await db.commit()
-
-
 _radar_open_announced = False
 _radar_seen = set()
 
@@ -463,81 +394,55 @@ async def stock_radar_cycle():
 
 
 async def weekly_radar_report():
+    """Saturday 12:00 Saudi report based only on persisted live outcome records."""
     if not settings.telegram_channel_id or not settings.telegram_bot_token:
         return
-    now_riyadh = datetime.now(ZoneInfo("Asia/Riyadh"))
-    if now_riyadh.weekday() != 5 or now_riyadh.hour != 12:
+    now = datetime.now(ZoneInfo("Asia/Riyadh"))
+    if now.weekday() != 5 or now.hour != 12:
         return
-    report_key = now_riyadh.strftime("weekly-radar-%G-W%V")
+    report_key = f"weekly-radar:{now.strftime('%Y-%m-%d')}"
     async with SessionLocal() as db:
-        exists = (await db.execute(select(ScheduledReport).where(ScheduledReport.report_key == report_key))).scalars().first()
+        exists = (await db.execute(
+            select(ScheduledReport).where(ScheduledReport.report_key == report_key)
+        )).scalars().first()
         if exists:
             return
-        week_start = (now_riyadh - timedelta(days=7)).date().isoformat()
-        week_end = (now_riyadh - timedelta(days=1)).date().isoformat()
-        rows = (await db.execute(select(RadarSignal).where(RadarSignal.session_date >= week_start, RadarSignal.session_date <= week_end).order_by(RadarSignal.created_at.asc()))).scalars().all()
-        hit1 = hit2 = hit3 = missed = pending = 0
-        details = []
-        async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
-            for signal in rows:
-                try:
-                    payload = json.loads(signal.payload)
-                    targets = (payload.get("targets") or {}).get("targets") or []
-                    if not targets:
-                        pending += 1
-                        continue
-                    base = settings.panwatch_base_url.rstrip("/")
-                    r = await client.get(f"{base}/api/klines/{signal.symbol}", params={"market": "US", "days": 90, "interval": "1d"})
-                    r.raise_for_status()
-                    candles = r.json().get("klines", [])
-                    highs = []
-                    for candle in candles:
-                        date_value = str(candle.get("datetime") or candle.get("date") or "")[:10]
-                        if date_value > signal.session_date:
-                            try:
-                                highs.append(float(candle.get("high")))
-                            except Exception:
-                                pass
-                    if not highs:
-                        pending += 1
-                        continue
-                    max_high = max(highs)
-                    reached = [max_high >= float(t) for t in targets[:3]]
-                    if reached and reached[0]:
-                        hit1 += 1
-                        if len(reached) > 1 and reached[1]:
-                            hit2 += 1
-                        if len(reached) > 2 and reached[2]:
-                            hit3 += 1
-                        details.append(f"✅ {signal.symbol} — أعلى هدف محقق: {min(3, sum(reached))}")
-                    else:
-                        missed += 1
-                        details.append(f"❌ {signal.symbol} — الهدف الأول لم يتحقق")
-                except Exception:
-                    pending += 1
-        total = len(rows)
-        evaluated = hit1 + missed
-        rate = (hit1 / evaluated * 100) if evaluated else 0
-        text = (
-            "📊 <b>SAS PRO — الإحصائية الأسبوعية</b>\n\n"
-            f"📅 الفترة: {week_start} → {week_end}\n"
-            f"📌 إجمالي فرص الرادار: <b>{total}</b>\n"
-            f"🎯 حققت الهدف الأول: <b>{hit1}</b>\n"
-            f"🎯 حققت الهدف الثاني: <b>{hit2}</b>\n"
-            f"🎯 حققت الهدف الثالث: <b>{hit3}</b>\n"
-            f"❌ لم تحقق الهدف الأول: <b>{missed}</b>\n"
-            f"⏳ لم يمكن تقييمها بعد: <b>{pending}</b>\n"
-            f"📈 نسبة تحقق الهدف الأول من الحالات المقيمة: <b>{rate:.1f}%</b>\n\n"
-            "━━━━━━━━━━━━━━\n\n<b>تفاصيل الفرص</b>\n"
-        )
-        text += "\n".join(details[:80]) if details else "لا توجد فرص مرصودة خلال الفترة."
-        text += "\n\n━━━━━━━━━━━━━━\n⚠️ تنبيه: هذه الإحصائية تقيس وصول السعر إلى المستويات المحسوبة فقط، ولا تُعد نتيجة تداول فعلية ولا تضمن النتائج المستقبلية. قرار الاستثمار والتداول وإدارة المخاطر مسؤولية المتداول."
-        try:
-            await send_message(settings.telegram_channel_id, text)
-            db.add(ScheduledReport(report_key=report_key))
-            await db.commit()
-        except Exception:
-            await db.rollback()
+        start = (now.date() - timedelta(days=6)).isoformat()
+        outcomes = (await db.execute(
+            select(RadarOutcome).where(RadarOutcome.session_date >= start).order_by(RadarOutcome.session_date.asc())
+        )).scalars().all()
+        reached = [x for x in outcomes if int(x.achieved_target or 0) > 0]
+        stopped = [x for x in outcomes if x.status == "failed"]
+        active = [x for x in outcomes if x.status == "active"]
+        lines = [
+            "📊 <b>SAS PRO | التقرير الأسبوعي</b>",
+            f"📅 الفترة: {start} → {now.strftime('%Y-%m-%d')}",
+            "🕛 السبت | 12:00 ظهرًا 🇸🇦",
+            "",
+            f"📌 فرص الرادار المسجلة: <b>{len(outcomes)}</b>",
+            f"🎯 حققت هدفًا فعليًا: <b>{len(reached)}</b>",
+            f"🛑 أوقفت/ألغيت: <b>{len(stopped)}</b>",
+            f"⏳ تحت المتابعة: <b>{len(active)}</b>",
+            "",
+            "🏆 <b>الأسهم التي حققت أهدافها</b>",
+        ]
+        if reached:
+            lines.extend(
+                f"• {x.symbol} — تحقق الهدف {int(x.achieved_target)}"
+                + (f" — السعر الأخير المرصود {_money(x.current_price)}" if x.current_price else "")
+                for x in reached
+            )
+        else:
+            lines.append("• لا توجد حالات هدف محققة مسجلة.")
+        lines += [
+            "",
+            "━━━━━━━━━━━━━━━━━━",
+            "⚠️ تعتمد الإحصائية على أحداث تحقق الأهداف التي رصدها النظام فعليًا أثناء التشغيل، وليست إعادة احتساب تاريخية.",
+            "لا يعد هذا التقرير توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️",
+        ]
+        await send_message(settings.telegram_channel_id, "\n".join(lines))
+        db.add(ScheduledReport(report_key=report_key))
+        await db.commit()
 
 async def scheduler():
     while True:
@@ -545,6 +450,7 @@ async def scheduler():
             await expiry_cycle()
             await evaluate_radar_outcomes()
             await weekly_radar_report()
+            await publish_market_brief()
 
             status = market_status()
             if status["holiday"] or status["session"] == "weekend":
