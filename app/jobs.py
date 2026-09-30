@@ -224,11 +224,7 @@ async def evaluate_radar_outcomes():
                         existing,
                     )
                     try:
-                        await edit_message(
-                            settings.telegram_channel_id,
-                            int(signal.telegram_message_id),
-                            updated_report,
-                        )
+                        await edit_message(settings.telegram_channel_id, int(signal.telegram_message_id), updated_report)
                     except Exception:
                         logger.exception("Radar parent message edit failed: %s", signal.symbol)
 
@@ -238,18 +234,18 @@ async def evaluate_radar_outcomes():
                             profit = ((price / existing.entry_price) - 1.0) * 100.0
                             profit_text = f"\n📈 العائد من دخول الرصد: <b>{profit:+.2f}%</b>"
                         stop_text = (
-                            f"\n🛡 الوقف الجديد: <b>{_money(existing.current_stop)}</b>"
+                            f"\n🛡 الوقف الجديد: <b>\x24{_money(existing.current_stop)}</b>"
                             if existing.current_stop is not None else ""
                         )
                         final = idx == len(ordered_targets)
                         title = "🏆 تحقق آخر هدف" if final else f"🎯 تحقق الهدف {idx}"
                         await send_message(
                             settings.telegram_channel_id,
-                            f"{title} — <b>§$${signal.symbol}</b>\n\n"
-                            f"💵 السعر المرصود: <b>${_money(price)}</b>"
+                            f"{title} — <b>\x24{signal.symbol}</b>\n\n"
+                            f"💵 السعر المرصود: <b>\x24{_money(price)}</b>"
                             f"{profit_text}{stop_text}\n"
-                            f"📊 المستوى: <b>${_money(target)}</b>\n"
-                            f"⏱ تم التحقق: <b>${utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}</b>",
+                            f"📊 المستوى: <b>\x24{_money(target)}</b>\n"
+                            f"⏱ تم التحقق: <b>{utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}</b>",
                             reply_to_message_id=int(signal.telegram_message_id),
                         )
 
@@ -269,30 +265,23 @@ async def evaluate_radar_outcomes():
                         existing,
                     )
                     try:
-                        await edit_message(
-                            settings.telegram_channel_id,
-                            int(signal.telegram_message_id),
-                            updated_report,
-                        )
+                        await edit_message(settings.telegram_channel_id, int(signal.telegram_message_id), updated_report)
                     except Exception:
                         logger.exception("Radar parent message stop edit failed: %s", signal.symbol)
 
                     await send_message(
                         settings.telegram_channel_id,
-                        "🛑 <b>تفعيل الوقف</b> — $" + signal.symbol + "\n\n"
-                        f"💵 السعر المرصود: <b>${_money(price)}</b>\n"
-                        f"🛡 الوقف: <b>${_money(existing.current_stop)}</b>\n"
-                        f"🎯 آخر هدف محقق: <b>${existing.achieved_target}</b>\n"
+                        "🛑 <b>تفعيل الوقف</b> — \x24" + signal.symbol + "\n\n"
+                        f"💵 السعر المرصود: <b>\x24{_money(price)}</b>\n"
+                        f"🛡 الوقف: <b>\x24{_money(existing.current_stop)}</b>\n"
+                        f"🎯 آخر هدف محقق: <b>{existing.achieved_target}</b>\n"
                         "📌 تم إنهاء الرصد وفق مستوى الوقف المسجل.",
                         reply_to_message_id=int(signal.telegram_message_id),
                     )
 
             except Exception as exc:
                 if "429" in str(exc) or "Too Many Requests" in str(exc):
-                    logger.warning(
-                        "Radar outcome quote throttled for %s; skipping this evaluation cycle.",
-                        signal.symbol,
-                    )
+                    logger.warning("Radar outcome quote throttled for %s; skipping this evaluation cycle.", signal.symbol)
                 else:
                     logger.exception("Radar outcome evaluation failed: %s", signal.symbol)
                 continue
