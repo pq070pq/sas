@@ -451,23 +451,32 @@ async def weekly_radar_report():
         await db.commit()
 
 async def scheduler():
+    logger.info("SAS PRO scheduler started.")
     while True:
+        cycle_started = utcnow()
         try:
+            logger.info("Scheduler cycle started.")
             await expiry_cycle()
+            logger.info("Scheduler: expiry cycle completed.")
             await evaluate_radar_outcomes()
+            logger.info("Scheduler: radar outcome evaluation completed.")
             await weekly_radar_report()
             await publish_market_brief()
+            logger.info("Scheduler: market brief cycle completed.")
 
             status = market_status()
             if status["holiday"] or status["session"] == "weekend":
                 # في عطلة السوق/نهاية الأسبوع: بيتكوين حسب شروط رادار الإجازة السابقة.
                 from .holiday_radar import publish_holiday_radar
+                logger.info("Scheduler mode: holiday/weekend radar.")
                 await publish_holiday_radar()
             else:
                 # الأسهم: الرصد كل 30 دقيقة مع استهلاك محدود للبيانات.
+                logger.info("Scheduler mode: stock radar.")
                 await stock_radar_cycle()
 
             await weekly_radar_report()
+            logger.info("Scheduler cycle completed in %.1fs.", (utcnow() - cycle_started).total_seconds())
         except Exception:
-            pass
+            logger.exception("Scheduler cycle failed.")
         await asyncio.sleep(max(1800, int(settings.radar_interval_minutes) * 60))
