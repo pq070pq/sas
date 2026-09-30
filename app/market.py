@@ -50,9 +50,13 @@ async def macro_quote(symbol: str):
 
 
 async def quote(symbol: str):
+    # Prefer Finnhub for live quote polling so Twelve Data credits are reserved
+    # for the limited candle/intraday analysis budget.
+    fallback = await _finnhub_quote(symbol)
+    if fallback:
+        return fallback
     if not settings.twelve_data_api_key:
-        fallback = await _finnhub_quote(symbol)
-        return fallback or {"symbol": symbol, "price": None, "change_pct": None, "source": "not_configured"}
+        return {"symbol": symbol, "price": None, "change_pct": None, "source": "not_configured"}
 
     async with httpx.AsyncClient(timeout=12) as c:
         params = {
