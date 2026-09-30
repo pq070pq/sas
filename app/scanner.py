@@ -19,6 +19,7 @@ _CANDLE_CACHE_TTL = 1800
 _candle_cache = {}
 _panwatch_semaphore = asyncio.Semaphore(8)
 _twelvedata_fallback_semaphore = asyncio.Semaphore(1)
+_twelve_data_quota_exhausted = False
 
 
 def _f(value, default=0.0):
@@ -392,6 +393,10 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
                         },
                         timeout=7,
                     )
+                if r.status_code == 429:
+                    global _twelve_data_quota_exhausted
+                    _twelve_data_quota_exhausted = True
+                    raise httpx.HTTPStatusError("Twelve Data quota exhausted", request=r.request, response=r)
                 r.raise_for_status()
                 payload = r.json()
                 candles = _parse_candles(payload.get("values", []))
@@ -735,6 +740,8 @@ async def _get_intraday_liquidity(symbols):
 
 
 async def scan_us_low_price_stocks():
+    global _twelve_data_quota_exhausted
+    _twelve_data_quota_exhausted = False
     candidates = await discover_low_price_stocks()
     results = []
     diagnostics = []
@@ -903,6 +910,7 @@ async def scan_us_low_price_stocks():
                 for x in errors[:10]
             ],
             "passed_examples": [x.get("symbol") for x in results[:20]],
-            "price_source": "Nasdaq Screener/Twelve Data + live quote for passed symbols",
+            "price_source": "Nasdaq Screener + cached/PanWatch data; Twelve Data only for limited fallbacks",
+            "twelve_data_quota_exhausted": _twelve_data_quota_exhausted,
         },
     }
