@@ -1,6 +1,7 @@
 import asyncio
 import httpx
 from .config import settings
+from .twelve_guard import call as twelve_call
 
 FINNHUB_SYMBOLS = {
     "SPX": "^GSPC",
@@ -65,7 +66,7 @@ async def quote(symbol: str):
             # يدعم بيانات قبل/بعد السوق في خطط Twelve Data التي توفر Extended Hours.
             "prepost": "true",
         }
-        r = await c.get("https://api.twelvedata.com/quote", params=params)
+        r = await twelve_call(c.get, "https://api.twelvedata.com/quote", params=params)
         if r.status_code == 429:
             fallback = await _finnhub_quote(symbol)
             if fallback:
@@ -77,8 +78,7 @@ async def quote(symbol: str):
         # إذا لم تكن بيانات Extended Hours متاحة على الخطة، نرجع تلقائيًا
         # إلى السعر العادي بدل تعطيل الرادار بالكامل.
         if d.get("status") == "error":
-            fallback = await c.get(
-                "https://api.twelvedata.com/quote",
+            fallback = await twelve_call(c.get, "https://api.twelvedata.com/quote",
                 params={"symbol": symbol, "apikey": settings.twelve_data_api_key},
             )
             fallback.raise_for_status()
@@ -100,8 +100,7 @@ async def quote(symbol: str):
 
         # Fallback خفيف لمصادر الأصول التي لا يعيد لها /quote سعراً صالحاً.
         if not _valid_price(price):
-            price_r = await c.get(
-                "https://api.twelvedata.com/price",
+            price_r = await twelve_call(c.get, "https://api.twelvedata.com/price",
                 params={"symbol": symbol, "apikey": settings.twelve_data_api_key, "prepost": "true"},
             )
             price_r.raise_for_status()
@@ -113,8 +112,7 @@ async def quote(symbol: str):
 
         # آخر fallback: آخر إغلاق متاح من /time_series، مفيد خصوصاً عند إغلاق السوق.
         if not _valid_price(price):
-            ts_r = await c.get(
-                "https://api.twelvedata.com/time_series",
+            ts_r = await twelve_call(c.get, "https://api.twelvedata.com/time_series",
                 params={
                     "symbol": symbol,
                     "interval": "1day",
