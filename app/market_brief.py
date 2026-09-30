@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import httpx
+from sqlalchemy import select
 
 from .config import settings
 from .market import quote
@@ -99,7 +100,7 @@ async def publish_market_brief():
     key = f"market-brief:{status.get('date')}"
     async with SessionLocal() as db:
         exists = (await db.execute(
-            __import__("sqlalchemy").select(ScheduledReport).where(ScheduledReport.report_key == key)
+            select(ScheduledReport).where(ScheduledReport.report_key == key)
         )).scalars().first()
         if exists:
             return {"sent": False, "reason": "already_sent"}
