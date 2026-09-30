@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     expiry_warning_hours: int = 72
     holiday_radar_interval_minutes: int = 30
     radar_interval_minutes: int = 30
-    twelve_data_scan_fallback_symbols: int = 8
-    twelve_data_intraday_symbols: int = 4
+    twelve_data_scan_fallback_symbols: int = 3
+    twelve_data_intraday_symbols: int = 2
     market_update_interval_minutes: int = 30
     cron_secret: str = ""
     openterminal_base_url: str = ""
