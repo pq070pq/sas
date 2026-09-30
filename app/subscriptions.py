@@ -131,19 +131,31 @@ async def create_user_channel_invite(telegram_id: int, kind: str, expires_at=Non
     add a user to a private channel. The link is limited to one member and expires
     automatically so it cannot be reused by other users.
     """
-    if not settings.telegram_channel_id:
+    if not settings.telegram_channel_id and not settings.telegram_channel_link:
         raise RuntimeError("لم يتم إعداد قناة SAS PRO")
     expires_at = aware(expires_at) if expires_at else utcnow() + timedelta(hours=settings.invite_hours)
-    result = await bot_api("createChatInviteLink", {
-        "chat_id": settings.telegram_channel_id,
-        "name": f"SAS {kind} {int(telegram_id)}"[:32],
-        "expire_date": int(expires_at.timestamp()),
-        "member_limit": 1,
-        "creates_join_request": False,
-    })
-    link = result.get("invite_link") if isinstance(result, dict) else result
+
+    # إذا كان رابط القناة الثابت مضبوطًا، استخدمه مباشرة ولا تحاول إنشاء
+    # رابط دعوة جديد. هذا يمنع فشل Mini App عندما لا يملك البوت صلاحية
+    # can_invite_users في القناة.
+    link = (settings.telegram_channel_link or "").strip()
     if not link:
-        raise RuntimeError("تعذر إنشاء رابط دخول القناة")
+        try:
+            result = await bot_api("createChatInviteLink", {
+                "chat_id": settings.telegram_channel_id,
+                "name": f"SAS {kind} {int(telegram_id)}"[:32],
+                "expire_date": int(expires_at.timestamp()),
+                "member_limit": 1,
+                "creates_join_request": False,
+            })
+            link = result.get("invite_link") if isinstance(result, dict) else result
+        except Exception as exc:
+            raise RuntimeError(
+                "تعذر إنشاء رابط دعوة القناة. اضبط TELEGRAM_CHANNEL_LINK "
+                "برابط القناة المباشر، أو امنح البوت صلاحية دعوة المستخدمين في القناة."
+            ) from exc
+    if not link:
+        raise RuntimeError("تعذر تحديد رابط دخول القناة")
     async with SessionLocal() as db:
         db.add(Invite(
             telegram_id=int(telegram_id),
