@@ -86,6 +86,10 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     targets = [num(x) for x in (tech.get("targets") or [])]
     targets = [x for x in targets if x is not None and x > 0]
     stop = num(tech.get("exit"))
+    dollar_volume = num(classification.get("dollar_volume"))
+    buy_pressure = num(intraday.get("buy_pressure"))
+    acceleration = num(intraday.get("volume_acceleration"))
+    cvd = intraday.get("cvd_direction")
 
     score_text = f"{score:.0f}/100" if score is not None else "غير متوفر"
     rvol_text = f"{rvol:.2f}×" if rvol is not None else "غير متوفر"
@@ -130,6 +134,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         "📌 <b>قاعدة الرصد</b>",
         "🎯 لا يُعلن تحقق أي هدف إلا بعد رصد السعر فعليًا عند المستوى أو فوقه.",
         "🛡 بعد كل هدف يُرفع الوقف وفق قاعدة ثابتة مسجلة في النظام.",
+        f"📊 المخاطرة مقابل العائد: <b>{float(tech.get('risk_reward')):.2f}×</b>" if num(tech.get("risk_reward")) is not None else "📊 المخاطرة مقابل العائد: <b>غير محسوب</b>",
         "⚠️ لا يتم عرض رقم غير متوفر أو نسبة نجاح غير مثبتة باختبار تاريخي.",
         "",
         DISCLAIMER,
