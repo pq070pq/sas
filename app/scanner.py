@@ -408,7 +408,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
             pass
 
     # Cache the failure briefly too, so the same unavailable symbol is not hammered
-    # again on every 5-minute cycle.
+    # again on every 30-minute cycle.
     _candle_cache[key] = (now, [], "unavailable")
     return [], "unavailable"
 
@@ -730,6 +730,10 @@ async def _get_intraday_liquidity(symbols):
                     "prepost": "true",
                 },
             )
+            if r.status_code == 429:
+                global _twelve_data_quota_exhausted
+                _twelve_data_quota_exhausted = True
+                return out
             r.raise_for_status()
             payload = r.json()
     except Exception:
@@ -780,7 +784,6 @@ async def scan_us_low_price_stocks():
 
     # Keep the radar responsive: analyze the staged shortlist concurrently.
     semaphore = asyncio.Semaphore(16)
-    # Twelve Data fallback is reserved for the top 30 symbols only.
     # Twelve Data fallback is deliberately limited per cycle to preserve
     # the daily API allowance across the full trading day.
     twelve_fallback_symbols = {
