@@ -108,18 +108,15 @@ async def technical_targets(symbol: str):
     for level in resistances:
         if level - price >= min_distance:
             targets.append(round(level, 4))
-        if len(targets) == 3:
+        if len(targets) == 5:
             break
 
     avg_volume = sum(c["volume"] for c in recent) / max(1, len(recent))
     current_volume = last["volume"]
     volume_ratio = current_volume / avg_volume if avg_volume else None
 
-    # Target 2/3 are only considered when current activity supports continuation.
-    if len(targets) > 1 and (volume_ratio is None or volume_ratio < 1.15):
-        targets = targets[:1]
-    if len(targets) > 2 and (volume_ratio is None or volume_ratio < 1.50):
-        targets = targets[:2]
+    # Keep only confirmed resistance levels. Do not fabricate targets or force a
+    # minimum count; fewer than five real levels is valid and is reported as such.
 
     # Exit is the nearest confirmed support below price, with ATR fallback only when a
     # real support is unavailable. The fallback is calculated from observed price/ATR,
