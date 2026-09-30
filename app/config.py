@@ -27,7 +27,10 @@ class Settings(BaseSettings):
     invite_hours: int = 48
     trial_channel_id: str = ""
     expiry_warning_hours: int = 72
-    holiday_radar_interval_minutes: int = 30
+    holiday_radar_interval_minutes: int = 180
+    weekend_radar_interval_minutes: int = 180
+    market_brief_enabled: bool = True
+    market_brief_window_minutes: int = 65
     radar_interval_minutes: int = 30
     twelve_data_scan_fallback_symbols: int = 3
     twelve_data_intraday_symbols: int = 2
