@@ -707,6 +707,7 @@ def _calc_intraday_liquidity(candles):
     }
 
 async def _get_intraday_liquidity(symbols):
+    global _twelve_data_quota_exhausted
     symbols = [str(x).upper().strip() for x in symbols if x]
     symbols = list(dict.fromkeys(symbols))[:20]
     if not symbols or not settings.twelve_data_api_key:
