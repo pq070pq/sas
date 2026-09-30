@@ -928,6 +928,24 @@ async def scan_us_low_price_stocks():
                     except Exception:
                         pass
 
+                # لا نرسل إشارة إذا كان الهدف الأول لا يعوض المخاطرة بوضوح.
+                # هذا لا يصنع هدفًا جديدًا؛ يستخدم فقط المستويات المرصودة مسبقًا.
+                if live_price > 0 and isinstance(targets, dict):
+                    first_target = _f((targets.get("targets") or [0])[0], 0)
+                    stop = _f(targets.get("exit"), 0)
+                    risk = live_price - stop
+                    reward = first_target - live_price
+                    risk_reward = (reward / risk) if risk > 0 and reward > 0 else 0
+                    if risk_reward < 1.5:
+                        return None, {
+                            "symbol": symbol,
+                            "exchange": row.get("exchange"),
+                            "status": "filtered",
+                            "reason": "نسبة المخاطرة إلى الهدف الأول أقل من 1.5",
+                            "data_source": targets.get("method") or "PanWatch",
+                        }
+                    targets["risk_reward"] = round(risk_reward, 2)
+
                 result_row = {
                     **row,
                     "symbol": symbol,
