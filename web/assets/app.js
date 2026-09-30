@@ -62,6 +62,7 @@ function closeTerms(){document.getElementById('termsModal').hidden=true;termActi
 async function continueTerms(){
  if(!document.getElementById('termsAgree').checked)return;
  try{
+  const action=termAction;
   const accepted=await api('/api/terms/accept',{method:'POST'});
   closeTerms();
 
@@ -74,7 +75,6 @@ async function continueTerms(){
    return;
   }
 
-  const action=termAction;
   if(action?.startsWith('buy:')){
    const plan=action.slice(4);
    const d=await api('/api/subscription/invoice/'+encodeURIComponent(plan),{method:'POST'});
