@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     finnhub_api_key: str = ""
     panwatch_base_url: str = "http://panwatch:8000"
     panwatch_timeout_seconds: int = 180
-    pro_monthly_stars: int = 0
+    pro_monthly_stars: int = 2250
     pro_3month_stars: int = 0
     pro_6month_stars: int = 0
     pro_yearly_stars: int = 0
