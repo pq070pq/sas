@@ -64,60 +64,64 @@ async def startup():
     asyncio.create_task(holiday_radar_scheduler())
 
 def build_report(symbol: str, q: dict, tech: dict, classification: dict | None = None) -> str:
+    """Compact radar report. Every displayed metric must come from observed/calculated data."""
+    classification = classification or {}
     price = q.get("price")
     change = q.get("change_pct")
-    targets = tech.get("targets") or []
-    exit_level = tech.get("exit")
-    volume_ratio = tech.get("volume_ratio")
-    classification = classification or {}
-    stock_type = classification.get("type", "غير واضح")
-    type_emoji = classification.get("emoji", "⚪")
-    type_reason = classification.get("reason", "بيانات غير كافية")
-    behavior = classification.get("behavior", "غير واضح")
+    intraday = tech.get("intraday") or {}
 
-    move = f"{float(change):+.2f}%" if change is not None else "غير واضح"
-    trading = "قوي" if volume_ratio is not None and volume_ratio >= 1.15 else "عادي"
-    liquidity = "عالية" if volume_ratio is not None and volume_ratio >= 1.50 else "مو واضحة"
-    strength = "قوية" if volume_ratio is not None and volume_ratio >= 1.50 else "متوسطة"
+    def num(value):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
 
-    labels = ["الأول", "الثاني", "الثالث"]
-    target_lines = [
-        f"الهدف {labels[i]}: {_money(level)}"
-        for i, level in enumerate(targets[:3])
+    score = num(classification.get("score"))
+    rvol = num(intraday.get("rvol") if intraday else tech.get("volume_ratio"))
+    vwap = num(intraday.get("vwap"))
+    float_shares = num(tech.get("float_shares"))
+    shares_outstanding = num(tech.get("shares_outstanding"))
+    accumulation = classification.get("accumulation_label") or classification.get("behavior")
+    targets = [num(x) for x in (tech.get("targets") or [])]
+    targets = [x for x in targets if x is not None and x > 0]
+    stop = num(tech.get("exit"))
+
+    score_text = f"{score:.0f}/100" if score is not None else "غير متوفر"
+    rvol_text = f"{rvol:.2f}×" if rvol is not None else "غير متوفر"
+    change_text = f"{float(change):+.2f}%" if change is not None else "غير متوفر"
+    target_text = " → ".join(_money(x) for x in targets) if targets else "غير متوفر"
+
+    lines = [
+        "🚨 <b>SAS PRO RADAR</b>",
+        "",
+        "📡 <b>السهم: $" + symbol + " 🇺🇸</b>",
+        f"💵 السعر: <b>{_money(price)}</b>",
+        f"⭐ قوة الإشارة: <b>{score_text}</b>",
+        f"📊 RVOL: <b>{rvol_text}</b>",
+        f"📈 Float: <b>{float_shares/1_000_000:.2f}M</b>" if float_shares is not None else "📈 Float: <b>غير متوفر</b>",
+        f"🏦 Shares: <b>{shares_outstanding/1_000_000:.2f}M</b>" if shares_outstanding is not None else "🏦 Shares: <b>غير متوفر</b>",
+        f"📍 VWAP: <b>{_money(vwap)}</b>" if vwap is not None else "📍 VWAP: <b>غير متوفر</b>",
+        f"🔥 التجميع: <b>{accumulation}</b>" if accumulation else "🔥 التجميع: <b>غير متوفر</b>",
+        "",
+        "━━━━━━━━━━━━━━━━━━",
+        "",
+        "🎯 <b>الأهداف</b>",
+        "",
+        target_text,
+        "",
+        f"🛑 الوقف: <b>{_money(stop)}</b>" if stop is not None else "🛑 الوقف: <b>غير متوفر</b>",
+        f"📈 التغير: <b>{change_text}</b>",
+        "",
+        "━━━━━━━━━━━━━━━━━━",
+        "",
+        "📌 <b>قاعدة الرصد</b>",
+        "🎯 لا يُعلن تحقق أي هدف إلا بعد رصد السعر فعليًا عند المستوى أو فوقه.",
+        "🛡 بعد كل هدف يُرفع الوقف وفق قاعدة ثابتة مسجلة في النظام.",
+        "⚠️ لا يتم عرض رقم غير متوفر أو نسبة نجاح غير مثبتة باختبار تاريخي.",
+        "",
+        DISCLAIMER,
     ]
-    if not target_lines:
-        target_lines = ["الأهداف: غير واضحة حاليًا"]
-
-    exit_text = f"🛑 حد الخروج: {_money(exit_level)}" if exit_level is not None else "🛑 حد الخروج: غير واضح"
-
-    return (
-        f"🚨 SAS PRO RADAR\n\n"
-        f"🔹 السهم: {symbol}\n"
-        f"💵 السعر: {_money(float(price)) if price is not None else 'غير واضح'}\n"
-        f"📈 مرتفع/منخفض: {move}\n"
-        f"📊 التداول: {trading}\n"
-        f"💰 السيولة: {liquidity}\n"
-        f"🔥 حركة السهم: {strength}\n"
-        f"🏷️ نوع السهم: {type_emoji} {stock_type}\n"
-        f"🧭 السلوك: {behavior}\n"
-        f"↳ {type_reason}\n\n"
-        f"━━━━━━━━━━━━━━\n\n"
-        f"🤖 قراءة SAS PRO\n\n"
-        f"📈 الاتجاه: صاعد إذا حافظ على مستوياته الحالية\n"
-        f"💪 قوة الحركة: {strength}\n"
-        f"📊 التداول: {'يدعم استمرار الحركة' if volume_ratio is not None and volume_ratio >= 1.15 else 'يحتاج متابعة'}\n"
-        f"⚠️ مستوى الخطورة: {'مرتفع' if volume_ratio is not None and volume_ratio >= 1.50 else 'متوسط'}\n\n"
-        f"━━━━━━━━━━━━━━\n\n"
-        f"🎯 الأهداف\n\n"
-        f"{chr(10).join(target_lines)}\n\n"
-        f"{exit_text}\n\n"
-        f"━━━━━━━━━━━━━━\n\n"
-        f"🧠 الزبدة\n\n"
-        f"الأهداف محسوبة من مقاومات فعلية ظهرت في بيانات السعر، "
-        f"وما ينحط هدف رقمي إذا ما فيه مستوى واضح.\n\n"
-        f"🚨 إذا ضعف التداول أو كسر السهم حد الخروج، تتغير النظرة.\n\n"
-        f"{DISCLAIMER}"
-    )
+    return "\n".join(lines)
 
 def _money(value):
     if value is None:
