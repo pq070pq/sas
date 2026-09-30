@@ -26,7 +26,7 @@ from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
 app = FastAPI(title="SAS PRO", version="2.1.0")
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
 
-DISCLAIMER = "🚨 لايعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️"
+DISCLAIMER = "لا يعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️"
 PLANS = {}
 PLAN_LABELS = {}
 
@@ -69,6 +69,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     price = q.get("price")
     change = q.get("change_pct")
     intraday = tech.get("intraday") or {}
+    catalyst = tech.get("catalyst_news")
 
     def num(value):
         try:
@@ -103,8 +104,19 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         f"🏦 Shares: <b>{shares_outstanding/1_000_000:.2f}M</b>" if shares_outstanding is not None else "🏦 Shares: <b>غير متوفر</b>",
         f"📍 VWAP: <b>{_money(vwap)}</b>" if vwap is not None else "📍 VWAP: <b>غير متوفر</b>",
         f"🔥 التجميع: <b>{accumulation}</b>" if accumulation else "🔥 التجميع: <b>غير متوفر</b>",
+        f"💵 حجم التداول بالدولار: <b>{dollar_volume:,.0f}$</b>" if dollar_volume is not None else "💵 حجم التداول بالدولار: <b>غير متوفر</b>",
+        f"📈 ضغط الشراء: <b>{buy_pressure:.2f}%</b>" if buy_pressure is not None else "📈 ضغط الشراء: <b>غير متوفر</b>",
+        f"⚡ تسارع الحجم: <b>{acceleration:.2f}×</b>" if acceleration is not None else "⚡ تسارع الحجم: <b>غير متوفر</b>",
+        f"📈 CVD: <b>{cvd}</b>" if cvd else "📈 CVD: <b>غير متوفر</b>",
         "",
         "━━━━━━━━━━━━━━━━━━",
+        "",
+        "📰 <b>المحفز الإخباري</b>",
+        f"🔹 <b>الخبر:</b> {catalyst.get('headline')}" if catalyst else "🔹 <b>الخبر:</b> غير واضح — لا يوجد خبر موثوق حديث يمكن ربط الحركة به حاليًا.",
+        f"🕐 <b>وقت الخبر:</b> {catalyst.get('published_at')}" if catalyst else "",
+        f"📰 <b>المصدر:</b> {catalyst.get('source')}" if catalyst else "",
+        f"🔗 <b>الرابط:</b> {catalyst.get('url')}" if catalyst else "",
+        "📌 لا يُعد الخبر سببًا مؤكدًا للحركة إلا إذا تطابق توقيته ومحتواه مع حركة السعر.",
         "",
         "🎯 <b>الأهداف</b>",
         "",
@@ -121,6 +133,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         "⚠️ لا يتم عرض رقم غير متوفر أو نسبة نجاح غير مثبتة باختبار تاريخي.",
         "",
         DISCLAIMER,
+        "🚫 شرعية السهم مسؤوليتك — تحقق منها قبل التداول ⛔",
     ]
     return "\n".join(lines)
 
