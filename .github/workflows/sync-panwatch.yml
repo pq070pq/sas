@@ -32,8 +32,8 @@ jobs:
           path = Path("vendor/PanWatch/server.py")
           text = path.read_text(encoding="utf-8")
 
-          # US K-line: Yahoo primary, Stooq fallback.
-          old = '"provider": "stooq",\n            "config": {"description": "Stooq 美股日线兜底(免 key)。"},\n            "enabled": True,\n            "priority": 15,'
+          # US K-line: Stooq primary; Yahoo disabled for SAS PRO.
+          old = '"provider": "stooq",\n            "config": {"description": "Stooq 美股日线兜底(免 key)。"},\n            "enabled": True,\n            "priority": 0,'
           new = '"provider": "stooq",\n            "config": {"description": "Stooq 美股日线兜底(免 key)。"},\n            "enabled": True,\n            "priority": 20,'
           if old in text:
               text = text.replace(old, new, 1)
