@@ -115,7 +115,7 @@ async def publish_holiday_radar():
         return {"sent": False, "reason": "Stock radar session is available"}
 
     now = datetime.now(timezone.utc)
-    interval = max(10, settings.holiday_radar_interval_minutes) * 60
+    interval = max(180, settings.weekend_radar_interval_minutes, settings.holiday_radar_interval_minutes) * 60
 
     # هذه الدالة تُستدعى من أكثر من دورة؛ لا ترسل رسالة كل 5 دقائق.
     if _last_snapshot_at is not None:
@@ -157,21 +157,6 @@ async def publish_holiday_radar():
                     alert_line = f"🚨 BTC: {direction} <b>{movement:.2f}%</b> منذ آخر تنبيه"
                     _last_btc_alert_at = now
                     _btc_alert_reference = btc_price
-
-        # أخبار السوق العامة من Finnhub — لا تستهلك رصيد Twelve Data.
-        news = []
-        if settings.finnhub_api_key:
-            try:
-                import httpx
-                async with httpx.AsyncClient(timeout=10) as client:
-                    r = await client.get(
-                        "https://finnhub.io/api/v1/news",
-                        params={"category": "general", "token": settings.finnhub_api_key},
-                    )
-                    if r.status_code < 400:
-                        news = r.json()[:5]
-            except Exception:
-                news = []
 
         lines += ["", "📰 <b>آخر مستجدات السوق</b>"]
         if news:
