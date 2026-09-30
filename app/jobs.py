@@ -173,6 +173,9 @@ async def evaluate_radar_outcomes():
                     ) if x is not None
                 ]
 
+                if existing.status == "failed":
+                    continue
+
                 for idx, target in enumerate(ordered_targets, start=1):
                     if idx <= int(existing.last_alert_target or 0):
                         continue
