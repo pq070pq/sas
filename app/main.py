@@ -70,12 +70,9 @@ async def startup():
     logging.getLogger(__name__).warning("Background tasks started: scheduler=%s holiday_radar=%s", scheduler_task.get_name(), holiday_radar_task.get_name())
 
 def build_report(symbol: str, q: dict, tech: dict, classification: dict | None = None, outcome=None) -> str:
-    """Professional parent radar report. Only observed/calculated values are shown."""
+    """Stable Arabic Telegram radar report using observed/calculated values only."""
     classification = classification or {}
-    price = q.get("price")
-    change = q.get("change_pct")
     intraday = tech.get("intraday") or {}
-    catalyst = tech.get("catalyst_news")
 
     def num(value):
         try:
@@ -83,99 +80,127 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         except (TypeError, ValueError):
             return None
 
+    price = num(q.get("price"))
+    change = num(q.get("change_pct"))
     score = num(classification.get("score"))
-    rvol = num((intraday.get("rvol") or intraday.get("intraday_rvol")) if intraday else tech.get("volume_ratio"))
+    rvol = num(intraday.get("rvol") or intraday.get("intraday_rvol") or classification.get("rvol") or tech.get("volume_ratio"))
     vwap = num(intraday.get("vwap"))
-    float_shares = num(tech.get("float_shares"))
-    shares_outstanding = num(tech.get("shares_outstanding"))
-    accumulation = classification.get("accumulation_label") or classification.get("behavior")
     dollar_volume = num(classification.get("dollar_volume"))
     buy_pressure = num(intraday.get("buy_pressure"))
     acceleration = num(intraday.get("volume_acceleration"))
-    cvd = intraday.get("cvd_direction")
+    float_shares = num(tech.get("float_shares"))
+    shares_outstanding = num(tech.get("shares_outstanding"))
+    support = num(tech.get("support"))
+    resistance = num(tech.get("resistance"))
+    breakout = num(tech.get("breakout"))
+    stop = num(tech.get("exit"))
     targets = [num(x) for x in (tech.get("targets") or [])]
     targets = [x for x in targets if x is not None and x > 0]
-    stop = num(tech.get("exit"))
 
-    achieved = 0
-    current_stop = stop
-    status = "active"
-    if outcome is not None:
-        achieved = int(getattr(outcome, "achieved_target", 0) or 0)
-        current_stop = num(getattr(outcome, "current_stop", None)) or current_stop
-        status = str(getattr(outcome, "status", "active") or "active")
+    catalyst = tech.get("catalyst_news")
+    achieved = int(getattr(outcome, "achieved_target", 0) or 0) if outcome is not None else 0
+    current_stop = num(getattr(outcome, "current_stop", None)) if outcome is not None else None
+    current_stop = current_stop or stop
+    status = str(getattr(outcome, "status", "active") or "active") if outcome is not None else "active"
 
-    score_text = f"{score:.0f}/100" if score is not None else "غير محسوب"
-    rvol_text = f"{rvol:.2f}×" if rvol is not None else "غير متوفر"
-    change_text = f"{float(change):+.2f}%" if change is not None else "غير متوفر"
-
-    target_lines = []
-    for idx, target in enumerate(targets, start=1):
-        if idx <= achieved:
-            marker, label = "✅", "محقق"
-        elif idx == achieved + 1:
-            marker, label = "🎯", "الهدف التالي"
-        else:
-            marker, label = "⏳", "لاحق"
-        target_lines.append(f"  {marker} الهدف {idx}: <b>\x24{_money(target)}</b> — {label}")
-    if not target_lines:
-        target_lines = ["  • غير متوفر"]
+    def txt(value, suffix=""):
+        return "غير متوفر" if value is None else f"{value}{suffix}"
 
     if status == "failed":
         status_text = "🛑 تم تفعيل الوقف"
-    elif achieved >= len(targets) and targets:
+    elif targets and achieved >= len(targets):
         status_text = "🏆 اكتملت أهداف الرصد"
     elif achieved:
         status_text = f"🎯 تحقق {achieved} هدف — الرصد مستمر"
     else:
         status_text = "⏳ تحت المتابعة"
 
-    lines = [
-        "🚨 <b>SAS PRO RADAR</b>",
+    target_lines = []
+    for idx, target in enumerate(targets, 1):
+        if idx <= achieved:
+            state = "✅ محقق"
+        elif idx == achieved + 1:
+            state = "🎯 الهدف التالي"
+        else:
+            state = "⏳ لاحق"
+        target_lines.append(f"{state} — الهدف {idx}: <b>\x24{_money(target)}</b>")
+    if not target_lines:
+        target_lines = ["⚪ لا يوجد هدف فني مؤكد متاح"]
+
+    report = [
+        "🔎 <b>التحليل العميق للسهم | SAS PRO 📡</b>",
         "",
-        f"📡 <b>\x24{symbol} 🇺🇸</b>",
-        f"💵 السعر: <b>\x24{_money(price)}</b>",
-        f"📈 التغير: <b>{change_text}</b>",
-        f"⭐ قوة الإشارة: <b>{score_text}</b>",
-        f"🏷️ التصنيف: <b>{classification.get('type') or 'غير واضح'}</b>",
+        f"📈 <b>\x24{symbol}</b> 🇺🇸",
+        f"💵 السعر الحالي: <b>\x24{_money(price)}</b>" if price is not None else "💵 السعر الحالي: <b>غير متوفر</b>",
+        f"📊 التغير: <b>{change:+.2f}%</b>" if change is not None else "📊 التغير: <b>غير متوفر</b>",
         "",
-        "📊 <b>بيانات السوق</b>",
-        f"📊 RVOL: <b>{rvol_text}</b>",
-        f"📈 Float: <b>{float_shares/1_000_000:.2f}M</b>" if float_shares is not None else "📈 Float: <b>غير متوفر</b>",
-        f"🏦 Shares: <b>{shares_outstanding/1_000_000:.2f}M</b>" if shares_outstanding is not None else "🏦 Shares: <b>غير متوفر</b>",
-        f"📍 VWAP: <b>\x24{_money(vwap)}</b>" if vwap is not None else "📍 VWAP: <b>غير متوفر</b>",
-        f"🔥 التجميع: <b>{accumulation}</b>" if accumulation else "🔥 التجميع: <b>غير متوفر</b>",
-        f"💵 حجم التداول بالدولار: <b>{dollar_volume:,.0f}\x24</b>" if dollar_volume is not None else "💵 حجم التداول بالدولار: <b>غير متوفر</b>",
-        f"📈 ضغط الشراء: <b>{buy_pressure:.2f}%</b>" if buy_pressure is not None else "📈 ضغط الشراء: <b>غير متوفر</b>",
-        f"⚡ تسارع الحجم: <b>{acceleration:.2f}×</b>" if acceleration is not None else "⚡ تسارع الحجم: <b>غير متوفر</b>",
-        f"📈 CVD: <b>{cvd}</b>" if cvd else "📈 CVD: <b>غير متوفر</b>",
+        "━━━━━━━━━━━━━━━━━━",
+        "",
+        "📌 <b>سبب اختيار السهم</b>",
+        f"⭐ قوة الإشارة: <b>{score:.0f}/100</b>" if score is not None else "⭐ قوة الإشارة: <b>غير محسوب</b>",
+        f"💧 السيولة بالدولار: <b>{dollar_volume:,.0f}\x24</b>" if dollar_volume is not None else "💧 السيولة بالدولار: <b>غير متوفر</b>",
+        f"📊 RVOL: <b>{rvol:.2f}×</b>" if rvol is not None else "📊 RVOL: <b>غير متوفر</b>",
+        f"📈 ضغط الشراء: <b>{buy_pressure:.1f}%</b>" if buy_pressure is not None else "📈 ضغط الشراء: <b>غير محسوب</b>",
+        f"⚡ تسارع الحجم: <b>{acceleration:.2f}×</b>" if acceleration is not None else "⚡ تسارع الحجم: <b>غير محسوب</b>",
+        f"🔥 التجميع: <b>{classification.get('accumulation_label') or classification.get('behavior') or 'غير واضح'}</b>",
         "",
         "━━━━━━━━━━━━━━━━━━",
         "",
         "📰 <b>المحفز الإخباري</b>",
-        f"🔹 <b>الخبر:</b> {catalyst.get('headline')}" if catalyst else "🔹 <b>الخبر:</b> غير واضح — لا يوجد خبر موثوق حديث يمكن ربط الحركة به حاليًا.",
-        f"🕐 <b>وقت الخبر:</b> {catalyst.get('published_at')}" if catalyst else "",
-        f"📰 <b>المصدر:</b> {catalyst.get('source')}" if catalyst else "",
-        f"🔗 <b>الرابط:</b> {catalyst.get('url')}" if catalyst else "",
-        "📌 لا يُعد الخبر سببًا مؤكدًا للحركة إلا إذا تطابق توقيته ومحتواه مع حركة السعر.",
+    ]
+    if catalyst:
+        report.extend([
+            f"🔹 الخبر: <b>{catalyst.get('headline') or 'غير متوفر'}</b>",
+            f"🕐 الوقت: <b>{catalyst.get('published_at') or 'غير متوفر'}</b>",
+            f"📰 المصدر: <b>{catalyst.get('source') or 'غير متوفر'}</b>",
+            f"🔗 الرابط: {catalyst.get('url') or 'غير متوفر'}",
+            "📌 الارتباط بالحركة: لا يُعد سببًا مؤكدًا إلا إذا دعمه توقيت ومحتوى الخبر.",
+        ])
+    else:
+        report.append("📰 المحفز الإخباري: <b>غير واضح — لا يوجد خبر موثوق يمكن ربط الحركة به حاليًا.</b>")
+
+    report.extend([
+        "",
+        "━━━━━━━━━━━━━━━━━━",
+        "",
+        "📊 <b>التحليل الفني</b>",
+        f"↕️ الاتجاه: <b>{classification.get('behavior') or 'غير واضح'}</b>",
+        f"⛓️ الدعم: <b>\x24{_money(support)}</b>" if support is not None else "⛓️ الدعم: <b>غير متوفر</b>",
+        f"🛡 المقاومة: <b>\x24{_money(resistance)}</b>" if resistance is not None else "🛡 المقاومة: <b>غير متوفر</b>",
+        f"⚡ نقطة الاختراق: <b>\x24{_money(breakout)}</b>" if breakout is not None else "⚡ نقطة الاختراق: <b>غير محسوب</b>",
+        f"📍 VWAP: <b>\x24{_money(vwap)}</b>" if vwap is not None else "📍 VWAP: <b>غير متوفر</b>",
+        f"🏷️ التصنيف: <b>{classification.get('type') or 'غير واضح'}</b>",
+        "",
+        "🏢 <b>البيانات الأساسية المتاحة</b>",
+        f"📈 Float: <b>{float_shares/1_000_000:.2f}M</b>" if float_shares is not None else "📈 Float: <b>غير متوفر</b>",
+        f"🏦 Shares: <b>{shares_outstanding/1_000_000:.2f}M</b>" if shares_outstanding is not None else "🏦 Shares: <b>غير متوفر</b>",
+        "",
+        "🐋 <b>تحليل السيولة والتجميع</b>",
+        f"📊 CVD: <b>{intraday.get('cvd_direction') or 'غير متوفر'}</b>",
+        "⚠️ ضغط الشراء وCVD مؤشرات حجمية تقريبية وليست قراءة مباشرة لـ Level 2 أو دفتر الأوامر.",
+        "",
+        "━━━━━━━━━━━━━━━━━━",
         "",
         "🎯 <b>خطة الرصد</b>",
+        f"🟢 الدخول المرجعي: <b>\x24{_money(price)}</b>" if price is not None else "🟢 الدخول المرجعي: <b>غير متوفر</b>",
+        f"⚡ الاختراق: <b>\x24{_money(breakout)}</b>" if breakout is not None else "⚡ الاختراق: <b>غير محسوب</b>",
+        f"🛑 إلغاء السيناريو: <b>\x24{_money(stop)}</b>" if stop is not None else "🛑 إلغاء السيناريو: <b>غير متوفر</b>",
         "",
+        "🎯 <b>الأهداف الفنية</b>",
         *target_lines,
-        "",
-        f"🛡 الوقف الحالي: <b>\x24{_money(current_stop)}</b>" if current_stop is not None else "🛡 الوقف الحالي: <b>غير متوفر</b>",
+        f"🛡 وقف الرصد الحالي: <b>\x24{_money(current_stop)}</b>" if current_stop is not None else "🛡 وقف الرصد الحالي: <b>غير متوفر</b>",
+        f"⚖️ المخاطرة/العائد: <b>{num(tech.get('risk_reward')):.2f}×</b>" if num(tech.get('risk_reward')) is not None else "⚖️ المخاطرة/العائد: <b>غير محسوب</b>",
         f"📌 الحالة: <b>{status_text}</b>",
-        f"📊 المخاطرة مقابل العائد: <b>{float(tech.get('risk_reward')):.2f}×</b>" if num(tech.get("risk_reward")) is not None else "📊 المخاطرة مقابل العائد: <b>غير محسوب</b>",
         "",
-        "📌 <b>قاعدة الرصد</b>",
-        "🎯 لا يُعلن تحقق أي هدف إلا بعد رصد السعر فعليًا عند المستوى أو فوقه.",
-        "🛡 بعد كل هدف يُرفع الوقف وفق قاعدة ثابتة مسجلة في النظام.",
-        "⚠️ لا يتم عرض رقم غير متوفر أو نسبة نجاح غير مثبتة باختبار تاريخي.",
+        "⚠️ الأهداف مستويات فنية مبنية على مستويات سعرية مرصودة، وليست أسعارًا مضمونة.",
+        "⚠️ لا يُعلن تحقق أي هدف إلا بعد وصول السعر الفعلي للمستوى أو تجاوزه.",
         "",
         DISCLAIMER,
         "🚫 شرعية السهم مسؤوليتك — تحقق منها قبل التداول ⛔",
-    ]
-    return "\n".join(lines)
+        "",
+        "📡 <b>SAS PRO</b>",
+    ])
+    return "\n".join(report)
 
 def _money(value):
     if value is None:

@@ -239,13 +239,22 @@ async def evaluate_radar_outcomes():
                         )
                         final = idx == len(ordered_targets)
                         title = "🏆 تحقق آخر هدف" if final else f"🎯 تحقق الهدف {idx}"
+                        next_target = ordered_targets[idx] if idx < len(ordered_targets) else None
+                        next_text = (
+                            f"\n🎯 الهدف التالي: <b>\x24{_money(next_target)}</b>"
+                            if next_target is not None else "\n🏆 اكتملت جميع الأهداف المسجلة."
+                        )
                         await send_message(
                             settings.telegram_channel_id,
                             f"{title} — <b>\x24{signal.symbol}</b>\n\n"
-                            f"💵 السعر المرصود: <b>\x24{_money(price)}</b>"
-                            f"{profit_text}{stop_text}\n"
-                            f"📊 المستوى: <b>\x24{_money(target)}</b>\n"
-                            f"⏱ تم التحقق: <b>{utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}</b>",
+                            f"💵 السعر الحالي: <b>\x24{_money(price)}</b>"
+                            f"{profit_text}\n"
+                            f"🎯 الهدف المحقق: <b>\x24{_money(target)}</b>"
+                            f"{stop_text}{next_text}\n"
+                            "━━━━━━━━━━━━━━━━━━\n"
+                            f"📌 حالة الرصد: <b>{'مستمر' if next_target is not None else 'اكتملت الأهداف'}</b>\n"
+                            f"⏱ تم التحقق: <b>{utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}</b>\n\n"
+                            "📡 <b>SAS PRO</b>",
                             reply_to_message_id=int(signal.telegram_message_id),
                         )
 

@@ -54,11 +54,11 @@ async def setting_set(db, key, value):
 async def ensure_subscription_settings():
     async with SessionLocal() as db:
         defaults = {
-            "monthly_sar": settings.monthly_sar, "monthly_days": 30, "monthly_stars": 2250,
+            "monthly_sar": settings.monthly_sar, "monthly_days": 30, "monthly_stars": settings.pro_monthly_stars,
             "3month_sar": settings.three_month_sar, "3month_days": 90, "3month_stars": settings.pro_3month_stars,
             "6month_sar": settings.six_month_sar, "6month_days": 180, "6month_stars": settings.pro_6month_stars,
             "yearly_sar": settings.yearly_sar, "yearly_days": 365, "yearly_stars": settings.pro_yearly_stars,
-            "trial_days": 30, "invite_hours": settings.invite_hours,
+            "trial_days": settings.trial_days, "invite_hours": settings.invite_hours,
             "paid_plans_visible": 1,
         }
         for key, value in defaults.items():
