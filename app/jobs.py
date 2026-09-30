@@ -299,6 +299,7 @@ async def stock_radar_cycle():
     global _radar_open_announced
 
     if not settings.telegram_channel_id or not settings.telegram_bot_token:
+        logger.warning("Stock radar skipped: Telegram channel/token is not configured.")
         return
 
     status = market_status()
@@ -308,13 +309,16 @@ async def stock_radar_cycle():
     # في عطلة السوق ونهاية الأسبوع يتحول النظام إلى رادار بيتكوين.
     if status["holiday"] or status["session"] == "weekend":
         _radar_open_announced = False
+        logger.info("Stock radar skipped: market holiday/weekend (session=%s).", status.get("session"))
         return
 
     if not _radar_open_announced:
         try:
             await send_message(settings.telegram_channel_id, RADAR_STATUS)
             _radar_open_announced = True
+            logger.info("Stock radar status message sent.")
         except Exception:
+            logger.exception("Stock radar status message failed.")
             return
 
     try:
@@ -331,6 +335,7 @@ async def stock_radar_cycle():
                 "Twelve Data quota exhausted; continuing radar with PanWatch/primary data."
             )
         rows = scan_result.get("stocks", [])
+        logger.info("Stock radar scan completed: %d result(s); diagnostics=%s", len(rows), diagnostics)
         session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
         async with SessionLocal() as db:
@@ -402,6 +407,7 @@ async def stock_radar_cycle():
                     await db.rollback()
                     continue
     except Exception:
+        logger.exception("Stock radar cycle failed.")
         return
 
 
