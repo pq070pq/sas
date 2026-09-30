@@ -97,6 +97,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         "📡 <b>السهم: $" + symbol + " 🇺🇸</b>",
         f"💵 السعر: <b>{_money(price)}</b>",
         f"⭐ قوة الإشارة: <b>{score_text}</b>",
+        f"🏷️ نوع السهم: <b>{classification.get('type') or 'غير واضح'}</b>",
         f"📊 RVOL: <b>{rvol_text}</b>",
         f"📈 Float: <b>{float_shares/1_000_000:.2f}M</b>" if float_shares is not None else "📈 Float: <b>غير متوفر</b>",
         f"🏦 Shares: <b>{shares_outstanding/1_000_000:.2f}M</b>" if shares_outstanding is not None else "🏦 Shares: <b>غير متوفر</b>",
