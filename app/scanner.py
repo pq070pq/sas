@@ -565,10 +565,17 @@ async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_f
         accumulation and atr_pct < 0.10
     ):
         stock_type = "سوينق"
-    elif sma20 >= sma50 and (higher_lows or breakout):
-        stock_type = "اتجاهي"
+    elif (
+        sma20 >= sma50
+        and higher_lows
+        and atr_pct < 0.06
+        and rvol < 1.5
+    ):
+        stock_type = "استثماري"
     else:
-        stock_type = "مراقبة"
+        # لا نستخدم تصنيفاً خامساً في الرادار؛ نُسند الحالة الأقرب
+        # إلى أحد الأنواع الأربعة بناءً على طبيعة الحركة الحالية.
+        stock_type = "سوينق" if sma20 >= sma50 else "مضاربي"
 
     evidence = []
     if former_runner:
@@ -630,7 +637,7 @@ async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_f
         "distribution_risk": distribution_risk,
         "late_chase": late_chase,
         "data_source": data_source,
-        "data_note": "Float/Short Available/Reverse Split/Level 2 وVWAP اللحظي تحتاج مصدر بيانات مباشر؛ لا يتم اختلاقها. نوع السهم تصنيف وصفي مبني على الزخم والتذبذب والحجم والبنية اليومية.",
+        "data_note": "Float/Short Available/Reverse Split/Level 2 وVWAP اللحظي تحتاج مصدر بيانات مباشر؛ لا يتم اختلاقها. نوع السهم تصنيف وصفي للرصد مبني على الزخم والتذبذب والحجم والبنية اليومية، وليس حكماً على ملاءمة السهم للمستثمر.",
 
     }
 
