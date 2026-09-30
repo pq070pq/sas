@@ -77,7 +77,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             return None
 
     score = num(classification.get("score"))
-    rvol = num(intraday.get("rvol") if intraday else tech.get("volume_ratio"))
+    rvol = num((intraday.get("rvol") or intraday.get("intraday_rvol")) if intraday else tech.get("volume_ratio"))
     vwap = num(intraday.get("vwap"))
     float_shares = num(tech.get("float_shares"))
     shares_outstanding = num(tech.get("shares_outstanding"))
