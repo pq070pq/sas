@@ -93,6 +93,7 @@ async def get_plans():
                 "sar": int(await setting_get(db, f"{prefix}_sar", base["sar"]) or 0),
                 "days": int(await setting_get(db, f"{prefix}_days", base["days"]) or 0),
                 "stars": int(await setting_get(db, f"{prefix}_stars", base["stars"]) or 0),
+                "visible": (await setting_get(db, f"plan_{prefix}_visible", 1 if prefix == "monthly" else 0) or "0") in ("1", "true", "True"),
             }
         return result
 
