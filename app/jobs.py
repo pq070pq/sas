@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from .config import settings
 from .db import SessionLocal, Subscription, RadarSignal, RadarOutcome, ScheduledReport, User, ScheduledReport
-from .telegram import send_message, bot_api
+from .telegram import send_message, edit_message, bot_api
 from .holiday_radar import publish_holiday_radar, publish_market_update
 from .timeutil import utcnow, aware
 from zoneinfo import ZoneInfo
@@ -122,10 +122,13 @@ async def expiry_cycle():
 
 
 async def evaluate_radar_outcomes():
-    """Track live radar targets and emit alerts only after an observed market price reaches them."""
+    """Track active radar targets and link every update to its original radar message."""
     async with SessionLocal() as db:
         signals = (await db.execute(select(RadarSignal))).scalars().all()
         for signal in signals:
+            if not signal.telegram_message_id:
+                continue
+
             payload = json.loads(signal.payload or "{}")
             tech = payload.get("targets") or {}
             targets = []
@@ -136,11 +139,13 @@ async def evaluate_radar_outcomes():
                         targets.append(level)
                 except (TypeError, ValueError):
                     continue
+
             entry = payload.get("live_price") or payload.get("price")
             try:
                 entry = float(entry) if entry is not None else None
             except (TypeError, ValueError):
                 entry = None
+
             exit_level = tech.get("exit")
             try:
                 exit_level = float(exit_level) if exit_level is not None else None
@@ -173,6 +178,15 @@ async def evaluate_radar_outcomes():
             if existing.current_stop is None:
                 existing.current_stop = existing.exit_level
 
+            ordered_targets = [
+                x for x in (
+                    existing.target1, existing.target2,
+                    existing.target3, existing.target4, existing.target5
+                ) if x is not None
+            ]
+            if existing.status == "failed" or not ordered_targets or int(existing.achieved_target or 0) >= len(ordered_targets):
+                continue
+
             try:
                 from .market import quote
                 q = await quote(signal.symbol)
@@ -183,16 +197,7 @@ async def evaluate_radar_outcomes():
                 existing.current_price = price
                 existing.evaluated_at = utcnow()
 
-                ordered_targets = [
-                    x for x in (
-                        existing.target1, existing.target2,
-                        existing.target3, existing.target4, existing.target5
-                    ) if x is not None
-                ]
-
-                if existing.status == "failed":
-                    continue
-
+                newly_reached = []
                 for idx, target in enumerate(ordered_targets, start=1):
                     if idx <= int(existing.last_alert_target or 0):
                         continue
@@ -207,60 +212,89 @@ async def evaluate_radar_outcomes():
                         new_stop = existing.entry_price if idx == 1 else ordered_targets[idx - 2]
                         if existing.current_stop is None or new_stop > existing.current_stop:
                             existing.current_stop = new_stop
+                    newly_reached.append((idx, float(target)))
 
-                    profit_text = ""
-                    if existing.entry_price and existing.entry_price > 0:
-                        profit = ((price / existing.entry_price) - 1.0) * 100.0
-                        profit_text = f"\\n📈 العائد من دخول الرصد: <b>{profit:+.2f}%</b>"
-
-                    stop_text = (
-                        f"\\n🛡 الوقف الجديد: <b>{_money(existing.current_stop)}</b>"
-                        if existing.current_stop is not None else ""
+                if newly_reached:
+                    from .main import build_report
+                    updated_report = build_report(
+                        signal.symbol,
+                        {"price": price, "change_pct": payload.get("change_pct"), "source": q.get("source")},
+                        tech,
+                        payload.get("classification") or {},
+                        existing,
                     )
-                    final = idx == len(ordered_targets)
-                    title = "🔥 تحقق الهدف %d" % idx if final else "🎯 تحقق الهدف %d" % idx
-                    footer = "\\n🏆 اكتملت أهداف الرصد" if final else ""
-                    await send_message(
-                        settings.telegram_channel_id,
-                        f"{title} — <b>$" + signal.symbol + "</b>\\n\\n"
-                        f"💵 السعر المرصود: <b>{_money(price)}</b>"
-                        f"{profit_text}"
-                        f"{stop_text}\\n"
-                        f"📊 المستوى: <b>{_money(target)}</b>\\n"
-                        f"⏱ تم التحقق: <b>{utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}</b>"
-                        f"{footer}"
-                    )
+                    try:
+                        await edit_message(
+                            settings.telegram_channel_id,
+                            int(signal.telegram_message_id),
+                            updated_report,
+                        )
+                    except Exception:
+                        logger.exception("Radar parent message edit failed: %s", signal.symbol)
 
-                if (
-                    existing.status.startswith("target")
-                    and existing.current_stop is not None
+                    for idx, target in newly_reached:
+                        profit_text = ""
+                        if existing.entry_price and existing.entry_price > 0:
+                            profit = ((price / existing.entry_price) - 1.0) * 100.0
+                            profit_text = f"\n📈 العائد من دخول الرصد: <b>{profit:+.2f}%</b>"
+                        stop_text = (
+                            f"\n🛡 الوقف الجديد: <b>{_money(existing.current_stop)}</b>"
+                            if existing.current_stop is not None else ""
+                        )
+                        final = idx == len(ordered_targets)
+                        title = "🏆 تحقق آخر هدف" if final else f"🎯 تحقق الهدف {idx}"
+                        await send_message(
+                            settings.telegram_channel_id,
+                            f"{title} — <b>§$${signal.symbol}</b>\n\n"
+                            f"💵 السعر المرصود: <b>${_money(price)}</b>"
+                            f"{profit_text}{stop_text}\n"
+                            f"📊 المستوى: <b>${_money(target)}</b>\n"
+                            f"⏱ تم التحقق: <b>${utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}</b>",
+                            reply_to_message_id=int(signal.telegram_message_id),
+                        )
+
+                stop_triggered = (
+                    existing.current_stop is not None
                     and price <= float(existing.current_stop)
                     and existing.achieved_target < len(ordered_targets)
-                ):
+                )
+                if stop_triggered:
                     existing.status = "failed"
-                    await send_message(
-                        settings.telegram_channel_id,
-                        "🛑 <b>تفعيل الوقف — $" + signal.symbol + "</b>\\n\\n"
-                        f"💵 السعر المرصود: <b>{_money(price)}</b>\\n"
-                        f"🛡 الوقف: <b>{_money(existing.current_stop)}</b>\\n"
-                        f"🎯 آخر هدف محقق: <b>{existing.achieved_target}</b>\\n"
-                        "📌 تم إنهاء الرصد وفق مستوى الوقف المسجل."
+                    from .main import build_report
+                    updated_report = build_report(
+                        signal.symbol,
+                        {"price": price, "change_pct": payload.get("change_pct")},
+                        tech,
+                        payload.get("classification") or {},
+                        existing,
                     )
-                elif (
-                    existing.achieved_target == 0
-                    and existing.current_stop is not None
-                    and price <= float(existing.current_stop)
-                ):
-                    existing.status = "failed"
+                    try:
+                        await edit_message(
+                            settings.telegram_channel_id,
+                            int(signal.telegram_message_id),
+                            updated_report,
+                        )
+                    except Exception:
+                        logger.exception("Radar parent message stop edit failed: %s", signal.symbol)
+
                     await send_message(
                         settings.telegram_channel_id,
-                        "🛑 <b>تفعيل الوقف — $" + signal.symbol + "</b>\\n\\n"
-                        f"💵 السعر المرصود: <b>{_money(price)}</b>\\n"
-                        f"🛡 الوقف: <b>{_money(existing.current_stop)}</b>\\n"
-                        "📌 لم يتحقق الهدف الأول قبل بلوغ حد الإلغاء."
+                        "🛑 <b>تفعيل الوقف</b> — $" + signal.symbol + "\n\n"
+                        f"💵 السعر المرصود: <b>${_money(price)}</b>\n"
+                        f"🛡 الوقف: <b>${_money(existing.current_stop)}</b>\n"
+                        f"🎯 آخر هدف محقق: <b>${existing.achieved_target}</b>\n"
+                        "📌 تم إنهاء الرصد وفق مستوى الوقف المسجل.",
+                        reply_to_message_id=int(signal.telegram_message_id),
                     )
 
-            except Exception:
+            except Exception as exc:
+                if "429" in str(exc) or "Too Many Requests" in str(exc):
+                    logger.warning(
+                        "Radar outcome quote throttled for %s; skipping this evaluation cycle.",
+                        signal.symbol,
+                    )
+                else:
+                    logger.exception("Radar outcome evaluation failed: %s", signal.symbol)
                 continue
 
         await db.commit()
@@ -408,20 +442,27 @@ async def stock_radar_cycle():
                 report = build_report(symbol, q, tech, classification)
 
                 try:
-                    await send_message(settings.telegram_channel_id, report)
+                    result = await send_message(settings.telegram_channel_id, report)
+                    message_id = result.get("message_id") if isinstance(result, dict) else None
                     if existing:
                         existing.payload = json.dumps(row, ensure_ascii=False)
                         existing.created_at = utcnow()
+                        if message_id:
+                            existing.telegram_message_id = int(message_id)
                     else:
                         db.add(RadarSignal(
                             symbol=symbol,
                             session_date=session_date,
                             payload=json.dumps(row, ensure_ascii=False),
+                            telegram_message_id=int(message_id) if message_id else None,
                         ))
                     await db.commit()
                     cycle_stats["sent"] += 1
                     _radar_seen.add(symbol)
-                    logger.info("Radar report sent successfully: %s", symbol)
+                    logger.info(
+                        "Radar report sent successfully: %s | message_id=%s",
+                        symbol, message_id,
+                    )
                 except Exception:
                     cycle_stats["failed"] += 1
                     await db.rollback()
