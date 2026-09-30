@@ -415,7 +415,7 @@ DATA_SOURCE_SEEDS: list[dict] = [
             "provider": "stooq",
             "config": {"description": "Stooq 美股日线兜底(免 key)。"},
             "enabled": True,
-            "priority": 15,  # US 兜底(腾讯 0 之后)
+            "priority": 20,  # US 最后兜底
             "supports_batch": False,
             "test_symbols": list(DEFAULT_TEST_SYMBOLS),
         },
@@ -428,8 +428,8 @@ DATA_SOURCE_SEEDS: list[dict] = [
                 "在 config.proxy 填写代理地址后启用,作港股 K线第二源/美股更稳兜底。",
                 "proxy": "",
             },
-            "enabled": False,  # 需代理,默认关(同 YFinance 口径),用户配好 proxy 再开
-            "priority": 20,  # US/HK 最后兜底
+            "enabled": True,
+            "priority": 0,  # US primary
             "supports_batch": False,
             "test_symbols": list(DEFAULT_TEST_SYMBOLS),
         },
@@ -676,6 +676,16 @@ def seed_data_sources(db=None, *, reset_test_symbols: bool = False) -> list[dict
             .first()
         )
         if existing:
+            # 将旧版内置 US K线默认迁移到 Yahoo primary + Stooq fallback。
+            # 仅修正明确的旧默认值，不覆盖用户已经手工调整过的其它配置。
+            if source_data["type"] == "kline" and source_data["provider"] == "yahoo":
+                if existing.enabled is False and existing.priority == 20:
+                    existing.enabled = True
+                    existing.priority = 0
+            elif source_data["type"] == "kline" and source_data["provider"] == "stooq":
+                if existing.enabled is True and existing.priority == 15:
+                    existing.priority = 20
+
             # 恢复默认时只重置测试代码；配置、启用状态、优先级等用户设置仍保留。
             if existing.supports_batch != source_data.get("supports_batch", False):
                 existing.supports_batch = source_data.get("supports_batch", False)
