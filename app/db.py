@@ -204,8 +204,8 @@ async def init_db():
             # لا نغيّر إعدادًا مخصصًا بقيمة أخرى سبق أن ضبطها المالك.
             await conn.execute(text("""
                 UPDATE settings
-                SET value = '3', updated_at = CURRENT_TIMESTAMP
-                WHERE key = 'trial_days' AND value = '30'
+                SET value = '30', updated_at = CURRENT_TIMESTAMP
+                WHERE key = 'trial_days' AND value = '3'
             """))
             # ترحيل آمن لقيم الاشتراكات القديمة فقط. إذا غيّر المشرف قيمة يدويًا،
             # لا نعتبرها قيمة قديمة ولا نستبدلها.
