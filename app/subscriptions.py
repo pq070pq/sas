@@ -60,6 +60,10 @@ async def ensure_subscription_settings():
             "yearly_sar": settings.yearly_sar, "yearly_days": 365, "yearly_stars": settings.pro_yearly_stars,
             "trial_days": settings.trial_days, "invite_hours": settings.invite_hours,
             "paid_plans_visible": 1,
+            "plan_monthly_visible": 1,
+            "plan_3month_visible": 0,
+            "plan_6month_visible": 0,
+            "plan_yearly_visible": 0,
         }
         for key, value in defaults.items():
             if await db.get(Setting, key) is None:
