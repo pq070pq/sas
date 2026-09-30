@@ -736,7 +736,6 @@ async def _get_intraday_liquidity(symbols):
                 },
             )
             if r.status_code == 429:
-                global _twelve_data_quota_exhausted
                 _twelve_data_quota_exhausted = True
                 return out
             r.raise_for_status()
