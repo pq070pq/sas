@@ -185,11 +185,12 @@ async function savePlans(){
 
 async function saveSubscriptionConfig(){
  const paid=!!document.getElementById('paidPlansVisible').checked;
- const days=Number(document.getElementById('trialDays').value||3);
+ const days=Number(document.getElementById('trialDays').value||30);
  try{
   const d=await api('/api/admin/subscription-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paid_plans_visible:paid,trial_days:days})});
   document.getElementById('plansEditorPanel').hidden=!d.paid_plans_visible;
   alert(d.paid_plans_visible?'تم إظهار الاشتراكات المدفوعة.':'تم إخفاء الاشتراكات المدفوعة وإبقاء المجاني فقط.');
+ for(const el of document.querySelectorAll('.plan-vis')){await api('/api/admin/plan-visibility/'+el.dataset.plan,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visible:el.checked})});}
  }catch(e){alert(e.message);}
 }
 document.addEventListener('change',e=>{if(e.target?.id==='paidPlansVisible')document.getElementById('plansEditorPanel').hidden=!e.target.checked;});
