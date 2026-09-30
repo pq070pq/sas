@@ -38,7 +38,7 @@ jobs:
           if old in text:
               text = text.replace(old, new, 1)
 
-          old = '"enabled": True,  # 需代理,默认关(同 YFinance 口径),用户配好 proxy 再开\n            "priority": 0,  # US primary'
+          old = '"enabled": False,  # 需代理,默认关(同 YFinance 口径),用户配好 proxy 再开\n            "priority": 20,  # US/HK 最后兜底'
           new = '"enabled": False,  # Yahoo disabled for SAS PRO\n            "priority": 99,  # disabled'
           if old in text:
               text = text.replace(old, new, 1)
