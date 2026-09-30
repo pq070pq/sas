@@ -11,7 +11,7 @@ from .market import quote
 # - السعر: $0.30 - $6
 # - منهج فيصل: السلوك، التداول، RVOL، الدعم/المقاومة والثبات.
 MIN_PRICE = 0.30
-MAX_PRICE = 15.00
+MAX_PRICE = 6.00
 ALLOWED_EXCHANGES = {"NASDAQ"}
 
 # Daily candles change slowly, so cache them between radar cycles.
