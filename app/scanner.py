@@ -400,7 +400,6 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
                         timeout=7,
                     )
                 if r.status_code == 429:
-                    global _twelve_data_quota_exhausted
                     _twelve_data_quota_exhausted = True
                     raise httpx.HTTPStatusError("Twelve Data quota exhausted", request=r.request, response=r)
                 r.raise_for_status()
