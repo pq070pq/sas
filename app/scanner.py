@@ -359,43 +359,48 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
     base = settings.panwatch_base_url.rstrip("/")
     candles = []
 
-    # Primary: PanWatch, rate-limited so the radar never floods the service.
+    # Primary: PanWatch, rate-limited and bounded so one slow request
+    # cannot leave the whole radar waiting behind the semaphore.
     try:
-        async with _panwatch_semaphore:
-            r = await client.get(
-                f"{base}/api/klines/{key}",
-                params={"market": "US", "days": 90, "interval": "1d"},
-            )
-        r.raise_for_status()
-        candles = _parse_candles(r.json().get("klines", []))
-        if len(candles) >= 30:
-            _candle_cache[key] = (now, candles, "PanWatch")
-            return candles, "PanWatch"
-    except Exception:
+        async with asyncio.timeout(20):
+            async with _panwatch_semaphore:
+                r = await client.get(
+                    f"{base}/api/klines/{key}",
+                    params={"market": "US", "days": 90, "interval": "1d"},
+                    timeout=15,
+                )
+            r.raise_for_status()
+            candles = _parse_candles(r.json().get("klines", []))
+            if len(candles) >= 30:
+                _candle_cache[key] = (now, candles, "PanWatch")
+                return candles, "PanWatch"
+    except (asyncio.TimeoutError, httpx.HTTPError, Exception):
         candles = []
 
     # Only the most important shortlist symbols get a single Twelve Data fallback.
     # This prevents 429 storms when 100+ symbols have no PanWatch candles.
     if allow_twelve_fallback and settings.twelve_data_api_key:
         try:
-            async with _twelvedata_fallback_semaphore:
-                r = await client.get(
-                    "https://api.twelvedata.com/time_series",
-                    params={
-                        "symbol": key,
-                        "interval": "1day",
-                        "outputsize": 90,
-                        "apikey": settings.twelve_data_api_key,
-                    },
-                )
-            r.raise_for_status()
-            payload = r.json()
-            candles = _parse_candles(payload.get("values", []))
-            if len(candles) >= 30:
-                candles.reverse()
-                _candle_cache[key] = (now, candles, "Twelve Data")
-                return candles, "Twelve Data"
-        except Exception:
+            async with asyncio.timeout(20):
+                async with _twelvedata_fallback_semaphore:
+                    r = await client.get(
+                        "https://api.twelvedata.com/time_series",
+                        params={
+                            "symbol": key,
+                            "interval": "1day",
+                            "outputsize": 90,
+                            "apikey": settings.twelve_data_api_key,
+                        },
+                        timeout=15,
+                    )
+                r.raise_for_status()
+                payload = r.json()
+                candles = _parse_candles(payload.get("values", []))
+                if len(candles) >= 30:
+                    candles.reverse()
+                    _candle_cache[key] = (now, candles, "Twelve Data")
+                    return candles, "Twelve Data"
+        except (asyncio.TimeoutError, httpx.HTTPError, Exception):
             pass
 
     # Cache the failure briefly too, so the same unavailable symbol is not hammered
