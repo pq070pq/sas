@@ -98,6 +98,20 @@
       </div>
     </section>
 
+    <section class="admin-panel" id="starsPanel" hidden>
+      <div class="section-head"><b>⭐ محفظة Telegram Stars</b><span>الرصيد والمدفوعات والسحب</span></div>
+      <div class="stars-wallet-card">
+        <div><small>الرصيد الحالي</small><strong id="starsBalance">— ⭐</strong></div>
+        <div><small>آخر تحديث</small><strong id="starsUpdated">—</strong></div>
+      </div>
+      <div class="stars-actions">
+        <button onclick="loadStarsWallet()">↻ تحديث الرصيد</button>
+        <button onclick="openStarsWithdrawal()">💎 فتح مسار السحب</button>
+      </div>
+      <div class="stars-note">الدفع يدخل أولًا إلى رصيد Stars الخاص بالبوت. السحب إلى TON ليس تحويلًا مباشرًا من Mini App؛ يتم من حساب المالك عبر Telegram/Fragment.</div>
+      <div id="starsTransactions" class="stars-transactions"><div class="loading">جاري تحميل العمليات...</div></div>
+    </section>
+
     <section class="admin-panel" id="plansEditorPanel">
       <div class="section-head"><b>💎 الباقات والأسعار</b><span>التعديل محفوظ في قاعدة البيانات</span></div>
       <div id="planVisibility" class="plan-visibility"></div><div id="planEditor"></div>
