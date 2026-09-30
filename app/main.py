@@ -631,6 +631,35 @@ async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends
         "owner": owner_data,
     }
 
+@app.get("/api/admin/stars/balance")
+async def admin_stars_balance(user=Depends(telegram_user)):
+    await require_admin_permission(user, "payments")
+    try:
+        balance = await bot_api("getMyStarBalance", {})
+        return {"ok": True, "balance": int((balance or {}).get("amount", 0)), "nanostar_amount": int((balance or {}).get("nanostar_amount", 0) or 0)}
+    except Exception as exc:
+        raise HTTPException(503, f"تعذر قراءة رصيد Telegram Stars: {exc}")
+
+@app.get("/api/admin/stars/transactions")
+async def admin_stars_transactions(user=Depends(telegram_user)):
+    await require_admin_permission(user, "payments")
+    try:
+        result = await bot_api("getStarTransactions", {"offset": 0, "limit": 50})
+        return {"ok": True, "transactions": result.get("transactions", []) if isinstance(result, dict) else []}
+    except Exception as exc:
+        raise HTTPException(503, f"تعذر قراءة عمليات Telegram Stars: {exc}")
+
+@app.get("/api/admin/stars/withdrawal")
+async def admin_stars_withdrawal(user=Depends(telegram_user)):
+    await require_admin_permission(user, "payments")
+    return {
+        "ok": True,
+        "automatic": False,
+        "message": "السحب لا يتم مباشرة إلى محفظة TON من خلال Bot API. يبدأه مالك البوت من Telegram/Fragment، وبعدها يحدد محفظة TON في صفحة السحب.",
+        "fragment_url": "https://fragment.com",
+        "official_docs": "https://core.telegram.org/api/stars",
+    }
+
 @app.get("/api/admin/users")
 async def admin_users(q: str = "", user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     await require_admin_permission(user, "users")
