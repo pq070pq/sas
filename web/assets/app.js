@@ -112,6 +112,7 @@ async function adminRefresh(){
  const tasks=[];
  if(p.includes('users')){tasks.push(loadAdminStats(),adminSearch());}
  if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;document.getElementById('plansEditorPanel').hidden=false;tasks.push(loadAdminPlans(),loadSubscriptionConfig());}
+ if(p.includes('payments')){document.getElementById('starsPanel').hidden=false;tasks.push(loadStarsWallet());}else{document.getElementById('starsPanel').hidden=true;}
  else {document.getElementById('planEditor').closest('.admin-panel').hidden=true;document.getElementById('plansEditorPanel').hidden=true;document.getElementById('planEditor').closest('.admin-panel').previousElementSibling.hidden=true;}
  await Promise.all(tasks);
 }
@@ -139,6 +140,32 @@ async function addStaff(){
 }
 async function staffToggle(id,enabled){try{await api('/api/admin/staff/'+id+'/'+(enabled?'enable':'disable'),{method:'POST'});await loadStaff();}catch(e){alert(e.message);}}
 async function staffDelete(id){if(!confirm('حذف هذا المشرف؟'))return;try{await api('/api/admin/staff/'+id,{method:'DELETE'});await loadStaff();}catch(e){alert(e.message);}}
+async function loadStarsWallet(){
+ try{
+  const [b,t]=await Promise.all([api('/api/admin/stars/balance'),api('/api/admin/stars/transactions')]);
+  document.getElementById('starsBalance').textContent=(Number(b.balance||0).toLocaleString('en-US'))+' ⭐';
+  document.getElementById('starsUpdated').textContent=new Date().toLocaleTimeString('ar-SA');
+  const rows=t.transactions||[];
+  document.getElementById('starsTransactions').innerHTML=rows.length?rows.map(x=>{
+   const amount=Number(x.amount||0);
+   const incoming=amount>=0;
+   const date=x.date?new Date(Number(x.date)*1000).toLocaleString('ar-SA'):'—';
+   const id=esc(x.id||'');
+   const partner=incoming?(x.source?.type||'دفع/إيراد'):(x.receiver?.type||'سحب/مصروف');
+   return '<div class="stars-row"><div><b>'+(incoming?'➕':'➖')+' '+Math.abs(amount).toLocaleString('en-US')+' ⭐</b><small>'+esc(partner)+' — '+date+'</small></div><code>'+id+'</code></div>';
+  }).join(''):'<div class="loading">لا توجد عمليات Stars ظاهرة حاليًا.</div>';
+ }catch(e){
+  document.getElementById('starsBalance').textContent='غير متاح';
+  document.getElementById('starsTransactions').innerHTML='<div class="fatal">تعذر قراءة بيانات Stars: '+esc(e.message)+'</div>';
+ }
+}
+async function openStarsWithdrawal(){
+ try{
+  const d=await api('/api/admin/stars/withdrawal');
+  if(tg?.openLink)tg.openLink(d.fragment_url);else window.open(d.fragment_url,'_blank');
+ }catch(e){alert(e.message);}
+}
+
 async function loadAdminStats(){
  const d=await api('/api/admin/overview');
  document.getElementById('adminStats').innerHTML=[['active','🟢 النشطون'],['expired','🔴 المنتهية'],['trial_users','🎁 التجارب'],['new_users','👥 الجدد'],['payments','💳 المدفوعات'],['stars','⭐ Stars']].map(x=>'<div><small>'+x[1]+'</small><strong>'+d[x[0]]+'</strong></div>').join('');
