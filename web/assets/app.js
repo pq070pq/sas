@@ -112,8 +112,8 @@ async function adminRefresh(){
  const tasks=[];
  if(p.includes('users')){tasks.push(loadAdminStats(),adminSearch());}
  if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;document.getElementById('plansEditorPanel').hidden=false;tasks.push(loadAdminPlans(),loadSubscriptionConfig());}
- if(p.includes('payments')){document.getElementById('starsPanel').hidden=false;tasks.push(loadStarsWallet());}else{document.getElementById('starsPanel').hidden=true;}
  else {document.getElementById('planEditor').closest('.admin-panel').hidden=true;document.getElementById('plansEditorPanel').hidden=true;document.getElementById('planEditor').closest('.admin-panel').previousElementSibling.hidden=true;}
+ if(p.includes('payments')){document.getElementById('starsPanel').hidden=false;tasks.push(loadStarsWallet());}else{document.getElementById('starsPanel').hidden=true;}
  await Promise.all(tasks);
 }
 async function loadStaff(){
