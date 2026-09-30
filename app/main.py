@@ -105,22 +105,19 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         current_stop = num(getattr(outcome, "current_stop", None)) or current_stop
         status = str(getattr(outcome, "status", "active") or "active")
 
-    score_text = f"${score:.0f}/100" if score is not None else "غير محسوب"
-    rvol_text = f"${rvol:.2f}×" if rvol is not None else "غير متوفر"
-    change_text = f"${float(change):+.2f}%" if change is not None else "غير متوفر"
+    score_text = f"{score:.0f}/100" if score is not None else "غير محسوب"
+    rvol_text = f"{rvol:.2f}×" if rvol is not None else "غير متوفر"
+    change_text = f"{float(change):+.2f}%" if change is not None else "غير متوفر"
 
     target_lines = []
     for idx, target in enumerate(targets, start=1):
         if idx <= achieved:
-            marker = "✅"
-            label = "محقق"
+            marker, label = "✅", "محقق"
         elif idx == achieved + 1:
-            marker = "🎯"
-            label = "الهدف التالي"
+            marker, label = "🎯", "الهدف التالي"
         else:
-            marker = "⏳"
-            label = "لاحق"
-        target_lines.append(f"  {marker} الهدف {idx}: <b>${_money(target)}</b> — {label}")
+            marker, label = "⏳", "لاحق"
+        target_lines.append(f"  {marker} الهدف {idx}: <b>\x24{_money(target)}</b> — {label}")
     if not target_lines:
         target_lines = ["  • غير متوفر"]
 
@@ -136,39 +133,39 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     lines = [
         "🚨 <b>SAS PRO RADAR</b>",
         "",
-        f"📡 <b>${symbol} 🇺🇸</b>",
-        f"💵 السعر: <b>${_money(price)}</b>",
+        f"📡 <b>\x24{symbol} 🇺🇸</b>",
+        f"💵 السعر: <b>\x24{_money(price)}</b>",
         f"📈 التغير: <b>{change_text}</b>",
         f"⭐ قوة الإشارة: <b>{score_text}</b>",
-        f"🏷️ التصنيف: <b>${classification.get('type') or 'غير واضح'}</b>",
+        f"🏷️ التصنيف: <b>{classification.get('type') or 'غير واضح'}</b>",
         "",
         "📊 <b>بيانات السوق</b>",
         f"📊 RVOL: <b>{rvol_text}</b>",
-        f"📈 Float: <b>${float_shares/1_000_000:.2f}M</b>" if float_shares is not None else "📈 Float: <b>غير متوفر</b>",
-        f"🏦 Shares: <b>${shares_outstanding/1_000_000:.2f}M</b>" if shares_outstanding is not None else "🏦 Shares: <b>غير متوفر</b>",
-        f"📍 VWAP: <b>${_money(vwap)}</b>" if vwap is not None else "📍 VWAP: <b>غير متوفر</b>",
-        f"🔥 التجميع: <b>${accumulation}</b>" if accumulation else "🔥 التجميع: <b>غير متوفر</b>",
-        f"💵 حجم التداول بالدولار: <b>${dollar_volume:,.0f}$</b>" if dollar_volume is not None else "💵 حجم التداول بالدولار: <b>غير متوفر</b>",
-        f"📈 ضغط الشراء: <b>${buy_pressure:.2f}%</b>" if buy_pressure is not None else "📈 ضغط الشراء: <b>غير متوفر</b>",
-        f"⚡ تسارع الحجم: <b>${acceleration:.2f}×</b>" if acceleration is not None else "⚡ تسارع الحجم: <b>غير متوفر</b>",
-        f"📈 CVD: <b>${cvd}</b>" if cvd else "📈 CVD: <b>غير متوفر</b>",
+        f"📈 Float: <b>{float_shares/1_000_000:.2f}M</b>" if float_shares is not None else "📈 Float: <b>غير متوفر</b>",
+        f"🏦 Shares: <b>{shares_outstanding/1_000_000:.2f}M</b>" if shares_outstanding is not None else "🏦 Shares: <b>غير متوفر</b>",
+        f"📍 VWAP: <b>\x24{_money(vwap)}</b>" if vwap is not None else "📍 VWAP: <b>غير متوفر</b>",
+        f"🔥 التجميع: <b>{accumulation}</b>" if accumulation else "🔥 التجميع: <b>غير متوفر</b>",
+        f"💵 حجم التداول بالدولار: <b>{dollar_volume:,.0f}\x24</b>" if dollar_volume is not None else "💵 حجم التداول بالدولار: <b>غير متوفر</b>",
+        f"📈 ضغط الشراء: <b>{buy_pressure:.2f}%</b>" if buy_pressure is not None else "📈 ضغط الشراء: <b>غير متوفر</b>",
+        f"⚡ تسارع الحجم: <b>{acceleration:.2f}×</b>" if acceleration is not None else "⚡ تسارع الحجم: <b>غير متوفر</b>",
+        f"📈 CVD: <b>{cvd}</b>" if cvd else "📈 CVD: <b>غير متوفر</b>",
         "",
         "━━━━━━━━━━━━━━━━━━",
         "",
         "📰 <b>المحفز الإخباري</b>",
-        f"🔹 <b>الخبر:</b> ${catalyst.get('headline')}" if catalyst else "🔹 <b>الخبر:</b> غير واضح — لا يوجد خبر موثوق حديث يمكن ربط الحركة به حاليًا.",
-        f"🕐 <b>وقت الخبر:</b> ${catalyst.get('published_at')}" if catalyst else "",
-        f"📰 <b>المصدر:</b> ${catalyst.get('source')}" if catalyst else "",
-        f"🔗 <b>الرابط:</b> ${catalyst.get('url')}" if catalyst else "",
+        f"🔹 <b>الخبر:</b> {catalyst.get('headline')}" if catalyst else "🔹 <b>الخبر:</b> غير واضح — لا يوجد خبر موثوق حديث يمكن ربط الحركة به حاليًا.",
+        f"🕐 <b>وقت الخبر:</b> {catalyst.get('published_at')}" if catalyst else "",
+        f"📰 <b>المصدر:</b> {catalyst.get('source')}" if catalyst else "",
+        f"🔗 <b>الرابط:</b> {catalyst.get('url')}" if catalyst else "",
         "📌 لا يُعد الخبر سببًا مؤكدًا للحركة إلا إذا تطابق توقيته ومحتواه مع حركة السعر.",
         "",
         "🎯 <b>خطة الرصد</b>",
         "",
         *target_lines,
         "",
-        f"🛡 الوقف الحالي: <b>${_money(current_stop)}</b>" if current_stop is not None else "🛡 الوقف الحالي: <b>غير متوفر</b>",
-        f"📌 الحالة: <b>${status_text}</b>",
-        f"📊 المخاطرة مقابل العائد: <b>${float(tech.get('risk_reward')):.2f}×</b>" if num(tech.get("risk_reward")) is not None else "📊 المخاطرة مقابل العائد: <b>غير محسوب</b>",
+        f"🛡 الوقف الحالي: <b>\x24{_money(current_stop)}</b>" if current_stop is not None else "🛡 الوقف الحالي: <b>غير متوفر</b>",
+        f"📌 الحالة: <b>{status_text}</b>",
+        f"📊 المخاطرة مقابل العائد: <b>{float(tech.get('risk_reward')):.2f}×</b>" if num(tech.get("risk_reward")) is not None else "📊 المخاطرة مقابل العائد: <b>غير محسوب</b>",
         "",
         "📌 <b>قاعدة الرصد</b>",
         "🎯 لا يُعلن تحقق أي هدف إلا بعد رصد السعر فعليًا عند المستوى أو فوقه.",
