@@ -11,10 +11,10 @@ from .market import quote
 # - السعر: $0.30 - $6
 # - منهج فيصل: السلوك، التداول، RVOL، الدعم/المقاومة والثبات.
 MIN_PRICE = 0.30
-MAX_PRICE = 6.00
+MAX_PRICE = 15.00
 ALLOWED_EXCHANGES = {"NASDAQ"}
 
-# Daily candles change slowly, so cache them between 5-minute radar cycles.
+# Daily candles change slowly, so cache them between radar cycles.
 _CANDLE_CACHE_TTL = 600
 _candle_cache = {}
 _panwatch_semaphore = asyncio.Semaphore(8)
@@ -555,7 +555,20 @@ async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_f
     }
     behavior, emoji = behavior_names[behavior_key]
 
-    stock_type = "مضاربي" if momentum or sweep or rvol >= 3 or atr_pct >= 0.10 else "سوينق"
+    # تصنيف نمط التداول يعتمد على بيانات الرصد الفعلية، وليس على سعر السهم وحده.
+    # الهدف وصف طبيعة الحركة/الأفق المحتمل للرصد وليس إعطاء توصية استثمارية.
+    if (change_pct >= 8 and rvol >= 2.5) or rvol >= 4 or atr_pct >= 0.15:
+        stock_type = "مضاربي سريع"
+    elif momentum or sweep or rvol >= 2 or atr_pct >= 0.10:
+        stock_type = "مضاربي"
+    elif (sma20 >= sma50 * 1.02 and (accumulation or breakout or fill_gap)) or (
+        accumulation and atr_pct < 0.10
+    ):
+        stock_type = "سوينق"
+    elif sma20 >= sma50 and (higher_lows or breakout):
+        stock_type = "اتجاهي"
+    else:
+        stock_type = "مراقبة"
 
     evidence = []
     if former_runner:
@@ -617,7 +630,7 @@ async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_f
         "distribution_risk": distribution_risk,
         "late_chase": late_chase,
         "data_source": data_source,
-        "data_note": "Float/Short Available/Reverse Split/Level 2 وVWAP اللحظي تحتاج مصدر بيانات مباشر؛ لا يتم اختلاقها. الدخول المتأخر بعد حركة قوية بدون دعم واضح يُستبعد.",
+        "data_note": "Float/Short Available/Reverse Split/Level 2 وVWAP اللحظي تحتاج مصدر بيانات مباشر؛ لا يتم اختلاقها. نوع السهم تصنيف وصفي مبني على الزخم والتذبذب والحجم والبنية اليومية.",
 
     }
 
@@ -721,7 +734,7 @@ async def scan_us_low_price_stocks():
     diagnostics = []
     candidate_count = len(candidates)
 
-    # رادار مستمر كل 5 دقائق: نستخدم مسحاً مرحلياً حتى لا تعلق دورة الرصد
+    # رادار دوري: نستخدم مسحاً مرحلياً حتى لا تعلق دورة الرصد
     # على آلاف طلبات البيانات. نأخذ أعلى الأسهم حركةً + أعلى الأسهم تداولاً،
     # ثم نطبق منهج فيصل كاملاً على هذه القائمة.
     by_change = sorted(
