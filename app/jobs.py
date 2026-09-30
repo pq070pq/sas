@@ -105,19 +105,35 @@ async def expiry_cycle():
 
 
 async def evaluate_radar_outcomes():
-    """Evaluate sent radar signals against their targets/exit using fresh quotes."""
+    """Track live radar targets and emit alerts only after an observed market price reaches them."""
     async with SessionLocal() as db:
         signals = (await db.execute(select(RadarSignal))).scalars().all()
         for signal in signals:
+            payload = json.loads(signal.payload or "{}")
+            tech = payload.get("targets") or {}
+            targets = []
+            for value in (tech.get("targets") or [])[:5]:
+                try:
+                    level = float(value)
+                    if level > 0:
+                        targets.append(level)
+                except (TypeError, ValueError):
+                    continue
+            entry = payload.get("live_price") or payload.get("price")
+            try:
+                entry = float(entry) if entry is not None else None
+            except (TypeError, ValueError):
+                entry = None
+            exit_level = tech.get("exit")
+            try:
+                exit_level = float(exit_level) if exit_level is not None else None
+            except (TypeError, ValueError):
+                exit_level = None
+
             existing = (await db.execute(
                 select(RadarOutcome).where(RadarOutcome.radar_signal_id == signal.id)
             )).scalars().first()
-            payload = json.loads(signal.payload or "{}")
-            tech = payload.get("targets") or {}
-            targets = tech.get("targets") or []
-            exit_level = tech.get("exit")
-            if existing and existing.status in {"target3", "target2", "target1", "failed"}:
-                continue
+
             if existing is None:
                 existing = RadarOutcome(
                     radar_signal_id=signal.id,
@@ -126,10 +142,20 @@ async def evaluate_radar_outcomes():
                     target1=targets[0] if len(targets) > 0 else None,
                     target2=targets[1] if len(targets) > 1 else None,
                     target3=targets[2] if len(targets) > 2 else None,
+                    target4=targets[3] if len(targets) > 3 else None,
+                    target5=targets[4] if len(targets) > 4 else None,
                     exit_level=exit_level,
+                    entry_price=entry,
+                    current_stop=exit_level,
                 )
                 db.add(existing)
                 await db.flush()
+
+            if existing.entry_price is None and entry is not None:
+                existing.entry_price = entry
+            if existing.current_stop is None:
+                existing.current_stop = existing.exit_level
+
             try:
                 from .market import quote
                 q = await quote(signal.symbol)
@@ -139,16 +165,84 @@ async def evaluate_radar_outcomes():
                 price = float(price)
                 existing.current_price = price
                 existing.evaluated_at = utcnow()
-                if existing.target3 is not None and price >= existing.target3:
-                    existing.status, existing.achieved_target = "target3", 3
-                elif existing.target2 is not None and price >= existing.target2:
-                    existing.status, existing.achieved_target = "target2", 2
-                elif existing.target1 is not None and price >= existing.target1:
-                    existing.status, existing.achieved_target = "target1", 1
-                elif existing.exit_level is not None and price <= existing.exit_level:
-                    existing.status, existing.achieved_target = "failed", 0
+
+                ordered_targets = [
+                    x for x in (
+                        existing.target1, existing.target2,
+                        existing.target3, existing.target4, existing.target5
+                    ) if x is not None
+                ]
+
+                for idx, target in enumerate(ordered_targets, start=1):
+                    if idx <= int(existing.last_alert_target or 0):
+                        continue
+                    if price < float(target):
+                        break
+
+                    existing.achieved_target = idx
+                    existing.last_alert_target = idx
+                    existing.status = f"target{idx}"
+
+                    if existing.entry_price is not None:
+                        new_stop = existing.entry_price if idx == 1 else ordered_targets[idx - 2]
+                        if existing.current_stop is None or new_stop > existing.current_stop:
+                            existing.current_stop = new_stop
+
+                    profit_text = ""
+                    if existing.entry_price and existing.entry_price > 0:
+                        profit = ((price / existing.entry_price) - 1.0) * 100.0
+                        profit_text = f"\\n📈 العائد من دخول الرصد: <b>{profit:+.2f}%</b>"
+
+                    stop_text = (
+                        f"\\n🛡 الوقف الجديد: <b>{_money(existing.current_stop)}</b>"
+                        if existing.current_stop is not None else ""
+                    )
+                    final = idx == len(ordered_targets)
+                    title = "🔥 تحقق الهدف %d" % idx if final else "🎯 تحقق الهدف %d" % idx
+                    footer = "\\n🏆 اكتملت أهداف الرصد" if final else ""
+                    await send_message(
+                        settings.telegram_channel_id,
+                        f"{title} — <b>$" + signal.symbol + "</b>\\n\\n"
+                        f"💵 السعر المرصود: <b>{_money(price)}</b>"
+                        f"{profit_text}"
+                        f"{stop_text}\\n"
+                        f"📊 المستوى: <b>{_money(target)}</b>\\n"
+                        f"⏱ تم التحقق: <b>{utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}</b>"
+                        f"{footer}"
+                    )
+
+                if (
+                    existing.status.startswith("target")
+                    and existing.current_stop is not None
+                    and price <= float(existing.current_stop)
+                    and existing.achieved_target < len(ordered_targets)
+                ):
+                    existing.status = "failed"
+                    await send_message(
+                        settings.telegram_channel_id,
+                        "🛑 <b>تفعيل الوقف — $" + signal.symbol + "</b>\\n\\n"
+                        f"💵 السعر المرصود: <b>{_money(price)}</b>\\n"
+                        f"🛡 الوقف: <b>{_money(existing.current_stop)}</b>\\n"
+                        f"🎯 آخر هدف محقق: <b>{existing.achieved_target}</b>\\n"
+                        "📌 تم إنهاء الرصد وفق مستوى الوقف المسجل."
+                    )
+                elif (
+                    existing.achieved_target == 0
+                    and existing.current_stop is not None
+                    and price <= float(existing.current_stop)
+                ):
+                    existing.status = "failed"
+                    await send_message(
+                        settings.telegram_channel_id,
+                        "🛑 <b>تفعيل الوقف — $" + signal.symbol + "</b>\\n\\n"
+                        f"💵 السعر المرصود: <b>{_money(price)}</b>\\n"
+                        f"🛡 الوقف: <b>{_money(existing.current_stop)}</b>\\n"
+                        "📌 لم يتحقق الهدف الأول قبل بلوغ حد الإلغاء."
+                    )
+
             except Exception:
                 continue
+
         await db.commit()
 
 
