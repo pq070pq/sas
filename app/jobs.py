@@ -381,8 +381,11 @@ async def stock_radar_cycle():
         scan_result = await scan_us_low_price_stocks()
         diagnostics = scan_result.get("diagnostics") or {}
         if diagnostics.get("twelve_data_quota_exhausted"):
-            await publish_market_update("تم استنزاف رصيد Twelve Data اليوم — التحول إلى تحديث السوق الاحتياطي")
-            return
+            # Twelve Data احتياطي فقط؛ لا نوقف الرادار ما دامت نتائج PanWatch
+            # صالحة. نستمر بإرسال إشارات الأسهم ونكتفي بتسجيل حالة الحصة.
+            logger.warning(
+                "Twelve Data quota exhausted; continuing radar with PanWatch/primary data."
+            )
         rows = scan_result.get("stocks", [])
         session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
