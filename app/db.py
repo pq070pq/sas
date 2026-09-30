@@ -124,10 +124,15 @@ class RadarOutcome(Base):
     target1: Mapped[float | None] = mapped_column()
     target2: Mapped[float | None] = mapped_column()
     target3: Mapped[float | None] = mapped_column()
+    target4: Mapped[float | None] = mapped_column()
+    target5: Mapped[float | None] = mapped_column()
     exit_level: Mapped[float | None] = mapped_column()
+    entry_price: Mapped[float | None] = mapped_column()
+    current_stop: Mapped[float | None] = mapped_column()
     status: Mapped[str] = mapped_column(String(24), default="active", index=True)
     achieved_target: Mapped[int] = mapped_column(Integer, default=0)
     current_price: Mapped[float | None] = mapped_column()
+    last_alert_target: Mapped[int] = mapped_column(Integer, default=0)
     evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
@@ -170,6 +175,13 @@ async def init_db():
                 "terms_version": "VARCHAR(32)",
                 "trial_used_at": "DATETIME",
                 "channel_join_requested_at": "DATETIME",
+            })
+            await _sqlite_add_columns(conn, "radar_outcomes", {
+                "target4": "FLOAT",
+                "target5": "FLOAT",
+                "entry_price": "FLOAT",
+                "current_stop": "FLOAT",
+                "last_alert_target": "INTEGER DEFAULT 0",
             })
             await _sqlite_add_columns(conn, "payments", {
                 "sar_amount": "INTEGER DEFAULT 0",
