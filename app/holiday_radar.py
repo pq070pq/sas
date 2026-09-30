@@ -158,15 +158,7 @@ async def publish_holiday_radar():
                     _last_btc_alert_at = now
                     _btc_alert_reference = btc_price
 
-        lines += ["", "📰 <b>آخر مستجدات السوق</b>"]
-        if news:
-            for item in news:
-                headline = str(item.get("headline") or "").strip()
-                source = str(item.get("source") or "").strip()
-                if headline:
-                    lines.append(f"• {headline}" + (f" — {source}" if source else ""))
-        else:
-            lines.append("• لا تتوفر أخبار من المصدر الاحتياطي حاليًا.")
+        lines += ["", "🔄 التحديث التالي بعد 3 ساعات"]
 
         lines += [
             "",
