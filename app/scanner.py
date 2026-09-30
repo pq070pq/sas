@@ -833,6 +833,21 @@ async def scan_us_low_price_stocks():
         if diagnostic:
             diagnostics.append(diagnostic)
 
+    # Intraday liquidity is requested only for the top 20 passed symbols and
+    # cached for 10 minutes, keeping the radar cycle within the Twelve Data budget.
+    results.sort(
+        key=lambda x: (
+            int((x.get("classification") or {}).get("score") or 0),
+            float(x.get("change_pct") or 0),
+        ),
+        reverse=True,
+    )
+    intraday = await _get_intraday_liquidity([x.get("symbol") for x in results[:20]])
+    for item in results[:20]:
+        metrics = intraday.get(item.get("symbol"))
+        if metrics:
+            item["intraday"] = metrics
+
     # بعد اجتياز الفلتر الفني فقط، نجلب لقطة لحظية مجمعة لأعلى 20 مرشحاً.
     # هذا لا يغير شروط المرور؛ يضيف VWAP وتسارع الحجم وضغط الشراء للتقرير.
     intraday = await _get_intraday_liquidity([
