@@ -370,7 +370,9 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
                     timeout=7,
                 )
             r.raise_for_status()
-            candles = _parse_candles(r.json().get("klines", []))
+            payload = r.json()
+            data = payload.get("data") or payload
+            candles = _parse_candles(data.get("klines", []))
             if len(candles) >= 30:
                 _candle_cache[key] = (now, candles, "PanWatch")
                 return candles, "PanWatch"
