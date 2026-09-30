@@ -15,6 +15,9 @@ _btc_alert_reference = None
 
 # أثناء عطلات سوق الأسهم ونهاية الأسبوع نعرض فقط الأصول التي طلبها SAS PRO.
 MACRO = [
+    ("IXIC", "📊 Nasdaq"),
+    ("SPX", "📊 S&P 500"),
+    ("DJI", "📊 Dow Jones Industrial"),
     ("BTC/USD", "₿ بيتكوين"),
     ("XAU/USD", "🥇 الذهب"),
 ]
@@ -48,6 +51,56 @@ async def holiday_snapshot():
         except Exception:
             rows.append((label, {"price": None, "change_pct": None}))
     return rows
+
+
+async def publish_market_update(reason: str = "نفاد رصيد Twelve Data"):
+    """Send a fallback market/news update without consuming Twelve Data when quota is exhausted."""
+    if not settings.telegram_channel_id or not settings.telegram_bot_token:
+        return {"sent": False, "reason": "Telegram not configured"}
+
+    rows = await holiday_snapshot()
+    news = []
+    if settings.finnhub_api_key:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.get(
+                    "https://finnhub.io/api/v1/news",
+                    params={"category": "general", "token": settings.finnhub_api_key},
+                )
+                if r.status_code < 400:
+                    news = r.json()[:5]
+        except Exception:
+            news = []
+
+    lines = [
+        "📰 <b>SAS PRO — تحديث السوق</b>",
+        "",
+        f"ℹ️ <b>{reason}</b>",
+        "",
+        "📊 <b>مؤشرات السوق</b>",
+    ]
+    for label, q in rows:
+        lines.append(f"{label}: <b>{_fmt_price(q.get('price'))}</b> ({_fmt_pct(q.get('change_pct'))})")
+
+    lines += ["", "📰 <b>آخر مستجدات السوق</b>"]
+    if news:
+        for item in news:
+            headline = str(item.get("headline") or "").strip()
+            source = str(item.get("source") or "").strip()
+            if headline:
+                lines.append(f"• {headline}" + (f" — {source}" if source else ""))
+    else:
+        lines.append("• لا تتوفر أخبار من مصدر الأخبار الاحتياطي حاليًا.")
+
+    lines += [
+        "",
+        f"🕐 {datetime.now(RIYADH).strftime('%Y-%m-%d %H:%M')} بتوقيت السعودية",
+        "",
+        "⚠️ تحديث معلوماتي للسوق، وليس توصية شراء أو بيع.",
+    ]
+    await send_message(settings.telegram_channel_id, "\n".join(lines))
+    return {"sent": True, "assets": ["NASDAQ", "SP500", "DOW", "BTC", "GOLD"], "news": len(news)}
 
 
 async def publish_holiday_radar():
