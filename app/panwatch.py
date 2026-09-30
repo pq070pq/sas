@@ -33,7 +33,9 @@ async def technical_targets(symbol: str):
                 params={"market": "US", "days": 90, "interval": "1d"},
             )
             r.raise_for_status()
-            rows = r.json().get("klines", [])
+            payload = r.json()
+            data = payload.get("data") or payload
+            rows = data.get("klines", []) if isinstance(data, dict) else []
         except Exception:
             # Fallback to Twelve Data when PanWatch has no daily candles.
             if settings.twelve_data_api_key:
