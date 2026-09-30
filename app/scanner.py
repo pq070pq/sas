@@ -822,6 +822,25 @@ async def scan_us_low_price_stocks():
                     company_news(symbol, days=2),
                 )
 
+                # لا تُرسل إشارة قابلة للتنفيذ بدون هدف سعري مرصود فعليًا.
+                # status=ok مع targets=[] يعني أن البيانات موجودة لكن لا توجد مقاومة
+                # مؤكدة فوق السعر يمكن اعتمادها كهدف.
+                target_levels = targets.get("targets") if isinstance(targets, dict) else None
+                if (
+                    not isinstance(targets, dict)
+                    or targets.get("status") != "ok"
+                    or not isinstance(target_levels, list)
+                    or not target_levels
+                ):
+                    return None, {
+                        "symbol": symbol,
+                        "exchange": row.get("exchange"),
+                        "status": "filtered",
+                        "reason": "لا يوجد هدف سعري مؤكد من مقاومة مرصودة",
+                        "data_source": (targets or {}).get("method") if isinstance(targets, dict) else None,
+                        "target_status": (targets or {}).get("status") if isinstance(targets, dict) else None,
+                    }
+
                 live_price = _f(row.get("live_price"), 0)
                 if live_price <= 0:
                     live_price = _f(row.get("price"), 0)
