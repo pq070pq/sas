@@ -24,6 +24,45 @@ jobs:
           mkdir -p vendor
           git clone --depth 1 https://github.com/TNT-Likely/PanWatch.git vendor/PanWatch
           rm -rf vendor/PanWatch/.git
+      - name: Apply SAS PRO PanWatch overrides
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("vendor/PanWatch/server.py")
+          text = path.read_text(encoding="utf-8")
+
+          # US K-line: Yahoo primary, Stooq fallback.
+          old = '"provider": "stooq",\n            "config": {"description": "Stooq 美股日线兜底(免 key)。"},\n            "enabled": True,\n            "priority": 15,'
+          new = '"provider": "stooq",\n            "config": {"description": "Stooq 美股日线兜底(免 key)。"},\n            "enabled": True,\n            "priority": 20,'
+          if old in text:
+              text = text.replace(old, new, 1)
+
+          old = '"enabled": False,  # 需代理,默认关(同 YFinance 口径),用户配好 proxy 再开\n            "priority": 20,  # US/HK 最后兜底'
+          new = '"enabled": True,\n            "priority": 0,  # US primary'
+          if old in text:
+              text = text.replace(old, new, 1)
+
+          old = '''        if existing:
+            # 恢复默认时只重置测试代码；配置、启用状态、优先级等用户设置仍保留。'''
+          new = '''        if existing:
+            # 将旧版内置 US K线默认迁移到 Yahoo primary + Stooq fallback。
+            # 仅修正明确的旧默认值，不覆盖用户已经手工调整过的其它配置。
+            if source_data["type"] == "kline" and source_data["provider"] == "yahoo":
+                if existing.enabled is False and existing.priority == 20:
+                    existing.enabled = True
+                    existing.priority = 0
+            elif source_data["type"] == "kline" and source_data["provider"] == "stooq":
+                if existing.enabled is True and existing.priority == 15:
+                    existing.priority = 20
+
+            # 恢复默认时只重置测试代码；配置、启用状态、优先级等用户设置仍保留。'''
+          if old in text:
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
       - name: Commit
         run: |
           git config user.name "SAS PRO Bot"
