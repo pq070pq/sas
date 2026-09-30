@@ -23,6 +23,9 @@ from .timeutil import utcnow, aware
 from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, get_subscription_config, setting_set, setting_get, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings, create_user_channel_invite
 from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
 
+scheduler_task = None
+holiday_radar_task = None
+
 app = FastAPI(title="SAS PRO", version="2.1.0")
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
 
@@ -60,8 +63,10 @@ async def startup():
                 })
         except Exception:
             pass
-    asyncio.create_task(scheduler())
-    asyncio.create_task(holiday_radar_scheduler())
+    global scheduler_task, holiday_radar_task
+    scheduler_task = asyncio.create_task(scheduler(), name="saspro-scheduler")
+    holiday_radar_task = asyncio.create_task(holiday_radar_scheduler(), name="saspro-holiday-radar")
+    logging.getLogger(__name__).info("Background tasks started: scheduler=%s holiday_radar=%s", scheduler_task.get_name(), holiday_radar_task.get_name())
 
 def build_report(symbol: str, q: dict, tech: dict, classification: dict | None = None) -> str:
     """Compact radar report. Every displayed metric must come from observed/calculated data."""
