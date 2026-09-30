@@ -23,6 +23,8 @@ services:
     env_file: .env
     expose:
       - "8000"
+    volumes:
+      - panwatch_data:/app/data
 
   openterminal-api:
     build:
@@ -58,4 +60,5 @@ services:
 
 volumes:
   saspro_data:
+  panwatch_data:
   openterminal_data:
