@@ -373,7 +373,11 @@ async def stock_radar_cycle():
                         _radar_seen.add(symbol)
                         continue
 
-                q = await quote(symbol)
+                try:
+                    q = await quote(symbol)
+                except Exception:
+                    logger.exception("Quote provider failed for %s; using scan data.", symbol)
+                    q = {"symbol": symbol}
                 # Keep the radar price populated from the scan row when the
                 # live quote provider is temporarily unavailable.
                 if q.get("price") is None:
