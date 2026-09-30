@@ -207,6 +207,23 @@ async def init_db():
                 SET value = '3', updated_at = CURRENT_TIMESTAMP
                 WHERE key = 'trial_days' AND value = '30'
             """))
+            # ترحيل آمن لقيم الاشتراكات القديمة فقط. إذا غيّر المشرف قيمة يدويًا،
+            # لا نعتبرها قيمة قديمة ولا نستبدلها.
+            for key, old_value, new_value in (
+                ("monthly_sar", "100", "150"),
+                ("3month_sar", "250", "405"),
+                ("6month_sar", "500", "720"),
+                ("yearly_sar", "1000", "1260"),
+                ("monthly_stars", "0", "2250"),
+                ("3month_stars", "0", "6075"),
+                ("6month_stars", "0", "10800"),
+                ("yearly_stars", "0", "18900"),
+            ):
+                await conn.execute(text("""
+                    UPDATE settings
+                    SET value = :new_value, updated_at = CURRENT_TIMESTAMP
+                    WHERE key = :key AND value = :old_value
+                """), {"key": key, "old_value": old_value, "new_value": new_value})
 
 async def get_session():
     async with SessionLocal() as session:
