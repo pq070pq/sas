@@ -8,14 +8,17 @@ from .market import quote
 
 # رادار SAS PRO:
 # - السوق: NASDAQ فقط
-# - السعر: $0.30 - $6
+# - السعر: $0.30 - $15
+# - لا تُرسل القناة إلا الإشارات النوعية ذات السيولة والأهداف الصالحة.
 # - منهج فيصل: السلوك، التداول، RVOL، الدعم/المقاومة والثبات.
 MIN_PRICE = 0.30
-MAX_PRICE = 6.00
+MAX_PRICE = 15.00
+MAX_RADAR_RESULTS = 5
+MIN_DAILY_DOLLAR_VOLUME = 1_000_000.0
 ALLOWED_EXCHANGES = {"NASDAQ"}
 
 # Daily candles change slowly, so cache them between radar cycles.
-_CANDLE_CACHE_TTL = 1800
+_CANDLE_CACHE_TTL = 5400
 _candle_cache = {}
 _panwatch_semaphore = asyncio.Semaphore(8)
 _twelvedata_fallback_semaphore = asyncio.Semaphore(1)
@@ -350,6 +353,7 @@ async def discover_low_price_stocks():
 
 async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool = False):
     """Get daily OHLCV with caching and a strictly limited Twelve Data fallback."""
+    global _twelve_data_quota_exhausted
     key = symbol.upper()
     now = time.monotonic()
     cached = _candle_cache.get(key)
@@ -662,7 +666,7 @@ async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_f
 
 
 
-_INTRADAY_CACHE_TTL = 600
+_INTRADAY_CACHE_TTL = 3600
 _intraday_cache = {}
 
 def _calc_intraday_liquidity(candles):
@@ -758,8 +762,8 @@ async def _get_intraday_liquidity(symbols):
 
 
 async def scan_us_low_price_stocks():
-    global _twelve_data_quota_exhausted
-    _twelve_data_quota_exhausted = False
+    # لا نعيد ضبط حالة استنفاد الحصة كل 30 دقيقة؛ عند 429 يتوقف Twelve Data
+    # حتى إعادة تشغيل الخدمة، بينما يستمر الرادار بالمصادر الأساسية.
     candidates = await discover_low_price_stocks()
     results = []
     diagnostics = []
@@ -793,7 +797,7 @@ async def scan_us_low_price_stocks():
     # the daily API allowance across the full trading day.
     twelve_fallback_symbols = {
         str(row.get("symbol") or "").upper()
-        for row in shortlist[:settings.twelve_data_scan_fallback_symbols]
+        for row in shortlist[:min(settings.twelve_data_scan_fallback_symbols, 3)]
         if row.get("symbol")
     }
 
@@ -814,6 +818,30 @@ async def scan_us_low_price_stocks():
                         "reason": classification.get("reason"),
                         "data_source": classification.get("data_source"),
                     }
+
+                # فلترة السيولة: لا يكفي أن يكون السهم رابحًا؛ نريد تداولًا
+                # نقديًا فعليًا وحجمًا متوافقًا مع الحركة، مع الحفاظ على الأسهم
+                # التي يثبتها منهج فيصل حتى لو لم تكن في أعلى قائمة الحجم.
+                entry_price = _f(row.get("price"), 0)
+                daily_volume = _f(row.get("volume"), 0)
+                dollar_volume = entry_price * daily_volume
+                daily_rvol = _f(classification.get("rvol"), 0)
+                if (
+                    entry_price <= 0
+                    or daily_volume <= 0
+                    or dollar_volume < MIN_DAILY_DOLLAR_VOLUME
+                    or daily_rvol < 1.0
+                ):
+                    return None, {
+                        "symbol": symbol,
+                        "exchange": row.get("exchange"),
+                        "status": "filtered",
+                        "reason": "سيولة يومية غير كافية أو غير مؤكدة",
+                        "data_source": classification.get("data_source"),
+                    }
+
+                classification["dollar_volume"] = round(dollar_volume, 2)
+                classification["liquidity_quality"] = "مقبولة"
 
                 # الأهداف والأخبار مستقلان ويمكن جلبهما بالتوازي.
                 # لا نطلب Twelve Data quote لكل سهم مقبول؛ مصدر الاكتشاف
@@ -938,11 +966,12 @@ async def scan_us_low_price_stocks():
         if diagnostic:
             diagnostics.append(diagnostic)
 
-    # Intraday liquidity is requested once per cycle for only the top few
-    # passed symbols. The result is cached for 30 minutes.
+    # Intraday is a confirmation bonus for the very best candidates only.
+    # We deliberately do not request intraday data for the whole shortlist.
     results.sort(
         key=lambda x: (
             int((x.get("classification") or {}).get("score") or 0),
+            float((x.get("classification") or {}).get("rvol") or 0),
             float(x.get("change_pct") or 0),
         ),
         reverse=True,
@@ -953,15 +982,26 @@ async def scan_us_low_price_stocks():
         metrics = intraday.get(str(item.get("symbol") or "").upper())
         if metrics:
             item["intraday"] = metrics
+            buy_pressure = _f(metrics.get("buy_pressure"), 0)
+            acceleration = _f(metrics.get("volume_acceleration"), 0)
+            item["classification"]["intraday_confirmation"] = bool(
+                buy_pressure >= 55 and acceleration >= 1.05 and metrics.get("cvd_direction") == "صاعد"
+            )
+        else:
+            item["classification"]["intraday_confirmation"] = False
 
     results.sort(
         key=lambda x: (
+            1 if (x.get("classification") or {}).get("intraday_confirmation") else 0,
             int((x.get("classification") or {}).get("score") or 0),
-            float((x.get("intraday") or {}).get("intraday_rvol") or 0),
+            float((x.get("classification") or {}).get("rvol") or 0),
+            float((x.get("intraday") or {}).get("buy_pressure") or 0),
             float(x.get("change_pct") or 0),
         ),
         reverse=True,
     )
+    # القناة تستقبل عددًا محدودًا من الإشارات النوعية فقط.
+    results = results[:MAX_RADAR_RESULTS]
     filtered = [x for x in diagnostics if x.get("status") == "filtered"]
     errors = [x for x in diagnostics if x.get("status") == "error"]
 
@@ -982,7 +1022,7 @@ async def scan_us_low_price_stocks():
                 for x in errors[:10]
             ],
             "passed_examples": [x.get("symbol") for x in results[:20]],
-            "price_source": "Nasdaq Screener + cached/PanWatch data; Twelve Data only for limited fallbacks",
+            "price_source": "Nasdaq/OpenTerminal/PanWatch + limited Twelve Data fallbacks",
             "twelve_data_quota_exhausted": _twelve_data_quota_exhausted,
         },
     }
