@@ -17,6 +17,12 @@ from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
 
+def _money(value):
+    try:
+        return f"${float(value):,.4f}".rstrip("0").rstrip(".")
+    except (TypeError, ValueError):
+        return "غير واضح"
+
 async def expiry_cycle():
     now = utcnow()
     horizon = now + timedelta(hours=settings.expiry_warning_hours)
