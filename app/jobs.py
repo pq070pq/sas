@@ -339,6 +339,7 @@ async def stock_radar_cycle():
         session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
         async with SessionLocal() as db:
+            cycle_stats = {"rows": len(rows), "skipped": 0, "reanalyzed": 0, "sent": 0, "failed": 0}
             for row in rows:
                 symbol = str(row.get("symbol") or "").upper()
                 if not symbol:
@@ -370,8 +371,20 @@ async def stock_radar_cycle():
                     )
                     price_jump = abs(current_change - previous_change) >= 5.0
                     if not (volume_jump or price_jump):
+                        cycle_stats["skipped"] += 1
                         _radar_seen.add(symbol)
+                        logger.info(
+                            "Radar duplicate skipped: %s | reason=existing_signal_same_session "
+                            "volume_jump=%s price_jump=%s",
+                            symbol, volume_jump, price_jump,
+                        )
                         continue
+
+                    cycle_stats["reanalyzed"] += 1
+                    logger.info(
+                        "Radar reanalysis triggered: %s | volume_jump=%s price_jump=%s",
+                        symbol, volume_jump, price_jump,
+                    )
 
                 try:
                     q = await quote(symbol)
@@ -406,12 +419,23 @@ async def stock_radar_cycle():
                             payload=json.dumps(row, ensure_ascii=False),
                         ))
                     await db.commit()
+                    cycle_stats["sent"] += 1
                     _radar_seen.add(symbol)
                     logger.info("Radar report sent successfully: %s", symbol)
                 except Exception:
+                    cycle_stats["failed"] += 1
                     await db.rollback()
                     logger.exception("Radar report send failed: %s", symbol)
                     continue
+
+            logger.info(
+                "Stock radar delivery summary: rows=%d skipped=%d reanalyzed=%d sent=%d failed=%d",
+                cycle_stats["rows"],
+                cycle_stats["skipped"],
+                cycle_stats["reanalyzed"],
+                cycle_stats["sent"],
+                cycle_stats["failed"],
+            )
     except Exception:
         logger.exception("Stock radar cycle failed.")
         return
