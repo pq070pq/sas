@@ -415,7 +415,7 @@ DATA_SOURCE_SEEDS: list[dict] = [
             "provider": "stooq",
             "config": {"description": "Stooq 美股日线兜底(免 key)。"},
             "enabled": True,
-            "priority": 15,  # US 兜底(腾讯 0 之后)
+            "priority": 20,  # US 兜底(腾讯 0 之后)
             "supports_batch": False,
             "test_symbols": list(DEFAULT_TEST_SYMBOLS),
         },
@@ -428,8 +428,8 @@ DATA_SOURCE_SEEDS: list[dict] = [
                 "在 config.proxy 填写代理地址后启用,作港股 K线第二源/美股更稳兜底。",
                 "proxy": "",
             },
-            "enabled": False,  # 需代理,默认关(同 YFinance 口径),用户配好 proxy 再开
-            "priority": 20,  # US/HK 最后兜底
+            "enabled": True,
+            "priority": 0,  # US primary
             "supports_batch": False,
             "test_symbols": list(DEFAULT_TEST_SYMBOLS),
         },
