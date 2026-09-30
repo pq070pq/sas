@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from .config import settings
-from .market import quote
+from .market import quote, macro_quote
 from .market_calendar import market_status
 from .telegram import send_message
 
@@ -46,7 +46,7 @@ async def holiday_snapshot():
     rows = []
     for symbol, label in MACRO:
         try:
-            q = await quote(symbol)
+            q = await macro_quote(symbol)
             rows.append((label, q))
         except Exception:
             rows.append((label, {"price": None, "change_pct": None}))
@@ -157,6 +157,31 @@ async def publish_holiday_radar():
                     alert_line = f"🚨 BTC: {direction} <b>{movement:.2f}%</b> منذ آخر تنبيه"
                     _last_btc_alert_at = now
                     _btc_alert_reference = btc_price
+
+        # أخبار السوق العامة من Finnhub — لا تستهلك رصيد Twelve Data.
+        news = []
+        if settings.finnhub_api_key:
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=10) as client:
+                    r = await client.get(
+                        "https://finnhub.io/api/v1/news",
+                        params={"category": "general", "token": settings.finnhub_api_key},
+                    )
+                    if r.status_code < 400:
+                        news = r.json()[:5]
+            except Exception:
+                news = []
+
+        lines += ["", "📰 <b>آخر مستجدات السوق</b>"]
+        if news:
+            for item in news:
+                headline = str(item.get("headline") or "").strip()
+                source = str(item.get("source") or "").strip()
+                if headline:
+                    lines.append(f"• {headline}" + (f" — {source}" if source else ""))
+        else:
+            lines.append("• لا تتوفر أخبار من المصدر الاحتياطي حاليًا.")
 
         lines += [
             "",
