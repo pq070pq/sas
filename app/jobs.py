@@ -16,6 +16,7 @@ from .market_brief import publish_market_brief
 from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 def _money(value):
     try:
