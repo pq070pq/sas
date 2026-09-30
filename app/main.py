@@ -1614,3 +1614,14 @@ async def successful_payment(request: Request, db: AsyncSession = Depends(get_se
     except Exception:
         pass
     return {"ok": True, "expires_at": exp.isoformat(), "channel_link": result["channel_link"]}
+
+
+@app.post("/api/admin/plan-visibility/{plan}")
+async def admin_plan_visibility(plan: str, request: Request, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    await require_admin_permission(user, "settings")
+    if plan not in ("monthly", "3month", "6month", "yearly"):
+        raise HTTPException(400, "الباقة غير معروفة")
+    body = await request.json()
+    await setting_set(db, f"plan_{plan}_visible", "1" if bool(body.get("visible")) else "0")
+    await db.commit()
+    return {"ok": True, "plan": plan, "visible": bool(body.get("visible"))}

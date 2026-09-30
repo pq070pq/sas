@@ -60,6 +60,10 @@ async def ensure_subscription_settings():
             "yearly_sar": settings.yearly_sar, "yearly_days": 365, "yearly_stars": settings.pro_yearly_stars,
             "trial_days": settings.trial_days, "invite_hours": settings.invite_hours,
             "paid_plans_visible": 1,
+            "plan_monthly_visible": 1,
+            "plan_3month_visible": 0,
+            "plan_6month_visible": 0,
+            "plan_yearly_visible": 0,
         }
         for key, value in defaults.items():
             if await db.get(Setting, key) is None:
@@ -71,6 +75,12 @@ async def get_subscription_config():
         return {
             "paid_plans_visible": (await setting_get(db, "paid_plans_visible", 1) or "0") in ("1", "true", "True"),
             "trial_days": int(await setting_get(db, "trial_days", settings.trial_days) or settings.trial_days),
+            "plan_visibility": {
+                "monthly": (await setting_get(db, "plan_monthly_visible", 1) or "0") in ("1", "true", "True"),
+                "3month": (await setting_get(db, "plan_3month_visible", 0) or "0") in ("1", "true", "True"),
+                "6month": (await setting_get(db, "plan_6month_visible", 0) or "0") in ("1", "true", "True"),
+                "yearly": (await setting_get(db, "plan_yearly_visible", 0) or "0") in ("1", "true", "True"),
+            },
         }
 
 async def get_plans():
@@ -83,6 +93,7 @@ async def get_plans():
                 "sar": int(await setting_get(db, f"{prefix}_sar", base["sar"]) or 0),
                 "days": int(await setting_get(db, f"{prefix}_days", base["days"]) or 0),
                 "stars": int(await setting_get(db, f"{prefix}_stars", base["stars"]) or 0),
+                "visible": (await setting_get(db, f"plan_{prefix}_visible", 1 if prefix == "monthly" else 0) or "0") in ("1", "true", "True"),
             }
         return result
 

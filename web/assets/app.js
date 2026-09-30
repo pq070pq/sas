@@ -50,7 +50,7 @@ function renderStatus(x){
 function renderPlans(p){
  const names={monthly:'شهري','3month':'3 أشهر','6month':'6 أشهر',yearly:'سنة'};
  const icons={monthly:'🟢','3month':'🔷','6month':'💎',yearly:'👑'};
- document.getElementById('plans').innerHTML=Object.entries(p).map(([k,x])=>
+ document.getElementById('plans').innerHTML=Object.entries(p).filter(([k,x])=>x.visible!==false).map(([k,x])=>
   '<article class="plan"><div class="plan-icon">'+(icons[k]||'💠')+'</div><b>'+names[k]+'</b><strong>'+x.sar+' ريال</strong><span>'+x.days+' يوم</span>'+
   '<em>'+(x.stars>0?x.stars+' ⭐':'سعر Stars غير مضبوط')+'</em>'+
   '<button '+(x.stars>0?'':'disabled')+' onclick="buyPlan(\''+k+'\')">الدفع عبر Stars</button></article>'
@@ -166,6 +166,7 @@ async function loadSubscriptionConfig(){
 async function loadAdminPlans(){
  const p=await api('/api/admin/plans');
  const names={monthly:'شهري','3month':'3 أشهر','6month':'6 أشهر',yearly:'سنة'};
+ document.getElementById('planVisibility').innerHTML=Object.entries(p).map(([k,x])=>'<label><input class="plan-vis" data-plan="'+k+'" type="checkbox" '+(x.visible?'checked':'')+'> '+names[k]+'</label>').join('');
  document.getElementById('planEditor').innerHTML=Object.entries(p).map(([k,x])=>
   '<div class="plan-edit"><b>'+names[k]+'</b><label>ريال<input id="sar_'+k+'" type="number" value="'+x.sar+'"></label><label>أيام<input id="days_'+k+'" type="number" value="'+x.days+'"></label><label>Stars<input id="stars_'+k+'" type="number" value="'+x.stars+'"></label></div>'
  ).join('');
@@ -184,11 +185,12 @@ async function savePlans(){
 
 async function saveSubscriptionConfig(){
  const paid=!!document.getElementById('paidPlansVisible').checked;
- const days=Number(document.getElementById('trialDays').value||3);
+ const days=Number(document.getElementById('trialDays').value||30);
  try{
   const d=await api('/api/admin/subscription-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paid_plans_visible:paid,trial_days:days})});
   document.getElementById('plansEditorPanel').hidden=!d.paid_plans_visible;
   alert(d.paid_plans_visible?'تم إظهار الاشتراكات المدفوعة.':'تم إخفاء الاشتراكات المدفوعة وإبقاء المجاني فقط.');
+ for(const el of document.querySelectorAll('.plan-vis')){await api('/api/admin/plan-visibility/'+el.dataset.plan,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visible:el.checked})});}
  }catch(e){alert(e.message);}
 }
 document.addEventListener('change',e=>{if(e.target?.id==='paidPlansVisible')document.getElementById('plansEditorPanel').hidden=!e.target.checked;});
