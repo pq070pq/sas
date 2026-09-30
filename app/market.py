@@ -41,6 +41,14 @@ def _valid_price(value):
         return False
 
 
+async def macro_quote(symbol: str):
+    """Macro/holiday quote that prefers the non-Twelve-Data fallback to save stock-radar credits."""
+    fallback = await _finnhub_quote(symbol)
+    if fallback:
+        return fallback
+    return await quote(symbol)
+
+
 async def quote(symbol: str):
     if not settings.twelve_data_api_key:
         fallback = await _finnhub_quote(symbol)
