@@ -163,6 +163,20 @@ async def corporate_events(symbol: str):
     return results
 
 
+async def earnings_calendar_window(days: int = 5):
+    """Return upcoming US earnings events from today through today + days."""
+    if _finnhub_pool.size == 0:
+        return []
+    start = date.today()
+    end = start + timedelta(days=max(0, int(days)))
+    rows = await _finnhub_get(
+        "calendar/earnings",
+        {"from": start.isoformat(), "to": end.isoformat()},
+        timeout=20,
+    )
+    return rows.get("earningsCalendar", []) if isinstance(rows, dict) else []
+
+
 async def company_fundamentals(symbol: str):
     """Small cached Finnhub fundamentals snapshot for the AI layer."""
     key = symbol.upper().strip()
