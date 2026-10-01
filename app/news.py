@@ -10,6 +10,7 @@ _news_cache = {}
 
 _FUNDAMENTALS_CACHE_TTL = 3600
 _fundamentals_cache = {}
+_earnings_calendar_cache = None
 
 
 def _safe_timestamp(value):
@@ -165,8 +166,12 @@ async def corporate_events(symbol: str):
 
 async def earnings_calendar_window(days: int = 5):
     """Return upcoming US earnings events from today through today + days."""
+    global _earnings_calendar_cache
     if _finnhub_pool.size == 0:
         return []
+    now = time.monotonic()
+    if _earnings_calendar_cache and now - _earnings_calendar_cache[0] < 1800:
+        return _earnings_calendar_cache[1]
     start = date.today()
     end = start + timedelta(days=max(0, int(days)))
     rows = await _finnhub_get(
@@ -174,7 +179,9 @@ async def earnings_calendar_window(days: int = 5):
         {"from": start.isoformat(), "to": end.isoformat()},
         timeout=20,
     )
-    return rows.get("earningsCalendar", []) if isinstance(rows, dict) else []
+    result = rows.get("earningsCalendar", []) if isinstance(rows, dict) else []
+    _earnings_calendar_cache = (now, result)
+    return result
 
 
 async def company_fundamentals(symbol: str):
