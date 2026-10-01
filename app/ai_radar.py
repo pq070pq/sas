@@ -8,6 +8,9 @@ from typing import Any
 import httpx
 
 from .config import settings
+from .key_pool import KeyPool, parse_keys
+
+_groq_pool = KeyPool(parse_keys(settings.groq_api_keys, settings.groq_api_key), settings.api_key_cooldown_seconds)
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +21,13 @@ _semaphore = None
 
 def _providers():
     providers = []
-    if settings.groq_api_key:
-        providers.append({"name": "Groq", "key": settings.groq_api_key, "base_url": settings.groq_base_url.rstrip("/"), "model": settings.groq_model})
+    if _groq_pool.size:
+        providers.append({
+            "name": "Groq",
+            "pool": _groq_pool,
+            "base_url": settings.groq_base_url.rstrip("/"),
+            "model": settings.groq_model,
+        })
     if settings.gemini_api_key:
         providers.append({"name": "Gemini", "key": settings.gemini_api_key, "base_url": settings.gemini_base_url.rstrip("/"), "model": settings.gemini_model})
     if settings.openrouter_api_key:
@@ -228,8 +236,14 @@ async def analyze_stock(
         async with httpx.AsyncClient(timeout=settings.ai_radar_timeout_seconds) as client:
             for provider in providers:
                 try:
+                    key = provider.get("key")
+                    pool = provider.get("pool")
+                    if pool is not None:
+                        key = await pool.acquire()
+                        if not key:
+                            continue
                     headers = {
-                        "Authorization": f"Bearer {provider['key']}",
+                        "Authorization": f"Bearer {key}",
                         "Content-Type": "application/json",
                     }
                     body = {
@@ -255,7 +269,13 @@ async def analyze_stock(
                         headers=headers,
                         json=body,
                     )
+                    if response.status_code in (401, 403, 429) and pool is not None:
+                        retry = response.headers.get("Retry-After")
+                        await pool.mark_failure(key, retry_after=int(retry) if retry and retry.isdigit() else None)
+                        continue
                     response.raise_for_status()
+                    if pool is not None:
+                        await pool.mark_success(key)
                     payload = response.json()
                     content = (((payload.get("choices") or [{}])[0].get("message") or {}).get("content") or "")
                     parsed = _extract_json(content)
