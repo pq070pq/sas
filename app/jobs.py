@@ -388,7 +388,7 @@ async def stock_radar_cycle():
             for item in small_rows[:15]:
                 warn = []
                 if float(item.get("price") or 0) < 1:
-                    warn.append("⚠️<$1")
+                    warn.append("⚠️ &lt;$1")
                 if item.get("earnings_within_5_days"):
                     warn.append("📅 أرباح≤5أيام")
                 table_lines.append(
@@ -424,7 +424,7 @@ async def stock_radar_cycle():
         table_lines += [
             "",
             "🤖 <b>AI</b>: مساعد للفرز والتفسير فقط؛ لا يتجاوز فلاتر SAS ولا ينشئ أسعارًا أو أهدافًا.",
-            "⚠️ <$1 = سعر أقل من دولار | 📅 = نتائج أرباح متوقعة خلال 5 أيام.",
+            "⚠️ &lt;$1 = سعر أقل من دولار | 📅 = نتائج أرباح متوقعة خلال 5 أيام.",
         ]
         try:
             await send_message(settings.telegram_channel_id, "\n".join(table_lines))
