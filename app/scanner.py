@@ -436,6 +436,26 @@ async def _discover_yahoo_top_gainers(client):
             })
     return out
 
+def _classify_momentum_candidate(row):
+    """Classify a fallback row using the same user-defined momentum rules."""
+    price = _f(row.get("price"), 0)
+    change_pct = _f(row.get("change_pct"), 0)
+    volume = _f(row.get("volume"), 0)
+    market_cap = _f(row.get("market_cap"), 0)
+    if (
+        MIN_PRICE <= price <= MAX_PRICE
+        and change_pct > MOMENTUM_SMALL_MIN_GAIN
+        and volume > MOMENTUM_SMALL_MIN_VOLUME
+    ):
+        return "small"
+    if (
+        market_cap > MOMENTUM_LARGE_MIN_MARKET_CAP
+        and change_pct > MOMENTUM_LARGE_MIN_GAIN
+    ):
+        return "large"
+    return None
+
+
 async def _apply_daily_momentum_filter(candidates):
     threshold, now = _momentum_time_filter()
     if threshold is None:
@@ -673,6 +693,17 @@ async def discover_low_price_stocks():
                     symbol = str(row.get("symbol") or "").upper().strip()
                     if not symbol or symbol in seen:
                         continue
+
+                    # Yahoo is the preferred source. If it returns no rows,
+                    # reject obvious non-momentum fallback rows before any
+                    # per-symbol candle/RVOL requests. This keeps the exact
+                    # user-defined Small/Large entry rules unchanged while
+                    # preventing a broad fallback from flooding the RVOL stage.
+                    section = _classify_momentum_candidate(row)
+                    if section is None:
+                        continue
+                    row = dict(row)
+                    row["momentum_section"] = section
                     seen.add(symbol)
                     momentum_candidates.append(row)
     filtered, _ = await _apply_daily_momentum_filter(momentum_candidates)
