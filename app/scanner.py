@@ -11,7 +11,7 @@ from .twelve_guard import call as twelve_call
 # - السوق: NASDAQ فقط
 # - السعر: $0.30 - $15
 # - لا تُرسل القناة إلا الإشارات النوعية ذات السيولة والأهداف الصالحة.
-# - منهج فيصل: السلوك، التداول، RVOL، الدعم/المقاومة والثبات.
+# - استراتيجية SAS: السلوك، التداول، RVOL، الدعم/المقاومة والثبات.
 MIN_PRICE = 0.30
 MAX_PRICE = 15.00
 MAX_RADAR_RESULTS = 5
@@ -488,7 +488,7 @@ async def _benchmark_return(symbol="QQQ", lookback=20):
         return None, None
     return closes[-1] / closes[-1-lookback] - 1.0, key
 
-async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_fallback: bool = False):
+async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fallback: bool = False):
     async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 30)) as client:
         candles, data_source = await _get_analysis_candles(client, symbol, allow_twelve_fallback)
 
@@ -587,7 +587,7 @@ async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_f
         or (breakout and resistance is not None and abs(distance_from_ema20_pct or 99) <= 5.0)
     )
 
-    # منهج فيصل: لا نطارد الحركة المتأخرة.
+    # استراتيجية SAS: لا نطارد الحركة المتأخرة.
     # إذا ارتفع السهم بقوة وهو بعيد عن دعم واضح، لا يمر للرادار حتى لو كان RVOL مرتفعاً.
     late_chase = change_pct >= 20 and support is not None and not _near(support, price, 0.08)
 
@@ -675,7 +675,7 @@ async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_f
     score = trend_score + momentum_score + volume_score + relative_strength_score + breakout_quality_score + risk_score
 
     # The requested concept is an early-trend detector, not a generic gainer filter.
-    # Existing Faisal exclusions remain: distribution/bearish H&S/late chase.
+    # Existing SAS exclusions remain: distribution/bearish H&S/late chase.
     core_pass = bool(
         power_trend
         and early_timing
@@ -721,7 +721,7 @@ async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_f
         "emoji": emoji,
         "score": score,
         "pass": core_pass,
-        "reason": " + ".join(evidence) if evidence else "لا توجد تركيبة واضحة من منهج فيصل",
+        "reason": " + ".join(evidence) if evidence else "لا توجد تركيبة واضحة من استراتيجية SAS",
         "rvol": round(rvol, 2),
         "ema20": round(ema20, 4) if ema20 is not None else None,
         "ema50": round(ema50, 4) if ema50 is not None else None,
@@ -875,7 +875,7 @@ async def scan_us_low_price_stocks():
 
     # رادار دوري: لا نعتمد على أعلى الرابحين فقط؛ لأن هدفنا اكتشاف
     # بداية الحركة قبل أن يتحول السهم إلى مطاردة متأخرة.
-    # نخلط الحركة + السيولة + عينة واسعة من الكون، ثم يقرر منهج فيصل
+    # نخلط الحركة + السيولة + عينة واسعة من الكون، ثم يقرر استراتيجية SAS
     # وفلتر Early Breakout من يمر فعلياً.
     by_change = sorted(
         candidates,
@@ -910,7 +910,7 @@ async def scan_us_low_price_stocks():
         symbol = str(row.get("symbol") or "").upper()
         async with semaphore:
             try:
-                classification = await classify_faisal(
+                classification = await classify_sas(
                     symbol,
                     row,
                     allow_twelve_fallback=symbol in twelve_fallback_symbols,
@@ -926,7 +926,7 @@ async def scan_us_low_price_stocks():
 
                 # فلترة السيولة: لا يكفي أن يكون السهم رابحًا؛ نريد تداولًا
                 # نقديًا فعليًا وحجمًا متوافقًا مع الحركة، مع الحفاظ على الأسهم
-                # التي يثبتها منهج فيصل حتى لو لم تكن في أعلى قائمة الحجم.
+                # التي يثبتها استراتيجية SAS حتى لو لم تكن في أعلى قائمة الحجم.
                 entry_price = _f(row.get("price"), 0)
                 daily_volume = _f(row.get("volume"), 0)
                 dollar_volume = entry_price * daily_volume
