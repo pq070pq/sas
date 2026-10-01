@@ -3,7 +3,7 @@ import httpx
 import time
 from .config import settings
 from .panwatch import technical_targets
-from .news import company_news, select_catalyst, corporate_events
+from .news import company_news, select_catalyst, earnings_calendar_window
 from .market import quote
 from .twelve_guard import call as twelve_call
 
@@ -1232,6 +1232,20 @@ async def scan_us_low_price_stocks():
         reverse=True,
     )[:180]
 
+    earnings_events = await earnings_calendar_window(5)
+    earnings_by_symbol = {}
+    for event in earnings_events or []:
+        if not isinstance(event, dict):
+            continue
+        event_symbol = str(event.get("symbol") or "").upper().strip()
+        if event_symbol:
+            earnings_by_symbol[event_symbol] = {
+                "date": event.get("date"),
+                "hour": event.get("hour"),
+                "eps_estimate": event.get("epsEstimate"),
+                "revenue_estimate": event.get("revenueEstimate"),
+            }
+
     # Keep the radar responsive: analyze the staged shortlist concurrently.
     semaphore = asyncio.Semaphore(16)
     # Twelve Data fallback is deliberately limited per cycle to preserve
@@ -1491,9 +1505,12 @@ async def scan_us_low_price_stocks():
                     filter_counts["risk_reward_pass"] += 1
 
                 filter_counts["final_pass"] += 1
+                earnings_warning = earnings_by_symbol.get(symbol)
                 result_row = {
                     **row,
                     "symbol": symbol,
+                    "earnings_warning": earnings_warning,
+                    "earnings_within_5_days": bool(earnings_warning),
                     "exchange": _normalize_exchange(row.get("exchange")),
                     "classification": classification,
                     "targets": targets,
@@ -1615,6 +1632,7 @@ async def scan_us_low_price_stocks():
             "rvol_formula": "today_volume / average_volume_last_10_sessions",
             "rvol_time_thresholds": MOMENTUM_RVOL_THRESHOLDS,
             "exchanges": sorted(ALLOWED_EXCHANGES),
+            "earnings_warning_window_days": 5,
         },
             "twelve_data_quota_exhausted": _twelve_data_quota_exhausted,
         },
