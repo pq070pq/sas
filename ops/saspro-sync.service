@@ -1,0 +1,10 @@
+[Unit]
+Description=SAS PRO GitHub to OVH automatic deployment
+After=docker.service network-online.target
+Wants=docker.service network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/saspro
+ExecStart=/opt/saspro/ops/saspro-sync.sh
+TimeoutStartSec=20min
