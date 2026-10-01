@@ -22,6 +22,7 @@ from src.platform.persistence.models import (
 from src.platform.observability.log_handler import DBLogHandler
 from src.platform.runtime.config import Settings, AppConfig, StockConfig
 from src.platform.marketdata.models import MarketCode
+from src.platform.marketdata.javascript_runtime import warmup_javascript_runtime
 from src.platform.ai.ai_client import AIClient
 from src.platform.ai.ai_failover import build_failover_client
 from src.platform.notifications.notifier import NotifierManager
@@ -237,34 +238,21 @@ def setup_playwright():
         logger.info("本地开发环境，使用系统 Playwright")
         return
 
-    # 检查是否已安装
-    if os.path.exists(browser_dir):
-        try:
-            dirs = os.listdir(browser_dir)
-            if any(
-                d.startswith("chromium")
-                for d in dirs
-                if os.path.isdir(os.path.join(browser_dir, d))
-            ):
-                logger.info(f"Playwright 浏览器已就绪: {browser_dir}")
-                return
-        except Exception:
-            pass
-
-    # 首次安装
-    logger.info("首次启动，正在安装 Playwright 浏览器（可能需要几分钟）...")
+    # install 会复用当前版本的缓存，并补齐旧缓存缺少的 headless shell。
+    # 不能仅检查 chromium* 目录：挂载卷中可能只有旧版本或完整浏览器。
+    logger.info("正在检查 Playwright 无头浏览器（首次安装可能需要几分钟）...")
     os.makedirs(browser_dir, exist_ok=True)
 
     try:
         result = subprocess.run(
-            ["playwright", "install", "chromium"],
+            ["playwright", "install", "chromium", "--only-shell"],
             env={**os.environ, "PLAYWRIGHT_BROWSERS_PATH": browser_dir},
             capture_output=True,
             text=True,
             timeout=600,  # 10 分钟超时
         )
         if result.returncode == 0:
-            logger.info("Playwright 浏览器安装完成")
+            logger.info("Playwright 无头浏览器已就绪")
         else:
             logger.error(f"Playwright 安装失败: {result.stderr}")
     except subprocess.TimeoutExpired:
@@ -1486,6 +1474,9 @@ async def lifespan(app):
     setup_proxy()  # 设置进程 env 代理(HTTP_PROXY/NO_PROXY);所有 httpx(trust_env=True)据此走代理
     setup_ssl()
     setup_playwright()
+    # Complete V8's first isolate initialization before market data workers race
+    # to create their first MiniRacer contexts (native fatal on macOS).
+    warmup_javascript_runtime()
 
     # 从环境变量初始化认证（Docker 部署用）
     from src.modules.administration.api.auth import init_auth_from_env
@@ -1581,23 +1572,28 @@ async def lifespan(app):
         register_mcp_log_cleanup(scheduler)
     except Exception as e:
         logger.error(f"MCP 日志清理任务注册失败: {e}")
-    yield
-    if scheduler:
-        scheduler.shutdown()
-        logger.info("Agent 调度器已关闭")
-    if price_alert_scheduler:
-        price_alert_scheduler.shutdown()
-        logger.info("价格提醒调度器已关闭")
-    if paper_trading_scheduler:
-        paper_trading_scheduler.shutdown()
-        logger.info("模拟盘调度器已关闭")
-    if context_maintenance_scheduler:
-        context_maintenance_scheduler.shutdown()
-        logger.info("上下文维护调度器已关闭")
+    try:
+        # Preserve FastAPI's original lifespan, including registered recovery
+        # hooks. Database initialization must precede this context.
+        async with application_lifespan(app):
+            yield
+    finally:
+        if scheduler:
+            scheduler.shutdown()
+            logger.info("Agent 调度器已关闭")
+        if price_alert_scheduler:
+            price_alert_scheduler.shutdown()
+            logger.info("价格提醒调度器已关闭")
+        if paper_trading_scheduler:
+            paper_trading_scheduler.shutdown()
+            logger.info("模拟盘调度器已关闭")
+        if context_maintenance_scheduler:
+            context_maintenance_scheduler.shutdown()
+            logger.info("上下文维护调度器已关闭")
 
 
 # 模块级 app 实例，供 uvicorn reload 使用
-from src.bootstrap.application import app  # noqa: E402
+from src.bootstrap.application import app, application_lifespan  # noqa: E402
 
 app.router.lifespan_context = lifespan
 
