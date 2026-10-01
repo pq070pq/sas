@@ -12,7 +12,11 @@ class Settings(BaseSettings):
     telegram_channel_link: str = ""
     owner_telegram_id: int = 0
     twelve_data_api_key: str = ""
+    twelve_data_api_keys: str = ""
     finnhub_api_key: str = ""
+    finnhub_api_keys: str = ""
+    fmp_api_key: str = ""
+    fmp_api_keys: str = ""
     panwatch_base_url: str = "http://panwatch:8000"
     panwatch_timeout_seconds: int = 180
     pro_monthly_stars: int = 2250
@@ -31,7 +35,10 @@ class Settings(BaseSettings):
     ai_radar_concurrency: int = 2
     ai_radar_timeout_seconds: int = 25
     ai_max_news: int = 5
+    ai_max_calls_per_cycle: int = 2
+    ai_news_cache_minutes: int = 10
     groq_api_key: str = ""
+    groq_api_keys: str = ""
     groq_base_url: str = "https://api.groq.com/openai/v1"
     groq_model: str = "openai/gpt-oss-120b"
     gemini_api_key: str = ""
@@ -52,6 +59,9 @@ class Settings(BaseSettings):
     # 0 disables the local daily request cap; the credit reserve remains active when configured.
     twelve_data_daily_request_cap: int = 30
     twelve_data_reserve_credits: int = 100
+    api_key_cooldown_seconds: int = 60
+    news_cache_minutes: int = 10
+    fmp_news_enabled: bool = True
     market_update_interval_minutes: int = 30
     cron_secret: str = ""
     openterminal_base_url: str = ""
