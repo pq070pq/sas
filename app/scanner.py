@@ -370,7 +370,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
             async with _panwatch_semaphore:
                 r = await client.get(
                     f"{base}/api/klines/{key}",
-                    params={"market": "US", "days": 90, "interval": "1d"},
+                    params={"market": "US", "days": 260, "interval": "1d"},
                     timeout=7,
                 )
             r.raise_for_status()
@@ -397,7 +397,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
                         params={
                             "symbol": key,
                             "interval": "1day",
-                            "outputsize": 90,
+                            "outputsize": 260,
                             "apikey": settings.twelve_data_api_key,
                         },
                         timeout=7,
@@ -421,11 +421,78 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
     return [], "unavailable"
 
 
+
+_benchmark_cache = {}
+
+def _ema(values, period):
+    if len(values) < period:
+        return None
+    k = 2.0 / (period + 1)
+    ema = sum(values[:period]) / period
+    for value in values[period:]:
+        ema = value * k + ema * (1 - k)
+    return ema
+
+def _rsi(values, period=14):
+    if len(values) < period + 1:
+        return None
+    gains, losses = [], []
+    for i in range(1, len(values)):
+        delta = values[i] - values[i - 1]
+        gains.append(max(delta, 0.0))
+        losses.append(max(-delta, 0.0))
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    for i in range(period, len(gains)):
+        avg_gain = ((avg_gain * (period - 1)) + gains[i]) / period
+        avg_loss = ((avg_loss * (period - 1)) + losses[i]) / period
+    if avg_loss == 0:
+        return 100.0
+    rs = avg_gain / avg_loss
+    return 100.0 - (100.0 / (1.0 + rs))
+
+def _power_trend_age(closes):
+    if len(closes) < 205:
+        return None
+    states = []
+    # Recalculate the three EMAs at each historical endpoint. This is deliberately
+    # bounded to the last 30 sessions; it identifies when the current alignment began.
+    start = max(200, len(closes) - 35)
+    for end in range(start, len(closes) + 1):
+        window = closes[:end]
+        e20, e50, e200 = _ema(window, 20), _ema(window, 50), _ema(window, 200)
+        states.append(bool(e20 is not None and e50 is not None and e200 is not None and e20 > e50 > e200))
+    if not states[-1]:
+        return 0
+    age = 0
+    for state in reversed(states):
+        if not state:
+            break
+        age += 1
+    return age
+
+async def _benchmark_return(symbol="QQQ", lookback=20):
+    key = symbol.upper()
+    now = time.monotonic()
+    cached = _benchmark_cache.get(key)
+    if cached and now - cached[0] < _CANDLE_CACHE_TTL:
+        candles = cached[1]
+    else:
+        async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 20)) as client:
+            candles, source = await _get_analysis_candles(client, key, allow_twelve_fallback=False)
+        if not candles:
+            return None, None
+        _benchmark_cache[key] = (now, candles)
+    closes = [x["close"] for x in candles]
+    if len(closes) <= lookback:
+        return None, None
+    return closes[-1] / closes[-1-lookback] - 1.0, key
+
 async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_fallback: bool = False):
     async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 30)) as client:
         candles, data_source = await _get_analysis_candles(client, symbol, allow_twelve_fallback)
 
-    if len(candles) < 30:
+    if len(candles) < 205:
         return {
             "behavior": "غير واضح",
             "type": "غير واضح",
@@ -440,6 +507,12 @@ async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_f
     volumes = [c["volume"] for c in candles]
     price = closes[-1]
     change_pct = _f((quote or {}).get("change_pct"))
+    ema20 = _ema(closes, 20)
+    ema50 = _ema(closes, 50)
+    ema200 = _ema(closes, 200)
+    rsi14 = _rsi(closes, 14)
+    power_trend = bool(ema20 is not None and ema50 is not None and ema200 is not None and ema20 > ema50 > ema200)
+    power_trend_age = _power_trend_age(closes) if power_trend else 0
     avg_vol20 = sum(volumes[-20:]) / 20 if any(volumes[-20:]) else 0
     rvol = volumes[-1] / avg_vol20 if avg_vol20 else 0
 
@@ -497,6 +570,23 @@ async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_f
 
     breakout = bool(resistance and price > resistance and candles[-1]["close"] > resistance)
 
+    # Relative strength: compare the stock's 20-session return with NASDAQ proxy QQQ.
+    benchmark_return, benchmark_symbol = await _benchmark_return("QQQ", 20)
+    stock_return_20 = (price / closes[-21] - 1.0) if len(closes) > 21 and closes[-21] else None
+    relative_strength = (
+        stock_return_20 - benchmark_return
+        if stock_return_20 is not None and benchmark_return is not None else None
+    )
+
+    # "Near entry" is evidence-based: distance to EMA20 or to a real nearby resistance.
+    distance_from_ema20_pct = ((price / ema20) - 1.0) * 100.0 if ema20 else None
+    resistance_distance_pct = ((resistance / price) - 1.0) * 100.0 if resistance and price else None
+    near_entry = bool(
+        (distance_from_ema20_pct is not None and 0 <= distance_from_ema20_pct <= 8.0)
+        or (resistance_distance_pct is not None and 0 <= resistance_distance_pct <= 5.0)
+        or (breakout and resistance is not None and abs(distance_from_ema20_pct or 99) <= 5.0)
+    )
+
     # منهج فيصل: لا نطارد الحركة المتأخرة.
     # إذا ارتفع السهم بقوة وهو بعيد عن دعم واضح، لا يمر للرادار حتى لو كان RVOL مرتفعاً.
     late_chase = change_pct >= 20 and support is not None and not _near(support, price, 0.08)
@@ -524,84 +614,87 @@ async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_f
         and price < patterns["head_shoulders_neckline"] * 0.995
     )
 
-    scores = {
-        "momentum": 0,
-        "accumulation": 0,
-        "w": 0,
-        "sweep": 0,
-        "fill_gap": 0,
-        "runner_former": 0,
-        "double_bottom": 0,
-        "inverse_head_shoulders": 0,
-    }
-    if momentum:
-        scores["momentum"] += 3
-    if accumulation:
-        scores["accumulation"] += 3
-    if w_pattern:
-        scores["w"] += 3
-    if sweep:
-        scores["sweep"] += 3
-    if fill_gap:
-        scores["fill_gap"] += 2
-    if former_runner:
-        scores["runner_former"] += 2
-    if double_bottom_confirmed:
-        scores["double_bottom"] += 4
-    if inverse_hs_confirmed:
-        scores["inverse_head_shoulders"] += 4
-    if rvol >= 3:
-        for k in scores:
-            scores[k] += 1
+    # Early Breakout score: exactly 100 points.
+    # Trend 25 | Momentum 20 | Volume 20 | Relative Strength 15 |
+    # Breakout Quality 15 | Risk 5.
+    trend_score = 25 if power_trend else 0
 
-    behavior_key = max(scores, key=scores.get)
-    behavior_names = {
-        "momentum": ("زخم", "🔵"),
-        "accumulation": ("ارتكاز/تجميع", "🟢"),
-        "w": ("W", "🟢"),
-        "sweep": ("سحب سيولة", "🟡"),
-        "fill_gap": ("تغطية فجوة", "🟡"),
-        "runner_former": ("Runner Former", "🟣"),
-        "double_bottom": ("قاع مزدوج مؤكد", "🟢"),
-        "inverse_head_shoulders": ("رأس وكتفين مقلوب مؤكد", "🟢"),
-    }
-    behavior, emoji = behavior_names[behavior_key]
-
-    # تصنيف نوع السهم — أربع فئات فقط.
-    # الوصف مبني على الحركة/التذبذب/الحجم والسلوك المرصود، وليس توصية.
-    if (
-        (momentum and rvol >= 5)
-        or (former_runner and rvol >= 4)
-        or (sweep and rvol >= 5)
-        or atr_pct >= 0.15
-        or (change_pct >= 12 and rvol >= 3)
-    ):
-        stock_type = "مضاربي سريع خطير"
-    elif (
-        momentum
-        or sweep
-        or rvol >= 3
-        or atr_pct >= 0.10
-        or former_runner
-        or change_pct >= 8
-    ):
-        stock_type = "مضاربي"
-    elif (
-        accumulation
-        or w_pattern
-        or double_bottom_confirmed
-        or inverse_hs_confirmed
-        or breakout
-        or (sma20 >= sma50 * 1.02 and fill_gap)
-    ):
-        stock_type = "سوينق"
+    if rsi14 is None:
+        momentum_score = 0
+    elif 55 <= rsi14 <= 70:
+        momentum_score = 20
+    elif 50 <= rsi14 < 55 or 70 < rsi14 <= 73:
+        momentum_score = 10
     else:
-        stock_type = "استثماري"
+        momentum_score = 0
+
+    if rvol >= 2.5:
+        volume_score = 20
+    elif rvol >= 2.0:
+        volume_score = 18
+    elif rvol >= 1.5:
+        volume_score = 15
+    else:
+        volume_score = 0
+
+    if relative_strength is None:
+        relative_strength_score = 0
+    elif relative_strength >= 0.10:
+        relative_strength_score = 15
+    elif relative_strength >= 0.05:
+        relative_strength_score = 12
+    elif relative_strength > 0:
+        relative_strength_score = 8
+    else:
+        relative_strength_score = 0
+
+    if breakout and rvol >= 1.5:
+        breakout_quality_score = 15
+    elif resistance_distance_pct is not None and 0 <= resistance_distance_pct <= 5 and rvol >= 1.5:
+        breakout_quality_score = 12
+    elif near_entry and accumulation:
+        breakout_quality_score = 8
+    else:
+        breakout_quality_score = 0
+
+    risk_score = 0
+    if support is not None and price > support:
+        support_distance_pct = (price - support) / price * 100
+        if 3 <= support_distance_pct <= 10:
+            risk_score = 5
+        elif 1 <= support_distance_pct < 3 or 10 < support_distance_pct <= 12:
+            risk_score = 3
+
+    early_timing = bool(power_trend and 1 <= power_trend_age <= 5)
+    chase_risk = bool(
+        (distance_from_ema20_pct is not None and distance_from_ema20_pct > 8)
+        or (rsi14 is not None and rsi14 > 73)
+        or (power_trend and power_trend_age > 5)
+    )
+
+    score = trend_score + momentum_score + volume_score + relative_strength_score + breakout_quality_score + risk_score
+
+    # The requested concept is an early-trend detector, not a generic gainer filter.
+    # Existing Faisal exclusions remain: distribution/bearish H&S/late chase.
+    core_pass = bool(
+        power_trend
+        and early_timing
+        and 55 <= (rsi14 or 0) <= 70
+        and rvol >= 1.5
+        and near_entry
+        and not distribution_risk
+        and not bearish_head_shoulders
+        and not chase_risk
+    )
 
     evidence = []
+    if power_trend:
+        evidence.append(f"Power Trend ON — العمر {power_trend_age} جلسة")
+    if rsi14 is not None:
+        evidence.append(f"RSI {rsi14:.1f}")
     if former_runner:
         evidence.append("سلوك سابق قوي")
-    if rvol >= 2:
+    if rvol >= 1.5:
         evidence.append(f"RVOL {rvol:.1f}x")
     if accumulation:
         evidence.append("تجميع قرب دعم")
@@ -626,18 +719,31 @@ async def classify_faisal(symbol: str, quote: dict | None = None, allow_twelve_f
         "behavior": behavior,
         "type": stock_type,
         "emoji": emoji,
-        "score": min(100, sum(scores.values()) * 10),
-        "pass": bool(
-            (
-                accumulation or momentum or sweep or w_pattern or fill_gap
-                or double_bottom_confirmed or inverse_hs_confirmed
-            )
-            and not distribution_risk
-            and not late_chase
-            and not bearish_head_shoulders
-        ),
+        "score": score,
+        "pass": core_pass,
         "reason": " + ".join(evidence) if evidence else "لا توجد تركيبة واضحة من منهج فيصل",
         "rvol": round(rvol, 2),
+        "ema20": round(ema20, 4) if ema20 is not None else None,
+        "ema50": round(ema50, 4) if ema50 is not None else None,
+        "ema200": round(ema200, 4) if ema200 is not None else None,
+        "power_trend": power_trend,
+        "power_trend_age": power_trend_age,
+        "rsi14": round(rsi14, 2) if rsi14 is not None else None,
+        "relative_strength": round(relative_strength * 100, 2) if relative_strength is not None else None,
+        "relative_strength_benchmark": benchmark_symbol,
+        "distance_from_ema20_pct": round(distance_from_ema20_pct, 2) if distance_from_ema20_pct is not None else None,
+        "resistance_distance_pct": round(resistance_distance_pct, 2) if resistance_distance_pct is not None else None,
+        "near_entry": near_entry,
+        "early_timing": early_timing,
+        "chase_risk": chase_risk,
+        "score_breakdown": {
+            "trend": trend_score,
+            "momentum": momentum_score,
+            "volume": volume_score,
+            "relative_strength": relative_strength_score,
+            "breakout_quality": breakout_quality_score,
+            "risk": risk_score,
+        },
         "atr_pct": round(atr_pct * 100, 2),
         "support": round(support, 4) if support else None,
         "resistance": round(resistance, 4) if resistance else None,
