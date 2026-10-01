@@ -103,11 +103,12 @@ def _contains_market_price_claim(value: Any) -> bool:
     ))
 
 
-def _prompt(symbol: str, news: list[dict], fundamentals: dict) -> str:
+def _prompt(symbol: str, news: list[dict], fundamentals: dict, market: dict | None = None) -> str:
     evidence = {
         "symbol": symbol,
         "verified_news_sources": news,
         "verified_financial_data": fundamentals,
+        "verified_momentum_data": market or {},
     }
     return f"""
 أنت طبقة تحليل أخبار داخل SAS PRO، ولست مصدر بيانات أسعار.
@@ -124,6 +125,8 @@ def _prompt(symbol: str, news: list[dict], fundamentals: dict) -> str:
 - أي رقم مالي تذكره يجب أن يكون موجودًا حرفيًا في verified_financial_data.
 - أي خبر تذكره يجب أن يكون مأخوذًا من verified_news_sources.
 - لا تقدم توصية شراء أو بيع.
+- يمكنك تصنيف قوة الزخم فقط من verified_momentum_data، دون اختراع أي رقم أو تغيير قرار الفلترة الفني.
+- الذكاء الاصطناعي مساعد للفرز والتفسير وليس بوابة قبول مستقلة.
 
 أعد JSON فقط:
 {{
@@ -134,6 +137,7 @@ def _prompt(symbol: str, news: list[dict], fundamentals: dict) -> str:
   "news_assessment": "مرتبط بالخبر | ارتباط محتمل | غير واضح",
   "financial_summary": "تحليل مالي مبسط من verified_financial_data فقط، أو нет",
   "risk_flags": ["مخاطر موجودة صراحة في الأدلة فقط"],
+  "momentum_assessment": "قوي | متوسط | ضعيف | غير واضح",
   "key_takeaway": "خلاصة قصيرة مبنية على الأدلة فقط"
 }}
 
@@ -163,6 +167,7 @@ def _validate(parsed: dict, news: list[dict], fundamentals: dict) -> dict:
         "why_rising": _normalise(parsed.get("why_rising"), "غير واضح"),
         "news_assessment": _normalise(parsed.get("news_assessment"), "غير واضح"),
         "financial_summary": _normalise(parsed.get("financial_summary"), "غير متوفر"),
+        "momentum_assessment": _normalise(parsed.get("momentum_assessment"), "غير واضح"),
         "key_takeaway": _normalise(parsed.get("key_takeaway"), "غير واضح"),
     }
     # Never publish an AI response that contains a market-price claim.
@@ -231,7 +236,7 @@ async def analyze_stock(
         _semaphore = asyncio.Semaphore(max(1, settings.ai_radar_concurrency))
 
     async with _semaphore:
-        prompt = _prompt(symbol, safe_news, safe_fundamentals)
+        prompt = _prompt(symbol, safe_news, safe_fundamentals, market)
         last_error = None
         async with httpx.AsyncClient(timeout=settings.ai_radar_timeout_seconds) as client:
             for provider in providers:

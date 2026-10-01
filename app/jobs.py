@@ -372,6 +372,65 @@ async def stock_radar_cycle():
         logger.info("Stock radar scan completed: %d result(s); diagnostics=%s", len(rows), diagnostics)
         session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
+        # ملخص زخم يومي: بحد أقصى 15 سهمًا لكل قسم، مرتبًا حسب RVOL 10 أيام.
+        sections = scan_result.get("momentum_sections") or {}
+        small_rows = sections.get("small") or []
+        large_rows = sections.get("large") or []
+        table_lines = [
+            "🚀 <b>SAS PRO | Daily Momentum Radar</b>",
+            f"📅 جلسة نيويورك: <b>{session_date}</b>",
+            "📊 المصدر: Top Gainers + RVOL 10 أيام + فلتر SAS",
+            "",
+            "🟢 <b>القسم 1 — أسهم صغيرة</b>",
+            "<code>الرمز | الارتفاع | RVOL | السعر</code>",
+        ]
+        if small_rows:
+            for item in small_rows[:15]:
+                warn = []
+                if float(item.get("price") or 0) < 1:
+                    warn.append("⚠️<$1")
+                if item.get("earnings_within_5_days"):
+                    warn.append("📅 أرباح≤5أيام")
+                table_lines.append(
+                    f"<code>{str(item.get('symbol') or ''):<6} | "
+                    f"{float(item.get('change_pct') or 0):>6.2f}% | "
+                    f"{float(item.get('momentum_rvol_10d') or 0):>5.2f}x | "
+                    f"${float(item.get('price') or 0):.2f}</code>"
+                    + (f" {' '.join(warn)}" if warn else ""),
+                )
+        else:
+            table_lines.append("• لا توجد أسهم مستوفية للشروط.")
+        table_lines += [
+            "",
+            "🔵 <b>القسم 2 — متوسطة وكبيرة</b>",
+            "<code>الرمز | الارتفاع | RVOL | السعر</code>",
+        ]
+        if large_rows:
+            for item in large_rows[:15]:
+                warn = []
+                if float(item.get("price") or 0) < 1:
+                    warn.append("⚠️<$1")
+                if item.get("earnings_within_5_days"):
+                    warn.append("📅 أرباح≤5أيام")
+                table_lines.append(
+                    f"<code>{str(item.get('symbol') or ''):<6} | "
+                    f"{float(item.get('change_pct') or 0):>6.2f}% | "
+                    f"{float(item.get('momentum_rvol_10d') or 0):>5.2f}x | "
+                    f"${float(item.get('price') or 0):.2f}</code>"
+                    + (f" {' '.join(warn)}" if warn else ""),
+                )
+        else:
+            table_lines.append("• لا توجد أسهم مستوفية للشروط.")
+        table_lines += [
+            "",
+            "🤖 <b>AI</b>: مساعد للفرز والتفسير فقط؛ لا يتجاوز فلاتر SAS ولا ينشئ أسعارًا أو أهدافًا.",
+            "⚠️ <$1 = سعر أقل من دولار | 📅 = نتائج أرباح متوقعة خلال 5 أيام.",
+        ]
+        try:
+            await send_message(settings.telegram_channel_id, "\n".join(table_lines))
+        except Exception:
+            logger.exception("Daily momentum table send failed.")
+
         async with SessionLocal() as db:
             cycle_stats = {"rows": len(rows), "skipped": 0, "reanalyzed": 0, "sent": 0, "failed": 0}
             ai_used = 0
@@ -456,7 +515,14 @@ async def stock_radar_cycle():
                             },
                             news=row.get("news_items") or [],
                             fundamentals=fundamentals,
-                            market={},
+                            market={
+                                "momentum_section": row.get("momentum_section"),
+                                "daily_change_pct": row.get("change_pct"),
+                                "relative_volume_10d": row.get("momentum_rvol_10d"),
+                                "relative_volume_threshold": row.get("momentum_rvol_threshold"),
+                                "session_verified": row.get("momentum_session_verified"),
+                                "earnings_within_5_days": row.get("earnings_within_5_days"),
+                            },
                         )
                         row["ai_analysis"] = ai_analysis
                         ai_used += 1
