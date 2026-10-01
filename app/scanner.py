@@ -887,6 +887,24 @@ async def scan_us_low_price_stocks():
     results = []
     diagnostics = []
     candidate_count = len(candidates)
+    # تشخيص مراحل الفلترة فقط؛ لا يغيّر شروط استراتيجية SAS أو نتيجة الرصد.
+    filter_counts = {
+        "classify_checked": 0,
+        "sas_core_pass": 0,
+        "sas_power_trend": 0,
+        "sas_early_timing": 0,
+        "sas_rsi_55_70": 0,
+        "sas_rvol_1_5": 0,
+        "sas_near_entry": 0,
+        "sas_no_distribution": 0,
+        "sas_no_bearish_hs": 0,
+        "sas_no_chase": 0,
+        "liquidity_pass": 0,
+        "targets_pass": 0,
+        "live_levels_pass": 0,
+        "risk_reward_pass": 0,
+        "final_pass": 0,
+    }
 
     # رادار دوري: لا نعتمد على أعلى الرابحين فقط؛ لأن هدفنا اكتشاف
     # بداية الحركة قبل أن يتحول السهم إلى مطاردة متأخرة.
@@ -930,6 +948,29 @@ async def scan_us_low_price_stocks():
                     row,
                     allow_twelve_fallback=symbol in twelve_fallback_symbols,
                 )
+                filter_counts["classify_checked"] += 1
+                # عدّ شروط SAS الفردية لتحديد نقطة الاختناق، دون تغيير pass.
+                if classification.get("power_trend"):
+                    filter_counts["sas_power_trend"] += 1
+                if classification.get("early_timing"):
+                    filter_counts["sas_early_timing"] += 1
+                rsi_value = _f(classification.get("rsi14"), 0)
+                if 55 <= rsi_value <= 70:
+                    filter_counts["sas_rsi_55_70"] += 1
+                if _f(classification.get("rvol"), 0) >= 1.5:
+                    filter_counts["sas_rvol_1_5"] += 1
+                if classification.get("near_entry"):
+                    filter_counts["sas_near_entry"] += 1
+                if not classification.get("distribution_risk"):
+                    filter_counts["sas_no_distribution"] += 1
+                if not classification.get("head_shoulders") or classification.get("price", 0) >= 0:
+                    # bearish_head_shoulders غير معاد كحقل مستقل؛ نستنتجه من سبب/حقول التصنيف أدناه.
+                    if "⚠️ رأس وكتفين هابط مؤكد" not in str(classification.get("reason") or ""):
+                        filter_counts["sas_no_bearish_hs"] += 1
+                if not classification.get("chase_risk"):
+                    filter_counts["sas_no_chase"] += 1
+                if classification.get("pass"):
+                    filter_counts["sas_core_pass"] += 1
                 if not classification.get("pass"):
                     return None, {
                         "symbol": symbol,
@@ -962,6 +1003,7 @@ async def scan_us_low_price_stocks():
 
                 classification["dollar_volume"] = round(dollar_volume, 2)
                 classification["liquidity_quality"] = "مقبولة"
+                filter_counts["liquidity_pass"] += 1
 
                 # الأهداف والأخبار مستقلان ويمكن جلبهما بالتوازي.
                 # لا نطلب Twelve Data quote لكل سهم مقبول؛ مصدر الاكتشاف
@@ -991,6 +1033,8 @@ async def scan_us_low_price_stocks():
                         "data_source": (targets or {}).get("method") if isinstance(targets, dict) else None,
                         "target_status": (targets or {}).get("status") if isinstance(targets, dict) else None,
                     }
+
+                filter_counts["targets_pass"] += 1
 
                 live_price = _f(row.get("live_price"), 0)
                 if live_price <= 0:
@@ -1038,6 +1082,8 @@ async def scan_us_low_price_stocks():
                         "support": round(exit_level, 4),
                     }
 
+                filter_counts["live_levels_pass"] += 1
+
                 # fallback وحيد عند الحاجة فقط.
                 if live_price <= 0:
                     try:
@@ -1065,7 +1111,9 @@ async def scan_us_low_price_stocks():
                             "data_source": targets.get("method") or "PanWatch",
                         }
                     targets["risk_reward"] = round(risk_reward, 2)
+                    filter_counts["risk_reward_pass"] += 1
 
+                filter_counts["final_pass"] += 1
                 result_row = {
                     **row,
                     "symbol": symbol,
@@ -1172,6 +1220,7 @@ async def scan_us_low_price_stocks():
                 for x in errors[:10]
             ],
             "passed_examples": [x.get("symbol") for x in results[:20]],
+            "filter_counts": filter_counts,
             "price_source": "Nasdaq/OpenTerminal/PanWatch + limited Twelve Data fallbacks",
             "twelve_data_quota_exhausted": _twelve_data_quota_exhausted,
         },
