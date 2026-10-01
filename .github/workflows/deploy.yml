@@ -11,26 +11,50 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # The OVH server runs a GitHub self-hosted runner.
+    # This removes the need for an SSH private key in GitHub Actions.
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 20
+
     steps:
-      - name: Deploy to OVH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: vps-b67ef07b.vps.ovh.ca
-          username: root
-          key: ${{ secrets.OVH_SSH_KEY }}
-          script_stop: true
-          script: |
-            set -e
-            cd /opt/saspro
-            if systemctl is-active --quiet saspro.service; then
-              systemctl stop saspro.service || true
+      - name: Deploy latest main to OVH
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          APP_DIR="/opt/saspro"
+          cd "$APP_DIR"
+
+          echo "==> Sync repository"
+          git fetch --prune origin main
+          git checkout -B main origin/main
+          git reset --hard origin/main
+          git clean -fd -e .env -e data/
+
+          echo "==> Validate required files"
+          test -f docker-compose.yml
+          test -f .env
+
+          echo "==> Build and restart SAS PRO"
+          docker compose up -d --build --remove-orphans
+
+          echo "==> Cleanup old images"
+          docker image prune -f
+
+          echo "==> Containers"
+          docker compose ps
+
+          echo "==> Health check"
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8000/health >/tmp/saspro-health.json 2>/dev/null; then
+              cat /tmp/saspro-health.json
+              echo
+              echo "Deployment successful."
+              exit 0
             fi
-            systemctl disable saspro.service 2>/dev/null || true
-            git fetch origin main
-            git reset --hard origin/main
-            docker compose pull || true
-            docker compose up -d --build --remove-orphans
-            docker image prune -f
-            docker compose ps
-            curl -fsS http://127.0.0.1:8000/health
+            sleep 2
+          done
+
+          echo "Health check failed. Recent logs:"
+          docker compose logs --tail=120 saspro
+          exit 1
