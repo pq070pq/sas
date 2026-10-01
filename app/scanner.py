@@ -450,7 +450,27 @@ async def _apply_daily_momentum_filter(candidates):
         rvol10 = _momentum_rvol_10d(candles)
         if rvol10 is None:
             return None
-        required = threshold[row["momentum_section"]]
+        section = str(row.get("momentum_section") or "").lower()
+        if section not in threshold:
+            price = _f(row.get("price"), 0)
+            change_pct = _f(row.get("change_pct"), 0)
+            volume = _f(row.get("volume"), 0)
+            market_cap = _f(row.get("market_cap"), 0)
+            if (
+                MIN_PRICE <= price <= MAX_PRICE
+                and change_pct > MOMENTUM_SMALL_MIN_GAIN
+                and volume > MOMENTUM_SMALL_MIN_VOLUME
+            ):
+                section = "small"
+            elif (
+                market_cap > MOMENTUM_LARGE_MIN_MARKET_CAP
+                and change_pct > MOMENTUM_LARGE_MIN_GAIN
+            ):
+                section = "large"
+            else:
+                return None
+
+        required = threshold[section]
         if rvol10 <= required:
             return None
         result = dict(row)
