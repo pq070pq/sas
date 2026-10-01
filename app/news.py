@@ -182,7 +182,7 @@ async def company_fundamentals(symbol: str):
         )
         profile = profile if isinstance(profile, dict) else {}
         metric = metric if isinstance(metric, dict) else {}
-            data = {
+        data = {
                 "name": profile.get("name"),
                 "ticker": profile.get("ticker") or key,
                 "exchange": profile.get("exchange"),
@@ -197,7 +197,7 @@ async def company_fundamentals(symbol: str):
                 "debt_to_equity": (metric.get("metric") or {}).get("totalDebtToEquityQuarterly"),
                 "source": "Finnhub",
             }
-            _fundamentals_cache[key] = (now, data)
-            return data
+        _fundamentals_cache[key] = (now, data)
+        return data
     except Exception:
         return {}
