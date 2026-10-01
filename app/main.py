@@ -172,36 +172,44 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         except (TypeError, ValueError):
             ai_source = None
 
-    report.extend(["", "━━━━━━━━━━━━━━━━━━", "", "🤖 <b>تحليل الخبر بالذكاء الاصطناعي</b>"])
-    if ai.get("enabled") and ai.get("status") == "ok":
+    report.extend(["", "━━━━━━━━━━━━━━━━━━", "", "📰 <b>تقرير الأخبار والتحليل</b>"])
+    if ai.get("enabled") and ai.get("status") == "ok" and ai_source:
         esc = lambda value: html.escape(str(value or "غير متوفر"))
+        source_name = esc(ai_source.get("source") or "المصدر")
+        source_url = html.escape(str(ai_source.get("url") or ""), quote=True)
+        # بيانات المصدر التالية تُؤخذ من الخبر نفسه، وليست من النموذج.
+        source_headline = esc(ai_source.get("headline") or "غير متوفر")
+        source_time = esc(ai_source.get("datetime") or catalyst.get("published_at") if catalyst else ai_source.get("datetime") or "غير متوفر")
         report.extend([
-            f"🧠 <b>ملخص الخبر الموثق:</b> {esc(ai.get('headline_summary'))}",
+            f"🔹 <b>الخبر الأصلي:</b> {source_headline}",
+            f"🕐 <b>وقت المصدر:</b> {source_time}",
+            f"📰 <b>المصدر:</b> {source_name}",
+            f'🔗 <a href="{source_url}">فتح الخبر الأصلي</a>' if source_url else "🔗 الرابط: غير متوفر",
+            "",
+            f"🧠 <b>تحليل الخبر:</b> {esc(ai.get('headline_summary'))}",
             f"📌 <b>تفسير الحركة:</b> {esc(ai.get('why_rising'))}",
-            f"🔎 <b>درجة الارتباط:</b> {esc(ai.get('news_assessment'))}",
+            f"🔎 <b>الارتباط:</b> {esc(ai.get('news_assessment'))}",
         ])
-        if ai_source:
-            source_name = esc(ai_source.get("source") or "المصدر")
-            source_url = html.escape(str(ai_source.get("url") or ""), quote=True)
-            report.append(f"📰 <b>المصدر الذي بُني عليه التحليل:</b> {source_name}")
-            if source_url:
-                report.append(f'🔗 <a href="{source_url}">فتح الخبر الأصلي</a>')
-        else:
-            report.append("📰 <b>المصدر:</b> غير واضح — لم يثبت مصدر صالح للتحليل.")
-
-        report.append(f"🏢 <b>التحليل المالي المبسط:</b> {esc(ai.get('financial_summary'))}")
+        if ai.get("financial_summary") and ai.get("financial_summary") != "غير متوفر":
+            report.append(f"🏢 <b>قراءة مالية مبسطة:</b> {esc(ai.get('financial_summary'))}")
         risks = ai.get("risk_flags") or []
         if risks:
             report.append("⚠️ <b>مخاطر مثبتة في البيانات:</b> " + " • ".join(esc(x) for x in risks[:4]))
-        report.append(f"💡 <b>الخلاصة:</b> {esc(ai.get('key_takeaway'))}")
-        report.append(f"⚙️ مزود التحليل: <b>{esc(ai.get('provider'))}</b>")
-        report.append("🔒 الأسعار والأهداف والوقف في هذا التقرير لا تأتي من الذكاء الاصطناعي؛ تبقى من مصادر السوق والتحليل الفني الأصلية.")
+        report.extend([
+            f"💡 <b>الخلاصة:</b> {esc(ai.get('key_takeaway'))}",
+            "",
+            "🔒 <b>ضبط المصدر:</b> الذكاء الاصطناعي يفسر المصدر فقط ولا ينشئ أخبارًا أو أسعارًا.",
+        ])
+    elif ai.get("status") == "no_verified_news":
+        report.append("📰 <b>لا يوجد خبر موثوق صالح للتحليل بالذكاء الاصطناعي حاليًا.</b>")
+    elif ai.get("status") == "ungrounded":
+        report.append("📰 <b>تم حجب تحليل الذكاء الاصطناعي لعدم ثبوت مصدر خبري صالح.</b>")
     elif ai.get("status") == "no_api_key":
-        report.append("🤖 تحليل الذكاء الاصطناعي: <b>غير مفعّل — لم يتم ضبط مفتاح مزود LLM.</b>")
+        report.append("🤖 <b>تحليل الأخبار بالذكاء الاصطناعي غير مفعّل — لم يتم ضبط مفتاح مزود LLM.</b>")
     elif ai.get("status") == "provider_error":
-        report.append("🤖 تحليل الذكاء الاصطناعي: <b>تعذر مؤقتًا؛ تم إرسال الرادار بالبيانات الأصلية.</b>")
+        report.append("🤖 <b>تعذر تحليل الخبر مؤقتًا؛ تم إبقاء التقرير على البيانات الأصلية.</b>")
     else:
-        report.append("🤖 تحليل الذكاء الاصطناعي: <b>غير متوفر حاليًا.</b>")
+        report.append("🤖 <b>تحليل الأخبار غير متوفر حاليًا.</b>")
 
     report.extend([
         "",
