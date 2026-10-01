@@ -694,6 +694,155 @@ async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends
         "owner": owner_data,
     }
 
+@app.get("/api/admin/monthly-report")
+async def admin_monthly_report(month: str = "", user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    await require_admin_permission(user, "users")
+    now = utcnow()
+    if not month:
+        month = now.strftime("%Y-%m")
+    try:
+        year, mon = [int(x) for x in month.split("-", 1)]
+        if mon < 1 or mon > 12:
+            raise ValueError
+        month_start = datetime(year, mon, 1, tzinfo=timezone.utc)
+        if mon == 12:
+            next_start = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+        else:
+            next_start = datetime(year, mon + 1, 1, tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        raise HTTPException(400, "صيغة الشهر يجب أن تكون YYYY-MM")
+
+    prev_month = month_start - timedelta(days=1)
+    prev_start = datetime(prev_month.year, prev_month.month, 1, tzinfo=timezone.utc)
+
+    signals = (await db.execute(select(RadarSignal).where(
+        RadarSignal.created_at >= month_start,
+        RadarSignal.created_at < next_start,
+    ))).scalars().all()
+    outcomes = (await db.execute(select(RadarOutcome).where(
+        RadarOutcome.created_at >= month_start,
+        RadarOutcome.created_at < next_start,
+    ))).scalars().all()
+    payments = (await db.execute(select(Payment).where(
+        Payment.paid_at >= month_start,
+        Payment.paid_at < next_start,
+    ))).scalars().all()
+    users = (await db.execute(select(User).where(
+        User.created_at >= month_start,
+        User.created_at < next_start,
+    ))).scalars().all()
+
+    prev_signals = (await db.execute(select(RadarSignal).where(
+        RadarSignal.created_at >= prev_start,
+        RadarSignal.created_at < month_start,
+    ))).scalars().all()
+    prev_outcomes = (await db.execute(select(RadarOutcome).where(
+        RadarOutcome.created_at >= prev_start,
+        RadarOutcome.created_at < month_start,
+    ))).scalars().all()
+    prev_payments = (await db.execute(select(Payment).where(
+        Payment.paid_at >= prev_start,
+        Payment.paid_at < month_start,
+    ))).scalars().all()
+
+    sent = sum(1 for s in signals if s.telegram_message_id)
+    target_hits = sum(1 for o in outcomes if int(o.achieved_target or 0) > 0)
+    completed = sum(1 for o in outcomes if o.status == "completed")
+    failed = sum(1 for o in outcomes if o.status == "failed")
+    active_outcomes = sum(1 for o in outcomes if o.status == "active")
+
+    returns = []
+    for o in outcomes:
+        entry = float(o.entry_price or 0)
+        if entry <= 0:
+            continue
+        achieved = int(o.achieved_target or 0)
+        if achieved > 0:
+            levels = [o.target1, o.target2, o.target3, o.target4, o.target5]
+            idx = min(achieved, len(levels)) - 1
+            reference = levels[idx] if levels[idx] is not None else o.current_price
+        elif o.status == "failed" and o.exit_level is not None:
+            reference = o.exit_level
+        else:
+            reference = o.current_price
+        if reference is not None:
+            returns.append((float(reference) / entry - 1.0) * 100.0)
+
+    avg_return = sum(returns) / len(returns) if returns else None
+    best_return = max(returns) if returns else None
+    worst_return = min(returns) if returns else None
+    hit_rate = (target_hits / len(outcomes) * 100.0) if outcomes else None
+
+    prev_hits = sum(1 for o in prev_outcomes if int(o.achieved_target or 0) > 0)
+    prev_hit_rate = (prev_hits / len(prev_outcomes) * 100.0) if prev_outcomes else None
+    prev_returns = []
+    for o in prev_outcomes:
+        entry = float(o.entry_price or 0)
+        if entry <= 0:
+            continue
+        achieved = int(o.achieved_target or 0)
+        if achieved > 0:
+            levels = [o.target1, o.target2, o.target3, o.target4, o.target5]
+            idx = min(achieved, len(levels)) - 1
+            reference = levels[idx] if levels[idx] is not None else o.current_price
+        elif o.status == "failed" and o.exit_level is not None:
+            reference = o.exit_level
+        else:
+            reference = o.current_price
+        if reference is not None:
+            prev_returns.append((float(reference) / entry - 1.0) * 100.0)
+
+    def pct_change(cur, prev):
+        if prev == 0:
+            return None
+        return ((cur - prev) / prev) * 100.0
+
+    top_symbols = {}
+    for o in outcomes:
+        top_symbols[o.symbol] = top_symbols.get(o.symbol, 0) + 1
+    top_symbols = sorted(top_symbols.items(), key=lambda x: x[1], reverse=True)[:10]
+
+    return {
+        "month": month,
+        "period": {"start": month_start.isoformat(), "end": next_start.isoformat()},
+        "radar": {
+            "signals": len(signals),
+            "sent": sent,
+            "outcomes": len(outcomes),
+            "target_hits": target_hits,
+            "target_hit_rate": round(hit_rate, 2) if hit_rate is not None else None,
+            "completed": completed,
+            "failed": failed,
+            "active": active_outcomes,
+            "avg_return_pct": round(avg_return, 2) if avg_return is not None else None,
+            "best_return_pct": round(best_return, 2) if best_return is not None else None,
+            "worst_return_pct": round(worst_return, 2) if worst_return is not None else None,
+            "tracked_returns": len(returns),
+        },
+        "subscribers": {
+            "new_users": len(users),
+            "trial_users": sum(1 for u in users if u.trial_start and aware(u.trial_start) >= month_start and aware(u.trial_start) < next_start),
+            "paid_users": sum(1 for u in users if u.subscription_start and aware(u.subscription_start) >= month_start and aware(u.subscription_start) < next_start),
+        },
+        "revenue": {
+            "payments": len(payments),
+            "stars": sum(int(p.stars or 0) for p in payments),
+            "sar": sum(int(p.sar_amount or 0) for p in payments),
+        },
+        "comparison": {
+            "previous_month": prev_start.strftime("%Y-%m"),
+            "signals": len(prev_signals),
+            "outcomes": len(prev_outcomes),
+            "target_hit_rate": round(prev_hit_rate, 2) if prev_hit_rate is not None else None,
+            "avg_return_pct": round(sum(prev_returns) / len(prev_returns), 2) if prev_returns else None,
+            "stars": sum(int(p.stars or 0) for p in prev_payments),
+            "signals_change_pct": round(pct_change(len(signals), len(prev_signals)), 2) if len(prev_signals) else None,
+            "stars_change_pct": round(pct_change(sum(int(p.stars or 0) for p in payments), sum(int(p.stars or 0) for p in prev_payments)), 2) if sum(int(p.stars or 0) for p in prev_payments) else None,
+        },
+        "top_symbols": [{"symbol": s, "count": c} for s, c in top_symbols],
+        "note": "العائد متوسط مسجل من نتائج الرصد المتاحة؛ لا يشمل الإشارات التي لا تملك بيانات نتيجة كافية."
+    }
+
 @app.get("/api/admin/stars/balance")
 async def admin_stars_balance(user=Depends(telegram_user)):
     await require_admin_permission(user, "payments")
