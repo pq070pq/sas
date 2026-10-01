@@ -1018,6 +1018,7 @@ async def scan_us_low_price_stocks():
     candidates = await discover_low_price_stocks()
     results = []
     diagnostics = []
+    breakout_diagnostics = []
     candidate_count = len(candidates)
     # تشخيص مراحل الفلترة فقط؛ لا يغيّر شروط استراتيجية SAS أو نتيجة الرصد.
     filter_counts = {
@@ -1141,6 +1142,24 @@ async def scan_us_low_price_stocks():
                     if room is not None and room < 3.0:
                         reject_reasons.append("room")
 
+                    breakout_diagnostics.append({
+                        "symbol": symbol,
+                        "price": round(_f(classification.get("price") or row.get("price")), 4),
+                        "rsi": classification.get("rsi14"),
+                        "rvol": classification.get("rvol"),
+                        "breakout_level": classification.get("breakout_level"),
+                        "next_resistance": classification.get("next_resistance"),
+                        "extension_pct": classification.get("breakout_extension_pct"),
+                        "room_pct": classification.get("breakout_room_pct"),
+                        "retest": bool(classification.get("breakout_retest")),
+                        "chase": bool(classification.get("chase_risk")),
+                        "distribution": bool(classification.get("distribution_risk")),
+                        "bearish_hs": bool(classification.get("bearish_head_shoulders")),
+                        "structure_ok": structure_ok,
+                        "breakout_pass": bool(classification.get("breakout_pass")),
+                        "strategy_pass": bool(classification.get("strategy_pass")),
+                        "reject_reasons": reject_reasons,
+                    })
                     if reject_reasons:
                         filter_counts["sas_breakout_reject_total"] += 1
                         for reason in reject_reasons:
@@ -1413,6 +1432,14 @@ async def scan_us_low_price_stocks():
                 for x in errors[:10]
             ],
             "passed_examples": [x.get("symbol") for x in results[:20]],
+            "breakout_diagnostics": sorted(
+                breakout_diagnostics,
+                key=lambda x: (
+                    len(x.get("reject_reasons") or []),
+                    float(x.get("rvol") or 0),
+                ),
+                reverse=True,
+            ),
             "filter_counts": filter_counts,
             "price_source": "Nasdaq/OpenTerminal/PanWatch + limited Twelve Data fallbacks",
             "twelve_data_quota_exhausted": _twelve_data_quota_exhausted,
