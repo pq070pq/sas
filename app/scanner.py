@@ -953,6 +953,17 @@ async def scan_us_low_price_stocks():
                     "catalyst": bool(news),
                     "news_count": len(news) if isinstance(news, list) else 0,
                     "catalyst_news": select_catalyst(news),
+                    "news_items": [
+                        {
+                            "headline": str(item.get("headline") or "").strip(),
+                            "source": str(item.get("source") or "Finnhub").strip(),
+                            "url": str(item.get("url") or "").strip(),
+                            "datetime": item.get("datetime"),
+                            "summary": str(item.get("summary") or "").strip()[:800],
+                        }
+                        for item in (news or [])[:max(1, settings.ai_max_news)]
+                        if isinstance(item, dict) and str(item.get("headline") or "").strip()
+                    ],
                     "live_price": live_price if live_price > 0 else None,
                     "live_change_pct": live_change,
                     "live_price_source": live_source,
