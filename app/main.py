@@ -97,6 +97,25 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     stop = num(tech.get("exit"))
     targets = [num(x) for x in (tech.get("targets") or [])]
     targets = [x for x in targets if x is not None and x > 0]
+    target_lines = [
+        f"🎯 الهدف {idx}: <b>\\x24{_money(target)}</b>"
+        for idx, target in enumerate(targets, 1)
+    ] or ["🎯 لا يوجد هدف فني متاح"]
+
+    current_stop = num(getattr(outcome, "current_stop", None)) if outcome is not None else None
+    if current_stop is None:
+        current_stop = stop
+
+    if outcome is None:
+        status_text = "رصد نشط"
+    elif getattr(outcome, "status", None) == "failed":
+        status_text = "تم تفعيل الوقف"
+    elif targets and int(getattr(outcome, "achieved_target", 0) or 0) >= len(targets):
+        status_text = "اكتملت الأهداف"
+    elif int(getattr(outcome, "achieved_target", 0) or 0) > 0:
+        status_text = f"الهدف {int(getattr(outcome, 'achieved_target', 0))} تحقق — الرصد مستمر"
+    else:
+        status_text = "رصد نشط"
 
     catalyst = tech.get("catalyst_news")
     ai = tech.get("ai_analysis") or {}
