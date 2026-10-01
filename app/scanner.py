@@ -77,6 +77,73 @@ def _near(level, price, pct=0.04):
     return price > 0 and abs(level - price) / price <= pct
 
 
+def _analyze_breakout(candles, price, rvol, resistances):
+    """Evaluate breakout evidence using close, volume, continuation and retest.
+
+    This follows the supplied breakout guide: a brief level touch is not enough;
+    confirmation comes from closing above resistance, supportive volume,
+    continuation and, when present, a successful retest. The function only uses
+    observed OHLCV data and never invents a level.
+    """
+    last = candles[-1]
+    prev = candles[-2]
+    broken_levels = [x for x in resistances if x < price]
+    breakout_level = max(broken_levels, default=None)
+    resistance_above = min([x for x in resistances if x > price], default=None)
+
+    empty = {
+        "level": breakout_level,
+        "next_resistance": resistance_above,
+        "close_above": False,
+        "volume_confirmed": False,
+        "continuation": False,
+        "retest": False,
+        "fake": False,
+        "confirmed": False,
+        "extension_pct": None,
+        "room_pct": ((resistance_above / price) - 1) * 100 if resistance_above and price else None,
+    }
+    if breakout_level is None or price <= 0:
+        return empty
+
+    close_above = last["close"] > breakout_level * 1.003
+    volume_confirmed = rvol >= 1.5
+    continuation = close_above and (
+        last["close"] >= prev["close"] or last["close"] >= last["open"]
+    )
+    retest_touched = any(
+        c["low"] <= breakout_level * 1.01 and c["close"] >= breakout_level * 0.995
+        for c in candles[-6:-1]
+    )
+    retest = bool(retest_touched and last["close"] > breakout_level * 1.003)
+    fake = bool(
+        (last["high"] > breakout_level * 1.005 and last["close"] < breakout_level * 0.995)
+        or (prev["high"] > breakout_level * 1.005 and last["close"] < breakout_level * 0.995)
+    )
+    extension_pct = ((price / breakout_level) - 1) * 100 if breakout_level else None
+    confirmed = bool(
+        close_above
+        and volume_confirmed
+        and continuation
+        and not fake
+        and extension_pct is not None
+        and extension_pct <= 8.0
+    )
+
+    return {
+        "level": breakout_level,
+        "next_resistance": resistance_above,
+        "close_above": close_above,
+        "volume_confirmed": volume_confirmed,
+        "continuation": continuation,
+        "retest": retest,
+        "fake": fake,
+        "confirmed": confirmed,
+        "extension_pct": round(extension_pct, 2) if extension_pct is not None else None,
+        "room_pct": round(((resistance_above / price) - 1) * 100, 2) if resistance_above and price else None,
+    }
+
+
 def _pivot_points(candles, lookback=60):
     """Extract alternating swing highs/lows for chart-pattern detection."""
     rows = candles[-lookback:]
@@ -536,6 +603,9 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
     supports, resistances = _local_levels(candles)
     support = max([x for x in supports if x < price], default=None)
     resistance = min([x for x in resistances if x > price], default=None)
+    breakout_info = _analyze_breakout(candles, price, rvol, resistances)
+    breakout_level = breakout_info["level"]
+    next_resistance = breakout_info["next_resistance"]
 
     max_30d = max(closes[-30:])
     min_30d = min(closes[-30:])
@@ -568,7 +638,14 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         prev = candles[-2]
         sweep = prev["low"] < support and last["close"] > support
 
-    breakout = bool(resistance and price > resistance and candles[-1]["close"] > resistance)
+    # المقاومة القادمة فوق السعر ليست مستوى الاختراق؛ مستوى الاختراق هو آخر مقاومة
+    # تاريخية تحت السعر. هذا يمنع التعارض القديم الذي جعل breakout شبه مستحيل.
+    breakout = bool(breakout_level and breakout_info["close_above"])
+    breakout_confirmed = bool(breakout_info["confirmed"])
+    breakout_retest = bool(breakout_info["retest"])
+    breakout_fake = bool(breakout_info["fake"])
+    breakout_extension_pct = breakout_info["extension_pct"]
+    breakout_room_pct = breakout_info["room_pct"]
 
     # Relative strength: compare the stock's 20-session return with NASDAQ proxy QQQ.
     benchmark_return, benchmark_symbol = await _benchmark_return("QQQ", 20)
@@ -584,7 +661,7 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
     near_entry = bool(
         (distance_from_ema20_pct is not None and 0 <= distance_from_ema20_pct <= 8.0)
         or (resistance_distance_pct is not None and 0 <= resistance_distance_pct <= 5.0)
-        or (breakout and resistance is not None and abs(distance_from_ema20_pct or 99) <= 5.0)
+        or (breakout_confirmed and breakout_extension_pct is not None and breakout_extension_pct <= 8.0)
     )
 
     # استراتيجية SAS: لا نطارد الحركة المتأخرة.
@@ -666,26 +743,42 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
             risk_score = 3
 
     early_timing = bool(power_trend and 1 <= power_trend_age <= 5)
+    # عمر الاتجاه وحده ليس مطاردة؛ المطاردة تُقاس بالامتداد السعري/RSI.
+    # هذا يسمح باختراق مؤكد داخل اتجاه قائم بدل استبعاده تلقائيًا.
     chase_risk = bool(
         (distance_from_ema20_pct is not None and distance_from_ema20_pct > 8)
         or (rsi14 is not None and rsi14 > 73)
-        or (power_trend and power_trend_age > 5)
+        or (breakout_confirmed and breakout_extension_pct is not None and breakout_extension_pct > 8)
     )
 
     score = trend_score + momentum_score + volume_score + relative_strength_score + breakout_quality_score + risk_score
 
-    # The requested concept is an early-trend detector, not a generic gainer filter.
-    # Existing SAS exclusions remain: distribution/bearish H&S/late chase.
-    core_pass = bool(
+    # مساران للمرور:
+    # 1) Early SAS: يحافظ على منطق الاتجاه المبكر لكن لا يشترط عمر 1-5 جلسات وحده.
+    # 2) Breakout: يطبق منهج الملف المرفق: إغلاق + فوليوم + استمرار، مع منع المصيدة
+    #    والمساحة الضيقة، وإعادة الاختبار كتعزيز وليست شرطًا وحيدًا.
+    early_setup_pass = bool(
         power_trend
-        and early_timing
-        and 55 <= (rsi14 or 0) <= 70
-        and rvol >= 1.5
+        and (early_timing or accumulation)
+        and 50 <= (rsi14 or 0) <= 72
+        and rvol >= 1.2
         and near_entry
         and not distribution_risk
         and not bearish_head_shoulders
         and not chase_risk
     )
+    breakout_pass = bool(
+        breakout_confirmed
+        and 48 <= (rsi14 or 0) <= 75
+        and rvol >= 1.5
+        and (power_trend or sma20 >= sma50 * 0.98 or accumulation)
+        and not distribution_risk
+        and not bearish_head_shoulders
+        and not chase_risk
+        and (breakout_room_pct is None or breakout_room_pct >= 3.0)
+    )
+    strategy_pass = bool(early_setup_pass or breakout_pass)
+    core_pass = strategy_pass
 
     # قيم افتراضية دفاعية قبل بناء الوصف؛ لا تغيّر شروط المرور أو النتيجة.
     behavior, stock_type, emoji = "غير واضح", "غير واضح", "⚪"
@@ -719,7 +812,13 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
     if sweep:
         evidence.append("استرداد بعد سحب سيولة")
     if breakout:
-        evidence.append("اختراق مع ثبات")
+        evidence.append("تجاوز مقاومة")
+    if breakout_confirmed:
+        evidence.append("اختراق مؤكد: إغلاق + فوليوم + استمرار")
+    if breakout_retest:
+        evidence.append("إعادة اختبار ناجحة")
+    if breakout_fake:
+        evidence.append("⚠️ اختراق وهمي محتمل")
     if w_pattern:
         evidence.append("نموذج W")
     if patterns["double_bottom"]:
@@ -754,6 +853,16 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         "near_entry": near_entry,
         "early_timing": early_timing,
         "chase_risk": chase_risk,
+        "breakout_level": round(breakout_level, 4) if breakout_level is not None else None,
+        "next_resistance": round(next_resistance, 4) if next_resistance is not None else None,
+        "breakout_confirmed": breakout_confirmed,
+        "breakout_retest": breakout_retest,
+        "breakout_fake": breakout_fake,
+        "breakout_extension_pct": breakout_extension_pct,
+        "breakout_room_pct": breakout_room_pct,
+        "early_setup_pass": early_setup_pass,
+        "breakout_pass": breakout_pass,
+        "strategy_pass": strategy_pass,
         "score_breakdown": {
             "trend": trend_score,
             "momentum": momentum_score,
@@ -902,6 +1011,9 @@ async def scan_us_low_price_stocks():
         "sas_no_distribution": 0,
         "sas_no_bearish_hs": 0,
         "sas_no_chase": 0,
+        "sas_breakout_confirmed": 0,
+        "sas_breakout_retest": 0,
+        "sas_strategy_pass": 0,
         "liquidity_pass": 0,
         "targets_pass": 0,
         "live_levels_pass": 0,
@@ -972,6 +1084,12 @@ async def scan_us_low_price_stocks():
                         filter_counts["sas_no_bearish_hs"] += 1
                 if not classification.get("chase_risk"):
                     filter_counts["sas_no_chase"] += 1
+                if classification.get("breakout_confirmed"):
+                    filter_counts["sas_breakout_confirmed"] += 1
+                if classification.get("breakout_retest"):
+                    filter_counts["sas_breakout_retest"] += 1
+                if classification.get("strategy_pass"):
+                    filter_counts["sas_strategy_pass"] += 1
                 if classification.get("pass"):
                     filter_counts["sas_core_pass"] += 1
                 if not classification.get("pass"):
