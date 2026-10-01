@@ -2,9 +2,10 @@
 Description=Keep SAS PRO synchronized with GitHub
 
 [Timer]
-OnBootSec=2min
-OnUnitActiveSec=5min
+OnBootSec=30s
+OnUnitActiveSec=2min
 Persistent=true
+RandomizedDelaySec=10s
 Unit=saspro-sync.service
 
 [Install]
