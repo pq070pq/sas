@@ -121,8 +121,6 @@ async def company_fundamentals(symbol: str):
                 "net_margin": (metric.get("metric") or {}).get("netMarginTTM"),
                 "roe_ttm": (metric.get("metric") or {}).get("roeTTM"),
                 "debt_to_equity": (metric.get("metric") or {}).get("totalDebtToEquityQuarterly"),
-                "52w_high": (metric.get("metric") or {}).get("52WeekHigh"),
-                "52w_low": (metric.get("metric") or {}).get("52WeekLow"),
                 "source": "Finnhub",
             }
             _fundamentals_cache[key] = (now, data)
