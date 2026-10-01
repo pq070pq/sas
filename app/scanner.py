@@ -1057,7 +1057,6 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         and near_entry
         and not distribution_risk
         and not bearish_head_shoulders
-        and not chase_risk
     )
     breakout_pass = bool(
         breakout_confirmed
@@ -1083,8 +1082,6 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
             breakout_reject_reasons.append("مخاطر توزيع")
         if bearish_head_shoulders:
             breakout_reject_reasons.append("رأس وكتفين هابط")
-        if chase_risk:
-            breakout_reject_reasons.append("مطاردة سعرية")
         if breakout_room_pct is not None and breakout_room_pct < 3.0:
             breakout_reject_reasons.append("المساحة السعرية أقل من 3%")
 
@@ -1423,8 +1420,6 @@ async def scan_us_low_price_stocks():
                     rsi_value = _f(classification.get("rsi14"), 0)
                     if not (48 <= rsi_value <= 75):
                         reject_reasons.append("rsi")
-                    if classification.get("chase_risk"):
-                        reject_reasons.append("chase")
                     if classification.get("distribution_risk"):
                         reject_reasons.append("distribution")
                     if classification.get("bearish_head_shoulders"):
