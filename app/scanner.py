@@ -907,6 +907,7 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         "inverse_hs_neckline": round(patterns["inverse_hs_neckline"], 4) if patterns["inverse_hs_neckline"] else None,
         "head_shoulders": patterns["head_shoulders"],
         "head_shoulders_neckline": round(patterns["head_shoulders_neckline"], 4) if patterns["head_shoulders_neckline"] else None,
+        "bearish_head_shoulders": bearish_head_shoulders,
         "distribution_risk": distribution_risk,
         "late_chase": late_chase,
         "data_source": data_source,
@@ -1127,10 +1128,7 @@ async def scan_us_low_price_stocks():
                         reject_reasons.append("chase")
                     if classification.get("distribution_risk"):
                         reject_reasons.append("distribution")
-                    if (
-                        classification.get("head_shoulders")
-                        and classification.get("price", 0) < 0
-                    ):
+                    if classification.get("bearish_head_shoulders"):
                         reject_reasons.append("bearish_hs")
                     structure_ok = bool(
                         classification.get("power_trend")
