@@ -474,6 +474,7 @@ async def _apply_daily_momentum_filter(candidates):
         if rvol10 <= required:
             return None
         result = dict(row)
+        result["momentum_section"] = section
         result["momentum_rvol_10d"] = round(rvol10, 2)
         result["momentum_rvol_threshold"] = required
         result["momentum_candle_source"] = source
