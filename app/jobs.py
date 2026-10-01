@@ -374,6 +374,8 @@ async def stock_radar_cycle():
 
         async with SessionLocal() as db:
             cycle_stats = {"rows": len(rows), "skipped": 0, "reanalyzed": 0, "sent": 0, "failed": 0}
+            ai_used = 0
+            ai_budget = max(0, int(settings.ai_max_calls_per_cycle))
             for row in rows:
                 symbol = str(row.get("symbol") or "").upper()
                 if not symbol:
@@ -443,32 +445,45 @@ async def stock_radar_cycle():
                 # AI enrichment runs only after the technical radar has already
                 # selected the candidate. It cannot create a signal, target,
                 # stop, or price level; it only explains supplied evidence.
-                try:
-                    fundamentals = await company_fundamentals(symbol)
-                    ai_analysis = await analyze_stock(
-                        symbol,
-                        company={
-                            "name": row.get("name") or symbol,
-                            "exchange": row.get("exchange"),
-                        },
-                        news=row.get("news_items") or [],
-                        fundamentals=fundamentals,
-                        market={},
-                    )
-                    row["ai_analysis"] = ai_analysis
+                if ai_used < ai_budget:
+                    try:
+                        fundamentals = await company_fundamentals(symbol)
+                        ai_analysis = await analyze_stock(
+                            symbol,
+                            company={
+                                "name": row.get("name") or symbol,
+                                "exchange": row.get("exchange"),
+                            },
+                            news=row.get("news_items") or [],
+                            fundamentals=fundamentals,
+                            market={},
+                        )
+                        row["ai_analysis"] = ai_analysis
+                        ai_used += 1
+                        tech = {
+                            **tech,
+                            "ai_analysis": ai_analysis,
+                            "fundamentals": fundamentals,
+                            "news_items": row.get("news_items") or [],
+                        }
+                        if ai_analysis.get("enabled"):
+                            logger.info(
+                                "AI radar analysis ready: %s | provider=%s",
+                                symbol, ai_analysis.get("provider"),
+                            )
+                    except Exception:
+                        ai_used += 1
+                        logger.exception("AI radar enrichment failed: %s", symbol)
+                else:
                     tech = {
                         **tech,
-                        "ai_analysis": ai_analysis,
-                        "fundamentals": fundamentals,
+                        "ai_analysis": {
+                            "enabled": False,
+                            "status": "cycle_budget",
+                            "key_takeaway": "تم تجاوز حد استدعاءات الذكاء الاصطناعي لهذه الدورة لحماية الحصة."
+                        },
                         "news_items": row.get("news_items") or [],
                     }
-                    if ai_analysis.get("enabled"):
-                        logger.info(
-                            "AI radar analysis ready: %s | provider=%s",
-                            symbol, ai_analysis.get("provider"),
-                        )
-                except Exception:
-                    logger.exception("AI radar enrichment failed: %s", symbol)
 
                 report = build_report(symbol, q, tech, classification)
 
