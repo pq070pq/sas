@@ -131,15 +131,15 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     report = [
         "🔎 <b>التحليل العميق للسهم | SAS PRO 📡</b>",
         "",
-        f"📈 <b>\x24{symbol}</b> 🇺🇸",
-        f"💵 السعر الحالي: <b>\x24{_money(price)}</b>" if price is not None else "💵 السعر الحالي: <b>غير متوفر</b>",
+        f"📈 <b>\${symbol}</b> 🇺🇸",
+        f"💵 السعر الحالي: <b>\${_money(price)}</b>" if price is not None else "💵 السعر الحالي: <b>غير متوفر</b>",
         f"📊 التغير: <b>{change:+.2f}%</b>" if change is not None else "📊 التغير: <b>غير متوفر</b>",
         "",
         "━━━━━━━━━━━━━━━━━━",
         "",
         "📌 <b>سبب اختيار السهم</b>",
         f"⭐ قوة الإشارة: <b>{score:.0f}/100</b>" if score is not None else "⭐ قوة الإشارة: <b>غير محسوب</b>",
-        f"💧 السيولة بالدولار: <b>{dollar_volume:,.0f}\x24</b>" if dollar_volume is not None else "💧 السيولة بالدولار: <b>غير متوفر</b>",
+        f"💧 السيولة بالدولار: <b>{dollar_volume:,.0f}\$</b>" if dollar_volume is not None else "💧 السيولة بالدولار: <b>غير متوفر</b>",
         f"📊 RVOL: <b>{rvol:.2f}×</b>" if rvol is not None else "📊 RVOL: <b>غير متوفر</b>",
         f"📈 ضغط الشراء: <b>{buy_pressure:.1f}%</b>" if buy_pressure is not None else "📈 ضغط الشراء: <b>غير محسوب</b>",
         f"⚡ تسارع الحجم: <b>{acceleration:.2f}×</b>" if acceleration is not None else "⚡ تسارع الحجم: <b>غير محسوب</b>",
@@ -147,59 +147,95 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         "",
         "━━━━━━━━━━━━━━━━━━",
         "",
-        "📰 <b>المحفز الإخباري</b>",
+        "📰 <b>تقرير الأخبار — تحليل موثق بالذكاء الاصطناعي</b>",
     ]
-    if catalyst:
-        report.extend([
-            f"🔹 الخبر: <b>{catalyst.get('headline') or 'غير متوفر'}</b>",
-            f"🕐 الوقت: <b>{catalyst.get('published_at') or 'غير متوفر'}</b>",
-            f"📰 المصدر: <b>{catalyst.get('source') or 'غير متوفر'}</b>",
-            f"🔗 الرابط: {catalyst.get('url') or 'غير متوفر'}",
-            "📌 الارتباط بالحركة: لا يُعد سببًا مؤكدًا إلا إذا دعمه توقيت ومحتوى الخبر.",
-        ])
-    else:
-        report.append("📰 المحفز الإخباري: <b>غير واضح — لا يوجد خبر موثوق يمكن ربط الحركة به حاليًا.</b>")
 
     ai = tech.get("ai_analysis") or {}
     news_items = tech.get("news_items") or []
-    ai_source = None
-    source_id = str(ai.get("primary_source_id") or "")
-    if source_id.startswith("N"):
-        try:
-            idx = int(source_id[1:]) - 1
-            if 0 <= idx < len(news_items):
-                ai_source = news_items[idx]
-        except (TypeError, ValueError):
-            ai_source = None
+    ai_source_ids = [str(x) for x in (ai.get("supporting_source_ids") or [])]
+    primary_source_id = str(ai.get("primary_source_id") or "")
+    source_ids = [primary_source_id] + [x for x in ai_source_ids if x != primary_source_id]
+    source_map = {
+        str(item.get("id") or f"N{idx}"): item
+        for idx, item in enumerate(news_items, 1)
+        if isinstance(item, dict)
+    }
 
-    report.extend(["", "━━━━━━━━━━━━━━━━━━", "", "📰 <b>تقرير الأخبار والتحليل</b>"])
-    if ai.get("enabled") and ai.get("status") == "ok" and ai_source:
-        esc = lambda value: html.escape(str(value or "غير متوفر"))
-        source_name = esc(ai_source.get("source") or "المصدر")
-        source_url = html.escape(str(ai_source.get("url") or ""), quote=True)
-        # بيانات المصدر التالية تُؤخذ من الخبر نفسه، وليست من النموذج.
-        source_headline = esc(ai_source.get("headline") or "غير متوفر")
-        source_time = esc(ai_source.get("datetime") or catalyst.get("published_at") if catalyst else ai_source.get("datetime") or "غير متوفر")
+    def _source_line(source_id):
+        item = source_map.get(source_id)
+        if not item:
+            return None
+        source = html.escape(str(item.get("source") or "المصدر"))
+        headline = html.escape(str(item.get("headline") or "غير متوفر"))
+        url = html.escape(str(item.get("url") or ""), quote=True)
+        published = html.escape(str(item.get("datetime") or "غير متوفر"))
+        line = f"🔹 <b>{headline}</b> — {source} — {published}"
+        if url:
+            line += f' — <a href="{url}">المصدر الأصلي</a>'
+        return line
+
+    if ai.get("enabled") and ai.get("status") == "ok" and news_items:
         report.extend([
-            f"🔹 <b>الخبر الأصلي:</b> {source_headline}",
-            f"🕐 <b>وقت المصدر:</b> {source_time}",
-            f"📰 <b>المصدر:</b> {source_name}",
-            f'🔗 <a href="{source_url}">فتح الخبر الأصلي</a>' if source_url else "🔗 الرابط: غير متوفر",
-            "",
-            f"🧠 <b>تحليل الخبر:</b> {esc(ai.get('headline_summary'))}",
-            f"📌 <b>تفسير الحركة:</b> {esc(ai.get('why_rising'))}",
-            f"🔎 <b>الارتباط:</b> {esc(ai.get('news_assessment'))}",
+            f"🧠 <b>الخبر الأهم:</b> {html.escape(str(ai.get('headline_summary') or 'غير واضح'))}",
+            f"📌 <b>تفسير الحركة:</b> {html.escape(str(ai.get('why_rising') or 'غير واضح'))}",
+            f"🔎 <b>تقييم الارتباط:</b> {html.escape(str(ai.get('news_assessment') or 'غير واضح'))}",
         ])
-        if ai.get("financial_summary") and ai.get("financial_summary") != "غير متوفر":
-            report.append(f"🏢 <b>قراءة مالية مبسطة:</b> {esc(ai.get('financial_summary'))}")
+        if source_ids:
+            report.append("📚 <b>المصادر التي بُني عليها التحليل:</b>")
+            added = 0
+            for source_id in source_ids:
+                line = _source_line(source_id)
+                if line:
+                    report.append(line)
+                    added += 1
+            if not added:
+                report.append("⚠️ لم يتم تثبيت مصدر صالح داخل نتيجة التحليل.")
+        report.append("🔒 <b>قاعدة التقرير:</b> الذكاء الاصطناعي يفسر الأخبار الموردة من المصادر فقط، ولا ينشئ أخبارًا أو أسعارًا.")
+    elif news_items:
+        catalyst = tech.get("catalyst_news")
+        if catalyst:
+            report.extend([
+                f"🔹 الخبر الأصلي: <b>{html.escape(str(catalyst.get('headline') or 'غير متوفر'))}</b>",
+                f"🕐 الوقت: <b>{html.escape(str(catalyst.get('published_at') or 'غير متوفر'))}</b>",
+                f"📰 المصدر: <b>{html.escape(str(catalyst.get('source') or 'غير متوفر'))}</b>",
+                f"🔗 الرابط: {html.escape(str(catalyst.get('url') or 'غير متوفر'), quote=True)}",
+            ])
+        else:
+            report.append("📰 توجد أخبار موثقة، لكن لم يتم اختيار محفز محدد.")
+        report.append("🤖 تحليل الذكاء الاصطناعي غير متوفر حاليًا؛ لم تتم إضافة تفسير غير موثق.")
+    else:
+        report.append("📰 <b>غير واضح — لا توجد أخبار موثقة كافية لتحليل سبب الحركة.</b>")
+        report.append("🤖 لم يتم تشغيل تحليل AI على مصدر غير موجود.")
+
+    report.extend([
+        "",
+        "━━━━━━━━━━━━━━━━━━",
+        "",
+        "🤖 <b>التحليل المالي المبسط</b>",
+    ])
+    if ai.get("enabled") and ai.get("status") == "ok":
+        report.append(f"🏢 {html.escape(str(ai.get('financial_summary') or 'غير متوفر'))}")
         risks = ai.get("risk_flags") or []
         if risks:
-            report.append("⚠️ <b>مخاطر مثبتة في البيانات:</b> " + " • ".join(esc(x) for x in risks[:4]))
-        report.extend([
-            f"💡 <b>الخلاصة:</b> {esc(ai.get('key_takeaway'))}",
-            "",
-            "🔒 <b>ضبط المصدر:</b> الذكاء الاصطناعي يفسر المصدر فقط ولا ينشئ أخبارًا أو أسعارًا.",
-        ])
+            report.append("⚠️ <b>مخاطر مثبتة في البيانات:</b> " + " • ".join(html.escape(str(x)) for x in risks[:4]))
+        report.append(f"💡 <b>الخلاصة:</b> {html.escape(str(ai.get('key_takeaway') or 'غير واضح'))}")
+        report.append(f"⚙️ مزود التحليل: <b>{html.escape(str(ai.get('provider') or 'غير متوفر'))}</b>")
+    else:
+        report.append("غير متوفر — لم يتم تحليل بيانات غير موثقة.")
+
+    report.extend([
+        "",
+        "━━━━━━━━━━━━━━━━━━",
+        "",
+        "🔐 <b>فصل مصادر البيانات</b>",
+        "• الأسعار والتغيرات والأهداف والوقف: من مصادر السوق والتحليل الفني فقط.",
+        "• الأخبار: من المصدر الأصلي، والذكاء الاصطناعي يفسرها فقط.",
+        "• التحليل المالي: من البيانات المالية الموردة فقط.",
+        "• عند غياب الدليل: <b>غير واضح / غير متوفر</b> — لا يتم اختلاق قيمة أو خبر.",
+        "",
+        "━━━━━━━━━━━━━━━━━━",
+        "",
+        "📊 <b>التحليل الفني</b>",
     elif ai.get("status") == "no_verified_news":
         report.append("📰 <b>لا يوجد خبر موثوق صالح للتحليل بالذكاء الاصطناعي حاليًا.</b>")
     elif ai.get("status") == "ungrounded":
