@@ -311,63 +311,130 @@ def _momentum_rvol_10d(candles):
 
 
 async def _discover_yahoo_top_gainers(client):
+    """Yahoo custom screener: exact daily momentum rules for both sections."""
     threshold, now = _momentum_time_filter()
     if threshold is None:
         return []
-    payload = None
-    for base in (
-        "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved",
-        "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved",
-    ):
-        try:
-            r = await client.get(
-                base,
-                params={"formatted": "false", "lang": "en-US", "region": "US",
-                        "scrIds": "day_gainers", "count": 250},
-                headers={"User-Agent": "Mozilla/5.0 SAS-PRO/2.0"},
-            )
-            r.raise_for_status()
-            payload = r.json()
-            break
-        except Exception:
-            continue
-    if not isinstance(payload, dict):
-        return []
-    rows = (((payload.get("finance") or {}).get("result") or [{}])[0].get("quotes") or [])
-    out = []
-    for raw in rows:
-        row = dict(raw)
-        exchange = _normalize_exchange(row.get("exchange") or row.get("fullExchangeName"))
-        if exchange not in ALLOWED_EXCHANGES:
-            continue
-        row["symbol"] = str(row.get("symbol") or "").upper().strip()
-        row["name"] = row.get("longName") or row.get("shortName") or row["symbol"]
-        row["quote_type"] = row.get("quoteType")
-        if not row["symbol"] or _is_excluded_security(row):
-            continue
-        price = _parse_yahoo_number(row.get("regularMarketPrice") or row.get("postMarketPrice"))
-        change_pct = _parse_yahoo_number(row.get("regularMarketChangePercent"))
-        volume = _parse_yahoo_number(row.get("regularMarketVolume"))
-        market_cap = _parse_yahoo_number(row.get("marketCap"))
-        if price <= 0 or change_pct <= 0 or volume <= 0:
-            continue
-        if price <= MAX_PRICE and change_pct > MOMENTUM_SMALL_MIN_GAIN and volume > MOMENTUM_SMALL_MIN_VOLUME:
-            section = "small"
-        elif market_cap > MOMENTUM_LARGE_MIN_MARKET_CAP and change_pct > MOMENTUM_LARGE_MIN_GAIN:
-            section = "large"
-        else:
-            continue
-        out.append({
-            "symbol": row["symbol"], "name": row["name"], "price": price,
-            "change_pct": change_pct, "volume": volume, "market_cap": market_cap,
-            "exchange": exchange, "quote_type": row.get("quoteType"),
-            "source": "Yahoo Finance Day Gainers", "momentum_section": section,
-            "momentum_session_date": now.strftime("%Y-%m-%d"),
-            "momentum_asof_ny": now.strftime("%Y-%m-%d %H:%M:%S %Z"),
-            "momentum_rvol_threshold": threshold[section],
-        })
-    return out
 
+    def equity_query(operands):
+        return {
+            "operator": "and",
+            "operands": [
+                {"operator": "eq", "operands": ["region", "us"]},
+                {"operator": "or", "operands": [
+                    {"operator": "eq", "operands": ["exchange", "NMS"]},
+                    {"operator": "eq", "operands": ["exchange", "NYQ"]},
+                    {"operator": "eq", "operands": ["exchange", "ASE"]},
+                ]},
+                *operands,
+            ],
+        }
+
+    query_sets = [
+        (
+            "small",
+            equity_query([
+                {"operator": "gt", "operands": ["percentchange", MOMENTUM_SMALL_MIN_GAIN]},
+                {"operator": "btwn", "operands": ["intradayprice", MIN_PRICE, MAX_PRICE]},
+                {"operator": "gt", "operands": ["dayvolume", MOMENTUM_SMALL_MIN_VOLUME]},
+            ]),
+        ),
+        (
+            "large",
+            equity_query([
+                {"operator": "gt", "operands": ["percentchange", MOMENTUM_LARGE_MIN_GAIN]},
+                {"operator": "gt", "operands": ["intradaymarketcap", MOMENTUM_LARGE_MIN_MARKET_CAP]},
+            ]),
+        ),
+    ]
+
+    out = []
+    seen = set()
+    for section, query in query_sets:
+        payload = {
+            "offset": 0,
+            "size": 250,
+            "sortField": "percentchange",
+            "sortType": "DESC",
+            "quoteType": "EQUITY",
+            "query": query,
+            "userId": "",
+            "userIdType": "guid",
+        }
+        response_payload = None
+        for base in (
+            "https://query1.finance.yahoo.com/v1/finance/screener",
+            "https://query2.finance.yahoo.com/v1/finance/screener",
+        ):
+            try:
+                r = await client.post(
+                    base,
+                    params={
+                        "formatted": "false",
+                        "lang": "en-US",
+                        "region": "US",
+                        "corsDomain": "finance.yahoo.com",
+                    },
+                    json=payload,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 SAS-PRO/2.0",
+                        "Content-Type": "application/json",
+                    },
+                )
+                r.raise_for_status()
+                response_payload = r.json()
+                break
+            except Exception:
+                continue
+
+        rows = (((response_payload or {}).get("finance") or {}).get("result") or [{}])
+        rows = rows[0].get("quotes") or [] if rows else []
+        for raw in rows:
+            row = dict(raw)
+            exchange = _normalize_exchange(row.get("exchange") or row.get("fullExchangeName"))
+            if exchange not in ALLOWED_EXCHANGES:
+                continue
+            row["symbol"] = str(row.get("symbol") or "").upper().strip()
+            row["name"] = row.get("longName") or row.get("shortName") or row["symbol"]
+            row["quote_type"] = row.get("quoteType")
+            if not row["symbol"] or row["symbol"] in seen or _is_excluded_security(row):
+                continue
+
+            price = _parse_yahoo_number(row.get("regularMarketPrice") or row.get("postMarketPrice"))
+            change_pct = _parse_yahoo_number(row.get("regularMarketChangePercent"))
+            volume = _parse_yahoo_number(row.get("regularMarketVolume"))
+            market_cap = _parse_yahoo_number(row.get("marketCap"))
+            if price <= 0 or change_pct <= 0 or volume <= 0:
+                continue
+
+            # Re-check exact user rules after Yahoo returns the live row.
+            if section == "small":
+                if not (MIN_PRICE <= price <= MAX_PRICE and
+                        change_pct > MOMENTUM_SMALL_MIN_GAIN and
+                        volume > MOMENTUM_SMALL_MIN_VOLUME):
+                    continue
+            else:
+                if not (market_cap > MOMENTUM_LARGE_MIN_MARKET_CAP and
+                        change_pct > MOMENTUM_LARGE_MIN_GAIN):
+                    continue
+
+            seen.add(row["symbol"])
+            out.append({
+                "symbol": row["symbol"],
+                "name": row["name"],
+                "price": price,
+                "change_pct": change_pct,
+                "volume": volume,
+                "market_cap": market_cap,
+                "exchange": exchange,
+                "quote_type": row.get("quoteType"),
+                "source": "Yahoo Finance Custom Gainers",
+                "momentum_section": section,
+                "momentum_session_date": now.strftime("%Y-%m-%d"),
+                "momentum_asof_ny": now.strftime("%Y-%m-%d %H:%M:%S %Z"),
+                "momentum_rvol_threshold": threshold[section],
+            })
+    return out
 
 async def _apply_daily_momentum_filter(candidates):
     threshold, now = _momentum_time_filter()
