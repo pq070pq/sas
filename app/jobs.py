@@ -388,7 +388,7 @@ async def stock_radar_cycle():
             for item in small_rows[:15]:
                 warn = []
                 if float(item.get("price") or 0) < 1:
-                    warn.append("⚠️<$1")
+                    warn.append("⚠️ &lt;$1")
                 if item.get("earnings_within_5_days"):
                     warn.append("📅 أرباح≤5أيام")
                 table_lines.append(
