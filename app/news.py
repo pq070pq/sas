@@ -2,6 +2,11 @@ from datetime import datetime, date, timedelta, timezone
 import time
 import httpx
 from .config import settings
+from .key_pool import KeyPool, parse_keys
+
+_finnhub_pool = KeyPool(parse_keys(settings.finnhub_api_keys, settings.finnhub_api_key), settings.api_key_cooldown_seconds)
+_fmp_pool = KeyPool(parse_keys(settings.fmp_api_keys, settings.fmp_api_key), settings.api_key_cooldown_seconds)
+_news_cache = {}
 
 _FUNDAMENTALS_CACHE_TTL = 3600
 _fundamentals_cache = {}
@@ -14,23 +19,101 @@ def _safe_timestamp(value):
         return None
 
 
+async def _finnhub_get(endpoint: str, params: dict, timeout: int = 12):
+    for _ in range(max(1, _finnhub_pool.size)):
+        key = await _finnhub_pool.acquire()
+        if not key:
+            return None
+        try:
+            request_params = dict(params)
+            request_params["token"] = key
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get("https://finnhub.io/api/v1/" + endpoint, params=request_params)
+            if response.status_code in (401, 403, 429):
+                retry = response.headers.get("Retry-After")
+                await _finnhub_pool.mark_failure(key, retry_after=int(retry) if retry and retry.isdigit() else None)
+                continue
+            response.raise_for_status()
+            await _finnhub_pool.mark_success(key)
+            return response.json()
+        except Exception:
+            await _finnhub_pool.mark_failure(key)
+    return None
+
+
+async def _fmp_get(endpoint: str, params: dict, timeout: int = 12):
+    if not settings.fmp_news_enabled:
+        return None
+    for _ in range(max(1, _fmp_pool.size)):
+        key = await _fmp_pool.acquire()
+        if not key:
+            return None
+        try:
+            request_params = dict(params)
+            request_params["apikey"] = key
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get("https://financialmodelingprep.com/stable/" + endpoint, params=request_params)
+            if response.status_code in (401, 403, 429):
+                retry = response.headers.get("Retry-After")
+                await _fmp_pool.mark_failure(key, retry_after=int(retry) if retry and retry.isdigit() else None)
+                continue
+            response.raise_for_status()
+            await _fmp_pool.mark_success(key)
+            return response.json()
+        except Exception:
+            await _fmp_pool.mark_failure(key)
+    return None
+
+
+def _normalise_fmp_news(rows):
+    out = []
+    for item in rows or []:
+        if not isinstance(item, dict):
+            continue
+        published = item.get("publishedDate")
+        try:
+            dt = int(datetime.fromisoformat(str(published).replace("Z", "+00:00")).timestamp()) if published else 0
+        except Exception:
+            dt = 0
+        out.append({
+            "headline": str(item.get("title") or "").strip(),
+            "source": str(item.get("publisher") or item.get("site") or "FMP").strip(),
+            "url": str(item.get("url") or "").strip(),
+            "datetime": dt,
+            "summary": str(item.get("text") or "").strip()[:800],
+            "symbol": str(item.get("symbol") or "").upper(),
+        })
+    return [x for x in out if x["headline"] and x["url"]]
+
+
 async def company_news(symbol: str, days: int = 2):
-    """Return recent Finnhub company news without allowing news failure to break the radar."""
-    if not settings.finnhub_api_key:
+    """Recent company news with caching and provider failover."""
+    key = symbol.upper().strip()
+    if not key:
         return []
+    cache_key = f"{key}:{days}"
+    now = time.monotonic()
+    cached = _news_cache.get(cache_key)
+    if cached and now - cached[0] < max(60, settings.news_cache_minutes * 60):
+        return cached[1]
+
     end = date.today()
     start = end - timedelta(days=max(1, days))
-    try:
-        async with httpx.AsyncClient(timeout=12) as c:
-            r = await c.get("https://finnhub.io/api/v1/company-news", params={
-                "symbol": symbol.upper(), "from": start.isoformat(), "to": end.isoformat(),
-                "token": settings.finnhub_api_key,
-            })
-            r.raise_for_status()
-            rows = r.json()
-            return rows if isinstance(rows, list) else []
-    except Exception:
-        return []
+    rows = await _finnhub_get(
+        "company-news",
+        {"symbol": key, "from": start.isoformat(), "to": end.isoformat()},
+    )
+    if isinstance(rows, list):
+        result = rows
+    else:
+        fmp_rows = await _fmp_get(
+            "news/stock",
+            {"symbols": key, "from": start.isoformat(), "to": end.isoformat(), "limit": 20},
+        )
+        result = _normalise_fmp_news(fmp_rows if isinstance(fmp_rows, list) else [])
+
+    _news_cache[cache_key] = (now, result)
+    return result
 
 
 def select_catalyst(news, max_age_hours: int = 48):
@@ -59,33 +142,31 @@ def select_catalyst(news, max_age_hours: int = 48):
 
 
 async def corporate_events(symbol: str):
-    if not settings.finnhub_api_key:
+    if _finnhub_pool.size == 0:
         return {"earnings": [], "dividends": [], "splits": []}
-    async with httpx.AsyncClient(timeout=20) as c:
-        results = {}
-        for name, endpoint in [
+    results = {}
+    for name, endpoint in [
             ("earnings", "calendar/earnings"),
             ("dividends", "stock/dividend"),
             ("splits", "stock/split"),
         ]:
-            params = {"symbol": symbol.upper(), "token": settings.finnhub_api_key}
+            params = {"symbol": symbol.upper()}
             if name == "earnings":
                 params.update({"from": date.today().isoformat(), "to": (date.today()+timedelta(days=90)).isoformat()})
             else:
                 params.update({"from": (date.today()-timedelta(days=365)).isoformat(), "to": date.today().isoformat()})
             try:
-                r = await c.get("https://finnhub.io/api/v1/" + endpoint, params=params)
-                r.raise_for_status()
-                results[name] = r.json()
+                payload = await _finnhub_get(endpoint, params, timeout=20)
+                results[name] = payload if payload is not None else []
             except Exception:
                 results[name] = []
-        return results
+    return results
 
 
 async def company_fundamentals(symbol: str):
     """Small cached Finnhub fundamentals snapshot for the AI layer."""
     key = symbol.upper().strip()
-    if not key or not settings.finnhub_api_key:
+    if not key or _finnhub_pool.size == 0:
         return {}
 
     now = time.monotonic()
@@ -94,20 +175,13 @@ async def company_fundamentals(symbol: str):
         return cached[1]
 
     try:
-        async with httpx.AsyncClient(timeout=12) as c:
-            profile_task = c.get(
-                "https://finnhub.io/api/v1/stock/profile2",
-                params={"symbol": key, "token": settings.finnhub_api_key},
-            )
-            metric_task = c.get(
-                "https://finnhub.io/api/v1/stock/metric",
-                params={"symbol": key, "metric": "all", "token": settings.finnhub_api_key},
-            )
-            profile_response, metric_response = await __import__("asyncio").gather(profile_task, metric_task)
-            profile_response.raise_for_status()
-            metric_response.raise_for_status()
-            profile = profile_response.json() if profile_response.content else {}
-            metric = metric_response.json() if metric_response.content else {}
+        import asyncio
+        profile, metric = await asyncio.gather(
+            _finnhub_get("stock/profile2", {"symbol": key}),
+            _finnhub_get("stock/metric", {"symbol": key, "metric": "all"}),
+        )
+        profile = profile if isinstance(profile, dict) else {}
+        metric = metric if isinstance(metric, dict) else {}
             data = {
                 "name": profile.get("name"),
                 "ticker": profile.get("ticker") or key,
