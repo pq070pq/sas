@@ -873,22 +873,23 @@ async def scan_us_low_price_stocks():
     diagnostics = []
     candidate_count = len(candidates)
 
-    # رادار دوري: نستخدم مسحاً مرحلياً حتى لا تعلق دورة الرصد
-    # على آلاف طلبات البيانات. نأخذ أعلى الأسهم حركةً + أعلى الأسهم تداولاً،
-    # ثم نطبق منهج فيصل كاملاً على هذه القائمة.
+    # رادار دوري: لا نعتمد على أعلى الرابحين فقط؛ لأن هدفنا اكتشاف
+    # بداية الحركة قبل أن يتحول السهم إلى مطاردة متأخرة.
+    # نخلط الحركة + السيولة + عينة واسعة من الكون، ثم يقرر منهج فيصل
+    # وفلتر Early Breakout من يمر فعلياً.
     by_change = sorted(
         candidates,
         key=lambda x: float(x.get("change_pct") or 0),
         reverse=True,
     )
-    by_volume = sorted(
+    by_dollar_volume = sorted(
         candidates,
-        key=lambda x: float(x.get("volume") or 0),
+        key=lambda x: float(x.get("price") or 0) * float(x.get("volume") or 0),
         reverse=True,
     )
     shortlist = []
     seen_shortlist = set()
-    for row in by_change[:120] + by_volume[:80]:
+    for row in by_change[:180] + by_dollar_volume[:180] + candidates[:120]:
         symbol = str(row.get("symbol") or "").upper()
         if not symbol or symbol in seen_shortlist:
             continue
