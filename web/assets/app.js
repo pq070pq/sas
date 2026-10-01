@@ -60,14 +60,22 @@ function openTerms(action){termAction=action;document.getElementById('termsAgree
 function toggleTermsButton(){if(termAction!=='view')document.getElementById('termsContinue').disabled=!document.getElementById('termsAgree').checked;}
 function closeTerms(){document.getElementById('termsModal').hidden=true;termAction=null;}
 async function continueTerms(){
- if(!document.getElementById('termsAgree').checked)return;
+ const agree=document.getElementById('termsAgree');
+ const button=document.getElementById('termsContinue');
+ if(!agree.checked||button.disabled)return;
+ const action=termAction;
+ const originalText=button.textContent;
+ button.disabled=true;
+ button.textContent='⏳ جاري التفعيل...';
  try{
-  const action=termAction;
   const accepted=await api('/api/terms/accept',{method:'POST'});
-  closeTerms();
 
-  // أول موافقة تمنح الشهر المجاني تلقائيًا. نفتح رابط القناة مباشرة.
-  if(accepted.trial_started && accepted.trial?.channel_link){
+  // موافقة الشروط وحدها لا تعني نجاح التجربة؛ يجب أن يعيد الخادم trial_started=true.
+  if(action==='trial'){
+   if(!accepted.trial_started||!accepted.trial?.channel_link){
+    throw new Error('تم حفظ موافقتك على الشروط، لكن تعذر تفعيل التجربة أو إنشاء رابط القناة. حاول مرة أخرى.');
+   }
+   closeTerms();
    if(tg?.openTelegramLink)tg.openTelegramLink(accepted.trial.channel_link);
    else if(tg?.openLink)tg.openLink(accepted.trial.channel_link);
    else window.open(accepted.trial.channel_link,'_blank');
@@ -78,10 +86,19 @@ async function continueTerms(){
   if(action?.startsWith('buy:')){
    const plan=action.slice(4);
    const d=await api('/api/subscription/invoice/'+encodeURIComponent(plan),{method:'POST'});
+   closeTerms();
    if(tg?.openInvoice)tg.openInvoice(d.invoice_link,()=>setTimeout(()=>{loadStarted=false;load();},1200));
    else if(tg?.openLink)tg.openLink(d.invoice_link);
+   else throw new Error('لا يمكن فتح نافذة الدفع داخل Telegram.');
+   return;
   }
- }catch(e){alert(e.message);}
+
+  closeTerms();
+ }catch(e){
+  button.disabled=false;
+  button.textContent=originalText;
+  alert(e.message);
+ }
 }
 async function openChannel(){
  try{
