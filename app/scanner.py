@@ -687,6 +687,21 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         and not chase_risk
     )
 
+    # وصف ثابت للاتجاه/نوع الحركة؛ هذه القيم كانت تُستخدم في التقرير
+    # دون أن يتم تعريفها، ما كان يوقف تحليل المرشحين بالكامل.
+    if power_trend and breakout:
+        behavior, stock_type, emoji = "اتجاه صاعد مع اختراق", "اختراق مبكر", "🟢"
+    elif power_trend and accumulation:
+        behavior, stock_type, emoji = "اتجاه صاعد مع تجميع", "تجميع مبكر", "🟢"
+    elif power_trend:
+        behavior, stock_type, emoji = "اتجاه صاعد", "زخم صاعد", "🟢"
+    elif accumulation:
+        behavior, stock_type, emoji = "تجميع", "تجميع تحت المراقبة", "🟡"
+    elif breakout:
+        behavior, stock_type, emoji = "اختراق", "اختراق تحت المراقبة", "🟡"
+    else:
+        behavior, stock_type, emoji = "غير واضح", "غير واضح", "⚪"
+
     evidence = []
     if power_trend:
         evidence.append(f"Power Trend ON — العمر {power_trend_age} جلسة")
