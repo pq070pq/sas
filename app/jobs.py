@@ -357,6 +357,8 @@ async def stock_radar_cycle():
         from .scanner import scan_us_low_price_stocks
         from .main import build_report
         from .market import quote
+        from .news import company_fundamentals
+        from .ai_radar import analyze_stock
 
         scan_result = await scan_us_low_price_stocks()
         diagnostics = scan_result.get("diagnostics") or {}
@@ -437,6 +439,40 @@ async def stock_radar_cycle():
                         }
                 classification = row.get("classification") or {}
                 tech = row.get("targets") or {}
+
+                # AI enrichment runs only after the technical radar has already
+                # selected the candidate. It cannot create a signal, target,
+                # stop, or price level; it only explains supplied evidence.
+                try:
+                    fundamentals = await company_fundamentals(symbol)
+                    ai_analysis = await analyze_stock(
+                        symbol,
+                        company={
+                            "name": row.get("name") or symbol,
+                            "exchange": row.get("exchange"),
+                            "price": q.get("price"),
+                            "change_pct": q.get("change_pct"),
+                        },
+                        news=row.get("news_items") or [],
+                        fundamentals=fundamentals,
+                        market={
+                            "behavior": classification.get("behavior"),
+                            "type": classification.get("type"),
+                            "score": classification.get("score"),
+                            "rvol": classification.get("rvol"),
+                            "dollar_volume": classification.get("dollar_volume"),
+                        },
+                    )
+                    row["ai_analysis"] = ai_analysis
+                    tech = {**tech, "ai_analysis": ai_analysis, "fundamentals": fundamentals}
+                    if ai_analysis.get("enabled"):
+                        logger.info(
+                            "AI radar analysis ready: %s | provider=%s",
+                            symbol, ai_analysis.get("provider"),
+                        )
+                except Exception:
+                    logger.exception("AI radar enrichment failed: %s", symbol)
+
                 report = build_report(symbol, q, tech, classification)
 
                 try:
