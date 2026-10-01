@@ -232,20 +232,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         "• الأخبار: من المصدر الأصلي، والذكاء الاصطناعي يفسرها فقط.",
         "• التحليل المالي: من البيانات المالية الموردة فقط.",
         "• عند غياب الدليل: <b>غير واضح / غير متوفر</b> — لا يتم اختلاق قيمة أو خبر.",
-        "",
-        "━━━━━━━━━━━━━━━━━━",
-        "",
-        "📊 <b>التحليل الفني</b>",
-    elif ai.get("status") == "no_verified_news":
-        report.append("📰 <b>لا يوجد خبر موثوق صالح للتحليل بالذكاء الاصطناعي حاليًا.</b>")
-    elif ai.get("status") == "ungrounded":
-        report.append("📰 <b>تم حجب تحليل الذكاء الاصطناعي لعدم ثبوت مصدر خبري صالح.</b>")
-    elif ai.get("status") == "no_api_key":
-        report.append("🤖 <b>تحليل الأخبار بالذكاء الاصطناعي غير مفعّل — لم يتم ضبط مفتاح مزود LLM.</b>")
-    elif ai.get("status") == "provider_error":
-        report.append("🤖 <b>تعذر تحليل الخبر مؤقتًا؛ تم إبقاء التقرير على البيانات الأصلية.</b>")
-    else:
-        report.append("🤖 <b>تحليل الأخبار غير متوفر حاليًا.</b>")
+    ])
 
     report.extend([
         "",
