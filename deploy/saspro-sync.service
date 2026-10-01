@@ -1,0 +1,11 @@
+[Unit]
+Description=SAS PRO GitHub synchronization and deployment
+After=docker.service network-online.target
+Wants=docker.service network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/saspro
+ExecStart=/opt/saspro/deploy/saspro-sync.sh
+TimeoutStartSec=20min
