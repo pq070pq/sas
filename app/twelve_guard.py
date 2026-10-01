@@ -11,6 +11,9 @@ from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable
 
 from .config import settings
+from .key_pool import KeyPool, parse_keys
+
+_pool = KeyPool(parse_keys(settings.twelve_data_api_keys, settings.twelve_data_api_key), settings.api_key_cooldown_seconds)
 
 _lock = asyncio.Lock()
 _blocked = False
@@ -34,7 +37,7 @@ async def allowed() -> bool:
             _block_reason = ""
             _used = 0
             # remaining is refreshed only from real API response headers.
-        if not settings.twelve_data_api_key or _blocked:
+        if _pool.size == 0 or _blocked:
             return False
         cap = int(getattr(settings, "twelve_data_daily_request_cap", 0) or 0)
         if cap > 0 and _used >= cap:
@@ -69,11 +72,40 @@ async def record_response(response: Any) -> None:
 
 
 async def call(getter: Callable[..., Awaitable[Any]], *args, **kwargs):
-    """Guard one Twelve Data request. Raises RuntimeError before making a call when blocked."""
+    """Guard one Twelve Data request and rotate configured keys on throttling."""
+    global _blocked, _block_reason
     if not await allowed():
         raise RuntimeError(f"Twelve Data circuit breaker open: {_block_reason or 'protected'}")
-    response = await getter(*args, **kwargs)
+
+    key = await _pool.acquire()
+    if not key:
+        raise RuntimeError("Twelve Data credential pool is cooling down")
+
+    params = kwargs.get("params")
+    if isinstance(params, dict):
+        params = dict(params)
+        params["apikey"] = key
+        kwargs["params"] = params
+
+    try:
+        response = await getter(*args, **kwargs)
+    except Exception:
+        await _pool.mark_failure(key)
+        raise
+
     await record_response(response)
+
+    if getattr(response, "status_code", None) in (401, 403, 429):
+        retry = response.headers.get("Retry-After")
+        await _pool.mark_failure(key, retry_after=int(retry) if retry and retry.isdigit() else None)
+        snap = await _pool.snapshot()
+        if snap["available"] == 0:
+            async with _lock:
+                _blocked = True
+                _block_reason = f"all {snap['keys']} Twelve Data credentials are cooling down"
+    else:
+        await _pool.mark_success(key)
+
     return response
 
 
