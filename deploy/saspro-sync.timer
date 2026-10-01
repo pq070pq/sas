@@ -1,0 +1,11 @@
+[Unit]
+Description=Keep SAS PRO synchronized with GitHub
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=saspro-sync.service
+
+[Install]
+WantedBy=timers.target
