@@ -1,6 +1,10 @@
 from datetime import datetime, date, timedelta, timezone
+import time
 import httpx
 from .config import settings
+
+_FUNDAMENTALS_CACHE_TTL = 3600
+_fundamentals_cache = {}
 
 
 def _safe_timestamp(value):
@@ -76,3 +80,52 @@ async def corporate_events(symbol: str):
             except Exception:
                 results[name] = []
         return results
+
+
+async def company_fundamentals(symbol: str):
+    """Small cached Finnhub fundamentals snapshot for the AI layer."""
+    key = symbol.upper().strip()
+    if not key or not settings.finnhub_api_key:
+        return {}
+
+    now = time.monotonic()
+    cached = _fundamentals_cache.get(key)
+    if cached and now - cached[0] < _FUNDAMENTALS_CACHE_TTL:
+        return cached[1]
+
+    try:
+        async with httpx.AsyncClient(timeout=12) as c:
+            profile_task = c.get(
+                "https://finnhub.io/api/v1/stock/profile2",
+                params={"symbol": key, "token": settings.finnhub_api_key},
+            )
+            metric_task = c.get(
+                "https://finnhub.io/api/v1/stock/metric",
+                params={"symbol": key, "metric": "all", "token": settings.finnhub_api_key},
+            )
+            profile_response, metric_response = await __import__("asyncio").gather(profile_task, metric_task)
+            profile_response.raise_for_status()
+            metric_response.raise_for_status()
+            profile = profile_response.json() if profile_response.content else {}
+            metric = metric_response.json() if metric_response.content else {}
+            data = {
+                "name": profile.get("name"),
+                "ticker": profile.get("ticker") or key,
+                "exchange": profile.get("exchange"),
+                "industry": profile.get("finnhubIndustry"),
+                "market_cap_m": profile.get("marketCapitalization"),
+                "shares_outstanding_m": profile.get("shareOutstanding"),
+                "pe_ttm": (metric.get("metric") or {}).get("peBasicExclExtraTTM"),
+                "eps_ttm": (metric.get("metric") or {}).get("epsBasicExclExtraItemsTTM"),
+                "revenue_growth_3y": (metric.get("metric") or {}).get("revenueGrowth3Y"),
+                "net_margin": (metric.get("metric") or {}).get("netMarginTTM"),
+                "roe_ttm": (metric.get("metric") or {}).get("roeTTM"),
+                "debt_to_equity": (metric.get("metric") or {}).get("totalDebtToEquityQuarterly"),
+                "52w_high": (metric.get("metric") or {}).get("52WeekHigh"),
+                "52w_low": (metric.get("metric") or {}).get("52WeekLow"),
+                "source": "Finnhub",
+            }
+            _fundamentals_cache[key] = (now, data)
+            return data
+    except Exception:
+        return {}
