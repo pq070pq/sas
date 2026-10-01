@@ -71,7 +71,9 @@ async def startup():
     logging.getLogger(__name__).warning("Background tasks started: scheduler=%s holiday_radar=%s", scheduler_task.get_name(), holiday_radar_task.get_name())
 
 def build_report(symbol: str, q: dict, tech: dict, classification: dict | None = None, outcome=None) -> str:
-    """Stable Arabic Telegram radar report using observed/calculated values only."""
+    """Stable Arabic SAS PRO RADAR report using observed/calculated values only."""
+    q = q or {}
+    tech = tech or {}
     classification = classification or {}
     intraday = tech.get("intraday") or {}
 
@@ -98,7 +100,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     targets = [num(x) for x in (tech.get("targets") or [])]
     targets = [x for x in targets if x is not None and x > 0]
     target_lines = [
-        f"🎯 الهدف {idx}: <b>\\x24{_money(target)}</b>"
+        f"🎯 الهدف {idx}: <b>${_money(target)}</b>"
         for idx, target in enumerate(targets, 1)
     ] or ["🎯 لا يوجد هدف فني متاح"]
 
@@ -122,7 +124,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     news_items = tech.get("news_items") or []
 
     report = [
-        "🔎 <b>التحليل العميق للسهم | SAS PRO 📡</b>",
+        "🚨 <b>SAS PRO RADAR 📡</b>",
         "",
         f"📈 <b>\x24{symbol}</b> 🇺🇸",
         f"💵 السعر الحالي: <b>\x24{_money(price)}</b>" if price is not None else "💵 السعر الحالي: <b>غير متوفر</b>",
