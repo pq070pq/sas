@@ -26,6 +26,20 @@ class Settings(BaseSettings):
     trial_days: int = 30
     invite_hours: int = 48
     trial_channel_id: str = ""
+    # AI radar: provider-agnostic OpenAI-compatible endpoints.
+    ai_radar_enabled: bool = True
+    ai_radar_concurrency: int = 2
+    ai_radar_timeout_seconds: int = 25
+    ai_max_news: int = 5
+    groq_api_key: str = ""
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    groq_model: str = "openai/gpt-oss-120b"
+    gemini_api_key: str = ""
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+    gemini_model: str = "gemini-3.8-flash"
+    openrouter_api_key: str = ""
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = "openai/gpt-oss-20b:free"
     expiry_warning_hours: int = 72
     holiday_radar_interval_minutes: int = 180
     weekend_radar_interval_minutes: int = 180
