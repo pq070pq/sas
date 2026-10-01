@@ -4,6 +4,7 @@ import json
 import base64
 import hashlib
 import hmac
+import html
 from datetime import datetime, timedelta, timezone
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse
@@ -158,6 +159,28 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         ])
     else:
         report.append("📰 المحفز الإخباري: <b>غير واضح — لا يوجد خبر موثوق يمكن ربط الحركة به حاليًا.</b>")
+
+    ai = tech.get("ai_analysis") or {}
+    report.extend(["", "━━━━━━━━━━━━━━━━━━", "", "🤖 <b>قراءة الذكاء الاصطناعي</b>"])
+    if ai.get("enabled") and ai.get("status") == "ok":
+        esc = lambda value: html.escape(str(value or "غير متوفر"))
+        report.extend([
+            f"🧠 <b>ملخص الخبر:</b> {esc(ai.get('headline_summary'))}",
+            f"📌 <b>سبب الارتفاع:</b> {esc(ai.get('why_rising'))}",
+            f"🔎 <b>تقييم الارتباط:</b> {esc(ai.get('news_assessment'))}",
+            f"🏢 <b>التحليل المالي المبسط:</b> {esc(ai.get('financial_summary'))}",
+        ])
+        risks = ai.get("risk_flags") or []
+        if risks:
+            report.append("⚠️ <b>مخاطر بارزة:</b> " + " • ".join(esc(x) for x in risks[:4]))
+        report.append(f"💡 <b>الخلاصة:</b> {esc(ai.get('key_takeaway'))}")
+        report.append(f"⚙️ مزود التحليل: <b>{esc(ai.get('provider'))}</b>")
+    elif ai.get("status") == "no_api_key":
+        report.append("🤖 تحليل الذكاء الاصطناعي: <b>غير مفعّل — لم يتم ضبط مفتاح مزود LLM.</b>")
+    elif ai.get("status") == "provider_error":
+        report.append("🤖 تحليل الذكاء الاصطناعي: <b>تعذر مؤقتًا؛ تم إرسال الرادار بالبيانات الأصلية.</b>")
+    else:
+        report.append("🤖 تحليل الذكاء الاصطناعي: <b>غير متوفر حاليًا.</b>")
 
     report.extend([
         "",
