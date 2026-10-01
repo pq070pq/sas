@@ -61,7 +61,12 @@ def _normalise(value, fallback="غير متوفر"):
 
 def _safe_news(news: list[dict]) -> list[dict]:
     safe = []
-    for idx, item in enumerate(news[:5], 1):
+    ordered = sorted(
+        [x for x in (news or []) if isinstance(x, dict)],
+        key=lambda x: int(x.get("datetime") or 0) if str(x.get("datetime") or "").isdigit() else 0,
+        reverse=True,
+    )
+    for idx, item in enumerate(ordered[:5], 1):
         if not isinstance(item, dict):
             continue
         headline = str(item.get("headline") or "").strip()
