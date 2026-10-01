@@ -196,62 +196,7 @@ function renderAdminMonthlyReport(d){
  const n=x=>x===null||x===undefined?'—':Number(x).toLocaleString('en-US');
  const pct=x=>x===null||x===undefined?'—':Number(x).toFixed(2)+'%';
  const ret=x=>x===null||x===undefined?'—':(Number(x)>0?'+':'')+Number(x).toFixed(2)+'%';
- const top=(d.top_symbols||[]).map(x=>'<span class="report-chip">
- const d=await api('/api/admin/overview');
- document.getElementById('adminStats').innerHTML=[['active','🟢 النشطون'],['expired','🔴 المنتهية'],['trial_users','🎁 التجارب'],['new_users','👥 الجدد'],['payments','💳 المدفوعات'],['stars','⭐ Stars']].map(x=>'<div><small>'+x[1]+'</small><strong>'+d[x[0]]+'</strong></div>').join('');
- const o=d.owner||{};
- const full=[o.first_name,o.last_name].filter(Boolean).join(' ')||'مالك SAS PRO';
- document.getElementById('ownerName').textContent=full;
- document.getElementById('ownerUsername').textContent=o.username?'@'+o.username:'بدون Username';
- document.getElementById('ownerId').textContent='Telegram ID: '+(o.telegram_id||'—');
-}
-async function adminSearch(){try{const q=document.getElementById('adminSearch').value.trim();const rows=await api('/api/admin/users'+(q?'?q='+encodeURIComponent(q):''));document.getElementById('adminUsers').innerHTML=rows.map(u=>{
- const status=u.free_access?'♾️ دائم':(u.subscription_expires&&new Date(u.subscription_expires)>new Date()?'🟢 فعال':'🔴 منتهي');
- return '<div class="user-row"><div><b>'+esc(u.first_name||u.username||'بدون اسم')+'</b><br><small>ID: '+esc(u.telegram_id)+' '+(u.username?'@'+esc(u.username):'')+'</small><br><small>'+status+' — '+fmtDate(u.subscription_expires)+'</small></div>'+
- '<div class="user-actions"><button onclick="adminGrant('+u.telegram_id+',30)">30 يوم</button><button onclick="adminGrant('+u.telegram_id+',90)">3 أشهر</button><button onclick="adminGrant('+u.telegram_id+',365)">سنة</button><button onclick="adminFreeExtend('+u.telegram_id+',3)">مجاني +3</button><button onclick="adminFreeExtend('+u.telegram_id+',7)">مجاني +7</button><button onclick="adminFreeExtend('+u.telegram_id+',30)">مجاني +30</button><button onclick="adminGrant('+u.telegram_id+',\'forever\')">دائم</button><button class="danger" onclick="adminRevoke('+u.telegram_id+')">إلغاء</button></div></div>';
- }).join('')||'<p>لا توجد نتائج.</p>';}catch(e){document.getElementById('adminUsers').textContent=e.message;}}
-function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
-async function adminFreeExtend(id,d){try{await api('/api/admin/free-extend/'+id+'?days='+d,{method:'POST'});await adminRefresh();alert('تم تمديد المجاني للمستخدم.');}catch(e){alert(e.message);}}
-async function adminGrant(id,d){try{await api('/api/admin/grant/'+id+'?days='+encodeURIComponent(d),{method:'POST'});await adminRefresh();}catch(e){alert(e.message);}}
-async function adminRevoke(id){if(!confirm('إلغاء وصول هذا المستخدم؟'))return;try{await api('/api/admin/revoke/'+id,{method:'POST'});await adminRefresh();}catch(e){alert(e.message);}}
-async function loadSubscriptionConfig(){
- const d=await api('/api/admin/subscription-config');
- document.getElementById('paidPlansVisible').checked=!!d.paid_plans_visible;
- document.getElementById('trialDays').value=d.trial_days||3;
- document.getElementById('plansEditorPanel').hidden=!d.paid_plans_visible;
-}
-async function loadAdminPlans(){
- const p=await api('/api/admin/plans');
- const names={monthly:'شهري','3month':'3 أشهر','6month':'6 أشهر',yearly:'سنة'};
- document.getElementById('planVisibility').innerHTML=Object.entries(p).map(([k,x])=>'<label><input class="plan-vis" data-plan="'+k+'" type="checkbox" '+(x.visible?'checked':'')+'> '+names[k]+'</label>').join('');
- document.getElementById('planEditor').innerHTML=Object.entries(p).map(([k,x])=>
-  '<div class="plan-edit"><b>'+names[k]+'</b><label>ريال<input id="sar_'+k+'" type="number" value="'+x.sar+'"></label><label>أيام<input id="days_'+k+'" type="number" value="'+x.days+'"></label><label>Stars<input id="stars_'+k+'" type="number" value="'+x.stars+'"></label></div>'
- ).join('');
-}
-async function savePlans(){
- const p={};
- for(const k of ['monthly','3month','6month','yearly']){
-  p[k]={sar:Number(document.getElementById('sar_'+k).value),days:Number(document.getElementById('days_'+k).value),stars:Number(document.getElementById('stars_'+k).value)};
- }
- try{
-  await api('/api/admin/plans',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
-  alert('تم حفظ الباقات');
-  await loadAdminPlans();
- }catch(e){alert(e.message);}
-}
-
-async function saveSubscriptionConfig(){
- const paid=!!document.getElementById('paidPlansVisible').checked;
- const days=Number(document.getElementById('trialDays').value||30);
- try{
-  const d=await api('/api/admin/subscription-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paid_plans_visible:paid,trial_days:days})});
-  document.getElementById('plansEditorPanel').hidden=!d.paid_plans_visible;
-  alert(d.paid_plans_visible?'تم إظهار الاشتراكات المدفوعة.':'تم إخفاء الاشتراكات المدفوعة وإبقاء المجاني فقط.');
- for(const el of document.querySelectorAll('.plan-vis')){await api('/api/admin/plan-visibility/'+el.dataset.plan,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visible:el.checked})});}
- }catch(e){alert(e.message);}
-}
-document.addEventListener('change',e=>{if(e.target?.id==='paidPlansVisible')document.getElementById('plansEditorPanel').hidden=!e.target.checked;});
-load();+esc(x.symbol)+' <b>'+n(x.count)+'</b></span>').join('')||'<span class="muted">لا توجد نتائج</span>';
+ const top=(d.top_symbols||[]).map(x=>'<span class="report-chip">'+esc(x.symbol)+' <b>'+n(x.count)+'</b></span>').join('')||'<span class="muted">لا توجد نتائج</span>';
  document.getElementById('monthlyReport').innerHTML=
   '<div class="report-toolbar"><div><b>📅 التقرير الشهري</b><small>بيانات فعلية من قاعدة SAS PRO</small></div>'+
   '<div class="report-month-actions"><input id="reportMonth" type="month" value="'+esc(d.month)+'"><button onclick="loadAdminMonthlyReport()">عرض</button></div></div>'+
