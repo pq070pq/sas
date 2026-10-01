@@ -456,7 +456,12 @@ async def stock_radar_cycle():
                         market={},
                     )
                     row["ai_analysis"] = ai_analysis
-                    tech = {**tech, "ai_analysis": ai_analysis, "fundamentals": fundamentals}
+                    tech = {
+                        **tech,
+                        "ai_analysis": ai_analysis,
+                        "fundamentals": fundamentals,
+                        "news_items": row.get("news_items") or [],
+                    }
                     if ai_analysis.get("enabled"):
                         logger.info(
                             "AI radar analysis ready: %s | provider=%s",
