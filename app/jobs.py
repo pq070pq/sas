@@ -450,18 +450,10 @@ async def stock_radar_cycle():
                         company={
                             "name": row.get("name") or symbol,
                             "exchange": row.get("exchange"),
-                            "price": q.get("price"),
-                            "change_pct": q.get("change_pct"),
                         },
                         news=row.get("news_items") or [],
                         fundamentals=fundamentals,
-                        market={
-                            "behavior": classification.get("behavior"),
-                            "type": classification.get("type"),
-                            "score": classification.get("score"),
-                            "rvol": classification.get("rvol"),
-                            "dollar_volume": classification.get("dollar_volume"),
-                        },
+                        market={},
                     )
                     row["ai_analysis"] = ai_analysis
                     tech = {**tech, "ai_analysis": ai_analysis, "fundamentals": fundamentals}
