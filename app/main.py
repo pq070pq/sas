@@ -532,10 +532,11 @@ async def accept_terms(user=Depends(telegram_user), db: AsyncSession = Depends(g
     ):
         try:
             trial = await start_trial_for_user(user)
-        except Exception:
-            # لا نفشل قبول الشروط إذا تعذر إنشاء رابط القناة مؤقتًا؛
-            # يستطيع المستخدم إعادة فتح التطبيق والمحاولة مرة أخرى.
-            trial = None
+        except Exception as exc:
+            # لا نخفي سبب فشل تفعيل التجربة؛ الواجهة تحتاج خطأ واضحًا
+            # وتبقى نافذة الشروط مفتوحة حتى ينجح التفعيل.
+            logging.getLogger(__name__).exception("Trial activation failed for telegram_id=%s", user["id"])
+            raise HTTPException(503, f"تعذر تفعيل التجربة المجانية: {exc}") from exc
 
     return {
         "ok": True,
