@@ -780,6 +780,23 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
     strategy_pass = bool(early_setup_pass or breakout_pass)
     core_pass = strategy_pass
 
+    breakout_reject_reasons = []
+    if breakout_confirmed and not breakout_pass:
+        if not (48 <= (rsi14 or 0) <= 75):
+            breakout_reject_reasons.append("RSI خارج 48-75")
+        if rvol < 1.5:
+            breakout_reject_reasons.append("RVOL أقل من 1.5x")
+        if not (power_trend or sma20 >= sma50 * 0.98 or accumulation):
+            breakout_reject_reasons.append("البنية/الاتجاه غير كافٍ")
+        if distribution_risk:
+            breakout_reject_reasons.append("مخاطر توزيع")
+        if bearish_head_shoulders:
+            breakout_reject_reasons.append("رأس وكتفين هابط")
+        if chase_risk:
+            breakout_reject_reasons.append("مطاردة سعرية")
+        if breakout_room_pct is not None and breakout_room_pct < 3.0:
+            breakout_reject_reasons.append("المساحة السعرية أقل من 3%")
+
     # قيم افتراضية دفاعية قبل بناء الوصف؛ لا تغيّر شروط المرور أو النتيجة.
     behavior, stock_type, emoji = "غير واضح", "غير واضح", "⚪"
 
@@ -860,8 +877,10 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         "breakout_fake": breakout_fake,
         "breakout_extension_pct": breakout_extension_pct,
         "breakout_room_pct": breakout_room_pct,
+        "sma20_above_sma50": bool(sma20 >= sma50 * 0.98),
         "early_setup_pass": early_setup_pass,
         "breakout_pass": breakout_pass,
+        "breakout_reject_reasons": breakout_reject_reasons,
         "strategy_pass": strategy_pass,
         "score_breakdown": {
             "trend": trend_score,
@@ -888,6 +907,7 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         "inverse_hs_neckline": round(patterns["inverse_hs_neckline"], 4) if patterns["inverse_hs_neckline"] else None,
         "head_shoulders": patterns["head_shoulders"],
         "head_shoulders_neckline": round(patterns["head_shoulders_neckline"], 4) if patterns["head_shoulders_neckline"] else None,
+        "bearish_head_shoulders": bearish_head_shoulders,
         "distribution_risk": distribution_risk,
         "late_chase": late_chase,
         "data_source": data_source,
@@ -1013,6 +1033,14 @@ async def scan_us_low_price_stocks():
         "sas_no_chase": 0,
         "sas_breakout_confirmed": 0,
         "sas_breakout_retest": 0,
+        "sas_breakout_reject_rsi": 0,
+        "sas_breakout_reject_chase": 0,
+        "sas_breakout_reject_distribution": 0,
+        "sas_breakout_reject_bearish_hs": 0,
+        "sas_breakout_reject_structure": 0,
+        "sas_breakout_reject_room": 0,
+        "sas_breakout_reject_other": 0,
+        "sas_breakout_reject_total": 0,
         "sas_strategy_pass": 0,
         "liquidity_pass": 0,
         "targets_pass": 0,
@@ -1088,6 +1116,50 @@ async def scan_us_low_price_stocks():
                     filter_counts["sas_breakout_confirmed"] += 1
                 if classification.get("breakout_retest"):
                     filter_counts["sas_breakout_retest"] += 1
+
+                # تشخيص مستقل للاختراقات المؤكدة: نريد معرفة الشرط الذي
+                # أسقط كل حالة قبل تعديل الاستراتيجية نفسها.
+                if classification.get("breakout_confirmed"):
+                    reject_reasons = []
+                    rsi_value = _f(classification.get("rsi14"), 0)
+                    if not (48 <= rsi_value <= 75):
+                        reject_reasons.append("rsi")
+                    if classification.get("chase_risk"):
+                        reject_reasons.append("chase")
+                    if classification.get("distribution_risk"):
+                        reject_reasons.append("distribution")
+                    if classification.get("bearish_head_shoulders"):
+                        reject_reasons.append("bearish_hs")
+                    structure_ok = bool(
+                        classification.get("power_trend")
+                        or classification.get("sma20_above_sma50")
+                        or classification.get("accumulation")
+                    )
+                    if not structure_ok:
+                        reject_reasons.append("structure")
+                    room = classification.get("breakout_room_pct")
+                    if room is not None and room < 3.0:
+                        reject_reasons.append("room")
+
+                    if reject_reasons:
+                        filter_counts["sas_breakout_reject_total"] += 1
+                        for reason in reject_reasons:
+                            key = {
+                                "rsi": "sas_breakout_reject_rsi",
+                                "chase": "sas_breakout_reject_chase",
+                                "distribution": "sas_breakout_reject_distribution",
+                                "bearish_hs": "sas_breakout_reject_bearish_hs",
+                                "structure": "sas_breakout_reject_structure",
+                                "room": "sas_breakout_reject_room",
+                            }.get(reason)
+                            if key:
+                                filter_counts[key] += 1
+                    else:
+                        # إذا لم يطابق أي سبب معروف، نسجلها كسبب غير مصنف.
+                        # لا نغيّر نتيجة strategy_pass؛ هذا عداد تشخيصي فقط.
+                        if not classification.get("breakout_pass"):
+                            filter_counts["sas_breakout_reject_other"] += 1
+
                 if classification.get("strategy_pass"):
                     filter_counts["sas_strategy_pass"] += 1
                 if classification.get("pass"):
