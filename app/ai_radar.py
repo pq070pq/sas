@@ -130,7 +130,12 @@ def _validate(parsed: dict, news: list[dict], fundamentals: dict) -> dict:
     valid_ids = {item["id"] for item in news}
     primary = str(parsed.get("primary_source_id") or "").strip()
     if primary not in valid_ids:
-        primary = "غير واضح"
+        # لا ننشر تحليلًا غير قابل للإسناد إلى مصدر خبري فعلي.
+        return {
+            "enabled": False,
+            "status": "ungrounded",
+            "key_takeaway": "تم حجب تحليل الذكاء الاصطناعي لعدم ثبوت مصدر خبري صالح.",
+        }
 
     supporting = [
         x for x in (parsed.get("supporting_source_ids") or [])
@@ -176,6 +181,15 @@ async def analyze_stock(
         return {"enabled": False, "status": "disabled"}
 
     safe_news = _safe_news(news or [])
+    if not safe_news:
+        # لا يوجد مصدر خبري موثق = لا يوجد تقرير AI.
+        # هذا يمنع النموذج من اختراع خبر أو سبب للحركة.
+        return {
+            "enabled": False,
+            "status": "no_verified_news",
+            "key_takeaway": "لا يوجد خبر موثوق صالح للتحليل حاليًا.",
+        }
+
     safe_fundamentals = dict(fundamentals or {})
     # Remove any price-bearing fields before they ever reach the LLM.
     for key in ("price", "current_price", "52w_high", "52w_low"):
