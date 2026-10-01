@@ -3,7 +3,7 @@ import httpx
 import time
 from .config import settings
 from .panwatch import technical_targets
-from .news import company_news, select_catalyst
+from .news import company_news, select_catalyst, corporate_events
 from .market import quote
 from .twelve_guard import call as twelve_call
 
@@ -12,11 +12,26 @@ from .twelve_guard import call as twelve_call
 # - السعر: $0.30 - $15
 # - لا تُرسل القناة إلا الإشارات النوعية ذات السيولة والأهداف الصالحة.
 # - استراتيجية SAS: السلوك، التداول، RVOL، الدعم/المقاومة والثبات.
-MIN_PRICE = 0.30
-MAX_PRICE = 15.00
-MAX_RADAR_RESULTS = 5
+MIN_PRICE = 0.50
+MAX_PRICE = 20.00
+MAX_RADAR_RESULTS = 30
+MAX_SECTION_RESULTS = 15
 MIN_DAILY_DOLLAR_VOLUME = 1_000_000.0
-ALLOWED_EXCHANGES = {"NASDAQ"}
+ALLOWED_EXCHANGES = {"NASDAQ", "NYSE", "AMEX"}
+
+MOMENTUM_SMALL_MIN_GAIN = 10.0
+MOMENTUM_SMALL_MIN_VOLUME = 500_000.0
+MOMENTUM_LARGE_MIN_GAIN = 3.0
+MOMENTUM_LARGE_MIN_MARKET_CAP = 1_000_000_000.0
+MOMENTUM_RVOL_THRESHOLDS = {
+    10: {"small": 0.50, "large": 0.25},
+    11: {"small": 0.93, "large": 0.47},
+    12: {"small": 1.26, "large": 0.63},
+    13: {"small": 1.56, "large": 0.78},
+    14: {"small": 1.86, "large": 0.93},
+    15: {"small": 2.22, "large": 1.11},
+    16: {"small": 3.00, "large": 1.50},
+}
 
 # Daily candles change slowly, so cache them between radar cycles.
 _CANDLE_CACHE_TTL = 5400
@@ -36,14 +51,18 @@ def _f(value, default=0.0):
 def _normalize_exchange(value):
     exchange = str(value or "").upper().strip()
     exchange = exchange.replace("_", " ").replace("-", " ")
-    if exchange == "NASDAQ":
+    if exchange in {"NASDAQ", "NMS", "NGM", "NCM"}:
         return "NASDAQ"
+    if exchange in {"NYSE", "NYQ", "NYS"}:
+        return "NYSE"
+    if exchange in {"AMEX", "ASE", "XASE"}:
+        return "AMEX"
     return exchange
 
 
 def _is_allowed_exchange(row):
     exchange = _normalize_exchange(row.get("exchange") or row.get("mic_code"))
-    return exchange == "NASDAQ"
+    return exchange in ALLOWED_EXCHANGES
 
 
 def _parse_candles(rows):
@@ -236,6 +255,156 @@ def _parse_money(value):
         return 0.0
 
 
+def _momentum_time_filter():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    now = datetime.now(ZoneInfo("America/New_York"))
+    hour = now.hour
+    if hour < 10:
+        return None, now
+    effective_hour = min(16, hour)
+    return MOMENTUM_RVOL_THRESHOLDS.get(effective_hour), now
+
+
+def _is_excluded_security(row):
+    name = str(row.get("name") or "").upper()
+    symbol = str(row.get("symbol") or "").upper()
+    quote_type = str(row.get("quote_type") or row.get("quoteType") or "").upper()
+    security_type = str(row.get("security_type") or "").upper()
+    excluded = (
+        "PREFERRED", "PREF ", "WARRANT", "RIGHT", "UNIT",
+        "DEPOSITARY", "ADR", "AMERICAN DEPOSITARY", "SPAC",
+        "SPECIAL PURPOSE ACQUISITION",
+    )
+    if any(token in name for token in excluded):
+        return True
+    if quote_type not in {"", "EQUITY"}:
+        return True
+    if security_type and security_type not in {"EQUITY", "COMMON STOCK"}:
+        return True
+    if symbol.endswith((".WS", ".WT", ".W", ".U")):
+        return True
+    return False
+
+
+def _parse_yahoo_number(value):
+    if value is None:
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).replace(",", "").replace("$", "").replace("%", "").strip()
+    multipliers = {"K": 1e3, "M": 1e6, "B": 1e9, "T": 1e12}
+    if text and text[-1].upper() in multipliers:
+        try:
+            return float(text[:-1]) * multipliers[text[-1].upper()]
+        except ValueError:
+            return 0.0
+    return _f(text, 0.0)
+
+
+def _momentum_rvol_10d(candles):
+    if len(candles) < 11:
+        return None
+    today_volume = _f(candles[-1].get("volume"), 0)
+    baseline = sum(_f(x.get("volume"), 0) for x in candles[-11:-1]) / 10.0
+    return today_volume / baseline if baseline > 0 else None
+
+
+async def _discover_yahoo_top_gainers(client):
+    threshold, now = _momentum_time_filter()
+    if threshold is None:
+        return []
+    payload = None
+    for base in (
+        "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved",
+        "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved",
+    ):
+        try:
+            r = await client.get(
+                base,
+                params={"formatted": "false", "lang": "en-US", "region": "US",
+                        "scrIds": "day_gainers", "count": 250},
+                headers={"User-Agent": "Mozilla/5.0 SAS-PRO/2.0"},
+            )
+            r.raise_for_status()
+            payload = r.json()
+            break
+        except Exception:
+            continue
+    if not isinstance(payload, dict):
+        return []
+    rows = (((payload.get("finance") or {}).get("result") or [{}])[0].get("quotes") or [])
+    out = []
+    for raw in rows:
+        row = dict(raw)
+        exchange = _normalize_exchange(row.get("exchange") or row.get("fullExchangeName"))
+        if exchange not in ALLOWED_EXCHANGES:
+            continue
+        row["symbol"] = str(row.get("symbol") or "").upper().strip()
+        row["name"] = row.get("longName") or row.get("shortName") or row["symbol"]
+        row["quote_type"] = row.get("quoteType")
+        if not row["symbol"] or _is_excluded_security(row):
+            continue
+        price = _parse_yahoo_number(row.get("regularMarketPrice") or row.get("postMarketPrice"))
+        change_pct = _parse_yahoo_number(row.get("regularMarketChangePercent"))
+        volume = _parse_yahoo_number(row.get("regularMarketVolume"))
+        market_cap = _parse_yahoo_number(row.get("marketCap"))
+        if price <= 0 or change_pct <= 0 or volume <= 0:
+            continue
+        if price <= MAX_PRICE and change_pct > MOMENTUM_SMALL_MIN_GAIN and volume > MOMENTUM_SMALL_MIN_VOLUME:
+            section = "small"
+        elif market_cap > MOMENTUM_LARGE_MIN_MARKET_CAP and change_pct > MOMENTUM_LARGE_MIN_GAIN:
+            section = "large"
+        else:
+            continue
+        out.append({
+            "symbol": row["symbol"], "name": row["name"], "price": price,
+            "change_pct": change_pct, "volume": volume, "market_cap": market_cap,
+            "exchange": exchange, "quote_type": row.get("quoteType"),
+            "source": "Yahoo Finance Day Gainers", "momentum_section": section,
+            "momentum_session_date": now.strftime("%Y-%m-%d"),
+            "momentum_asof_ny": now.strftime("%Y-%m-%d %H:%M:%S %Z"),
+            "momentum_rvol_threshold": threshold[section],
+        })
+    return out
+
+
+async def _apply_daily_momentum_filter(candidates):
+    threshold, now = _momentum_time_filter()
+    if threshold is None:
+        return [], {"session_date": now.strftime("%Y-%m-%d"), "status": "outside_main_session"}
+    semaphore = asyncio.Semaphore(12)
+
+    async def enrich(row):
+        symbol = str(row.get("symbol") or "").upper()
+        async with semaphore:
+            async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 20)) as client:
+                candles, source = await _get_analysis_candles(client, symbol, allow_twelve_fallback=False)
+        rvol10 = _momentum_rvol_10d(candles)
+        if rvol10 is None:
+            return None
+        required = threshold[row["momentum_section"]]
+        if rvol10 <= required:
+            return None
+        result = dict(row)
+        result["momentum_rvol_10d"] = round(rvol10, 2)
+        result["momentum_rvol_threshold"] = required
+        result["momentum_candle_source"] = source
+        result["momentum_session_verified"] = True
+        result["momentum_warning_under_1"] = bool(result["price"] < 1.0)
+        return result
+
+    enriched = await asyncio.gather(*(enrich(row) for row in candidates), return_exceptions=False)
+    accepted = [x for x in enriched if x]
+    accepted.sort(key=lambda x: float(x.get("momentum_rvol_10d") or 0), reverse=True)
+    return accepted, {
+        "session_date": now.strftime("%Y-%m-%d"),
+        "asof_ny": now.strftime("%Y-%m-%d %H:%M:%S %Z"),
+        "rvol_thresholds": threshold,
+        "accepted": len(accepted),
+    }
+
+
 async def _discover_us_exchanges(client):
     # Nasdaq public screener: NASDAQ only.
     out = []
@@ -395,27 +564,31 @@ async def _discover_panwatch(client):
 
 async def discover_low_price_stocks():
     async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
-        sources = await asyncio.gather(
-            _discover_us_exchanges(client),
-            _discover_openterminal(client),
-            _discover_panwatch(client),
-            return_exceptions=True,
-        )
-
-    merged, seen = [], set()
-    for source_rows in sources:
-        if isinstance(source_rows, Exception):
-            continue
-        for row in source_rows:
-            if not _is_allowed_exchange(row):
-                continue
-            symbol = str(row.get("symbol") or "").upper().strip()
-            if not symbol or symbol in seen:
-                continue
-            seen.add(symbol)
-            merged.append(row)
-
-    return merged
+        yahoo = await _discover_yahoo_top_gainers(client)
+        if yahoo:
+            momentum_candidates = yahoo
+        else:
+            sources = await asyncio.gather(
+                _discover_us_exchanges(client),
+                _discover_openterminal(client),
+                _discover_panwatch(client),
+                return_exceptions=True,
+            )
+            momentum_candidates = []
+            seen = set()
+            for source_rows in sources:
+                if isinstance(source_rows, Exception):
+                    continue
+                for row in source_rows:
+                    if not _is_allowed_exchange(row):
+                        continue
+                    symbol = str(row.get("symbol") or "").upper().strip()
+                    if not symbol or symbol in seen:
+                        continue
+                    seen.add(symbol)
+                    momentum_candidates.append(row)
+    filtered, _ = await _apply_daily_momentum_filter(momentum_candidates)
+    return filtered
 
 
 async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool = False):
@@ -774,7 +947,6 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         and (power_trend or sma20 >= sma50 * 0.98 or accumulation)
         and not distribution_risk
         and not bearish_head_shoulders
-        and not chase_risk
         and (breakout_room_pct is None or breakout_room_pct >= 3.0)
     )
     strategy_pass = bool(early_setup_pass or breakout_pass)
@@ -1032,6 +1204,9 @@ async def scan_us_low_price_stocks():
         "sas_no_distribution": 0,
         "sas_no_bearish_hs": 0,
         "sas_no_chase": 0,
+        "momentum_small_candidates": 0,
+        "momentum_large_candidates": 0,
+        "momentum_rvol_pass": 0,
         "sas_breakout_confirmed": 0,
         "sas_breakout_retest": 0,
         "sas_breakout_reject_rsi": 0,
@@ -1050,28 +1225,12 @@ async def scan_us_low_price_stocks():
         "final_pass": 0,
     }
 
-    # رادار دوري: لا نعتمد على أعلى الرابحين فقط؛ لأن هدفنا اكتشاف
-    # بداية الحركة قبل أن يتحول السهم إلى مطاردة متأخرة.
-    # نخلط الحركة + السيولة + عينة واسعة من الكون، ثم يقرر استراتيجية SAS
-    # وفلتر Early Breakout من يمر فعلياً.
-    by_change = sorted(
+    # Top Gainers + RVOL 10 أيام هي بوابة الرادار، ثم SAS هو الفلتر الفني النهائي.
+    shortlist = sorted(
         candidates,
-        key=lambda x: float(x.get("change_pct") or 0),
+        key=lambda x: (float(x.get("momentum_rvol_10d") or 0), float(x.get("change_pct") or 0)),
         reverse=True,
-    )
-    by_dollar_volume = sorted(
-        candidates,
-        key=lambda x: float(x.get("price") or 0) * float(x.get("volume") or 0),
-        reverse=True,
-    )
-    shortlist = []
-    seen_shortlist = set()
-    for row in by_change[:180] + by_dollar_volume[:180] + candidates[:120]:
-        symbol = str(row.get("symbol") or "").upper()
-        if not symbol or symbol in seen_shortlist:
-            continue
-        seen_shortlist.add(symbol)
-        shortlist.append(row)
+    )[:180]
 
     # Keep the radar responsive: analyze the staged shortlist concurrently.
     semaphore = asyncio.Semaphore(16)
@@ -1094,6 +1253,12 @@ async def scan_us_low_price_stocks():
                 )
                 filter_counts["classify_checked"] += 1
                 # عدّ شروط SAS الفردية لتحديد نقطة الاختناق، دون تغيير pass.
+                if row.get("momentum_section") == "small":
+                    filter_counts["momentum_small_candidates"] += 1
+                elif row.get("momentum_section") == "large":
+                    filter_counts["momentum_large_candidates"] += 1
+                if row.get("momentum_rvol_10d") is not None:
+                    filter_counts["momentum_rvol_pass"] += 1
                 if classification.get("power_trend"):
                     filter_counts["sas_power_trend"] += 1
                 if classification.get("early_timing"):
@@ -1403,20 +1568,21 @@ async def scan_us_low_price_stocks():
     results.sort(
         key=lambda x: (
             1 if (x.get("classification") or {}).get("intraday_confirmation") else 0,
+            float(x.get("momentum_rvol_10d") or 0),
             int((x.get("classification") or {}).get("score") or 0),
-            float((x.get("classification") or {}).get("rvol") or 0),
-            float((x.get("intraday") or {}).get("buy_pressure") or 0),
             float(x.get("change_pct") or 0),
         ),
         reverse=True,
     )
-    # القناة تستقبل عددًا محدودًا من الإشارات النوعية فقط.
-    results = results[:MAX_RADAR_RESULTS]
+    small = [x for x in results if x.get("momentum_section") == "small"][:MAX_SECTION_RESULTS]
+    large = [x for x in results if x.get("momentum_section") == "large"][:MAX_SECTION_RESULTS]
+    results = small + large
     filtered = [x for x in diagnostics if x.get("status") == "filtered"]
     errors = [x for x in diagnostics if x.get("status") == "error"]
 
     return {
         "stocks": results,
+        "momentum_sections": {"small": small, "large": large},
         "diagnostics": {
             "candidates": candidate_count,
             "shortlist": len(shortlist),
@@ -1441,7 +1607,15 @@ async def scan_us_low_price_stocks():
                 reverse=True,
             ),
             "filter_counts": filter_counts,
-            "price_source": "Nasdaq/OpenTerminal/PanWatch + limited Twelve Data fallbacks",
+            "price_source": "Yahoo Finance Day Gainers + PanWatch + OpenTerminal/Nasdaq fallbacks",
+        "momentum_source": "Yahoo Finance Day Gainers",
+        "momentum_rules": {
+            "small": {"price": "0.5-20", "change_pct": ">10", "volume": ">500000"},
+            "large": {"market_cap": ">1B", "change_pct": ">3"},
+            "rvol_formula": "today_volume / average_volume_last_10_sessions",
+            "rvol_time_thresholds": MOMENTUM_RVOL_THRESHOLDS,
+            "exchanges": sorted(ALLOWED_EXCHANGES),
+        },
             "twelve_data_quota_exhausted": _twelve_data_quota_exhausted,
         },
     }
