@@ -89,7 +89,10 @@ def _contains_market_price_claim(value: Any) -> bool:
     text = str(value or "")
     # AI must never create or repeat a market price. Financial ratios/percentages
     # are allowed; currency-like price strings are not.
-    return bool(re.search(r"(?i)(?:\$|USD\\s*\\d|\\d+(?:\\.\\d+)?\\s*(?:دولار|USD)\\b)", text))
+    return bool(re.search(
+        r"(?i)(?:\$|USD\s*\d|\d+(?:\.\d+)?\s*(?:دولار|USD)\b|(?:سعر|السعر|سعر السهم)\s*[:：-]?\s*\d)",
+        text,
+    ))
 
 
 def _prompt(symbol: str, news: list[dict], fundamentals: dict) -> str:
