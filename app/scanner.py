@@ -687,6 +687,9 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         and not chase_risk
     )
 
+    # قيم افتراضية دفاعية قبل بناء الوصف؛ لا تغيّر شروط المرور أو النتيجة.
+    behavior, stock_type, emoji = "غير واضح", "غير واضح", "⚪"
+
     # وصف ثابت للاتجاه/نوع الحركة؛ هذه القيم كانت تُستخدم في التقرير
     # دون أن يتم تعريفها، ما كان يوقف تحليل المرشحين بالكامل.
     if power_trend and breakout:
