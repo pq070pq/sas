@@ -78,6 +78,9 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     intraday = tech.get("intraday") or {}
     radar_checks = tech.get("radar_checks") or {}
 
+    def _esc(value):
+        return html.escape(str(value or "غير متوفر"))
+
     def num(value):
         try:
             return float(value)
@@ -160,9 +163,6 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         "",
         "📰 <b>تقرير الأخبار — مبني على المصادر الأصلية</b>",
     ]
-
-    def _esc(value):
-        return html.escape(str(value or "غير متوفر"))
 
     source_map = {
         str(item.get("id") or f"N{idx}"): item
