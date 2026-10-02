@@ -127,7 +127,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         "🚨 <b>SAS PRO RADAR 📡</b>",
         "",
         f"📈 <b>\x24{symbol}</b> 🇺🇸",
-        f"💵 السعر الحالي: <b>\x24{_money(price)}</b>" if price is not None else "💵 السعر الحالي: <b>غير متوفر</b>",
+        f"💵 <b>السعر الحالي: {_money(price)}</b>" if price is not None else "💵 <b>السعر الحالي: غير متوفر</b>",
         f"📊 التغير: <b>{change:+.2f}%</b>" if change is not None else "📊 التغير: <b>غير متوفر</b>",
         "",
         "━━━━━━━━━━━━━━━━━━",
@@ -176,18 +176,16 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             if url:
                 line += f' — <a href="{url}">الخبر الأصلي</a>'
             report.append(line)
-        report.append("🔒 <b>الذكاء الاصطناعي لم يحدد سعرًا ولم ينشئ خبرًا؛ دوره تفسير الأدلة الموردة فقط.</b>")
+        report.append("🔒 <b>AI يفسّر المصادر الموردة فقط ولا ينشئ أسعارًا أو أخبارًا.</b>")
     elif news_items and catalyst:
+        catalyst_url = html.escape(str(catalyst.get("url") or ""), quote=True)
         report.extend([
-            f"🔹 <b>الخبر الأصلي:</b> {_esc(catalyst.get('headline'))}",
-            f"🕐 <b>الوقت:</b> {_esc(catalyst.get('published_at'))}",
-            f"📰 <b>المصدر:</b> {_esc(catalyst.get('source'))}",
-            f"🔗 <b>الرابط:</b> {html.escape(str(catalyst.get('url') or 'غير متوفر'), quote=True)}",
-            "🤖 <b>لم تتم إضافة تفسير AI لأن التحليل الموثق غير متاح حاليًا.</b>",
+            f"📰 <b>{_esc(catalyst.get('headline'))}</b>",
+            f"🏷️ {_esc(catalyst.get('source'))} • {_esc(catalyst.get('published_at'))}",
+            f'🔗 <a href="{catalyst_url}">قراءة الخبر الأصلي</a>' if catalyst_url else "🔗 <b>رابط الخبر: غير متوفر</b>",
         ])
     elif news_items:
-        report.append("📰 توجد أخبار موثقة، لكن لم يتم اعتماد خبر كمحفز محدد.")
-        report.append("🤖 لم تتم إضافة تفسير غير موثق.")
+        report.append("📰 أخبار موثقة متاحة — لم يُعتمد محفز محدد.")
     else:
         report.append("📰 <b>غير واضح — لا توجد أخبار موثقة كافية للتحليل.</b>")
 
@@ -195,35 +193,22 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         "",
         "━━━━━━━━━━━━━━━━━━",
         "",
-        "🤖 <b>التحليل المالي المبسط من البيانات الموردة</b>",
+        "🤖 <b>البيانات المالية</b>",
     ])
     if ai.get("enabled") and ai.get("status") == "ok":
         report.append(f"🏢 {_esc(ai.get('financial_summary'))}")
         risks = ai.get("risk_flags") or []
         if risks:
-            report.append("⚠️ <b>مخاطر مثبتة في البيانات:</b> " + " • ".join(_esc(x) for x in risks[:4]))
-        report.append(f"💡 <b>الخلاصة:</b> {_esc(ai.get('key_takeaway'))}")
-        report.append(f"⚙️ مزود التحليل: <b>{_esc(ai.get('provider'))}</b>")
-    elif ai.get("status") == "no_verified_news":
-        report.append("غير متوفر — لا توجد أخبار موثقة صالحة للتحليل.")
-    elif ai.get("status") == "no_api_key":
-        report.append("غير مفعّل — لم يتم ضبط مفتاح مزود LLM.")
-    elif ai.get("status") == "provider_error":
-        report.append("غير متوفر مؤقتًا — تم إبقاء التقرير على البيانات الأصلية.")
+            report.append("⚠️ <b>مخاطر:</b> " + " • ".join(_esc(x) for x in risks[:3]))
+        if ai.get("key_takeaway"):
+            report.append(f"💡 <b>الخلاصة:</b> {_esc(ai.get('key_takeaway'))}")
     else:
-        report.append("غير متوفر — لم تتم إضافة بيانات غير موثقة.")
+        report.append("ℹ️ غير متوفر من البيانات الموثقة حاليًا.")
 
     report.extend([
         "",
-        "━━━━━━━━━━━━━━━━━━",
-        "",
-        "🔐 <b>فصل مصادر البيانات</b>",
-        "• السعر/التغير/الدخول/الوقف/الأهداف: من بيانات السوق والتحليل الفني فقط.",
-        "• الأخبار: من المصدر الأصلي فقط؛ الذكاء الاصطناعي يفسرها ولا ينشئها.",
-        "• لا يتم قبول أي سعر أو خبر أو رقم أنشأه الذكاء الاصطناعي.",
-        "• عند غياب الدليل: <b>غير واضح / غير متوفر</b>.",
+        "🔐 <b>المصادر:</b> الأسعار والمستويات من السوق والتحليل الفني؛ الأخبار من مصادرها الأصلية فقط.",
     ])
-
     report.extend([
         "",
         "━━━━━━━━━━━━━━━━━━",
@@ -247,13 +232,13 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         "━━━━━━━━━━━━━━━━━━",
         "",
         "🎯 <b>خطة الرصد</b>",
-        f"🟢 الدخول المرجعي: <b>\x24{_money(price)}</b>" if price is not None else "🟢 الدخول المرجعي: <b>غير متوفر</b>",
-        f"⚡ الاختراق: <b>\x24{_money(breakout)}</b>" if breakout is not None else "⚡ الاختراق: <b>غير محسوب</b>",
-        f"🛑 إلغاء السيناريو: <b>\x24{_money(stop)}</b>" if stop is not None else "🛑 إلغاء السيناريو: <b>غير متوفر</b>",
+        f"🟢 <b>الدخول المرجعي: {_money(price)}</b>" if price is not None else "🟢 <b>الدخول المرجعي: غير متوفر</b>",
+        f"⚡ <b>الاختراق: {_money(breakout)}</b>" if breakout is not None else "⚡ <b>الاختراق: غير محسوب</b>",
+        f"🛑 <b>إلغاء السيناريو: {_money(stop)}</b>" if stop is not None else "🛑 <b>إلغاء السيناريو: غير متوفر</b>",
         "",
         "🎯 <b>الأهداف الفنية</b>",
         *target_lines,
-        f"🛡 وقف الرصد الحالي: <b>\x24{_money(current_stop)}</b>" if current_stop is not None else "🛡 وقف الرصد الحالي: <b>غير متوفر</b>",
+        f"🛡 <b>وقف الرصد الحالي: {_money(current_stop)}</b>" if current_stop is not None else "🛡 <b>وقف الرصد الحالي: غير متوفر</b>",
         (
             f"⚖️ <b>المخاطرة مقابل العائد (R:R): 1 : {num(tech.get('risk_reward')):.2f}</b>"
             if num(tech.get('risk_reward')) is not None
