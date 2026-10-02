@@ -1634,22 +1634,17 @@ async def scan_us_low_price_stocks():
                         reward,
                         risk_reward,
                     )
-                    if risk_reward < 1.5:
-                        return None, {
-                            "symbol": symbol,
-                            "exchange": row.get("exchange"),
-                            "status": "filtered",
-                            "reason": "نسبة المخاطرة إلى الهدف الأول أقل من 1.5",
-                            "data_source": targets.get("method") or "PanWatch",
-                            "risk_reward": round(risk_reward, 4),
-                            "risk": round(risk, 4),
-                            "reward": round(reward, 4),
-                            "live_price": round(live_price, 4),
-                            "first_target": round(first_target, 4),
-                            "stop": round(stop, 4),
-                        }
+                    # R:R is informational here, not a rejection gate.
+                    # Keep a qualifying opportunity in the radar and expose
+                    # low R:R as a warning in the user-facing report.
                     targets["risk_reward"] = round(risk_reward, 2)
-                    filter_counts["risk_reward_pass"] += 1
+                    targets["risk_reward_threshold"] = 1.5
+                    targets["risk_reward_warning"] = risk_reward < 1.5
+                    filter_counts["risk_reward_checked"] += 1
+                    if risk_reward >= 1.5:
+                        filter_counts["risk_reward_pass"] += 1
+                    else:
+                        filter_counts["risk_reward_warning"] += 1
 
                 filter_counts["final_pass"] += 1
                 earnings_warning = earnings_by_symbol.get(symbol)
