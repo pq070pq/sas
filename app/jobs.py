@@ -443,7 +443,7 @@ async def stock_radar_cycle():
                             "source": row.get("live_price_source") or row.get("source") or "scan data",
                         }
                 classification = row.get("classification") or {}
-                tech = row.get("targets") or {}
+                tech = {**(row.get("targets") or {}), "radar_checks": row.get("radar_checks") or {}}
 
                 # AI enrichment runs only after the technical radar has already
                 # selected the candidate. It cannot create a signal, target,
