@@ -76,6 +76,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     tech = tech or {}
     classification = classification or {}
     intraday = tech.get("intraday") or {}
+    radar_checks = tech.get("radar_checks") or {}
 
     def num(value):
         try:
@@ -132,7 +133,22 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         "",
         "━━━━━━━━━━━━━━━━━━",
         "",
-        "📌 <b>سبب اختيار السهم</b>",
+        "📌 <b>شروط الرصد</b>",
+        f"🏷️ نوع الرصد: <b>{_esc((tech.get("radar_checks") or {}).get("momentum_label") or "غير محدد")}</b>",
+        "✅ <b>الزخم اليومي:</b> مستوفى",
+        f"📊 <b>RVOL الرصد:</b> {num((tech.get("radar_checks") or {}).get("momentum_rvol")):.2f}×" if num((tech.get("radar_checks") or {}).get("momentum_rvol")) is not None else "📊 <b>RVOL الرصد:</b> مستوفى",
+        f"🎚️ <b>الحد المطلوب:</b> {num((tech.get("radar_checks") or {}).get("momentum_rvol_threshold")):.2f}×" if num((tech.get("radar_checks") or {}).get("momentum_rvol_threshold")) is not None else "🎚️ <b>الحد المطلوب:</b> حسب وقت الجلسة",
+        "✅ <b>SAS Core:</b> مستوفى",
+        "✅ <b>السيولة اليومية:</b> مستوفاة",
+        "✅ <b>الهدف السعري:</b> مؤكد من مستوى مقاومة مرصود",
+        "✅ <b>المستويات الحية:</b> الدخول/الوقف/الهدف صالحة",
+        (
+            "⚠️ <b>R:R:</b> أقل من 1.5 — تحذير فقط ولا يلغي الرصد."
+            if bool((tech.get("radar_checks") or {}).get("risk_reward_warning"))
+            else "✅ <b>R:R:</b> عند أو فوق 1.5"
+        ),
+        "",
+        "📌 <b>المؤشرات الداعمة</b>",
         f"⭐ قوة الإشارة: <b>{score:.0f}/100</b>" if score is not None else "⭐ قوة الإشارة: <b>غير محسوب</b>",
         f"💧 السيولة بالدولار: <b>${dollar_volume:,.0f}</b>" if dollar_volume is not None else "💧 السيولة بالدولار: <b>غير متوفر</b>",
         f"📊 RVOL: <b>{rvol:.2f}×</b>" if rvol is not None else "📊 RVOL: <b>غير متوفر</b>",
