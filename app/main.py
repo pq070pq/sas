@@ -254,7 +254,24 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         "🎯 <b>الأهداف الفنية</b>",
         *target_lines,
         f"🛡 وقف الرصد الحالي: <b>\x24{_money(current_stop)}</b>" if current_stop is not None else "🛡 وقف الرصد الحالي: <b>غير متوفر</b>",
-        f"⚖️ المخاطرة/العائد: <b>{num(tech.get('risk_reward')):.2f}×</b>" if num(tech.get('risk_reward')) is not None else "⚖️ المخاطرة/العائد: <b>غير محسوب</b>",
+        (
+            f"⚖️ <b>المخاطرة مقابل العائد (R:R): 1 : {num(tech.get('risk_reward')):.2f}</b>"
+            if num(tech.get('risk_reward')) is not None
+            else "⚖️ <b>المخاطرة مقابل العائد (R:R): غير محسوب</b>"
+        ),
+        (
+            "⚠️ <b>تنبيه R:R:</b> العائد المحتمل للهدف الأول أقل من مقدار المخاطرة حتى الوقف. "
+            "هذا التنبيه لا يلغي الفرصة؛ السهم اجتاز فلاتر الرصد السابقة."
+            if num(tech.get('risk_reward')) is not None and num(tech.get('risk_reward')) < 1.5
+            else (
+                "✅ <b>R:R مناسب:</b> مقابل كل 1 وحدة مخاطرة حتى الوقف، "
+                "يوجد عائد محتمل قدره "
+                f"{num(tech.get('risk_reward')):.2f} وحدة عند الهدف الأول."
+                if num(tech.get('risk_reward')) is not None
+                else "ℹ️ <b>R:R:</b> لم يتم حساب النسبة."
+            )
+        ),
+        "📖 <b>شرح R:R:</b> نسبة المخاطرة مقابل العائد؛ 1 : 2 تعني مخاطرة 1 مقابل عائد محتمل 2 عند الهدف الأول.",
         f"📌 الحالة: <b>{status_text}</b>",
         "",
         "⚠️ الأهداف مستويات فنية مبنية على مستويات سعرية مرصودة، وليست أسعارًا مضمونة.",
