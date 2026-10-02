@@ -100,7 +100,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     targets = [num(x) for x in (tech.get("targets") or [])]
     targets = [x for x in targets if x is not None and x > 0]
     target_lines = [
-        f"🎯 الهدف {idx}: <b>${_money(target)}</b>"
+        f"🎯 الهدف {idx}: <b>{_money(target)}</b>"
         for idx, target in enumerate(targets, 1)
     ] or ["🎯 لا يوجد هدف فني متاح"]
 
