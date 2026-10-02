@@ -1068,7 +1068,11 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         and (breakout_room_pct is None or breakout_room_pct >= 3.0)
     )
     strategy_pass = bool(early_setup_pass or breakout_pass)
-    core_pass = strategy_pass
+
+    # الاستراتيجيات القديمة تبقى كبيانات تشخيصية فقط ولا تمنع السهم
+    # من دخول مراحل الرادار. بوابة الرادار الفعلية هي:
+    # الزخم + RVOL + السيولة + الأهداف/الوقف + R:R.
+    core_pass = True
 
     breakout_reject_reasons = []
     if breakout_confirmed and not breakout_pass:
@@ -1143,7 +1147,7 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         "emoji": emoji,
         "score": score,
         "pass": core_pass,
-        "reason": " + ".join(evidence) if evidence else "لا توجد تركيبة واضحة من استراتيجية SAS",
+        "reason": " + ".join(evidence) if evidence else "بيانات فنية صالحة؛ لا توجد ملاحظة استراتيجية إضافية",
         "rvol": round(rvol, 2),
         "ema20": round(ema20, 4) if ema20 is not None else None,
         "ema50": round(ema50, 4) if ema50 is not None else None,
@@ -1341,7 +1345,7 @@ async def scan_us_low_price_stocks():
         "final_pass": 0,
     }
 
-    # Top Gainers + RVOL 10 أيام هي بوابة الرادار، ثم SAS هو الفلتر الفني النهائي.
+    # Top Gainers + RVOL 10 أيام هي بوابة الرادار، ثم السيولة والأهداف/الوقف وR:R.
     shortlist = sorted(
         candidates,
         key=lambda x: (float(x.get("momentum_rvol_10d") or 0), float(x.get("change_pct") or 0)),
@@ -1485,9 +1489,8 @@ async def scan_us_low_price_stocks():
                         "data_source": classification.get("data_source"),
                     }
 
-                # فلترة السيولة: لا يكفي أن يكون السهم رابحًا؛ نريد تداولًا
-                # نقديًا فعليًا وحجمًا متوافقًا مع الحركة، مع الحفاظ على الأسهم
-                # التي يثبتها استراتيجية SAS حتى لو لم تكن في أعلى قائمة الحجم.
+                # فلترة السيولة: بعد بوابة الزخم، نريد تداولًا نقديًا فعليًا
+                # وحجمًا متوافقًا مع الحركة. لا توجد هنا بوابة Strategy قديمة.
                 entry_price = _f(row.get("price"), 0)
                 daily_volume = _f(row.get("volume"), 0)
                 dollar_volume = entry_price * daily_volume
