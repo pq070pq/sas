@@ -1345,7 +1345,9 @@ async def scan_us_low_price_stocks():
         "liquidity_pass": 0,
         "targets_pass": 0,
         "live_levels_pass": 0,
+        "risk_reward_checked": 0,
         "risk_reward_pass": 0,
+        "risk_reward_warning": 0,
         "final_pass": 0,
     }
 
