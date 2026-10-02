@@ -1607,6 +1607,16 @@ async def scan_us_low_price_stocks():
                     risk = live_price - stop
                     reward = first_target - live_price
                     risk_reward = (reward / risk) if risk > 0 and reward > 0 else 0
+                    logger.info(
+                        "Risk/reward diagnostic: %s | price=%.4f target1=%.4f stop=%.4f risk=%.4f reward=%.4f rr=%.4f",
+                        symbol,
+                        live_price,
+                        first_target,
+                        stop,
+                        risk,
+                        reward,
+                        risk_reward,
+                    )
                     if risk_reward < 1.5:
                         return None, {
                             "symbol": symbol,
@@ -1614,6 +1624,12 @@ async def scan_us_low_price_stocks():
                             "status": "filtered",
                             "reason": "نسبة المخاطرة إلى الهدف الأول أقل من 1.5",
                             "data_source": targets.get("method") or "PanWatch",
+                            "risk_reward": round(risk_reward, 4),
+                            "risk": round(risk, 4),
+                            "reward": round(reward, 4),
+                            "live_price": round(live_price, 4),
+                            "first_target": round(first_target, 4),
+                            "stop": round(stop, 4),
                         }
                     targets["risk_reward"] = round(risk_reward, 2)
                     filter_counts["risk_reward_pass"] += 1
