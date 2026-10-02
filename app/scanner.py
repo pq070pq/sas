@@ -1314,6 +1314,7 @@ async def scan_us_low_price_stocks():
     results = []
     diagnostics = []
     breakout_diagnostics = []
+    risk_reward_diagnostics = []
     candidate_count = len(candidates)
     # تشخيص مراحل الفلترة فقط؛ لا يغيّر شروط استراتيجية SAS أو نتيجة الرصد.
     filter_counts = {
@@ -1613,6 +1614,16 @@ async def scan_us_low_price_stocks():
                     risk = live_price - stop
                     reward = first_target - live_price
                     risk_reward = (reward / risk) if risk > 0 and reward > 0 else 0
+                    risk_reward_diagnostics.append({
+                        "symbol": symbol,
+                        "price": round(live_price, 4),
+                        "target1": round(first_target, 4),
+                        "stop": round(stop, 4),
+                        "risk": round(risk, 4),
+                        "reward": round(reward, 4),
+                        "risk_reward": round(risk_reward, 4),
+                        "passed": risk_reward >= 1.5,
+                    })
                     logger.info(
                         "Risk/reward diagnostic: %s | price=%.4f target1=%.4f stop=%.4f risk=%.4f reward=%.4f rr=%.4f",
                         symbol,
@@ -1757,6 +1768,11 @@ async def scan_us_low_price_stocks():
                     len(x.get("reject_reasons") or []),
                     float(x.get("rvol") or 0),
                 ),
+                reverse=True,
+            ),
+            "risk_reward_diagnostics": sorted(
+                risk_reward_diagnostics,
+                key=lambda x: float(x.get("risk_reward") or 0),
                 reverse=True,
             ),
             "filter_counts": filter_counts,
