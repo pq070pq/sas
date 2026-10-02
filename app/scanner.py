@@ -1,6 +1,9 @@
 import asyncio
 import httpx
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 from .config import settings
 from .panwatch import technical_targets
 from .news import company_news, select_catalyst, earnings_calendar_window
