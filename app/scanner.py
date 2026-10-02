@@ -1650,6 +1650,29 @@ async def scan_us_low_price_stocks():
 
                 filter_counts["final_pass"] += 1
                 earnings_warning = earnings_by_symbol.get(symbol)
+                # حالة شروط الرادار الفعلية التي اجتازها السهم.
+                # هذه بيانات مشتقة من الفلاتر المستخدمة فعليًا، وليست تقييمًا إنشائيًا.
+                momentum_section = str(row.get("momentum_section") or "").lower()
+                momentum_label = "سهم صغير" if momentum_section == "small" else "سهم متوسط/كبير" if momentum_section == "large" else "غير محدد"
+                momentum_threshold = _f(row.get("momentum_rvol_threshold"), 0)
+                momentum_rvol = _f(row.get("momentum_rvol_10d"), 0)
+                radar_checks = {
+                    "momentum": True,
+                    "momentum_label": momentum_label,
+                    "momentum_rvol": round(momentum_rvol, 2) if momentum_rvol else None,
+                    "momentum_rvol_threshold": round(momentum_threshold, 2) if momentum_threshold else None,
+                    "sas_core": bool(classification.get("pass")),
+                    "liquidity": True,
+                    "rvol": daily_rvol >= 1.0,
+                    "target": True,
+                    "live_levels": True,
+                    "no_distribution": not bool(classification.get("distribution_risk")),
+                    "no_bearish_hs": not bool(classification.get("bearish_head_shoulders")),
+                    "no_chase": not bool(classification.get("chase_risk")),
+                    "risk_reward": round(_f(targets.get("risk_reward"), 0), 2) if isinstance(targets, dict) and targets.get("risk_reward") is not None else None,
+                    "risk_reward_warning": bool(isinstance(targets, dict) and targets.get("risk_reward_warning")),
+                }
+
                 result_row = {
                     **row,
                     "symbol": symbol,
@@ -1675,6 +1698,7 @@ async def scan_us_low_price_stocks():
                     "live_price": live_price if live_price > 0 else None,
                     "live_change_pct": live_change,
                     "live_price_source": live_source,
+                    "radar_checks": radar_checks,
                 }
 
                 if live_price > 0:
