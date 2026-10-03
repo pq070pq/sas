@@ -609,9 +609,12 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
     pro = admin or existing.free_access or subscription_active or trial_active
     expires = None
     if not admin:
+        # مصدر تاريخ الانتهاء يجب أن يطابق مصدر الوصول الفعلي:
+        # التجربة ← trial_expires، الاشتراك المدفوع ← subscription_expires.
+        # free_access لا يملك تاريخ انتهاء مصطنع.
         if trial_active:
             expires = aware(existing.trial_expires).isoformat()
-        elif existing.subscription_expires:
+        elif subscription_active:
             expires = aware(existing.subscription_expires).isoformat()
     return {
         "user": user,
