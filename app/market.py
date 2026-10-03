@@ -295,13 +295,18 @@ async def ticker():
 
     async def one(symbol, label):
         try:
-            item = await quote(symbol)
+            # المؤشرات/الذهب تستخدم مسار macro_quote المستقل عن حصة Twelve Data.
+            # هذا يمنع ظهور 0.00 أو فراغ عندما تكون الحصة محمية.
+            item = await macro_quote(symbol) if symbol in {"SPX", "IXIC", "DJI", "XAU/USD", "VIX", "WTI/USD"} else await quote(symbol)
             item["label"] = label
+            if not _valid_price(item.get("price")):
+                item["price"] = None
             return item
-        except Exception:
+        except Exception as exc:
+            logger.warning("MARKET_TICKER_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
             return {
                 "symbol": symbol, "label": label,
-                "price": None, "change_pct": None, "source": "error",
+                "price": None, "change_pct": None, "source": "unavailable",
             }
 
     return await asyncio.gather(*(one(symbol, label) for symbol, label in symbols))
