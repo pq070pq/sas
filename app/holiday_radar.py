@@ -161,7 +161,8 @@ async def publish_holiday_radar():
             "",
             f"🇺🇸 <b>الوضع:</b> {period}",
             "",
-            "📡 <b>الأسعار الحالية / آخر إغلاق</b>",
+            "📡 <b>الأسعار الحالية / آخر إغلاق</b> ✅",
+            "",
         ]
 
         for label, q in rows:
@@ -169,17 +170,31 @@ async def publish_holiday_radar():
             change = _fmt_pct(q.get("change_pct"))
             source = str(q.get("source") or "")
             suffix = " • إغلاق أخير" if "Last Close" in source else ""
-            lines.append(f"{label}: <b>{price}</b> ({change}){suffix}")
+
+            if label == "₿ بيتكوين":
+                display_label = "🔹 <b>BTC</b>"
+                price_text = f"$" + price if price != "—" else price
+            elif label == "🥇 الذهب":
+                display_label = "🔸 <b>Gold</b>"
+                price_text = f"$" + price if price != "—" else price
+            elif label == "📊 Dow Jones Industrial":
+                display_label = "📊 <b>Dow Jones</b>"
+                price_text = price
+            else:
+                display_label = label
+                price_text = price
+
+            lines.append(f"{display_label}: {price_text} ({change}){suffix}")
 
         lines += [
             "",
             _btc_move_line(btc_price, _btc_previous_snapshot_price),
-            "💡 <b>⚡</b> تعني أن حركة بيتكوين خلال 4 ساعات بلغت 3% أو أكثر.",
+            "⚡ <b>حركة قوية:</b> تعني أن حركة بيتكوين خلال 4 ساعات بلغت 3% أو أكثر.",
             "",
             "🔄 <b>التحديث التالي بعد 4 ساعات</b>",
             f"🕐 {datetime.now(RIYADH).strftime('%H:%M')} بتوقيت السعودية",
             "",
-            "⚠️ رصد معلوماتي للأسعار فقط أثناء عطلة السوق.",
+            "📡 رصد معلوماتي للأسعار أثناء عطلة السوق ⚠️",
         ]
 
         await send_message(settings.telegram_channel_id, "\n".join(lines))
