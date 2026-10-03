@@ -88,24 +88,20 @@ async def publish_market_brief():
         return {"sent": False, "reason": "disabled"}
     if not settings.telegram_channel_id or not settings.telegram_bot_token:
         return {"sent": False, "reason": "telegram_not_configured"}
-
     status = market_status()
     if status.get("holiday") or status.get("session") != "premarket":
         return {"sent": False, "reason": "not_premarket"}
-
     minutes = int(status.get("minutes_to_open") or 9999)
     if minutes > max(5, settings.market_brief_window_minutes) or minutes < 50:
         return {"sent": False, "reason": "outside_window"}
 
     key = f"market-brief:{status.get('date')}"
     async with SessionLocal() as db:
-        exists = (await db.execute(
-            select(ScheduledReport).where(ScheduledReport.report_key == key)
-        )).scalars().first()
+        exists = (await db.execute(select(ScheduledReport).where(ScheduledReport.report_key == key))).scalars().first()
         if exists:
             return {"sent": False, "reason": "already_sent"}
 
-        symbols = [("IXIC", "Nasdaq"), ("SPX", "S&P 500"), ("DJI", "Dow Jones")]
+        symbols = [("IXIC", "Nasdaq"), ("SPX", "S&P 500"), ("DJI", "Dow Jones Industrial")]
         quotes = []
         for symbol, label in symbols:
             try:
@@ -116,31 +112,63 @@ async def publish_market_brief():
         async with httpx.AsyncClient(timeout=12) as client:
             news = await _general_news(client)
             events = await _economic_events(client, datetime.now(ET).date())
+        news = sorted(news, key=_importance, reverse=True)[:5]
 
-        news = sorted(news, key=_importance, reverse=True)
-        lines = [INTRO, "", "━━━━━━━━━━━━━━━━━━", "", "📊 <b>حركة المؤشرات</b>"]
+        try:
+            from .scrapling_source import enrich_news_items
+            news = list(await enrich_news_items(news, limit=3))
+        except Exception:
+            pass
+
+        ai = {"enabled": False, "status": "unavailable"}
+        try:
+            from .ai_radar import analyze_stock
+            ai_news = [{
+                "headline": item.get("headline"),
+                "source": item.get("source"),
+                "url": item.get("url"),
+                "datetime": item.get("datetime"),
+                "summary": item.get("summary") or "",
+            } for item in news if item.get("headline") and item.get("url") and item.get("source")]
+            if ai_news:
+                ai = await analyze_stock("MARKET", news=ai_news, fundamentals={}, market={
+                    "session": "premarket",
+                    "minutes_to_open": minutes,
+                    "indices": [{"name": label, "price": q.get("price"), "change_pct": q.get("change_pct")} for label, q in quotes],
+                })
+        except Exception:
+            pass
+
+        lines = [INTRO, "", "━━━━━━━━━━━━━━━━━━", "", "📊 <b>مؤشرات السوق قبل الافتتاح</b>"]
         for label, q in quotes:
-            lines.append(f"• {label}: <b>{_fmt_price(q.get('price'))}</b> ({_fmt_pct(q.get('change_pct'))})")
+            lines.append(f"• <b>{html.escape(label)}</b>: {_fmt_price(q.get('price'))} ({_fmt_pct(q.get('change_pct'))})")
 
-        lines += ["", "📰 <b>الأخبار المؤثرة</b>"]
-        selected = []
-        for item in news:
-            headline = str(item.get("headline") or "").strip()
-            if not headline:
-                continue
-            selected.append(item)
-            if len(selected) >= 5:
-                break
-        if selected:
-            for item in selected:
+        lines += ["", "📰 <b>زبدة الأخبار المؤثرة</b>"]
+        if ai.get("enabled") and ai.get("status") == "ok":
+            lines += [
+                f"🔹 <b>الخلاصة:</b> {html.escape(str(ai.get('headline_summary') or 'غير واضح'))}",
+                f"🔹 <b>تأثير الخبر:</b> {html.escape(str(ai.get('why_rising') or 'غير واضح'))}",
+                f"🔹 <b>التقييم:</b> {html.escape(str(ai.get('news_assessment') or 'غير واضح'))}",
+            ]
+        elif news:
+            for item in news[:3]:
+                headline = html.escape(str(item.get("headline") or "").strip())
                 source = html.escape(str(item.get("source") or "المصدر"))
-                headline = html.escape(str(item.get("headline") or ""))
                 link = _news_link(item)
-                lines.append(f"• <b>{headline}</b> — {source} {link}")
+                if headline:
+                    lines.append(f"• <b>{headline}</b> — {source} {link}")
         else:
-            lines.append("• لا يوجد خبر موثوق متاح من المصدر الاحتياطي حاليًا.")
+            lines.append("• لا يوجد خبر موثوق متاح حاليًا.")
 
-        lines += ["", "📅 <b>البيانات الاقتصادية عالية التأثير</b>"]
+        lines += ["", "📚 <b>المصادر</b>"]
+        for item in news[:3]:
+            headline = html.escape(str(item.get("headline") or "").strip())
+            source = html.escape(str(item.get("source") or "المصدر"))
+            link = _news_link(item)
+            if headline:
+                lines.append(f"• {source}: {headline} {link}")
+
+        lines += ["", "📅 <b>أحداث اليوم المؤثرة</b>"]
         if events:
             for item in events[:5]:
                 event = html.escape(str(item.get("event") or item.get("indicator") or "حدث اقتصادي"))
@@ -151,12 +179,13 @@ async def publish_market_brief():
 
         lines += [
             "",
-            "📌 <b>قراءة السوق:</b> تعتمد النشرة على آخر بيانات متاحة قبل الافتتاح؛ لا تُعرض مستويات دعم/مقاومة غير محسوبة من بيانات تاريخية.",
-            f"🕐 الافتتاح المنتظم: 09:30 ET | {datetime.now(RIYADH).strftime('%H:%M')} السعودية",
+            "🧭 <b>قراءة الافتتاح</b>",
+            f"⏱️ الافتتاح المنتظم: <b>09:30 ET</b> | قبل الافتتاح بـ <b>{minutes} دقيقة</b>",
+            "📌 تعتمد النشرة على آخر البيانات الموثقة قبل الافتتاح، ولا تستبدل الرصد الفني للأسهم.",
             "",
-            "لا تعد هذه النشرة توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️",
+            "⚠️ لا تعد هذه النشرة توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول.",
+            "📡 <b>SAS PRO</b>",
         ]
-
         await send_message(settings.telegram_channel_id, "\n".join(lines))
         db.add(ScheduledReport(report_key=key))
         await db.commit()
