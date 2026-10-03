@@ -142,15 +142,22 @@ function renderTrialCard(days){
 
 function renderStatus(x){
  const active=!!x.pro;
+ const source=x.access?.source||null;
+ const expiry=x.expires_at||null;
  document.getElementById('subStatus').textContent=active?'🟢 فعال':'🔒 غير مشترك';
  document.getElementById('subStatus').className=active?'ok':'bad';
  document.getElementById('subPlan').textContent=active?(x.user?.plan||'اشتراك'):'—';
  document.getElementById('subStart').textContent='—';
- document.getElementById('subEnd').textContent=x.expires_at?fmtDate(x.expires_at):'—';
- document.getElementById('subDays').textContent=x.expires_at?fmtDays(new Date(),x.expires_at):'—';
- document.getElementById('trialState').textContent=x.trial_available?'متاحة مرة واحدة':(x.trial_expires?'منتهية/مستخدمة':'غير متاحة');
+ document.getElementById('subEnd').textContent=expiry?fmtDate(expiry):(source==='free'?'غير محدد':'—');
+ document.getElementById('subDays').textContent=expiry?fmtDays(new Date(),expiry):(source==='free'?'غير محدد':'—');
+ if(source==='trial'&&expiry){
+  document.getElementById('trialState').textContent='🎁 فعالة حتى '+fmtDate(expiry);
+ }else if(source==='free'){
+  document.getElementById('trialState').textContent='صلاحية مجانية غير محددة';
+ }else{
+  document.getElementById('trialState').textContent=x.trial_available?'متاحة مرة واحدة':(x.trial_expires?'منتهية/مستخدمة':'غير متاحة');
+ }
  document.getElementById('channelBtn').hidden=!active;
- if(x.trial_expires&&new Date(x.trial_expires)>new Date()){document.getElementById('trialState').textContent='🎁 فعالة حتى '+fmtDate(x.trial_expires);}
  if(!x.trial_available)document.getElementById('trialBtn').disabled=true;
 }
 
