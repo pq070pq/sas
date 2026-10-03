@@ -178,6 +178,8 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             f"🧠 <b>ملخص الخبر:</b> {_esc(ai.get('headline_summary'))}",
             f"📌 <b>تفسير الحركة:</b> {_esc(ai.get('why_rising'))}",
             f"🔎 <b>الارتباط بالحركة:</b> {_esc(ai.get('news_assessment'))}",
+            f"🧭 <b>دور AI:</b> {_esc(ai.get('decision_role') or 'تفسير فقط — لا يغيّر قرار الرادار')}",
+            f"🛡️ <b>بوابة الرادار:</b> {_esc(ai.get('technical_gate') or 'تم التحقق فنيًا قبل التحليل')}",
         ])
         report.append("📚 <b>المصادر التي بُني عليها التحليل:</b>")
         for source_id in source_ids:
@@ -192,7 +194,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             if url:
                 line += f' — <a href="{url}">الخبر الأصلي</a>'
             report.append(line)
-        report.append("🔒 <b>AI يفسّر المصادر الموردة فقط ولا ينشئ أسعارًا أو أخبارًا.</b>")
+        report.append("🔒 <b>AI يفسّر الأدلة الموثقة فقط؛ لا يضيف أو يحذف فرصة ولا يغيّر السعر أو الهدف أو الوقف.</b>")
     elif news_items and catalyst:
         catalyst_url = html.escape(str(catalyst.get("url") or ""), quote=True)
         report.extend([
