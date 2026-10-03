@@ -182,6 +182,14 @@ async def build_private_analysis(symbol: str):
     target_pass = bool(targets) and str(tech.get("status") or "ok").lower() == "ok"
     live_levels_pass = entry > 0 and stop_n > 0 and target1_n > entry
     sas_status = "اجتاز شروط SAS" if sas_pass else "لم يثبت اجتياز شروط SAS"
+    rr_block = (
+        f"⚖️ <b>المخاطرة مقابل العائد (R:R)</b>\n"
+        f"1 : {risk_reward:.2f}\n"
+        f"{'🟢 <b>التقييم: مناسبة</b>' if risk_reward >= 1.5 else '🟠 <b>التقييم: منخفضة — تحذير فقط</b>'}\n"
+        f"📖 <b>المعنى:</b> مقابل كل 1 وحدة مخاطرة، يوجد عائد محتمل قدره {risk_reward:.2f} وحدة عند الهدف الأول."
+        if risk_reward is not None
+        else "⚖️ <b>المخاطرة مقابل العائد (R:R)</b>\nغير محسوبة\nℹ️ <b>التقييم: غير متوفر</b>"
+    )
 
     fundamentals_text = (
         f"• الشركة: {fundamentals.get('name') or symbol}\n"
@@ -208,13 +216,7 @@ async def build_private_analysis(symbol: str):
         f"• الوقف/الدعم: <b>{_money(stop)}</b>\n"
         f"{target_text}\n"
         f"• ATR: <b>{_money(tech.get('atr'))}</b>\n"
-        (
-            f"• المخاطرة مقابل العائد (R:R): <b>1 : {risk_reward:.2f}</b>\n"
-            f"• التقييم: <b>{'🟢 مناسبة' if risk_reward >= 1.5 else '🟠 منخفضة — تحذير فقط'}</b>\n"
-            f"• المعنى: مقابل كل 1 وحدة مخاطرة، يوجد عائد محتمل قدره {risk_reward:.2f} وحدة عند الهدف الأول.\n"
-            if risk_reward is not None
-            else "• المخاطرة مقابل العائد (R:R): <b>غير محسوبة</b>\n• التقييم: <b>ℹ️ غير متوفر</b>\n"
-        )
+        f"{rr_block}\n"
         "━━━━━━━━━━━━━━━━━━\n"
         "📌 <b>شروط SAS</b>\n"
         f"🏷️ <b>نوع الرصد:</b> {classification.get('section') or classification.get('type') or 'غير محدد'}\n"
