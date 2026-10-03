@@ -23,6 +23,49 @@ async def analyze(symbol: str):
         return r.json()
 
 
+async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
+    """Return observed OHLCV candles for the Mini App terminal chart."""
+    base = settings.panwatch_base_url.rstrip("/")
+    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
+        rows = []
+        try:
+            r = await client.get(
+                f"{base}/api/klines/{symbol.upper()}",
+                params={"market": "US", "days": max(20, min(int(days), 365)), "interval": interval},
+            )
+            r.raise_for_status()
+            payload = r.json()
+            data = payload.get("data") or payload
+            rows = data.get("klines", []) if isinstance(data, dict) else []
+        except Exception:
+            if settings.twelve_data_api_key:
+                try:
+                    r = await twelve_call(client.get, "https://api.twelvedata.com/time_series",
+                        params={
+                            "symbol": symbol.upper(),
+                            "interval": interval,
+                            "outputsize": max(20, min(int(days), 365)),
+                            "apikey": settings.twelve_data_api_key,
+                        },
+                    )
+                    r.raise_for_status()
+                    rows = list(reversed((r.json()).get("values") or []))
+                except Exception:
+                    rows = []
+    candles = []
+    for row in rows:
+        try:
+            candles.append({
+                "time": row.get("date") or row.get("datetime"),
+                "open": float(row["open"]), "high": float(row["high"]),
+                "low": float(row["low"]), "close": float(row["close"]),
+                "volume": float(row.get("volume") or 0),
+            })
+        except (TypeError, ValueError, KeyError):
+            continue
+    return candles
+
+
 async def technical_targets(symbol: str):
     """Build targets only from observed OHLCV structure; never invent prices."""
     base = settings.panwatch_base_url.rstrip("/")
