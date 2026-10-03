@@ -1608,6 +1608,41 @@ async def telegram_webhook(request: Request):
     if not telegram_id:
         return {"ok": True}
 
+    # تحليل الأسهم الخاص: أرسل رمزًا واضحًا مثل AAPL في الخاص فقط.
+    # لا نعترض الأوامر أو الرسائل العامة أو الرموز غير الصالحة.
+    chat_type = str((message.get("chat") or {}).get("type") or "")
+    import re
+    symbol_match = re.fullmatch(r"\\$?([A-Za-z]{1,5}(?:\\.[A-Za-z])?)", text)
+    if chat_type == "private" and symbol_match and not text.startswith("/"):
+        symbol = symbol_match.group(1).upper()
+        async with SessionLocal() as db:
+            row = (await db.execute(select(User).where(User.telegram_id == telegram_id))).scalars().first()
+            now = utcnow()
+            active_sub = (await db.execute(select(Subscription).where(
+                Subscription.telegram_id == telegram_id,
+                Subscription.active == True,
+            ).order_by(Subscription.expires_at.desc()))).scalars().first()
+            pro_active = bool(
+                telegram_id == settings.owner_telegram_id
+                or (row and row.free_access)
+                or (row and row.status == "trial" and row.trial_expires and aware(row.trial_expires) > now)
+                or (row and row.status == "active" and row.subscription_expires and aware(row.subscription_expires) > now and active_sub and is_active(active_sub))
+            )
+        if not pro_active:
+            await send_message(chat_id,
+                "🔒 <b>تحليل الأسهم الخاص متاح لمشتركي SAS PRO.</b>\\n\\n"
+                "افتح Mini App لتفعيل التجربة أو الاشتراك، ثم أرسل رمز السهم مثل <code>AAPL</code> هنا.")
+            return {"ok": True}
+        try:
+            await send_message(chat_id, f"🔎 <b>بدأ تحليل {symbol}</b>\\n\\n⏳ أجمع السعر والبيانات الفنية والأخبار والأحداث المؤسسية...")
+            from .private_analysis import build_private_analysis
+            report = await build_private_analysis(symbol)
+            await send_message(chat_id, report)
+        except Exception as exc:
+            logger.exception("Private stock analysis failed for %s: %s", symbol, exc)
+            await send_message(chat_id, "❌ تعذر إكمال التحليل حاليًا. حاول مرة أخرى بعد قليل.")
+        return {"ok": True}
+
     async with SessionLocal() as db:
         user_row = (await db.execute(select(User).where(User.telegram_id == telegram_id))).scalars().first()
         if not user_row:
