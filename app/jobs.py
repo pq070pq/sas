@@ -506,31 +506,43 @@ async def stock_radar_cycle():
                 report = build_report(symbol, q, tech, classification)
 
                 try:
-                    result = await send_message(settings.telegram_channel_id, report)
-                    message_id = result.get("message_id") if isinstance(result, dict) else None
+                    # احفظ نتيجة الرادار أولاً حتى تبقى بيانات السهم ظاهرة في
+                    # Mini App حتى لو تعذر إرسال رسالة Telegram مؤقتًا.
                     if existing:
                         existing.payload = json.dumps(row, ensure_ascii=False)
                         existing.created_at = utcnow()
-                        if message_id:
-                            existing.telegram_message_id = int(message_id)
                     else:
-                        db.add(RadarSignal(
+                        existing = RadarSignal(
                             symbol=symbol,
                             session_date=session_date,
                             payload=json.dumps(row, ensure_ascii=False),
-                            telegram_message_id=int(message_id) if message_id else None,
-                        ))
+                        )
+                        db.add(existing)
                     await db.commit()
-                    cycle_stats["sent"] += 1
+
+                    message_id = None
+                    try:
+                        result = await send_message(settings.telegram_channel_id, report)
+                        message_id = result.get("message_id") if isinstance(result, dict) else None
+                    except Exception:
+                        cycle_stats["failed"] += 1
+                        logger.exception("Radar Telegram delivery failed but signal was persisted: %s", symbol)
+
+                    if message_id:
+                        existing.telegram_message_id = int(message_id)
+                        await db.commit()
+
+                    if message_id:
+                        cycle_stats["sent"] += 1
                     _radar_seen.add(symbol)
                     logger.info(
-                        "Radar report sent successfully: %s | message_id=%s",
+                        "Radar signal persisted: %s | telegram_message_id=%s",
                         symbol, message_id,
                     )
                 except Exception:
                     cycle_stats["failed"] += 1
                     await db.rollback()
-                    logger.exception("Radar report send failed: %s", symbol)
+                    logger.exception("Radar persistence failed: %s", symbol)
                     continue
 
             logger.info(
