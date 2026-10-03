@@ -466,6 +466,14 @@ async def stock_radar_cycle():
                                 "relative_volume_threshold": row.get("momentum_rvol_threshold"),
                                 "session_verified": row.get("momentum_session_verified"),
                                 "earnings_within_5_days": row.get("earnings_within_5_days"),
+                                "radar_gate": {
+                                    "momentum": bool((row.get("radar_checks") or {}).get("momentum")),
+                                    "sas_core": bool((row.get("radar_checks") or {}).get("sas_core")),
+                                    "liquidity": bool((row.get("radar_checks") or {}).get("liquidity")),
+                                    "target": bool((row.get("radar_checks") or {}).get("target")),
+                                    "live_levels": bool((row.get("radar_checks") or {}).get("live_levels")),
+                                    "risk_reward_warning": bool((row.get("radar_checks") or {}).get("risk_reward_warning")),
+                                },
                             },
                         )
                         row["ai_analysis"] = ai_analysis
