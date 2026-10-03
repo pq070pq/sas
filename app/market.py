@@ -1,7 +1,10 @@
 import asyncio
+import logging
 import httpx
 from .config import settings
 from .twelve_guard import call as twelve_call
+
+logger = logging.getLogger(__name__)
 
 FINNHUB_SYMBOLS = {
     "SPX": "^GSPC",
@@ -140,36 +143,50 @@ async def _twelve_last_close(symbol: str):
 
 
 async def macro_quote(symbol: str):
-    """Holiday/macro quote with independent fallbacks that do not depend on Twelve Data."""
-    # FMP is the first macro fallback so the holiday radar still works when
-    # Twelve Data's circuit breaker is protecting the remaining credits.
-    fallback = await _fmp_quote(symbol)
-    if fallback:
-        return fallback
+    """Holiday/macro quote with independent fallbacks and automatic diagnostics."""
+    diagnostics = []
 
-    fallback = await _finnhub_quote(symbol)
-    if fallback:
-        return fallback
+    try:
+        fallback = await _fmp_quote(symbol)
+        if fallback:
+            return fallback
+        diagnostics.append("FMP:no_data")
+    except Exception as exc:
+        diagnostics.append(f"FMP:{type(exc).__name__}")
+
+    try:
+        fallback = await _finnhub_quote(symbol)
+        if fallback:
+            return fallback
+        diagnostics.append("Finnhub:no_data")
+    except Exception as exc:
+        diagnostics.append(f"Finnhub:{type(exc).__name__}")
 
     try:
         item = await quote(symbol)
         if _valid_price(item.get("price")):
             return item
-    except Exception:
-        pass
+        diagnostics.append(f"TwelveQuote:{item.get('source', 'no_data')}")
+    except Exception as exc:
+        diagnostics.append(f"TwelveQuote:{type(exc).__name__}")
 
-    last_close = await _twelve_last_close(symbol)
-    if last_close:
-        return last_close
+    try:
+        last_close = await _twelve_last_close(symbol)
+        if last_close:
+            return last_close
+        diagnostics.append("TwelveLastClose:no_data")
+    except Exception as exc:
+        diagnostics.append(f"TwelveLastClose:{type(exc).__name__}")
 
+    logger.warning("HOLIDAY_RADAR_PRICE_FAILED symbol=%s diagnostics=%s", symbol, " | ".join(diagnostics))
     return {
         "symbol": symbol,
         "price": None,
         "change_pct": None,
         "source": "unavailable",
+        "diagnostic": " | ".join(diagnostics),
         "is_extended_hours": False,
     }
-
 
 async def quote(symbol: str):
     # Prefer Finnhub for live quote polling so Twelve Data credits are reserved
