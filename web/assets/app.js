@@ -112,8 +112,10 @@ function renderCards(el,rows){
 }
 function stockCard(x){
  const s=escHtml(x.symbol||'—'), price=x.price??x.entry_price, change=x.change_pct, rr=x.risk_reward;
+ const targets=Array.isArray(x.targets)?x.targets:[], target=targets[0]??x.target1??x.target;
+ const stop=x.exit??x.stop_loss??x.stop;
  const warning=Boolean(x.risk_reward_warning);
- return '<article class="stock-card" onclick="openSymbol(\''+s+'\')"><div class="stock-head"><div><b>'+s+'</b><small>'+(x.section==='large'?'سهم كبير':'سهم صغير')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div><strong>$'+money(price)+'</strong><div class="stock-meta"><span>RVOL '+money(x.rvol)+'×</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div><div class="stock-gates"><i>✓ SAS Core</i><i>✓ السيولة</i><i>✓ الهدف</i></div><button onclick="event.stopPropagation();toggleWatch(\''+s+'\')">'+(terminalState.watch.includes(s)?'★ محفوظ':'☆ حفظ')+'</button></article>';
+ return '<article class="stock-card" onclick="openSymbol(\\''+s+'\\')"><div class="stock-head"><div><b>'+s+'</b><small>'+(x.section==='large'?'سهم كبير':'سهم صغير')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div><strong>$'+money(price)+'</strong><div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div><div class="stock-meta"><span>RVOL '+money(x.rvol)+'×</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div><div class="stock-gates"><i>✓ SAS Core</i><i>✓ السيولة</i><i>✓ الهدف</i></div><button onclick="event.stopPropagation();toggleWatch(\\''+s+'\\')">'+(terminalState.watch.includes(s)?'★ محفوظ':'☆ حفظ')+'</button></article>';
 }
 function toggleWatch(symbol){symbol=symbol.toUpperCase();terminalState.watch=terminalState.watch.includes(symbol)?terminalState.watch.filter(x=>x!==symbol):[...terminalState.watch,symbol];localStorage.setItem('saspro_watchlist',JSON.stringify(terminalState.watch));renderWatchlist();renderRadar();}
 async function renderWatchlist(){
