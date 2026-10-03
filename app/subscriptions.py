@@ -188,7 +188,7 @@ async def start_trial_for_user(user_data):
         if user.terms_version != TERMS_VERSION or not user.terms_accepted_at:
             raise ValueError("يجب الموافقة على الشروط أولًا")
         # لا تبدأ تجربة جديدة إذا كان لدى المستخدم وصول مدفوع أو مجاني فعال.
-        active_paid = (await __import__("sqlalchemy").select(Subscription)
+        active_paid = (__import__("sqlalchemy").select(Subscription)
             .where(Subscription.telegram_id == telegram_id, Subscription.active == True)
             .order_by(Subscription.expires_at.desc()))
         active_paid_row = (await db.execute(active_paid)).scalars().first()
