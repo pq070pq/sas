@@ -1,4 +1,5 @@
 import asyncio
+import html
 
 from .market import quote
 from .panwatch import technical_targets
@@ -87,9 +88,9 @@ def _format_news(news):
     for item in news[:5]:
         if not isinstance(item, dict):
             continue
-        headline = str(item.get("headline") or "").strip()
-        source = str(item.get("source") or "").strip()
-        url = str(item.get("url") or "").strip()
+        headline = html.escape(str(item.get("headline") or "").strip())
+        source = html.escape(str(item.get("source") or "").strip())
+        url = html.escape(str(item.get("url") or "").strip(), quote=True)
         if not headline:
             continue
         if url:
