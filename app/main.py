@@ -602,7 +602,8 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
         and aware(existing.trial_expires) > now
     )
     subscription_active = bool(
-        existing.status == "active"
+        not existing.free_access
+        and existing.status == "active"
         and existing.subscription_expires
         and aware(existing.subscription_expires) > now
     )
