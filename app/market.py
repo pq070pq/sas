@@ -17,12 +17,12 @@ FINNHUB_SYMBOLS = {
 }
 
 FMP_SYMBOLS = {
-    "SPX": "^GSPC",
-    "IXIC": "^IXIC",
-    "DJI": "^DJI",
-    "XAU/USD": "GCUSD",
-    "VIX": "^VIX",
-    "WTI/USD": "CLUSD",
+    "SPX": ["^GSPC", "SPY"],
+    "IXIC": ["^IXIC", "QQQ"],
+    "DJI": ["^DJI", "DIA"],
+    "XAU/USD": ["GCUSD", "GLD"],
+    "VIX": ["^VIX", "VIXY"],
+    "WTI/USD": ["CLUSD", "USO"],
 }
 
 async def _finnhub_quote(symbol: str):
@@ -63,37 +63,40 @@ async def _fmp_quote(symbol: str):
     if not keys or symbol not in FMP_SYMBOLS:
         return None
 
-    mapped = FMP_SYMBOLS[symbol]
+    mapped_symbols = FMP_SYMBOLS[symbol]
+    if isinstance(mapped_symbols, str):
+        mapped_symbols = [mapped_symbols]
     async with httpx.AsyncClient(timeout=10) as c:
         for key in keys:
-            try:
-                r = await c.get(
-                    "https://financialmodelingprep.com/stable/quote",
-                    params={"symbol": mapped, "apikey": key},
-                )
-                if r.status_code >= 400:
+            for mapped in mapped_symbols:
+                try:
+                    r = await c.get(
+                        "https://financialmodelingprep.com/stable/quote",
+                        params={"symbol": mapped, "apikey": key},
+                    )
+                    if r.status_code >= 400:
+                        continue
+                    data = r.json()
+                    row = data[0] if isinstance(data, list) and data else None
+                    if not isinstance(row, dict):
+                        continue
+                    price = row.get("price")
+                    if not _valid_price(price):
+                        continue
+                    change_pct = row.get("changePercentage")
+                    if change_pct is None and _valid_price(row.get("previousClose")):
+                        prev = float(row["previousClose"])
+                        change_pct = ((float(price) - prev) / prev) * 100 if prev else None
+                    return {
+                        "symbol": symbol,
+                        "price": float(price),
+                        "change_pct": change_pct,
+                        "source": "FMP" if mapped == mapped_symbols[0] else f"FMP Proxy ({mapped})",
+                        "is_extended_hours": False,
+                        "datetime": row.get("timestamp"),
+                    }
+                except Exception:
                     continue
-                data = r.json()
-                row = data[0] if isinstance(data, list) and data else None
-                if not isinstance(row, dict):
-                    continue
-                price = row.get("price")
-                if not _valid_price(price):
-                    continue
-                change_pct = row.get("changePercentage")
-                if change_pct is None and _valid_price(row.get("previousClose")):
-                    prev = float(row["previousClose"])
-                    change_pct = ((float(price) - prev) / prev) * 100 if prev else None
-                return {
-                    "symbol": symbol,
-                    "price": float(price),
-                    "change_pct": change_pct,
-                    "source": "FMP",
-                    "is_extended_hours": False,
-                    "datetime": row.get("timestamp"),
-                }
-            except Exception:
-                continue
     return None
 
 
