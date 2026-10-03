@@ -12,6 +12,8 @@ FINNHUB_SYMBOLS = {
     "DJI": "^DJI",
     "BTC/USD": "BINANCE:BTCUSDT",
     "XAU/USD": "OANDA:XAU_USD",
+    "VIX": "CBOE:VIX",
+    "WTI/USD": "OANDA:WTICO_USD",
 }
 
 FMP_SYMBOLS = {
