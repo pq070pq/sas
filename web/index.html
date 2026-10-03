@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#020912">
-<title>SAS PRO — الاشتراك</title>
+<title>SAS PRO — Market Terminal</title>
 <link rel="stylesheet" href="/assets/app.css">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 </head>
@@ -46,6 +46,36 @@
       <p>يجب قراءة الشروط والموافقة عليها قبل بدء التجربة أو شراء أي باقة.</p>
       <button onclick="openTerms('view')">عرض الشروط</button>
     </section>
+  </section>
+
+  <section id="terminalPage" class="terminal-page" hidden>
+    <header class="terminal-top">
+      <div class="brand"><span class="brand-mark">🐬</span><div><b>SAS PRO</b><small>MARKET TERMINAL</small></div></div>
+      <div class="top-actions"><span id="terminalClock">—</span><button class="icon-btn" onclick="refreshTerminal()">↻</button></div>
+    </header>
+    <div class="market-strip" id="marketStrip"><div class="loading">جاري تحميل السوق...</div></div>
+    <nav class="terminal-tabs">
+      <button class="active" data-tab="dashboard" onclick="switchTerminalTab('dashboard')">⌂ الرئيسية</button>
+      <button data-tab="radar" onclick="switchTerminalTab('radar')">📡 الرادار</button>
+      <button data-tab="search" onclick="switchTerminalTab('search')">🔎 بحث</button>
+      <button data-tab="watch" onclick="switchTerminalTab('watch')">★ المحفوظة</button>
+      <button data-tab="account" onclick="switchTerminalTab('account')">👤 الحساب</button>
+    </nav>
+    <main class="terminal-main">
+      <section id="tab-dashboard" class="terminal-tab active">
+        <div class="terminal-hero"><div><span class="eyebrow">SAS PRO RADAR</span><h1 id="terminalGreeting">محطة الرصد الذكية</h1><p id="radarStatusText">جاري التحقق من حالة السوق والرصد...</p></div><button class="primary-btn" onclick="runRadar()">🔍 فحص الآن</button></div>
+        <div class="metric-grid" id="dashboardMetrics"></div>
+        <div class="section-title"><b>🔥 أحدث الفرص</b><button onclick="switchTerminalTab('radar')">عرض الكل</button></div>
+        <div id="dashboardRadar" class="stock-grid"><div class="loading">جاري التحميل...</div></div>
+        <div class="section-title"><b>📈 السوق</b><span>بيانات لحظية</span></div>
+        <div id="macroGrid" class="macro-grid"></div>
+      </section>
+      <section id="tab-radar" class="terminal-tab"><div class="terminal-panel-head"><div><span class="eyebrow">LIVE RADAR</span><h2>فرص SAS PRO</h2></div><button class="primary-btn" onclick="runRadar()">↻ تحديث الرادار</button></div><div id="radarDiagnostics" class="diagnostics"></div><div id="radarGrid" class="stock-grid"></div></section>
+      <section id="tab-search" class="terminal-tab"><div class="search-terminal"><input id="symbolSearch" maxlength="12" autocomplete="off" placeholder="ابحث عن رمز السهم مثل NVDA أو AAPL"><button class="primary-btn" onclick="analyzeSymbol()">تحليل</button></div><div id="symbolResult" class="symbol-result"><div class="empty-state">اكتب رمز السهم لعرض السعر، الرسم، المستويات، الأخبار وتحليل SAS PRO.</div></div></section>
+      <section id="tab-watch" class="terminal-tab"><div class="terminal-panel-head"><div><span class="eyebrow">WATCHLIST</span><h2>الأسهم المحفوظة</h2></div></div><div id="watchGrid" class="stock-grid"></div></section>
+      <section id="tab-account" class="terminal-tab"><div class="account-terminal"><div class="account-avatar">🐬</div><h2 id="accountName">—</h2><p id="accountPlan">—</p><div class="account-cards" id="accountCards"></div><button class="secondary-btn" onclick="openChannel()">📡 فتح قناة SAS PRO</button></div></section>
+    </main>
+    <footer class="terminal-footer">⚠️ المحتوى تعليمي/إخباري فقط، وليس توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول.</footer>
   </section>
 
   <section id="adminPage" class="admin-page" hidden>
@@ -136,6 +166,6 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261002"></script>
+<script src="/assets/app.js?v=20261003"></script>
 </body>
 </html>
