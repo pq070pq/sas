@@ -187,6 +187,14 @@ def _validate(parsed: dict, news: list[dict], fundamentals: dict) -> dict:
     return {
         "enabled": True,
         "status": "ok",
+        "decision_role": "تفسير فقط — لا يغيّر قرار الرادار",
+        "technical_gate": "تم اجتياز بوابة الرادار قبل استدعاء الذكاء الاصطناعي",
+        "guardrails": [
+            "لا يضيف سهمًا إلى الرادار",
+            "لا يحذف سهمًا اجتاز الرادار",
+            "لا ينشئ أسعارًا أو أهدافًا أو وقفًا",
+            "لا يغيّر R:R أو شروط SAS Core"
+        ],
         "primary_source_id": primary,
         "supporting_source_ids": supporting,
         **fields,
