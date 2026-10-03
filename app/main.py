@@ -1612,7 +1612,7 @@ async def telegram_webhook(request: Request):
     # لا نعترض الأوامر أو الرسائل العامة أو الرموز غير الصالحة.
     chat_type = str((message.get("chat") or {}).get("type") or "")
     import re
-    symbol_match = re.fullmatch(r"\\$?([A-Za-z]{1,5}(?:\\.[A-Za-z])?)", text)
+    symbol_match = re.fullmatch(r"\$?([A-Za-z]{1,5}(?:\.[A-Za-z])?)", text)
     if chat_type == "private" and symbol_match and not text.startswith("/"):
         symbol = symbol_match.group(1).upper()
         async with SessionLocal() as db:
@@ -1630,11 +1630,11 @@ async def telegram_webhook(request: Request):
             )
         if not pro_active:
             await send_message(chat_id,
-                "🔒 <b>تحليل الأسهم الخاص متاح لمشتركي SAS PRO.</b>\\n\\n"
+                "🔒 <b>تحليل الأسهم الخاص متاح لمشتركي SAS PRO.</b>\n\n"
                 "افتح Mini App لتفعيل التجربة أو الاشتراك، ثم أرسل رمز السهم مثل <code>AAPL</code> هنا.")
             return {"ok": True}
         try:
-            await send_message(chat_id, f"🔎 <b>بدأ تحليل {symbol}</b>\\n\\n⏳ أجمع السعر والبيانات الفنية والأخبار والأحداث المؤسسية...")
+            await send_message(chat_id, f"🔎 <b>بدأ تحليل {symbol}</b>\n\n⏳ أجمع السعر والبيانات الفنية والأخبار والأحداث المؤسسية...")
             from .private_analysis import build_private_analysis
             report = await build_private_analysis(symbol)
             await send_message(chat_id, report)
