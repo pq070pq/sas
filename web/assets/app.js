@@ -74,14 +74,24 @@ function renderMarketStrip(s){
 }
 function renderDashboard(d){
  const r=d.radar||{};
- document.getElementById('radarStatusText').textContent=r.enabled?'الرصد الآلي يعمل — نبحث عن الأسهم التي تستوفي بوابة SAS PRO.':'الرصد متوقف حاليًا خارج جلسة الأسهم الأمريكية.';
- document.getElementById('dashboardMetrics').innerHTML='<div><small>فرص اليوم</small><strong>'+Number(r.opportunities||0)+'</strong></div><div><small>أعلى حركة</small><strong>'+pct(r.top_move_pct)+'</strong></div><div><small>أعلى حجم</small><strong>'+(r.top_volume?money(r.top_volume):'—')+'</strong></div><div><small>آخر إشارة</small><strong>'+formatTime(r.last_signal_at)+'</strong></div>';
- if(terminalState.radar.length) renderCards(document.getElementById('dashboardRadar'),terminalState.radar.slice(0,6));
+ if(Array.isArray(r.stocks)&&r.stocks.length) terminalState.radar=r.stocks;
+ const historical=Boolean(r.historical);
+ document.getElementById('radarStatusText').textContent=r.enabled
+  ? '🟢 الرصد الآلي يعمل — يبحث عن الأسهم التي تستوفي بوابة SAS PRO.'
+  : (historical ? '🟡 السوق مغلق — معروض آخر رصد محفوظ من آخر جلسة.' : '🔴 الرصد متوقف حاليًا خارج جلسة الأسهم الأمريكية.');
+ document.getElementById('dashboardMetrics').innerHTML=
+  '<div><small>'+(historical?'آخر جلسة':'فرص اليوم')+'</small><strong>'+Number(r.opportunities||terminalState.radar.length||0)+'</strong></div>'+
+  '<div><small>أعلى حركة</small><strong>'+pct(r.top_move_pct)+'</strong></div>'+
+  '<div><small>أعلى حجم</small><strong>'+(r.top_volume?money(r.top_volume):'—')+'</strong></div>'+
+  '<div><small>آخر إشارة</small><strong>'+formatTime(r.last_signal_at)+'</strong></div>';
+ const el=document.getElementById('dashboardRadar');
+ if(terminalState.radar.length) renderCards(el,terminalState.radar.slice(0,6));
+ else el.innerHTML='<div class="empty-state">لا توجد إشارات محفوظة من آخر جلسة.</div>';
 }
 function renderMacro(){
  const wanted=['S&P 500','NASDAQ','DOW JONES','VIX','BTC','GOLD','OIL'];
  const rows=wanted.map(label=>terminalState.ticker.find(x=>String(x.label).toUpperCase()===label.toUpperCase())).filter(Boolean);
- document.getElementById('macroGrid').innerHTML=rows.map(x=>'<div class="macro-card"><span>'+escHtml(x.label)+'</span><b>'+money(x.price)+'</b><em class="'+(Number(x.change_pct)>=0?'up':'down')+'">'+pct(x.change_pct)+'</em></div>').join('');
+ document.getElementById('macroGrid').innerHTML=rows.map(x=>'<div class="macro-card"><span>'+escHtml(x.label)+'</span><b>'+money(x.price)+'</b><em class="'+(Number(x.change_pct)>=0?'up':'down')+'">'+pct(x.change_pct)+'</em><small class="macro-source">'+escHtml(x.source||'')+'</small></div>').join('');
 }
 async function runRadar(show=true){
  try{
@@ -89,7 +99,8 @@ async function runRadar(show=true){
   const d=await api('/api/radar/scan');
   terminalState.radar=d.stocks||[];
   const diag=d.diagnostics||{};
-  document.getElementById('radarDiagnostics').innerHTML='<span>مرشحون '+Number(diag.candidates||0)+'</span><span>اجتازوا '+Number(diag.passed||0)+'</span><span>مستبعدون '+Number(diag.filtered||0)+'</span><span>أخطاء '+Number(diag.errors||0)+'</span>';
+  const mode=d.historical?'🗂️ آخر رصد محفوظ — السوق مغلق':'🔴 فحص حي';
+  document.getElementById('radarDiagnostics').innerHTML='<b class="radar-mode">'+mode+'</b><span>مرشحون '+Number(diag.candidates||0)+'</span><span>اجتازوا '+Number(diag.passed||0)+'</span><span>مستبعدون '+Number(diag.filtered||0)+'</span><span>أخطاء '+Number(diag.errors||0)+'</span>';
   renderRadar();
   renderDashboard({radar:{enabled:d.enabled,opportunities:terminalState.radar.length,top_move_pct:Math.max(...terminalState.radar.map(x=>Number(x.change_pct)||-Infinity)),top_volume:Math.max(...terminalState.radar.map(x=>Number(x.volume)||-Infinity))}});
  }catch(e){document.getElementById('radarGrid').innerHTML='<div class="fatal">'+escHtml(e.message)+'</div>';}
