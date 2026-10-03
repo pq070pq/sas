@@ -1270,7 +1270,6 @@ async def market_ticker(_: dict = Depends(require_pro)):
 @app.get("/api/dashboard/home")
 async def dashboard_home(_: dict = Depends(require_pro)):
     status = market_status()
-    # Radar signals use the same New York trading date as the market calendar.
     session_date = status["date"]
     async with SessionLocal() as db:
         rows = (await db.execute(
@@ -1279,11 +1278,30 @@ async def dashboard_home(_: dict = Depends(require_pro)):
             .order_by(RadarSignal.created_at.desc())
         )).scalars().all()
 
+        # خارج الجلسة لا نخفي آخر رصد ناجح؛ نعرض آخر جلسة محفوظة بدل إظهار
+        # شاشة فارغة وكأن الرادار لم يعمل.
+        source_session = session_date
+        if not rows:
+            rows = (await db.execute(
+                select(RadarSignal)
+                .order_by(RadarSignal.created_at.desc())
+                .limit(100)
+            )).scalars().all()
+            if rows:
+                source_session = rows[0].session_date
+
+    radar_stocks = []
     moves = []
     volumes = []
+    seen = set()
     for row in rows:
         try:
             payload = json.loads(row.payload or "{}")
+            payload.setdefault("symbol", row.symbol)
+            payload.setdefault("created_at", row.created_at.isoformat() if row.created_at else None)
+            if row.symbol not in seen:
+                radar_stocks.append(payload)
+                seen.add(row.symbol)
             if payload.get("change_pct") is not None:
                 moves.append(float(payload["change_pct"]))
             if payload.get("volume") is not None:
@@ -1295,11 +1313,14 @@ async def dashboard_home(_: dict = Depends(require_pro)):
         "market": status,
         "radar": {
             "enabled": stock_radar_enabled(),
-            "opportunities": len(rows),
-            "watched": len(rows),
+            "opportunities": len(radar_stocks),
+            "watched": len(radar_stocks),
             "top_move_pct": max(moves) if moves else None,
             "top_volume": max(volumes) if volumes else None,
             "last_signal_at": rows[0].created_at.isoformat() if rows and rows[0].created_at else None,
+            "source_session": source_session if rows else None,
+            "historical": bool(rows and source_session != session_date),
+            "stocks": radar_stocks[:20],
         },
         "updated_at": utcnow().isoformat(),
     }
@@ -1309,16 +1330,35 @@ async def radar_scan(_: dict = Depends(require_pro)):
     from .scanner import scan_us_low_price_stocks
     status = market_status()
     if not stock_radar_enabled():
+        async with SessionLocal() as db:
+            rows = (await db.execute(
+                select(RadarSignal)
+                .order_by(RadarSignal.created_at.desc())
+                .limit(100)
+            )).scalars().all()
+        stocks = []
+        seen = set()
+        for row in rows:
+            try:
+                payload = json.loads(row.payload or "{}")
+                payload.setdefault("symbol", row.symbol)
+                if row.symbol not in seen:
+                    stocks.append(payload)
+                    seen.add(row.symbol)
+            except Exception:
+                continue
         return {
             "enabled": False,
+            "historical": True,
             "reason": status["label_ar"],
             "session": status["session"],
-            "stocks": [],
-            "diagnostics": {"candidates": 0, "passed": 0, "filtered": 0, "errors": 0},
+            "stocks": stocks[:20],
+            "diagnostics": {"candidates": 0, "passed": len(stocks[:20]), "filtered": 0, "errors": 0},
         }
     result = await scan_us_low_price_stocks()
     return {
         "enabled": True,
+        "historical": False,
         "range": {"min": 0.50, "max": 30.00},
         "method": "Faisal",
         "session": status["session"],
