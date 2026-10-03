@@ -42,12 +42,72 @@ def _valid_price(value):
         return False
 
 
+async def _twelve_last_close(symbol: str):
+    """Return the latest two daily closes for macro assets when quote endpoints are empty."""
+    if not settings.twelve_data_api_key:
+        return None
+    async with httpx.AsyncClient(timeout=12) as c:
+        r = await twelve_call(
+            c.get,
+            "https://api.twelvedata.com/time_series",
+            params={
+                "symbol": symbol,
+                "interval": "1day",
+                "outputsize": 2,
+                "apikey": settings.twelve_data_api_key,
+            },
+        )
+        if r.status_code >= 400:
+            return None
+        data = r.json()
+        values = data.get("values") or []
+        if not values:
+            return None
+
+        latest = values[0]
+        price = latest.get("close")
+        if not _valid_price(price):
+            return None
+
+        change_pct = None
+        if len(values) > 1 and _valid_price(values[1].get("close")):
+            previous = float(values[1]["close"])
+            change_pct = ((float(price) - previous) / previous) * 100 if previous else None
+
+        return {
+            "symbol": symbol,
+            "price": float(price),
+            "change_pct": change_pct,
+            "source": "Twelve Data Last Close",
+            "is_extended_hours": False,
+            "datetime": latest.get("datetime"),
+        }
+
+
 async def macro_quote(symbol: str):
-    """Macro/holiday quote that prefers the non-Twelve-Data fallback to save stock-radar credits."""
+    """Holiday/macro quote with a dedicated last-close fallback for closed markets."""
     fallback = await _finnhub_quote(symbol)
     if fallback:
         return fallback
-    return await quote(symbol)
+
+    try:
+        item = await quote(symbol)
+        if _valid_price(item.get("price")):
+            return item
+    except Exception:
+        pass
+
+    last_close = await _twelve_last_close(symbol)
+    if last_close:
+        return last_close
+
+    return {
+        "symbol": symbol,
+        "price": None,
+        "change_pct": None,
+        "source": "unavailable",
+        "is_extended_hours": False,
+    }
 
 
 async def quote(symbol: str):
