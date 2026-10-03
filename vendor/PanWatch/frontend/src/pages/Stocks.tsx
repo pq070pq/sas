@@ -12,7 +12,6 @@ import {
   loadPortfolioPageQuoteData,
 } from '@/lib/portfolio-page-data'
 import { SuggestionBadge, type SuggestionInfo, type KlineSummary } from '@panwatch/biz-ui/components/suggestion-badge'
-import { buildKlineSuggestion } from '@/lib/kline-scorer'
 import { KlineSummaryDialog } from '@panwatch/biz-ui/components/kline-summary-dialog'
 import { Button } from '@panwatch/base-ui/components/ui/button'
 import { Input } from '@panwatch/base-ui/components/ui/input'
@@ -120,15 +119,8 @@ interface PositionForm {
   stock_market: string
 }
 
-// 股票建议信息（来自盘中监控 API）
-interface StockSuggestionData {
-  symbol: string
-  suggestion: SuggestionInfo | null
-  kline: KlineSummary | null
-}
-
 // 建议池中的建议（包含来源和时间信息）
-interface PoolSuggestion {
+interface PoolSuggestion extends Omit<SuggestionInfo, 'should_alert'> {
   id: number
   stock_symbol: string
   stock_market?: string
@@ -204,8 +196,6 @@ export default function StocksPage() {
   const { t } = useTranslation('configuration')
   const confirmAction = useConfirm()
   const stockT = t as unknown as (key: string, options?: Record<string, unknown>) => string
-  const klineT = (key: string, options?: Record<string, unknown>) =>
-    stockT(`bizUi:kline.${key}`, options)
   const agentName = (name: string, fallback?: string) => localizeAgentName(name, fallback, stockT)
   const [stocks, setStocks] = useState<Stock[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -232,17 +222,11 @@ export default function StocksPage() {
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null)
   const refreshTimerRef = useRef<ReturnType<typeof setInterval>>()
 
-  // Alerts / Scanning
-  const [scanning, setScanning] = useState(false)
-
   type ViewTab = 'positions' | 'watchlist'
   const [viewTab, setViewTab] = useLocalStorage<ViewTab>('panwatch_stocks_viewTab', 'positions')
 
-  // 股票 AI 建议（来自盘中监控 API）
-  const [suggestions] = useState<Record<string, StockSuggestionData>>({})
   // 建议池建议（来自 /suggestions API）
   const [poolSuggestions, setPoolSuggestions] = useState<Record<string, PoolSuggestion>>({})
-  const [poolSuggestionsLoading, setPoolSuggestionsLoading] = useState(false)
   const [priceAlertSummaryMap, setPriceAlertSummaryMap] = useState<Record<string, { total: number; enabled: number }>>({})
 
   // News Dialog
@@ -554,13 +538,8 @@ export default function StocksPage() {
 
   // 从建议池加载建议（包含历史建议和多来源建议）
   const loadPoolSuggestions = useCallback(async (itemsOverride?: QuoteRequestItem[]) => {
-    setPoolSuggestionsLoading(true)
-    try {
-      const data = await requestSuggestions(itemsOverride || buildQuoteItems())
-      setPoolSuggestions(data)
-    } finally {
-      setPoolSuggestionsLoading(false)
-    }
+    const data = await requestSuggestions(itemsOverride || buildQuoteItems())
+    setPoolSuggestions(data)
   }, [buildQuoteItems, requestSuggestions])
 
   const loadPriceAlertSummaries = useCallback(async () => {
@@ -639,19 +618,13 @@ export default function StocksPage() {
     const run = (async () => {
       const coreData = await loadPortfolioPageCoreData({
         loadStocks: requestSignal => fetchAPI<Stock[]>('/stocks', { signal: requestSignal }),
-        loadPortfolio: requestSignal => fetchAPI<PortfolioSummary>('/portfolio/summary?include_quotes=false', { signal: requestSignal }),
+        loadPortfolio: requestSignal => fetchAPI<PortfolioSummary>('/portfolio/summary?include_quotes=false&refresh_exchange_rates=false', { signal: requestSignal }),
       }, signal)
 
       if (signal.aborted) return
 
-      const quoteData = await loadPortfolioPageQuoteData({
-        buildQuoteItems: buildQuoteItemsFrom,
-        loadQuotes: requestQuotes,
-      }, coreData.stocks, coreData.portfolio, signal)
-
-      if (signal.aborted) return
-
-      const quoteMap = toQuoteMap(quoteData.quotes)
+      // Publish local metadata immediately; market-data lanes update independently.
+      const quoteMap: Record<string, QuoteResponse> = {}
       setStocks(coreData.stocks)
       setPortfolioRaw(coreData.portfolio)
       setQuotes(quoteMap)
@@ -667,9 +640,26 @@ export default function StocksPage() {
       }))
       setAccounts(nextAccounts)
       setExpandedAccounts(new Set(nextAccounts.map(account => account.id)))
-      if (quoteData.quotes.length > 0) setLastRefreshTime(new Date())
       setLoading(false)
       setPortfolioLoading(false)
+
+      void loadPortfolioPageQuoteData({
+        buildQuoteItems: buildQuoteItemsFrom,
+        loadQuotes: requestQuotes,
+      }, coreData.stocks, coreData.portfolio, signal).then(data => {
+        if (signal.aborted) return
+        setQuotes(toQuoteMap(data.quotes))
+        if (data.quotes.length > 0) setLastRefreshTime(new Date())
+      }).catch(error => {
+        if (!signal.aborted) console.warn('Portfolio quotes unavailable:', error)
+      })
+
+      // FX refresh also runs independently of the metadata shell and quotes.
+      void fetchAPI<PortfolioSummary>('/portfolio/summary?include_quotes=false', { signal }).then(data => {
+        if (!signal.aborted) setPortfolioRaw(previous => previous ? { ...previous, exchange_rates: data.exchange_rates } : previous)
+      }).catch(error => {
+        if (!signal.aborted) console.warn('Portfolio exchange rates unavailable:', error)
+      })
 
       void loadPortfolioPageBackgroundData({
         loadMarketStatus: refreshMarketStatus,
@@ -677,17 +667,17 @@ export default function StocksPage() {
         loadSuggestions: requestSuggestions,
         loadPriceAlerts: requestPriceAlerts,
         loadKlines: requestKlineSummaries,
-      }, coreData.stocks, coreData.portfolio, signal).then(data => {
-        if (signal.aborted) return
-        setKlineSummaries(prev => ({ ...prev, ...data.klines }))
-        setPoolSuggestions(data.suggestions)
-        setPriceAlertSummaryMap(toPriceAlertSummaryMap(data.priceAlerts))
+      }, coreData.stocks, coreData.portfolio, signal, {
+        klines: data => setKlineSummaries(prev => ({ ...prev, ...data })),
+        suggestions: setPoolSuggestions,
+        priceAlerts: data => setPriceAlertSummaryMap(toPriceAlertSummaryMap(data)),
       }).catch(error => {
         if (!signal.aborted) console.warn('加载持仓页后台数据失败:', error)
       })
     })().catch(error => {
       if (!signal.aborted) console.error('加载持仓页面数据失败:', error)
     }).finally(() => {
+      if (!signal.aborted) { setLoading(false); setPortfolioLoading(false) }
       initialLoadPromiseRef.current = null
     })
 
@@ -854,23 +844,6 @@ export default function StocksPage() {
 
     return () => { cancelled = true }
   }, [agentDialogStock, agents, schedulePreviewCache, schedulePreviewLoading])
-
-  // 触发扫描：调用盘中监控扫描，并刷新建议池
-  const scanAndReload = useCallback(async () => {
-    setScanning(true)
-    try {
-      const url = '/agents/intraday/scan?analyze=true'
-      await fetchAPI(url, { method: 'POST' })
-      await loadPoolSuggestions()
-      await refreshKlines()
-      setLastRefreshTime(new Date())
-    } catch (e) {
-      console.error('扫描失败:', e)
-      toast(e instanceof Error ? e.message : stockT('stocksPage.messages.scanFailed'), 'error')
-    } finally {
-      setScanning(false)
-    }
-  }, [loadPoolSuggestions, refreshKlines, toast])
 
   // Auto-refresh timer
   useEffect(() => {
@@ -1324,7 +1297,7 @@ export default function StocksPage() {
   }
 
   // 获取股票的建议信息（优先使用建议池，包含来源和时间信息）
-  const getSuggestionForStock = (symbol: string, market: string, hasPosition?: boolean): { suggestion: SuggestionInfo | null; kline: KlineSummary | null } => {
+  const getSuggestionForStock = (symbol: string, market: string): { suggestion: SuggestionInfo | null; kline: KlineSummary | null } => {
     const key = `${market || 'CN'}:${symbol}`
     // 优先使用建议池的建议（包含来源和时间信息）
     const poolSug =
@@ -1336,9 +1309,10 @@ export default function StocksPage() {
         return fm && fm !== String(market || 'CN').toUpperCase() ? null : fallback
       })()
     if (poolSug) {
-      const preloadedKline = klineSummaries[key] || (suggestions[symbol]?.kline as any) || null
+      const preloadedKline = klineSummaries[key] || null
       return {
         suggestion: {
+          ...poolSug,
           id: poolSug.id,
           action: poolSug.action,
           action_label: poolSug.action_label,
@@ -1358,33 +1332,24 @@ export default function StocksPage() {
       }
     }
 
-    // 无池建议时，使用 K 线评分构建轻量建议（仅用于徽章展示）
     const ks = klineSummaries[key]
-    if (ks) {
-      const scored = buildKlineSuggestion(ks as any, hasPosition, klineT)
-      return {
-        suggestion: {
-          action: scored.action,
-          action_label: scored.action_label,
-          signal: scored.signal,
-          reason: '',
-          should_alert: false,
-          agent_label: stockT('stocksPage.messages.klineIndicator'),
-        },
-        kline: ks,
-      }
-    }
+    if (ks) return { suggestion: null, kline: ks }
 
     return { suggestion: null, kline: null }
   }
 
+  const unpricedAccountIds = new Set(
+    (portfolio?.accounts || []).filter(account => account.positions.some(position => position.current_price == null)).map(account => account.id),
+  )
+  const portfolioTotalsReady = unpricedAccountIds.size === 0
+
   const positionRatio = useMemo(() => {
-    if (!portfolio) return null
+    if (!portfolio || !portfolioTotalsReady) return null
     const mv = portfolio.total.total_market_value || 0
     const assets = portfolio.total.total_assets || 0
     const pct = assets > 0 ? (mv / assets * 100) : 0
     return { mv, assets, pct }
-  }, [portfolio])
+  }, [portfolio, portfolioTotalsReady])
 
   const positionsCount = useMemo(() => {
     return (portfolio?.accounts || []).reduce((acc, a) => acc + (a.positions?.length || 0), 0)
@@ -1478,21 +1443,6 @@ export default function StocksPage() {
                   </Select>
                 )}
               </div>
-              {(poolSuggestionsLoading || Object.keys(poolSuggestions).length > 0) && (
-                <>
-                  <div className="w-px h-4 bg-border" />
-                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    {poolSuggestionsLoading && (
-                      <span className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                    )}
-                    {!poolSuggestionsLoading && Object.keys(poolSuggestions).length > 0 && (
-                      <span className="text-[10px] text-primary">
-                        {Object.keys(poolSuggestions).length}
-                      </span>
-                    )}
-                  </div>
-                </>
-              )}
               {lastRefreshTime && (
                 <>
                   <div className="w-px h-4 bg-border" />
@@ -1507,9 +1457,6 @@ export default function StocksPage() {
               <RefreshCw className={`w-4 h-4 ${quotesLoading ? 'animate-spin' : ''}`} />
               {stockT('stocksPage.messages.refreshed')}
             </Button>
-            <Button variant="secondary" onClick={scanAndReload} disabled={scanning}>
-              <Bot className="w-4 h-4" /> {stockT('stocksPage.messages.scanning')}
-            </Button>
             <Button variant="secondary" onClick={() => openAccountDialog()}>
               <Building2 className="w-4 h-4" /> {stockT('stocksPage.messages.addAccount')}
             </Button>
@@ -1521,9 +1468,6 @@ export default function StocksPage() {
           <div className="flex md:hidden items-center gap-1.5">
             <Button variant="secondary" size="sm" className="h-8 w-8 p-0" onClick={handleRefresh} disabled={quotesLoading}>
               <RefreshCw className={`w-4 h-4 ${quotesLoading ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button variant="secondary" size="sm" className="h-8 w-8 p-0" onClick={scanAndReload} disabled={scanning}>
-              <Bot className="w-4 h-4" />
             </Button>
             <Button variant="secondary" size="sm" className="h-8 w-8 p-0" onClick={() => openAccountDialog()}>
               <Building2 className="w-4 h-4" />
@@ -1554,9 +1498,6 @@ export default function StocksPage() {
               </Select>
             ) : (
               <span className="text-[10px] text-muted-foreground">{stockT('stocksPage.autoRefresh')}</span>
-            )}
-            {poolSuggestionsLoading && (
-              <span className="w-2.5 h-2.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
             )}
           </div>
           {lastRefreshTime && (
@@ -1589,23 +1530,23 @@ export default function StocksPage() {
               <span className="text-[12px]">{stockT('stocksPage.messages.totalMarketValue')}</span>
             </div>
             <div className="text-[20px] font-bold text-foreground font-mono">
-              {formatMoney(portfolio.total.total_market_value)}
+              {portfolioTotalsReady ? formatMoney(portfolio.total.total_market_value) : '--'}
             </div>
           </div>
           <div className="card p-4">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
               {portfolio.total.total_pnl >= 0 ? (
-                <ArrowUpRight className={`w-4 h-4 ${marketSignTextClass(portfolio.total.total_pnl)}`} />
+                <ArrowUpRight className={`w-4 h-4 ${marketSignTextClass(portfolioTotalsReady ? portfolio.total.total_pnl : null)}`} />
               ) : (
-                <ArrowDownRight className={`w-4 h-4 ${marketSignTextClass(portfolio.total.total_pnl)}`} />
+                <ArrowDownRight className={`w-4 h-4 ${marketSignTextClass(portfolioTotalsReady ? portfolio.total.total_pnl : null)}`} />
               )}
               <span className="text-[12px]">{stockT('stocksPage.messages.totalPnl')}</span>
             </div>
-            <div className={`text-[20px] font-bold font-mono ${marketSignTextClass(portfolio.total.total_pnl)}`}>
-              {portfolio.total.total_pnl >= 0 ? '+' : ''}{formatMoney(portfolio.total.total_pnl)}
-              <span className="text-[13px] ml-1.5">
+            <div className={`text-[20px] font-bold font-mono ${marketSignTextClass(portfolioTotalsReady ? portfolio.total.total_pnl : null)}`}>
+              {portfolioTotalsReady ? `${portfolio.total.total_pnl >= 0 ? '+' : ''}${formatMoney(portfolio.total.total_pnl)}` : '--'}
+              {portfolioTotalsReady && <span className="block text-[13px] md:inline md:ml-1.5">
                 ({portfolio.total.total_pnl_pct >= 0 ? '+' : ''}{portfolio.total.total_pnl_pct.toFixed(2)}%)
-              </span>
+              </span>}
             </div>
           </div>
 
@@ -1619,15 +1560,15 @@ export default function StocksPage() {
               <div className="card p-4">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
                   {isUp ? (
-                    <ArrowUpRight className={`w-4 h-4 ${marketSignTextClass(dayPnl)}`} />
+                    <ArrowUpRight className={`w-4 h-4 ${marketSignTextClass(portfolioTotalsReady ? dayPnl : null)}`} />
                   ) : (
-                    <ArrowDownRight className={`w-4 h-4 ${marketSignTextClass(dayPnl)}`} />
+                    <ArrowDownRight className={`w-4 h-4 ${marketSignTextClass(portfolioTotalsReady ? dayPnl : null)}`} />
                   )}
                   <span className="text-[12px]">{stockT('stocksPage.messages.todayPnl')}</span>
                 </div>
-                <div className={`text-[20px] font-bold font-mono ${marketSignTextClass(dayPnl)}`}>
-                  {isUp ? '+' : ''}{formatMoney(dayPnl)}
-                  <span className="text-[13px] ml-1.5">({pct >= 0 ? '+' : ''}{pct.toFixed(2)}%)</span>
+                <div className={`text-[20px] font-bold font-mono ${marketSignTextClass(portfolioTotalsReady ? dayPnl : null)}`}>
+                  {portfolioTotalsReady ? `${isUp ? '+' : ''}${formatMoney(dayPnl)}` : '--'}
+                  {portfolioTotalsReady && <span className="block text-[13px] md:inline md:ml-1.5">({pct >= 0 ? '+' : ''}{pct.toFixed(2)}%)</span>}
                 </div>
               </div>
             )
@@ -1648,7 +1589,7 @@ export default function StocksPage() {
               <span className="text-[12px]">{stockT('stocksPage.messages.totalAssets')}</span>
             </div>
             <div className="text-[20px] font-bold text-foreground font-mono">
-              {formatMoney(portfolio.total.total_assets)}
+              {portfolioTotalsReady ? formatMoney(portfolio.total.total_assets) : '--'}
             </div>
           </div>
 
@@ -1821,19 +1762,19 @@ export default function StocksPage() {
                   <div className="flex items-center gap-2.5 md:gap-6 min-w-0">
                     <div className="text-left md:text-right">
                       <div className="text-[10px] md:text-[11px] text-muted-foreground">{stockT('stocksPage.messages.marketValue')}</div>
-                      <div className="text-[12px] md:text-[13px] font-mono font-medium whitespace-nowrap">{formatMoney(account.total_market_value)}</div>
+                      <div className="text-[12px] md:text-[13px] font-mono font-medium whitespace-nowrap">{unpricedAccountIds.has(account.id) ? '--' : formatMoney(account.total_market_value)}</div>
                     </div>
                     <div className="text-left md:text-right">
                       <div className="text-[10px] md:text-[11px] text-muted-foreground">{stockT('stocksPage.messages.pnl')}</div>
-                      <div className={`text-[12px] md:text-[13px] font-mono font-medium whitespace-nowrap ${marketSignTextClass(account.total_pnl)}`}>
-                        {account.total_pnl >= 0 ? '+' : ''}{formatMoney(account.total_pnl)}
-                        <span className="text-[10px] md:text-[11px] ml-1 hidden md:inline">({account.total_pnl_pct >= 0 ? '+' : ''}{account.total_pnl_pct.toFixed(2)}%)</span>
+                      <div className={`text-[12px] md:text-[13px] font-mono font-medium whitespace-nowrap ${marketSignTextClass(unpricedAccountIds.has(account.id) ? null : account.total_pnl)}`}>
+                        {unpricedAccountIds.has(account.id) ? '--' : `${account.total_pnl >= 0 ? '+' : ''}${formatMoney(account.total_pnl)}`}
+                        {!unpricedAccountIds.has(account.id) && <span className="text-[10px] md:text-[11px] ml-1 hidden md:inline">({account.total_pnl_pct >= 0 ? '+' : ''}{account.total_pnl_pct.toFixed(2)}%)</span>}
                       </div>
                     </div>
                     <div className="text-left md:text-right">
                       <div className="text-[10px] md:text-[11px] text-muted-foreground">{stockT('stocksPage.messages.today')}</div>
-                      <div className={`text-[12px] md:text-[13px] font-mono font-medium whitespace-nowrap ${marketSignTextClass(account.total_daily_pnl)}`}>
-                        {account.total_daily_pnl >= 0 ? '+' : ''}{formatMoney(account.total_daily_pnl)}
+                      <div className={`text-[12px] md:text-[13px] font-mono font-medium whitespace-nowrap ${marketSignTextClass(unpricedAccountIds.has(account.id) ? null : account.total_daily_pnl)}`}>
+                        {unpricedAccountIds.has(account.id) ? '--' : `${account.total_daily_pnl >= 0 ? '+' : ''}${formatMoney(account.total_daily_pnl)}`}
                       </div>
                     </div>
                     <div className="text-left md:text-right hidden sm:block">
@@ -1932,7 +1873,7 @@ export default function StocksPage() {
                                       {pos.name}
                                     </button>
                                     {(() => {
-                                      const { suggestion, kline } = getSuggestionForStock(pos.symbol, pos.market, true)
+                                      const { suggestion, kline } = getSuggestionForStock(pos.symbol, pos.market)
                                       return (suggestion || kline) ? (
                                         <span className="ml-2">
                                           <SuggestionBadge
@@ -2021,7 +1962,7 @@ export default function StocksPage() {
                                   </td>
                                   <td className="px-4 py-2.5 text-center">
                                     <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      {(() => { const { suggestion, kline } = getSuggestionForStock(pos.symbol, pos.market, true); return (!suggestion && !kline) ? (
+                                      {(() => { const { suggestion, kline } = getSuggestionForStock(pos.symbol, pos.market); return (!suggestion && !kline) ? (
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openKlineDialog(pos.symbol, pos.market, pos.name, true)} title={stockT('stocksPage.messages.klineIndicator')}><BarChart3 className="w-3 h-3" /></Button>
                                       ) : null })()}
                                       <StockPriceAlertPanel
@@ -2113,7 +2054,7 @@ export default function StocksPage() {
                               </div>
                               {/* Row 2 (Suggestion badge, dedicated row to avoid wrapping mess) */}
                               {(() => {
-                                const { suggestion, kline } = getSuggestionForStock(pos.symbol, pos.market, true)
+                                const { suggestion, kline } = getSuggestionForStock(pos.symbol, pos.market)
                                 return (suggestion || kline) ? (
                                   <div className="mb-2">
                                     <SuggestionBadge
@@ -2183,7 +2124,7 @@ export default function StocksPage() {
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  {(() => { const { suggestion, kline } = getSuggestionForStock(pos.symbol, pos.market, true); return (!suggestion && !kline) ? (
+                                  {(() => { const { suggestion, kline } = getSuggestionForStock(pos.symbol, pos.market); return (!suggestion && !kline) ? (
                                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openKlineDialog(pos.symbol, pos.market, pos.name, true)} title={stockT('stocksPage.messages.klineIndicator')}><BarChart3 className="w-3 h-3" /></Button>
                                   ) : null })()}
                                   <StockPriceAlertPanel
@@ -2271,13 +2212,13 @@ export default function StocksPage() {
                 .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0) || a.id - b.id)
                 .filter(stock => {
                   if (!watchlistOnlyAlerts) return true
-                  const { suggestion } = getSuggestionForStock(stock.symbol, stock.market, false)
+                  const { suggestion } = getSuggestionForStock(stock.symbol, stock.market)
                   return !!suggestion?.should_alert
                 })
                 .map((stock) => {
                 const quote = getStockQuote(`${stock.market}:${stock.symbol}`)
                 const changeColor = marketSignTextClass(quote?.change_pct)
-                const { suggestion, kline } = getSuggestionForStock(stock.symbol, stock.market, false)
+                const { suggestion, kline } = getSuggestionForStock(stock.symbol, stock.market)
                 return (
                   <div
                     key={stock.id}

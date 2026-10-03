@@ -1,15 +1,17 @@
 """盘中监测 Agent - 实时监控持仓，AI 判断是否需要提醒"""
 
 import json
+import asyncio
 import logging
 import re
 import uuid
 from datetime import datetime, timedelta, date, timezone
 from pathlib import Path
 
+from src.modules.research.signals.actions import ACTION_LABELS, ACTION_LABELS_EN, normalize_suggestion
 from src.modules.automation.base import BaseAgent, AgentContext, AnalysisResult
 from src.platform.marketdata.collectors.kline_collector import KlineCollector
-from src.modules.research.analysis_history import get_latest_analysis, get_analysis
+from src.modules.research.analysis_history import get_scoped_analysis_context
 from src.modules.research.context_builder import ContextBuilder
 from src.modules.research.context_store import (
     save_agent_context_run,
@@ -49,6 +51,7 @@ def market_label(market: MarketCode, language: str = "zh-CN") -> str:
 
 # 标准化操作建议
 SUGGESTION_TYPES = {
+    **{label: action for action, label in ACTION_LABELS.items()},
     "建仓": "buy",  # 新开仓位
     "加仓": "add",  # 增加现有仓位
     "减仓": "reduce",  # 减少仓位
@@ -163,15 +166,11 @@ class IntradayMonitorAgent(BaseAgent):
         kline_summary = pack.technical if pack else None
 
         # 获取历史分析（为 AI 提供更多上下文）
-        daily_analysis = get_latest_analysis(
-            agent_name="daily_report",
-            stock_symbol="*",
-            before_date=date.today(),
+        daily_analysis = await asyncio.to_thread(
+            get_scoped_analysis_context, "daily_report", [stock_config], before_date=date.today(),
         )
-        premarket_analysis = get_analysis(
-            agent_name="premarket_outlook",
-            stock_symbol="*",
-            analysis_date=date.today(),
+        premarket_analysis = await asyncio.to_thread(
+            get_scoped_analysis_context, "premarket_outlook", [stock_config], analysis_date=date.today(),
         )
 
         return {
@@ -557,6 +556,8 @@ class IntradayMonitorAgent(BaseAgent):
         if obj:
             action = (obj.get("action") or "watch").strip()
             result["action"] = action
+            result["attention_required"] = bool(obj.get("attention_required"))
+            result["review_required"] = bool(obj.get("review_required"))
             result["action_label"] = (
                 obj.get("action_label") or result["action_label"]
             ).strip()[:20]
@@ -581,14 +582,14 @@ class IntradayMonitorAgent(BaseAgent):
             result["risks"] = (
                 obj.get("risks") if isinstance(obj.get("risks"), list) else []
             )
-            return result
+            return normalize_suggestion(result)
 
         # 检查是否无需提醒
         if "[无需提醒]" in content:
             result["should_alert"] = False
             result["action"] = "hold"
             result["action_label"] = "持有"
-            return result
+            return normalize_suggestion(result)
 
         # 提取建议类型（从全文搜索）
         for label, action in SUGGESTION_TYPES.items():
@@ -652,7 +653,7 @@ class IntradayMonitorAgent(BaseAgent):
 
         # 最终 should_alert 判定：只在明确“建仓/加仓/减仓/清仓”时提醒
         result["should_alert"] = result["action"] in {"buy", "add", "reduce", "sell"}
-        return result
+        return normalize_suggestion(result)
 
     def _try_parse_loose_json(self, text: str) -> dict | None:
         """宽松解析 JSON 输出，兜底兼容模型异常格式。"""
@@ -703,7 +704,12 @@ class IntradayMonitorAgent(BaseAgent):
     ) -> str:
         """当模型返回 JSON 时，生成可读通知内容。"""
         english = report_language == "en-US"
-        action_label = suggestion.get("action_label") or ("Watch" if english else "观望")
+        action = suggestion.get("action", "watch")
+        action_label = (ACTION_LABELS_EN if english else ACTION_LABELS).get(action, "Watch" if english else "观望")
+        if suggestion.get("review_required"):
+            action_label = "Review required" if english else "待复核"
+        elif action == "watch" and suggestion.get("attention_required"):
+            action_label = "Alert" if english else "提醒"
         signal = suggestion.get("signal") or ("No notable new signal" if english else "无明显新信号")
         reason = suggestion.get("reason") or (
             "Use market conditions and risk controls before making a decision."
@@ -810,7 +816,9 @@ class IntradayMonitorAgent(BaseAgent):
             )
 
         # 保存到建议池（包含 prompt 上下文）
-        save_suggestion(
+        await asyncio.to_thread(
+            save_suggestion,
+            suggestion_state=suggestion,
             stock_symbol=stock.symbol,
             stock_name=stock.name,
             action=suggestion["action"],
@@ -850,7 +858,8 @@ class IntradayMonitorAgent(BaseAgent):
         )
         prediction_group_id = str(uuid.uuid4())
         for horizon in (1, 5):
-            save_agent_prediction_outcome(
+            await asyncio.to_thread(
+                save_agent_prediction_outcome,
                 agent_name=self.name,
                 stock_symbol=stock.symbol,
                 stock_market=stock.market.value,
@@ -866,13 +875,18 @@ class IntradayMonitorAgent(BaseAgent):
                 else None,
                 trigger_price=getattr(stock, "current_price", None),
                 meta={
+                    "suggestion_state": {
+                        "review_required": suggestion.get("review_required", False),
+                        "attention_required": suggestion.get("attention_required", False),
+                    },
                     "source": "intraday_monitor",
                     "reason": suggestion.get("reason", ""),
                     "signal": suggestion.get("signal", ""),
                 },
             )
 
-        save_agent_context_run(
+        await asyncio.to_thread(
+            save_agent_context_run,
             agent_name=self.name,
             stock_symbol=stock.symbol,
             analysis_date=analysis_date,
@@ -1086,7 +1100,7 @@ class IntradayMonitorAgent(BaseAgent):
                         f"Agent [{self.display_name}] 通知已发送: {stock_symbol}"
                     )
                     if not self.bypass_throttle:
-                        self._update_throttle(stock_symbol)
+                        await asyncio.to_thread(self._update_throttle, stock_symbol)
                 else:
                     notify_error = notify_result.get("error") or "未知错误"
                     result.raw_data["notify_error"] = notify_error

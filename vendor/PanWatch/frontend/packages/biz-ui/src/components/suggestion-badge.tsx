@@ -1,15 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@panwatch/base-ui/components/ui/dialog'
 import { KlineSummaryDialog } from '@panwatch/biz-ui/components/kline-summary-dialog'
 import { KlineIndicators } from '@panwatch/biz-ui/components/kline-indicators'
 import { buildKlineSuggestion } from '@/lib/kline-scorer'
-import { fetchAPI } from '@panwatch/api'
-import { useToast } from '@panwatch/base-ui/components/ui/toast'
 import { AiSuggestionBadge } from '@panwatch/biz-ui/components/ai-suggestion-badge'
 import { TechnicalBadge, technicalToneFromSuggestionAction } from '@panwatch/biz-ui/components/technical-badge'
 import { useTranslation } from 'react-i18next'
+import { suggestionPresentation, type SuggestionStateInput } from './suggestion-action'
 
-export interface SuggestionInfo {
+export interface SuggestionInfo extends SuggestionStateInput {
   id?: number
   action: string  // buy/add/reduce/sell/hold/watch
   action_label: string
@@ -155,42 +154,12 @@ export function SuggestionBadge({
     : english
       ? suggestion?.agent_name || tr('unknown')
       : suggestion?.agent_label || suggestion?.agent_name || tr('unknown')
-  const localizedAction = (action?: string, label?: string) => {
-    if (!english) return label || tr('watch')
-    const value = String(action || '').toLowerCase()
-    const normalized = value.includes('reduce') ? 'reduce'
-      : value.includes('sell') ? 'sell'
-      : value.includes('add') ? 'add'
-      : value.includes('buy') ? 'buy'
-      : value.includes('avoid') ? 'avoid'
-      : value.includes('hold') ? 'hold'
-      : 'watch'
-    return (t as unknown as (key: string) => string)(`kline.actions.${normalized}`)
-  }
+  const localizedAction = (action?: string, label?: string) => (t as unknown as (key: string) => string)(suggestionPresentation({ action, action_label: label }).labelKey)
+  const technicalLabel = (tech: ReturnType<typeof buildKlineSuggestion> | null) => tech
+    ? localizedAction(tech.action, tech.action_label)
+    : tr('technicalPending')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [klineDialogOpen, setKlineDialogOpen] = useState(false)
-  const [feedback, setFeedback] = useState<'useful' | 'useless' | null>(null)
-  const { toast } = useToast()
-
-  useEffect(() => {
-    setFeedback(null)
-  }, [suggestion?.id])
-
-  const canFeedback = !!suggestion?.id && !isTechnical
-  const submitFeedback = async (useful: boolean) => {
-    if (!suggestion?.id) return
-    try {
-      await fetchAPI('/feedback', {
-        method: 'POST',
-        body: JSON.stringify({ suggestion_id: suggestion.id, useful }),
-      })
-      setFeedback(useful ? 'useful' : 'useless')
-      toast(tr('feedbackSubmitted'), 'success')
-    } catch (e) {
-      toast(e instanceof Error ? e.message : tr('feedbackFailed'), 'error')
-    }
-  }
-
   const onDialogOpenChange = (open: boolean) => {
     setDialogOpen(open)
     if (!open) {
@@ -217,6 +186,7 @@ export function SuggestionBadge({
           <div className="flex items-start gap-3">
             <div className="shrink-0 flex items-center gap-2">
               <AiSuggestionBadge
+                {...suggestion}
                 action={suggestion.action}
                 actionLabel={localizedAction(suggestion.action, suggestion.action_label)}
                 isAI={isAI}
@@ -231,8 +201,8 @@ export function SuggestionBadge({
               />
               {isAI && showTechnicalCompanion && (
                 <TechnicalBadge
-                  label={tech ? localizedAction(tech.action, tech.action_label) : tr('watch')}
-                  tone={technicalToneFromSuggestionAction(tech?.action, tech?.action_label)}
+                  label={technicalLabel(tech)}
+                  tone={tech ? technicalToneFromSuggestionAction(tech.action, tech.action_label) : 'neutral'}
                   size="lg"
                   onClick={(e) => { e.stopPropagation(); setKlineDialogOpen(true) }}
                   title={tr('technicalTitle')}
@@ -276,13 +246,13 @@ export function SuggestionBadge({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <AiSuggestionBadge
+                  {...suggestion}
                   action={suggestion.action}
                   actionLabel={localizedAction(suggestion.action, suggestion.action_label)}
                   isAI={isAI}
                   isExpired={!!suggestion.is_expired}
                   size="lg"
                 />
-                {/* AI 标签已前置到按钮文案，不再重复 */}
                 {stockName && (
                   <span className="text-[14px] font-normal text-muted-foreground">
                     {stockName} {stockSymbol && `(${stockSymbol})`}
@@ -300,39 +270,6 @@ export function SuggestionBadge({
             </DialogHeader>
 
             <div className="space-y-4">
-              {/* Feedback */}
-              {canFeedback && (
-                <div>
-                  <div className="text-[11px] text-muted-foreground mb-1">{tr('feedbackQuestion')}</div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => submitFeedback(true)}
-                      disabled={feedback !== null}
-                      className={`text-[12px] px-3 py-1.5 rounded-md border transition-colors ${
-                        feedback === 'useful'
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700'
-                          : 'bg-background/40 border-border/60 text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {tr('useful')}
-                    </button>
-                    <button
-                      onClick={() => submitFeedback(false)}
-                      disabled={feedback !== null}
-                      className={`text-[12px] px-3 py-1.5 rounded-md border transition-colors ${
-                        feedback === 'useless'
-                          ? 'bg-rose-500/10 border-rose-500/30 text-rose-700'
-                          : 'bg-background/40 border-border/60 text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {tr('useless')}
-                    </button>
-                    {feedback && (
-                      <span className="text-[11px] text-muted-foreground">{tr('feedbackThanks')}</span>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* 信号 */}
               {suggestion.signal && (
@@ -399,13 +336,14 @@ export function SuggestionBadge({
 
   // 仅展示技术指标（无建议）
   if (!suggestion && kline) {
+    const tech = buildKlineSuggestion(kline as any, hasPosition, klineTr)
     return (
       <>
         <div className="inline-flex flex-col items-start gap-0.5">
           <TechnicalBadge
-            label={tr('technicalShort')}
-            tone="neutral"
-            size="xs"
+            label={technicalLabel(tech)}
+            tone={technicalToneFromSuggestionAction(tech.action, tech.action_label)}
+            size="md"
             onClick={(e) => {
               e.stopPropagation()
               setKlineDialogOpen(true)
@@ -439,6 +377,7 @@ export function SuggestionBadge({
       <div className="inline-flex flex-col items-start gap-0.5">
         <div className="inline-flex items-center gap-1">
           <AiSuggestionBadge
+            {...suggestion}
             action={suggestion.action}
             actionLabel={localizedAction(suggestion.action, suggestion.action_label)}
             isAI={isAI}
@@ -456,8 +395,8 @@ export function SuggestionBadge({
               const tech = kline ? buildKlineSuggestion(kline as any, hasPosition, klineTr) : null
               return (
                 <TechnicalBadge
-                  label={tech ? localizedAction(tech.action, tech.action_label) : tr('watch')}
-                  tone={technicalToneFromSuggestionAction(tech?.action, tech?.action_label)}
+                  label={technicalLabel(tech)}
+                  tone={tech ? technicalToneFromSuggestionAction(tech.action, tech.action_label) : 'neutral'}
                   size="md"
                   onClick={(e) => { e.stopPropagation(); setKlineDialogOpen(true) }}
                   title={tr('technicalTitle')}
@@ -485,6 +424,7 @@ export function SuggestionBadge({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AiSuggestionBadge
+                {...suggestion}
                 action={suggestion.action}
                 actionLabel={localizedAction(suggestion.action, suggestion.action_label)}
                 isAI={isAI}
@@ -508,39 +448,6 @@ export function SuggestionBadge({
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Feedback */}
-            {canFeedback && (
-              <div>
-                <div className="text-[11px] text-muted-foreground mb-1">{tr('feedbackQuestion')}</div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => submitFeedback(true)}
-                    disabled={feedback !== null}
-                    className={`text-[12px] px-3 py-1.5 rounded-md border transition-colors ${
-                      feedback === 'useful'
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700'
-                        : 'bg-background/40 border-border/60 text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {tr('useful')}
-                  </button>
-                  <button
-                    onClick={() => submitFeedback(false)}
-                    disabled={feedback !== null}
-                    className={`text-[12px] px-3 py-1.5 rounded-md border transition-colors ${
-                      feedback === 'useless'
-                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-700'
-                        : 'bg-background/40 border-border/60 text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {tr('useless')}
-                  </button>
-                  {feedback && (
-                    <span className="text-[11px] text-muted-foreground">{tr('feedbackThanks')}</span>
-                  )}
-                </div>
-              </div>
-            )}
 
             {/* 信号 */}
             {suggestion.signal && (
