@@ -193,3 +193,30 @@ button:active{transform:translateY(1px)}
 
 .stock-levels{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:9px 0}.stock-levels span{padding:7px 5px;border:1px solid rgba(255,255,255,.06);border-radius:9px;background:rgba(0,0,0,.12);color:#7897a0;font-size:8px;text-align:center}.stock-levels b{display:block;margin-top:3px;color:#dffcff;font-size:10px}.stock-gates{display:flex;gap:5px;flex-wrap:wrap}.stock-gates i{font-style:normal;font-size:8px;color:#83dcb8;padding:4px 6px;border-radius:7px;background:rgba(25,239,139,.06);border:1px solid rgba(25,239,139,.1)}
 @media(max-width:560px){.stock-levels{grid-template-columns:repeat(3,1fr)}.stock-levels span{font-size:7px}.stock-levels b{font-size:9px}}
+
+/* SAS PRO terminal v3 polish */
+.terminal-page{
+  background:
+    linear-gradient(180deg,rgba(1,7,12,.38) 0%,rgba(1,7,12,.58) 35%,rgba(1,5,9,.88) 75%,rgba(1,5,9,.98) 100%),
+    url("/assets/sas-pro-home.webp?v=20261004-3") center top/cover fixed no-repeat;
+}
+.terminal-page:after{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(circle at 50% 20%,rgba(40,231,255,.08),transparent 38%);pointer-events:none}
+.terminal-main{padding-top:16px}
+.terminal-hero{background:linear-gradient(135deg,rgba(3,20,31,.86),rgba(2,10,17,.72));backdrop-filter:blur(12px);border-color:rgba(57,203,255,.25)}
+.metric-grid>div{background:linear-gradient(145deg,rgba(4,24,36,.84),rgba(2,11,18,.78));backdrop-filter:blur(10px)}
+.macro-grid{grid-template-columns:repeat(3,1fr)}
+.macro-card{background:linear-gradient(145deg,rgba(4,22,33,.82),rgba(1,9,15,.78));backdrop-filter:blur(10px);min-height:92px}
+.macro-card b{font-size:16px;color:#effbff}
+.macro-unavailable{border-color:rgba(255,121,121,.25)}
+.macro-diagnostic{display:block;margin-top:4px;color:#8b7474;font-size:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stock-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.stock-actions button{width:100%;padding:8px 6px;font-weight:800}
+.terminal-panel-head small{display:block;color:#6f8da3;font-size:9px;margin-top:4px}
+.diagnostics{flex-wrap:wrap}
+.diagnostics span,.radar-mode{backdrop-filter:blur(8px)}
+@media(max-width:600px){
+ .terminal-main{padding:10px}
+ .macro-grid{grid-template-columns:repeat(2,1fr)}
+ .macro-card{min-height:88px}
+ .stock-actions{grid-template-columns:1fr 1fr}
+}
