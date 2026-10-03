@@ -187,6 +187,15 @@ async def start_trial_for_user(user_data):
             await db.flush()
         if user.terms_version != TERMS_VERSION or not user.terms_accepted_at:
             raise ValueError("يجب الموافقة على الشروط أولًا")
+        # لا تبدأ تجربة جديدة إذا كان لدى المستخدم وصول مدفوع أو مجاني فعال.
+        active_paid = (await __import__("sqlalchemy").select(Subscription)
+            .where(Subscription.telegram_id == telegram_id, Subscription.active == True)
+            .order_by(Subscription.expires_at.desc()))
+        active_paid_row = (await db.execute(active_paid)).scalars().first()
+        if active_paid_row and aware(active_paid_row.expires_at) > now:
+            raise ValueError("لديك اشتراك فعال حاليًا")
+        if user.free_access:
+            raise ValueError("لديك صلاحية مجانية فعالة حاليًا")
         if user.trial_used_at:
             raise ValueError("التجربة المجانية استُخدمت سابقًا")
         if user.trial_expires and aware(user.trial_expires) > now:
@@ -276,6 +285,8 @@ async def apply_successful_payment(message, db):
     user.plan = plan_key
     user.status = "active"
     user.free_access = False
+    # الاشتراك المدفوع هو مصدر الوصول الوحيد؛ لا نترك تجربة فعالة تنافسه في الواجهة.
+    user.trial_expires = None
     user.warning_sent_at = None
     user.updated_at = now
     db.add(Payment(
@@ -341,6 +352,8 @@ async def grant_access(telegram_id, days=None, forever=False):
         user.plan = plan
         user.free_access = bool(forever)
         user.status = "active"
+        # صلاحية الإدارة/الاشتراك تصبح مصدر الوصول الوحيد.
+        user.trial_expires = None
         user.warning_sent_at = None
         user.updated_at = now
         await db.commit()
