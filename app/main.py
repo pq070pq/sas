@@ -136,19 +136,19 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         "",
         "━━━━━━━━━━━━━━━━━━",
         "",
-        "📌 <b>شروط الرصد</b>",
+        "📌 <b>شروط SAS</b>",
         f"🏷️ نوع الرصد: <b>{_esc((tech.get("radar_checks") or {}).get("momentum_label") or "غير محدد")}</b>",
-        "✅ <b>الزخم اليومي:</b> مستوفى",
-        f"📊 <b>RVOL الرصد:</b> {num((tech.get("radar_checks") or {}).get("momentum_rvol")):.2f}×" if num((tech.get("radar_checks") or {}).get("momentum_rvol")) is not None else "📊 <b>RVOL الرصد:</b> مستوفى",
+        "✅ <b>الزخم اليومي:</b> مستوفى" if bool((tech.get("radar_checks") or {}).get("momentum")) else "⚠️ <b>الزخم اليومي:</b> غير مستوفى",
+        f"📊 <b>RVOL الرصد:</b> {num((tech.get("radar_checks") or {}).get("momentum_rvol")):.2f}×" if num((tech.get("radar_checks") or {}).get("momentum_rvol")) is not None else "📊 <b>RVOL الرصد:</b> غير متوفر",
         f"🎚️ <b>الحد المطلوب:</b> {num((tech.get("radar_checks") or {}).get("momentum_rvol_threshold")):.2f}×" if num((tech.get("radar_checks") or {}).get("momentum_rvol_threshold")) is not None else "🎚️ <b>الحد المطلوب:</b> حسب وقت الجلسة",
-        "✅ <b>SAS Core:</b> مستوفى",
-        "✅ <b>السيولة اليومية:</b> مستوفاة",
-        "✅ <b>الهدف السعري:</b> مؤكد من مستوى مقاومة مرصود",
-        "✅ <b>المستويات الحية:</b> الدخول/الوقف/الهدف صالحة",
+        "✅ <b>SAS Core:</b> مستوفى" if bool((tech.get("radar_checks") or {}).get("sas_core")) else "⚠️ <b>SAS Core:</b> غير مستوفى",
+        "✅ <b>السيولة اليومية:</b> مستوفاة" if bool((tech.get("radar_checks") or {}).get("liquidity")) else "⚠️ <b>السيولة اليومية:</b> غير مستوفاة",
+        "✅ <b>الهدف السعري:</b> مؤكد من مستوى مقاومة مرصود" if bool((tech.get("radar_checks") or {}).get("target")) else "⚠️ <b>الهدف السعري:</b> غير مؤكد",
+        "✅ <b>المستويات الحية:</b> الدخول/الوقف/الهدف صالحة" if bool((tech.get("radar_checks") or {}).get("live_levels")) else "⚠️ <b>المستويات الحية:</b> غير مكتملة",
         (
-            "⚠️ <b>R:R:</b> أقل من 1.5 — تحذير فقط ولا يلغي الرصد."
+            "🟠 <b>المخاطرة مقابل العائد (R:R):</b> أقل من 1.5 — تحذير فقط ولا يلغي فرصة اجتازت شروط SAS."
             if bool((tech.get("radar_checks") or {}).get("risk_reward_warning"))
-            else "✅ <b>R:R:</b> عند أو فوق 1.5"
+            else "🟢 <b>المخاطرة مقابل العائد (R:R):</b> عند أو فوق 1.5"
         ),
         "",
         "📌 <b>المؤشرات الداعمة</b>",
@@ -258,23 +258,21 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         *target_lines,
         f"🛡 <b>وقف الرصد الحالي: {_money(current_stop)}</b>" if current_stop is not None else "🛡 <b>وقف الرصد الحالي: غير متوفر</b>",
         (
-            f"⚖️ <b>المخاطرة مقابل العائد (R:R): 1 : {num(tech.get('risk_reward')):.2f}</b>"
+            f"⚖️ <b>المخاطرة مقابل العائد (R:R)</b>\n"
+            f"1 : {num(tech.get('risk_reward')):.2f}\n"
+            + (
+                "🟢 <b>التقييم: مناسبة</b>"
+                if num(tech.get('risk_reward')) >= 1.5
+                else "🟠 <b>التقييم: منخفضة — تحذير فقط</b>"
+            )
             if num(tech.get('risk_reward')) is not None
-            else "⚖️ <b>المخاطرة مقابل العائد (R:R): غير محسوب</b>"
+            else "⚖️ <b>المخاطرة مقابل العائد (R:R)</b>\nغير محسوبة\nℹ️ <b>التقييم: غير متوفر</b>"
         ),
         (
-            "⚠️ <b>تنبيه R:R:</b> العائد المحتمل للهدف الأول أقل من مقدار المخاطرة حتى الوقف. "
-            "هذا التنبيه لا يلغي الفرصة؛ السهم اجتاز فلاتر الرصد السابقة."
-            if num(tech.get('risk_reward')) is not None and num(tech.get('risk_reward')) < 1.5
-            else (
-                "✅ <b>R:R مناسب:</b> مقابل كل 1 وحدة مخاطرة حتى الوقف، "
-                "يوجد عائد محتمل قدره "
-                f"{num(tech.get('risk_reward')):.2f} وحدة عند الهدف الأول."
-                if num(tech.get('risk_reward')) is not None
-                else "ℹ️ <b>R:R:</b> لم يتم حساب النسبة."
-            )
+            f"📖 <b>المعنى:</b> 1 : {num(tech.get('risk_reward')):.2f} = مقابل كل 1 وحدة مخاطرة حتى الوقف، يوجد عائد محتمل قدره {num(tech.get('risk_reward')):.2f} وحدة عند الهدف الأول."
+            if num(tech.get('risk_reward')) is not None
+            else "📖 <b>المعنى:</b> 1 : 2 تعني مخاطرة 1 مقابل عائد محتمل 2 عند الهدف الأول."
         ),
-        "📖 <b>شرح R:R:</b> نسبة المخاطرة مقابل العائد؛ 1 : 2 تعني مخاطرة 1 مقابل عائد محتمل 2 عند الهدف الأول.",
         f"📌 الحالة: <b>{status_text}</b>",
         "",
         "⚠️ الأهداف مستويات فنية مبنية على مستويات سعرية مرصودة، وليست أسعارًا مضمونة.",
