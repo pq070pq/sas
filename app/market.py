@@ -11,6 +11,13 @@ FINNHUB_SYMBOLS = {
     "XAU/USD": "OANDA:XAU_USD",
 }
 
+FMP_SYMBOLS = {
+    "SPX": "^GSPC",
+    "IXIC": "^IXIC",
+    "DJI": "^DJI",
+    "XAU/USD": "GCUSD",
+}
+
 async def _finnhub_quote(symbol: str):
     if not settings.finnhub_api_key:
         return None
@@ -33,6 +40,54 @@ async def _finnhub_quote(symbol: str):
         "is_extended_hours": False,
         "datetime": d.get("t"),
     }
+
+
+async def _fmp_quote(symbol: str):
+    """Reliable macro fallback that does not consume Twelve Data credits."""
+    keys = [
+        item.strip()
+        for item in str(getattr(settings, "fmp_api_keys", "") or "").split(",")
+        if item.strip()
+    ]
+    if getattr(settings, "fmp_api_key", ""):
+        keys.insert(0, settings.fmp_api_key.strip())
+    # Preserve order while removing duplicate keys.
+    keys = list(dict.fromkeys(keys))
+    if not keys or symbol not in FMP_SYMBOLS:
+        return None
+
+    mapped = FMP_SYMBOLS[symbol]
+    async with httpx.AsyncClient(timeout=10) as c:
+        for key in keys:
+            try:
+                r = await c.get(
+                    "https://financialmodelingprep.com/stable/quote",
+                    params={"symbol": mapped, "apikey": key},
+                )
+                if r.status_code >= 400:
+                    continue
+                data = r.json()
+                row = data[0] if isinstance(data, list) and data else None
+                if not isinstance(row, dict):
+                    continue
+                price = row.get("price")
+                if not _valid_price(price):
+                    continue
+                change_pct = row.get("changePercentage")
+                if change_pct is None and _valid_price(row.get("previousClose")):
+                    prev = float(row["previousClose"])
+                    change_pct = ((float(price) - prev) / prev) * 100 if prev else None
+                return {
+                    "symbol": symbol,
+                    "price": float(price),
+                    "change_pct": change_pct,
+                    "source": "FMP",
+                    "is_extended_hours": False,
+                    "datetime": row.get("timestamp"),
+                }
+            except Exception:
+                continue
+    return None
 
 
 def _valid_price(value):
@@ -85,7 +140,13 @@ async def _twelve_last_close(symbol: str):
 
 
 async def macro_quote(symbol: str):
-    """Holiday/macro quote with a dedicated last-close fallback for closed markets."""
+    """Holiday/macro quote with independent fallbacks that do not depend on Twelve Data."""
+    # FMP is the first macro fallback so the holiday radar still works when
+    # Twelve Data's circuit breaker is protecting the remaining credits.
+    fallback = await _fmp_quote(symbol)
+    if fallback:
+        return fallback
+
     fallback = await _finnhub_quote(symbol)
     if fallback:
         return fallback
