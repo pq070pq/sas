@@ -167,6 +167,22 @@ async def build_private_analysis(symbol: str):
         for i, level in enumerate(targets[:5], 1)
     ) or "• لا يوجد هدف سعري مؤكد من مقاومة مرصودة."
 
+    # حساب R:R من المستويات الفعلية نفسها، بدون اختراع هدف أو وقف.
+    entry = float(tech.get("price") or price or 0) if str(tech.get("price") or price or "").replace(".", "", 1).isdigit() else 0
+    try:
+        stop_n = float(stop) if stop is not None else 0
+        target1_n = float(targets[0]) if targets else 0
+    except (TypeError, ValueError):
+        stop_n, target1_n = 0, 0
+    risk = entry - stop_n
+    reward = target1_n - entry
+    risk_reward = (reward / risk) if risk > 0 and reward > 0 else None
+
+    sas_pass = bool(classification.get("pass"))
+    target_pass = bool(targets) and str(tech.get("status") or "ok").lower() == "ok"
+    live_levels_pass = entry > 0 and stop_n > 0 and target1_n > entry
+    sas_status = "اجتاز شروط SAS" if sas_pass else "لم يثبت اجتياز شروط SAS"
+
     fundamentals_text = (
         f"• الشركة: {fundamentals.get('name') or symbol}\n"
         f"• القطاع: {fundamentals.get('industry') or 'غير متوفر'}\n"
@@ -192,11 +208,22 @@ async def build_private_analysis(symbol: str):
         f"• الوقف/الدعم: <b>{_money(stop)}</b>\n"
         f"{target_text}\n"
         f"• ATR: <b>{_money(tech.get('atr'))}</b>\n"
+        (
+            f"• المخاطرة مقابل العائد (R:R): <b>1 : {risk_reward:.2f}</b>\n"
+            f"• التقييم: <b>{'🟢 مناسبة' if risk_reward >= 1.5 else '🟠 منخفضة — تحذير فقط'}</b>\n"
+            f"• المعنى: مقابل كل 1 وحدة مخاطرة، يوجد عائد محتمل قدره {risk_reward:.2f} وحدة عند الهدف الأول.\n"
+            if risk_reward is not None
+            else "• المخاطرة مقابل العائد (R:R): <b>غير محسوبة</b>\n• التقييم: <b>ℹ️ غير متوفر</b>\n"
+        )
         "━━━━━━━━━━━━━━━━━━\n"
-        "🧩 <b>تقييم SAS</b>\n"
-        f"• الحالة: <b>{'✅ اجتاز شروط SAS' if classification.get('score') is not None else '⚠️ غير مكتمل'}</b>\n"
-        f"• التصنيف: <b>{classification.get('section') or classification.get('type') or 'غير متوفر'}</b>\n"
-        f"• النتيجة: <b>{classification.get('score') if classification.get('score') is not None else 'غير متوفر'}</b>\n"
+        "📌 <b>شروط SAS</b>\n"
+        f"🏷️ <b>نوع الرصد:</b> {classification.get('section') or classification.get('type') or 'غير محدد'}\n"
+        f"{'✅' if sas_pass else '⚠️'} <b>SAS Core:</b> {'مستوفى' if sas_pass else 'غير مستوفى'}\n"
+        f"{'✅' if target_pass else '⚠️'} <b>الهدف السعري:</b> {'مؤكد' if target_pass else 'غير مؤكد'}\n"
+        f"{'✅' if live_levels_pass else '⚠️'} <b>المستويات الحية:</b> {'الدخول/الوقف/الهدف صالحة' if live_levels_pass else 'غير مكتملة'}\n"
+        f"📊 <b>RVOL:</b> {_num(rvol, '×')}\n"
+        f"⭐ <b>النتيجة:</b> {classification.get('score') if classification.get('score') is not None else 'غير متوفر'}\n"
+        f"📍 <b>الحالة:</b> {'🟢 ' + sas_status if sas_pass else '🟠 ' + sas_status}\n"
         "━━━━━━━━━━━━━━━━━━\n"
         "💼 <b>البيانات المالية</b>\n"
         f"{fundamentals_text}\n"
