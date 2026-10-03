@@ -15,7 +15,7 @@ from .config import settings
 from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, AccessRequest, Setting, Invite, get_session, init_db
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
-from .panwatch import analyze, technical_targets
+from .panwatch import analyze, technical_targets, ohlcv
 from .news import company_news, corporate_events
 from .jobs import scheduler
 from .market_calendar import market_status
@@ -1323,6 +1323,11 @@ async def radar_scan(_: dict = Depends(require_pro)):
         "stocks": result.get("stocks", []),
         "diagnostics": result.get("diagnostics", {}),
     }
+
+@app.get("/api/stocks/{symbol}/chart")
+async def stock_chart(symbol: str, _: dict = Depends(require_pro)):
+    candles = await ohlcv(symbol.upper(), days=90, interval="1d")
+    return {"symbol": symbol.upper(), "candles": candles}
 
 @app.get("/api/stocks/{symbol}/news")
 async def stock_news(symbol: str, _: dict = Depends(require_pro)):
