@@ -39,7 +39,7 @@ async function load(){
 
 const terminalState={ticker:[],radar:[],watch:JSON.parse(localStorage.getItem('saspro_watchlist')||'[]'),timer:null,tab:'dashboard'};
 function escHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
-function money(v){const n=Number(v);return Number.isFinite(n)?n.toLocaleString('en-US',{minimumFractionDigits:n<10?2:0,maximumFractionDigits:4}):'—';}
+function money(v){const n=Number(v);return Number.isFinite(n)&&n>0?n.toLocaleString('en-US',{minimumFractionDigits:n<10?2:0,maximumFractionDigits:4}):'—';}
 function pct(v){const n=Number(v);return Number.isFinite(n)?(n>=0?'+':'')+n.toFixed(2)+'%':'—';}
 function switchTerminalTab(tab){
  terminalState.tab=tab;
@@ -74,11 +74,12 @@ function renderMarketStrip(s){
 }
 function renderDashboard(d){
  const r=d.radar||{};
- if(Array.isArray(r.stocks)&&r.stocks.length) terminalState.radar=r.stocks;
+ if(Array.isArray(r.stocks)) terminalState.radar=r.stocks;
  const historical=Boolean(r.historical);
- document.getElementById('radarStatusText').textContent=r.enabled
+ const enabled=Boolean(r.enabled);
+ document.getElementById('radarStatusText').textContent=enabled
   ? '🟢 الرصد الآلي يعمل — يبحث عن الأسهم التي تستوفي بوابة SAS PRO.'
-  : (historical ? '🟡 السوق مغلق — معروض آخر رصد محفوظ من آخر جلسة.' : '🔴 الرصد متوقف حاليًا خارج جلسة الأسهم الأمريكية.');
+  : (historical ? '🟡 السوق مغلق — يتم عرض آخر رصد محفوظ مع بياناته وتحليله.' : '🔴 الرصد متوقف حاليًا خارج جلسة الأسهم الأمريكية.');
  document.getElementById('dashboardMetrics').innerHTML=
   '<div><small>'+(historical?'آخر جلسة':'فرص اليوم')+'</small><strong>'+Number(r.opportunities||terminalState.radar.length||0)+'</strong></div>'+
   '<div><small>أعلى حركة</small><strong>'+pct(r.top_move_pct)+'</strong></div>'+
@@ -91,11 +92,14 @@ function renderDashboard(d){
 function renderMacro(){
  const wanted=['S&P 500','NASDAQ','DOW JONES','VIX','BTC','GOLD','OIL'];
  const rows=wanted.map(label=>terminalState.ticker.find(x=>String(x.label).toUpperCase()===label.toUpperCase())).filter(Boolean);
- document.getElementById('macroGrid').innerHTML=rows.map(x=>'<div class="macro-card"><span>'+escHtml(x.label)+'</span><b>'+money(x.price)+'</b><em class="'+(Number(x.change_pct)>=0?'up':'down')+'">'+pct(x.change_pct)+'</em><small class="macro-source">'+escHtml(x.source||'')+'</small></div>').join('');
+ document.getElementById('macroGrid').innerHTML=rows.map(x=>{
+  const valid=Number(x.price)>0;
+  return '<div class="macro-card '+(valid?'':'macro-unavailable')+'"><span>'+escHtml(x.label)+'</span><b>'+money(x.price)+'</b><em class="'+(Number(x.change_pct)>=0?'up':'down')+'">'+pct(x.change_pct)+'</em><small class="macro-source">'+escHtml(x.source||'غير متوفر')+'</small>'+(x.diagnostic?'<small class="macro-diagnostic">'+escHtml(x.diagnostic)+'</small>':'')+'</div>';
+ }).join('');
 }
 async function runRadar(show=true){
  try{
-  if(show){document.getElementById('radarGrid').innerHTML='<div class="loading">🔎 يجري فحص الرادار...</div>';switchTerminalTab('radar');}
+  if(show){document.getElementById('radarGrid').innerHTML='<div class="loading">🔎 يجري تحميل أحدث بيانات الرادار...</div>';switchTerminalTab('radar');}
   const d=await api('/api/radar/scan');
   terminalState.radar=d.stocks||[];
   const diag=d.diagnostics||{};
