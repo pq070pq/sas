@@ -87,6 +87,24 @@ async function initTerminal(){
  await refreshTerminal();
  terminalState.timer=setInterval(refreshTerminal,20000);
 }
+async function fetchPublicGoldFallback(){
+ try{
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),6000);
+  const r=await fetch('https://xaus.com/api/v1/spot?currency=USD&fresh='+Date.now(),{headers:{'Accept':'application/json'},signal:controller.signal,cache:'no-store'});
+  clearTimeout(timer);
+  if(!r.ok)throw new Error('XAUS HTTP '+r.status);
+  const d=await r.json();
+  const price=Number(d?.spot_usd_oz||d?.xau?.price);
+  if(!Number.isFinite(price)||price<=0)return null;
+  const state=d?.data_state||{};
+  return {symbol:'XAU/USD',label:'GOLD',price,change_pct:null,source:state.status==='stale'?'XAUS Public — آخر سعر حقيقي محفوظ':'XAUS Public',is_extended_hours:false,datetime:d?.price_as_of||d?.updated_at,stale:Boolean(d?.stale||state.status==='stale')};
+ }catch(e){
+  console.warn('SAS PRO direct gold fallback failed:',e?.message||e);
+  return null;
+ }
+}
+
 async function refreshTerminal(){
  document.getElementById('terminalClock').textContent=new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
  const results=await Promise.allSettled([
@@ -97,6 +115,16 @@ async function refreshTerminal(){
  const status=results[0]?.status==='fulfilled'?results[0].value:null;
  const home=results[1]?.status==='fulfilled'?results[1].value:null;
  const ticker=results[2]?.status==='fulfilled'?results[2].value:null;
+ if(Array.isArray(ticker)){
+  const gold=ticker.find(x=>String(x?.symbol||'').toUpperCase()==='XAU/USD' || String(x?.label||'').toUpperCase()==='GOLD');
+  if(!gold || !(Number(gold.price)>0)){
+   const directGold=await fetchPublicGoldFallback();
+   if(directGold){
+    const idx=ticker.findIndex(x=>String(x?.symbol||'').toUpperCase()==='XAU/USD' || String(x?.label||'').toUpperCase()==='GOLD');
+    if(idx>=0)ticker[idx]=directGold;else ticker.push(directGold);
+   }
+  }
+ }
 
  if(status) renderMarketStrip(status);
  if(home) renderDashboard(home);
