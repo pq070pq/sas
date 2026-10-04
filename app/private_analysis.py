@@ -288,4 +288,4 @@ async def build_private_analysis(symbol: str):
     )
     # بعض أجزاء التقرير تُبنى بفواصل أسطر مكتوبة كنص حرفي \\n.
     # نحولها قبل الإرسال إلى Telegram إلى فواصل أسطر فعلية.
-    return report.replace("\\\\r\\\\n", "\\n").replace("\\\\n", "\\n").replace("\\\\r", "\\r")
+    return report.replace(chr(92) + "r" + chr(92) + "n", chr(10)).replace(chr(92) + "n", chr(10)).replace(chr(92) + "r", chr(13))
