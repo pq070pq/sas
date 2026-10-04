@@ -613,8 +613,7 @@ async function saveSubscriptionConfig(){
  }catch(e){alert(e.message);}
 }
 document.addEventListener('change',e=>{if(e.target?.id==='paidPlansVisible')document.getElementById('plansEditorPanel').hidden=!e.target.checked;});
-load();+money(price)+'</b></div>'+
-   '<div><small>🛑 دعم/وقف مرصود</small><b>
+
 function drawChart(candles){
  const canvas=document.getElementById('stockCanvas'); if(!canvas)return;
  const dpr=Math.max(1,window.devicePixelRatio||1),w=canvas.clientWidth||600,h=230;
