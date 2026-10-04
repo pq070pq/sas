@@ -101,7 +101,7 @@ async def publish_market_brief():
         if exists:
             return {"sent": False, "reason": "already_sent"}
 
-        symbols = [("IXIC", "Nasdaq"), ("SPX", "S&P 500"), ("DJI", "Dow Jones Industrial")]
+        symbols = [("IXIC", "Nasdaq"), ("SPX", "S&P 500"), ("DJI", "Dow Jones Industrial"), ("BTC/USD", "Bitcoin"), ("XAU/USD", "Gold")]
         quotes = []
         for symbol, label in symbols:
             try:
