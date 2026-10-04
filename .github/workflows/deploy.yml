@@ -39,5 +39,5 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             docker compose build saspro
-            docker compose up -d saspro
+            docker compose up -d --no-deps saspro
             docker compose ps saspro
