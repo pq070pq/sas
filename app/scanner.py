@@ -1161,7 +1161,6 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
     advanced_confirmation_pass = bool(
         advanced_score >= 50
         and not (divergence.get("bearish") and not breakout_confirmed)
-        and not structure.get("bearish")
     )
 
     patterns = _detect_chart_patterns(candles, price, rvol)
