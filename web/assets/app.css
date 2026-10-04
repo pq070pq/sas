@@ -449,3 +449,6 @@ filter:blur(.2px);
   .ticker-item b{font-size:11px}
   .disclaimer-marquee span{font-size:10px}
 }
+
+/* Mobile deployment center */
+.deploy-status{margin-top:12px}.deploy-state{display:grid;gap:7px;padding:14px;border:1px solid rgba(0,200,255,.18);border-radius:14px;background:rgba(2,9,18,.72)}.deploy-state b{font-size:15px}.deploy-state span,.deploy-state small{color:#8fa6bb}.deploy-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.deploy-actions button{flex:1;min-width:150px}.deploy-note{margin-top:10px;font-size:12px;line-height:1.7;color:#7f95a8}
