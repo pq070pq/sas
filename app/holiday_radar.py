@@ -126,6 +126,28 @@ async def _public_holiday_fallback(symbol: str):
     return None
 
 
+async def _btc_6h_change():
+    """حساب تغير بيتكوين الفعلي خلال آخر 6 ساعات عبر Binance العام."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                "https://api.binance.com/api/v3/klines",
+                params={"symbol": "BTCUSDT", "interval": "1h", "limit": 7},
+            )
+            if r.status_code >= 400:
+                return None
+            rows = r.json()
+            if len(rows) < 7:
+                return None
+            start_price = float(rows[0][1])
+            end_price = float(rows[-1][4])
+            if start_price <= 0:
+                return None
+            return ((end_price - start_price) / start_price) * 100
+    except Exception:
+        return None
+
+
 def _btc_move_line(current_price, previous_price):
     if current_price is None or previous_price in (None, 0):
         return "⏱️ <b>آخر 6 ساعات:</b> قيد المقارنة"
@@ -240,11 +262,7 @@ async def publish_holiday_radar():
         return {"sent": False, "reason": "Stock radar session is available"}
 
     now = datetime.now(timezone.utc)
-    interval = max(
-        HOLIDAY_INTERVAL_MINUTES,
-        settings.weekend_radar_interval_minutes,
-        settings.holiday_radar_interval_minutes,
-    ) * 60
+    interval = HOLIDAY_INTERVAL_MINUTES * 60
 
     if _last_snapshot_at is not None:
         elapsed = (now - _last_snapshot_at).total_seconds()
@@ -293,8 +311,8 @@ async def publish_holiday_radar():
 
             lines.append(f"{display_label}: {price_text} ({change}){suffix}")
 
-        btc_change_6h = None
-        if btc_price is not None and _btc_previous_snapshot_price not in (None, 0):
+        btc_change_6h = await _btc_6h_change()
+        if btc_change_6h is None and btc_price is not None and _btc_previous_snapshot_price not in (None, 0):
             btc_change_6h = ((btc_price - _btc_previous_snapshot_price) / _btc_previous_snapshot_price) * 100
 
         lines += [
@@ -303,7 +321,6 @@ async def publish_holiday_radar():
             "",
             f"💵 <b>السعر الحالي:</b> $" + (_fmt_price(btc_price) if btc_price is not None else "—"),
             f"📈 <b>التغير خلال 6 ساعات:</b> {_fmt_pct(btc_change_6h)}",
-            _btc_move_line(btc_price, _btc_previous_snapshot_price),
             "⚡ <b>حركة قوية:</b> تعني أن تغير بيتكوين خلال 6 ساعات بلغ 3% أو أكثر.",
             "",
             "🔄 <b>التحديث التالي بعد 6 ساعات</b>",
@@ -320,7 +337,7 @@ async def publish_holiday_radar():
         return {
             "sent": True,
             "assets": ["NASDAQ", "SP500", "DOW", "BTC", "GOLD"],
-            "interval_hours": 4,
+            "interval_hours": 6,
         }
 
     except Exception as exc:
@@ -328,11 +345,7 @@ async def publish_holiday_radar():
 
 
 async def holiday_radar_scheduler():
-    interval = max(
-        HOLIDAY_INTERVAL_MINUTES,
-        settings.weekend_radar_interval_minutes,
-        settings.holiday_radar_interval_minutes,
-    ) * 60
+    interval = HOLIDAY_INTERVAL_MINUTES * 60
     while True:
         try:
             await publish_holiday_radar()
