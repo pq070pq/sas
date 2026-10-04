@@ -1,8 +1,26 @@
 const tg=window.Telegram&&window.Telegram.WebApp;
-if(tg){tg.ready();tg.expand();try{tg.setHeaderColor('#020912');tg.setBackgroundColor('#020912');}catch(e){}}
+if(tg){try{tg.ready();tg.expand();tg.setHeaderColor('#020912');tg.setBackgroundColor('#020912');}catch(e){}}
 const getInitData=()=>tg?.initData||new URLSearchParams(location.hash.slice(1)).get('tgWebAppData')||new URLSearchParams(location.search).get('tgWebAppData')||'';
 const headers=()=>({'X-Telegram-Init-Data':getInitData()});
-async function api(path,opt={}){opt.headers=Object.assign(headers(),opt.headers||{});const r=await fetch(path,opt);if(!r.ok){let msg='تعذر تنفيذ العملية';try{const d=await r.json();msg=d.detail||d.message||msg;}catch(e){try{const t=(await r.text()).trim();if(t)msg=t;}catch(_){} }throw new Error(msg);}return r.json();}
+async function api(path,opt={}){
+ const controller=new AbortController();
+ const timeout=setTimeout(()=>controller.abort(),10000);
+ try{
+  opt.headers=Object.assign(headers(),opt.headers||{});
+  opt.signal=controller.signal;
+  const r=await fetch(path,opt);
+  if(!r.ok){
+   let msg='تعذر تنفيذ العملية';
+   try{const d=await r.json();msg=d.detail||d.message||msg;}
+   catch(e){try{const t=(await r.text()).trim();if(t)msg=t;}catch(_){}}
+   throw new Error(msg);
+  }
+  return r.json();
+ }catch(e){
+  if(e?.name==='AbortError')throw new Error('انتهت مهلة الاتصال بالخادم. تحقق من اتصال Telegram وحاول مرة أخرى.');
+  throw e;
+ }finally{clearTimeout(timeout);}
+}
 const fmtDate=v=>v?new Date(v).toLocaleDateString('ar-SA'):'—';
 const fmtDays=(a,b)=>{if(!a||!b)return'—';const n=Math.ceil((new Date(b)-new Date(a))/86400000);return n>0?n+' يوم':'منتهي';};
 let me=null,plans=null,termAction=null;
@@ -12,6 +30,9 @@ async function load(){
  if(loadStarted)return;
  loadStarted=true;
  try{
+  if(!tg)throw new Error('تعذر الوصول إلى Telegram WebApp. افتح SAS PRO من داخل Telegram.');
+  const initData=getInitData();
+  if(!initData)throw new Error('لم تصل بيانات Telegram إلى التطبيق. أغلق Mini App وافتحه من زر SAS PRO داخل Telegram.');
   me=await api('/api/me');
   if(me.admin){
    document.getElementById('subscriptionPage').hidden=true;
@@ -33,7 +54,9 @@ async function load(){
   document.getElementById('paidPlansSection').hidden=!cfg.paid_plans_visible;
   renderPlans(plans.plans||{});
  }catch(e){
-  document.body.innerHTML='<div class="fatal">تعذر التحقق من Telegram. افتح SAS PRO من داخل Telegram.</div>';
+  loadStarted=false;
+  const msg=e?.message||'تعذر التحقق من Telegram.';
+  document.body.innerHTML='<div class="fatal"><b>⚠️ تعذر فتح SAS PRO</b><br><small>'+escHtml(msg)+'</small><br><button onclick="location.reload()">إعادة المحاولة</button></div>';
  }
 }
 
