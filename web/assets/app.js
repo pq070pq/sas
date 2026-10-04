@@ -420,6 +420,13 @@ function openDeployActions(){
  if(tg?.openLink)tg.openLink(url);else window.open(url,'_blank');
 }
 
+function adminSection(id,btn){
+ const el=document.getElementById(id);
+ if(!el || el.hidden)return;
+ document.querySelectorAll('.admin-nav button').forEach(x=>x.classList.remove('active'));
+ if(btn)btn.classList.add('active');
+ el.scrollIntoView({behavior:'smooth',block:'start'});
+}
 async function adminRefresh(){
  const p=me?.admin_permissions||[];
  const tasks=[];
