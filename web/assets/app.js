@@ -260,7 +260,7 @@ async function analyzeSymbol(){
    '<div class="level-grid"><div><small>🟦 الدخول</small><b>$'+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>$'+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>$'+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+rr+'</b></div></div>'+
    '<div class="ai-box"><b>'+(aiAvailable?'🧠 زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+
    '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
-   '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
+   '<div class="terminal-disclaimer"><b>⚠️ إخلاء المسؤولية:</b><br>هذا التقرير معلوماتي وتعليمي فقط، وليس توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول.</div>';
  drawChart(chart.candles||[]);
 }
 function renderPartialAnalysis(el,symbol,q,chart,news){
@@ -1526,6 +1526,7 @@ load();+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'d
  levels+
  '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
  '<div class="news-list">'+(news.length?news.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>';
+ '<div class="terminal-disclaimer"><b>⚠️ إخلاء المسؤولية:</b><br>هذا التقرير معلوماتي وتعليمي فقط، وليس توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول.</div>';
  drawChart(candles);
 }
 function drawChart(candles){
