@@ -72,6 +72,35 @@ def test_running_agent_run_is_stale_after_lifecycle_timeout():
     assert find_active_tradingagents_trace(_db(old_run), "AAPL") is None
 
 
+def test_progress_preserves_the_full_bounded_provider_diagnostic():
+    from src.modules.automation.api.agents import get_run_progress
+
+    run = _run(status="failed")
+    run.error = "AI 服务拒绝处理本次内容。（HTTP 400 · code=1301 · " + "供应商错误详情" * 100 + "）"
+    db = MagicMock()
+    log_query = MagicMock()
+    log_query.filter.return_value.order_by.return_value.limit.return_value.all.return_value = []
+    run_query = MagicMock()
+    run_query.filter.return_value.order_by.return_value.first.return_value = run
+    db.query.side_effect = [log_query, run_query]
+
+    with patch(
+        "src.modules.automation.tradingagents.observability.aggregate_progress",
+        return_value={"stages": []},
+    ):
+        result = get_run_progress(run.trace_id, db)
+
+    assert result["status"] == "failed"
+    assert result["run"]["error"] == run.error
+
+
+def test_configured_hour_long_analysis_is_not_treated_as_stale_after_45_minutes():
+    from src.modules.automation.agent_runs import find_active_tradingagents_trace
+
+    run = _run(created_at=datetime.now(timezone.utc) - timedelta(minutes=55))
+    assert find_active_tradingagents_trace(_db(run), "AAPL") == run.trace_id
+
+
 def test_progress_marks_expired_running_agent_run_stale():
     from src.modules.automation.api.agents import get_run_progress
 
