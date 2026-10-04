@@ -11,7 +11,7 @@ body{direction:rtl;background:
  url("/assets/sas-pro-home.webp?v=20260924") center top/100% auto no-repeat,
  radial-gradient(circle at 50% 5%,rgba(15,126,142,.18),transparent 34%),
  linear-gradient(180deg,#031016 0,#02080d 62%,#010509 100%);
- background-attachment:scroll;
+ background-attachment:fixed;
 }
 button,input,select{font:inherit}
 button{transition:.2s ease;cursor:pointer}
@@ -223,3 +223,10 @@ button:active{transform:translateY(1px)}
 
 .stock-ai{margin-top:8px;padding:8px 9px;border-right:2px solid #24d8ee;border-radius:8px;background:rgba(36,216,238,.045);color:#9fc0c9;font-size:9px;line-height:1.6;max-height:38px;overflow:hidden}
 .stock-actions button:first-child{color:#c9f8ff;border-color:rgba(45,244,255,.3);background:rgba(45,244,255,.08)}
+
+/* SAS PRO terminal refinement */
+body:after{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;background:radial-gradient(circle at 50% 0,rgba(45,244,255,.08),transparent 32%),linear-gradient(180deg,rgba(1,7,12,.08),rgba(1,5,9,.58) 70%,rgba(1,5,9,.92));}
+.macro-card{min-height:92px;border-radius:18px!important;background:linear-gradient(145deg,rgba(7,31,42,.78),rgba(2,12,19,.94))!important;border:1px solid rgba(45,244,255,.16)!important;box-shadow:0 12px 35px rgba(0,0,0,.25),inset 0 1px rgba(255,255,255,.03)!important;}
+.macro-card b{font-size:17px!important}.macro-source{opacity:.65;font-size:8px!important}.macro-unavailable{display:none!important;}
+.stock-card{border-radius:20px!important;background:linear-gradient(145deg,rgba(6,29,39,.9),rgba(2,12,19,.97))!important;border:1px solid rgba(45,244,255,.18)!important;box-shadow:0 14px 38px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.025)!important;}
+.stock-card:hover{border-color:rgba(45,244,255,.42)!important;transform:translateY(-2px);box-shadow:0 18px 42px rgba(0,0,0,.4),0 0 24px rgba(45,244,255,.06)!important;}
