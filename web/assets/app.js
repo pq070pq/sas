@@ -83,7 +83,7 @@ function renderDashboard(d){
  document.getElementById('dashboardMetrics').innerHTML=
   '<div><small>'+(historical?'آخر جلسة':'فرص اليوم')+'</small><strong>'+Number(r.opportunities||terminalState.radar.length||0)+'</strong></div>'+
   '<div><small>أعلى حركة</small><strong>'+pct(r.top_move_pct)+'</strong></div>'+
-  '<div><small>أعلى حجم</small><strong>'+(r.top_volume?money(r.top_volume):'—')+'</strong></div>'+
+  '<div><small>أعلى حجم</small><strong>'+(r.top_volume?Number(r.top_volume).toLocaleString('en-US'):'—')+'</strong></div>'+
   '<div><small>آخر إشارة</small><strong>'+formatTime(r.last_signal_at)+'</strong></div>';
  const el=document.getElementById('dashboardRadar');
  if(terminalState.radar.length) renderCards(el,terminalState.radar.slice(0,6));
@@ -91,11 +91,11 @@ function renderDashboard(d){
 }
 function renderMacro(){
  const wanted=['S&P 500','NASDAQ','DOW JONES','VIX','BTC','GOLD'];
- const rows=wanted.map(label=>terminalState.ticker.find(x=>String(x.label).toUpperCase()===label.toUpperCase())).filter(x=>x && Number(x.price)>0);
+ const rows=wanted.map(label=>terminalState.ticker.find(x=>String(x.label).toUpperCase()===label.toUpperCase())).filter(Boolean);
  document.getElementById('macroGrid').innerHTML=rows.map(x=>{
   const valid=Number(x.price)>0;
-  return '<div class="macro-card '+(valid?'':'macro-unavailable')+'"><span>'+escHtml(x.label)+'</span><b>'+money(x.price)+'</b><em class="'+(Number(x.change_pct)>=0?'up':'down')+'">'+pct(x.change_pct)+'</em><small class="macro-source">'+escHtml(x.source||'غير متوفر')+'</small>'+(x.diagnostic?'<small class="macro-diagnostic">'+escHtml(x.diagnostic)+'</small>':'')+'</div>';
- }).join('');
+  return '<div class="macro-card '+(valid?'':'macro-unavailable')+'"><span>'+escHtml(x.label)+'</span><b>'+ (valid?money(x.price):'غير متاح') +'</b><em class="'+(Number(x.change_pct)>=0?'up':'down')+'">'+pct(x.change_pct)+'</em><small class="macro-source">'+escHtml(x.source||'غير متوفر')+'</small>'+(x.diagnostic?'<small class="macro-diagnostic">'+escHtml(x.diagnostic)+'</small>':'')+'</div>';
+ }).join('') || '<div class="empty-state">لا تتوفر بيانات السوق حاليًا.</div>';
 }
 async function runRadar(show=true){
  try{
@@ -128,12 +128,31 @@ function renderCards(el,rows){
  el.innerHTML=rows.map(stockCard).join('');
 }
 function stockCard(x){
- const raw=String(x.symbol||'—'), s=escHtml(raw), price=x.price??x.entry_price, change=x.change_pct, rr=x.risk_reward;
- const targets=Array.isArray(x.targets)?x.targets:[], target=targets[0]??x.target1??x.target;
- const stop=x.exit??x.stop_loss??x.stop??x.stop_price;
- const volume=Number(x.volume), rvol=Number(x.rvol), warning=Boolean(x.risk_reward_warning);
+ const raw=String(x.symbol||'—'), s=escHtml(raw);
+ const cls=x.classification||{};
+ const tgt=(x.targets && !Array.isArray(x.targets) ? x.targets : {})||{};
+ const targetList=Array.isArray(x.targets)?x.targets:(Array.isArray(tgt.targets)?tgt.targets:[]);
+ const price=Number.isFinite(Number(x.live_price))&&Number(x.live_price)>0?x.live_price:(x.price??x.entry_price??tgt.price);
+ const change=x.live_change_pct??x.change_pct;
+ const target=targetList[0]??tgt.target1??x.target1??x.target;
+ const stop=x.exit??tgt.exit??x.stop_loss??x.stop??x.stop_price;
+ const volume=Number(x.volume);
+ const rvol=Number(x.rvol??cls.rvol??x.momentum_rvol_10d);
+ const rr=x.risk_reward??tgt.risk_reward;
+ const warning=Boolean(x.risk_reward_warning??tgt.risk_reward_warning);
+ const section=x.momentum_section||x.section;
+ const score=Number(cls.score);
  const ai=x.ai_analysis||x.ai||{};
- return '<article class="stock-card"><div class="stock-head"><div><b>'+s+'</b><small>'+(x.section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • '+formatTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div><strong>$'+money(price)+'</strong><div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div><div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div><div class="stock-gates"><i>✓ SAS Core</i><i>✓ السيولة</i><i>✓ الهدف</i><i>✓ المستويات</i></div><div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div><div class="stock-actions"><button onclick="event.stopPropagation();openSymbol(\''+raw+'\')">🧠 تحليل كامل</button><button onclick="event.stopPropagation();toggleWatch(\''+raw+'\')">'+(terminalState.watch.includes(raw)?'★ محفوظ':'☆ حفظ')+'</button></div></article>';
+ const gates=x.radar_checks||{};
+ const gate=(ok,label)=>'<i class="'+(ok?'gate-ok':'gate-warn')+'">'+(ok?'✓ ':'⚠️ ')+label+'</i>';
+ return '<article class="stock-card"><div class="stock-head"><div><b>'+s+'</b><small>'+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • '+formatTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+
+ '<strong>$'+money(price)+'</strong>'+
+ '<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
+ '<div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div>'+
+ '<div class="stock-gates">'+gate(gates.sas_core!==false,'SAS Core')+gate(gates.liquidity!==false,'السيولة')+gate(gates.target!==false,'الهدف')+gate(gates.live_levels!==false,'المستويات')+'</div>'+
+ '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+(x.live_price_source?'<span>📡 '+escHtml(x.live_price_source)+'</span>':'')+'</div>'+
+ '<div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||cls.reason||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div>'+
+ '<div class="stock-actions"><button onclick="event.stopPropagation();openSymbol(\''+raw+'\')">🧠 تحليل كامل</button><button onclick="event.stopPropagation();toggleWatch(\''+raw+'\')">'+(terminalState.watch.includes(raw)?'★ محفوظ':'☆ حفظ')+'</button></div></article>';
 }
 function toggleWatch(symbol){symbol=symbol.toUpperCase();terminalState.watch=terminalState.watch.includes(symbol)?terminalState.watch.filter(x=>x!==symbol):[...terminalState.watch,symbol];localStorage.setItem('saspro_watchlist',JSON.stringify(terminalState.watch));renderWatchlist();renderRadar();}
 async function renderWatchlist(){
