@@ -105,6 +105,19 @@ async function runRadar(show=true){
   const diag=d.diagnostics||{};
   const mode=d.historical?'🗂️ آخر رصد محفوظ — السوق مغلق':'🔴 فحص حي';
   document.getElementById('radarDiagnostics').innerHTML='<b class="radar-mode">'+mode+'</b><span>مرشحون '+Number(diag.candidates||0)+'</span><span>اجتازوا '+Number(diag.passed||0)+'</span><span>مستبعدون '+Number(diag.filtered||0)+'</span><span>أخطاء '+Number(diag.errors||0)+'</span>';
+  const candidateEl=document.getElementById('radarCandidates');
+  const candidates=Array.isArray(diag.filtered_examples)?diag.filtered_examples:[];
+  if(candidateEl && candidates.length){
+    candidateEl.hidden=false;
+    candidateEl.innerHTML='<div class="candidate-title"><b>🔎 تحليل المرشحين</b><small>هذه الأسهم اجتازت مرحلة البحث الأولي ولم تدخل الإشارة النهائية. سبب الاستبعاد ظاهر لكل سهم.</small></div>'+
+      '<div class="candidate-grid">'+candidates.slice(0,12).map(x=>{
+        const sym=String(x.symbol||'—');
+        return '<article class="candidate-card"><div><b>'+escHtml(sym)+'</b><small>'+escHtml(x.data_source||'مصدر الرصد')+'</small></div><p>'+escHtml(x.reason||'تم استبعاده في مرحلة لاحقة')+'</p><button onclick="openSymbol(\''+escHtml(sym)+'\')">🧠 تحليل</button></article>';
+      }).join('')+'</div>';
+  }else if(candidateEl){
+    candidateEl.hidden=true;
+    candidateEl.innerHTML='';
+  }
   renderRadar();
   renderDashboard({radar:{enabled:d.enabled,opportunities:terminalState.radar.length,top_move_pct:Math.max(...terminalState.radar.map(x=>Number(x.change_pct)||-Infinity)),top_volume:Math.max(...terminalState.radar.map(x=>Number(x.volume)||-Infinity))}});
  }catch(e){document.getElementById('radarGrid').innerHTML='<div class="fatal">'+escHtml(e.message)+'</div>';}
