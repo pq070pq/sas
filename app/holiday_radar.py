@@ -23,7 +23,7 @@ MACRO = [
     ("XAU/USD", "🥇 الذهب"),
 ]
 
-HOLIDAY_INTERVAL_MINUTES = 240  # 4 ساعات
+HOLIDAY_INTERVAL_MINUTES = 360  # 6 ساعات
 
 
 def _fmt_price(value):
@@ -128,7 +128,7 @@ async def _public_holiday_fallback(symbol: str):
 
 def _btc_move_line(current_price, previous_price):
     if current_price is None or previous_price in (None, 0):
-        return "⏱️ <b>حركة 4 ساعات:</b> قيد المقارنة"
+        return "⏱️ <b>آخر 6 ساعات:</b> قيد المقارنة"
 
     move = ((current_price - previous_price) / previous_price) * 100
     if move > 0:
@@ -141,7 +141,7 @@ def _btc_move_line(current_price, previous_price):
         arrow = "➡️"
         label = "مستقر"
 
-    return f"⏱️ <b>4 ساعات:</b> {arrow} <b>{move:+.2f}%</b> — {label}"
+    return f"⏱️ <b>آخر 6 ساعات:</b> {arrow} <b>{move:+.2f}%</b> — {label}"
 
 
 async def holiday_snapshot():
@@ -229,7 +229,7 @@ async def publish_market_update(reason: str = "نفاد رصيد Twelve Data"):
 
 
 async def publish_holiday_radar():
-    """تحديث العطلة كل 4 ساعات مع مقارنة حركة بيتكوين بين التحديثين."""
+    """تحديث العطلة كل 6 ساعات مع قياس حركة بيتكوين بين التحديثين."""
     global _last_snapshot_at, _btc_previous_snapshot_price
 
     if not settings.telegram_channel_id or not settings.telegram_bot_token:
@@ -271,16 +271,17 @@ async def publish_holiday_radar():
             "",
         ]
 
+        # المؤشرات والذهب: آخر إغلاق متاح خلال عطلة السوق.
+        lines += ["📊 <b>مؤشرات السوق — آخر إغلاق</b>", ""]
         for label, q in rows:
+            if label == "₿ بيتكوين":
+                continue
             price = _fmt_price(q.get("price"))
             change = _fmt_pct(q.get("change_pct"))
             source = str(q.get("source") or "")
             suffix = " • إغلاق أخير" if "Last Close" in source else ""
 
-            if label == "₿ بيتكوين":
-                display_label = "🔹 <b>BTC</b>"
-                price_text = "$" + price if price != "—" else price
-            elif label == "🥇 الذهب":
+            if label == "🥇 الذهب":
                 display_label = "🔸 <b>Gold</b>"
                 price_text = "$" + price if price != "—" else price
             elif label == "📊 Dow Jones Industrial":
@@ -292,12 +293,20 @@ async def publish_holiday_radar():
 
             lines.append(f"{display_label}: {price_text} ({change}){suffix}")
 
+        btc_change_6h = None
+        if btc_price is not None and _btc_previous_snapshot_price not in (None, 0):
+            btc_change_6h = ((btc_price - _btc_previous_snapshot_price) / _btc_previous_snapshot_price) * 100
+
         lines += [
             "",
-            _btc_move_line(btc_price, _btc_previous_snapshot_price),
-            "⚡ <b>حركة قوية:</b> تعني أن حركة بيتكوين خلال 4 ساعات بلغت 3% أو أكثر.",
+            "₿ <b>بيتكوين — مستقل</b>",
             "",
-            "🔄 <b>التحديث التالي بعد 4 ساعات</b>",
+            f"💵 <b>السعر الحالي:</b> $" + (_fmt_price(btc_price) if btc_price is not None else "—"),
+            f"📈 <b>التغير خلال 6 ساعات:</b> {_fmt_pct(btc_change_6h)}",
+            _btc_move_line(btc_price, _btc_previous_snapshot_price),
+            "⚡ <b>حركة قوية:</b> تعني أن تغير بيتكوين خلال 6 ساعات بلغ 3% أو أكثر.",
+            "",
+            "🔄 <b>التحديث التالي بعد 6 ساعات</b>",
             f"🕐 {datetime.now(RIYADH).strftime('%H:%M')} بتوقيت السعودية",
             "",
             "📡 رصد معلوماتي للأسعار أثناء عطلة السوق ⚠️",
