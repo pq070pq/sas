@@ -612,6 +612,10 @@ async def weekly_radar_report():
 
 async def scheduler():
     logger.info("SAS PRO scheduler started.")
+    # Let the Telegram Mini App authenticate before the first heavy scheduler cycle.
+    # Some startup cycles can take tens of seconds and must not race with /api/me.
+    await asyncio.sleep(60)
+    logger.info("SAS PRO initial scheduler grace period completed.")
     while True:
         cycle_started = utcnow()
         try:
