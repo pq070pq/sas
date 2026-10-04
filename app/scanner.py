@@ -734,7 +734,14 @@ async def discover_low_price_stocks():
             staged[row["symbol"]] = row
 
     # Hard cap protects PanWatch/local resources without narrowing the price universe.
-    candidates = list(staged.values())[:settings.radar_staging_limit]
+    candidates = sorted(
+        staged.values(),
+        key=lambda x: (
+            _f(x.get("price")) * _f(x.get("volume")),
+            abs(_f(x.get("change_pct"))),
+        ),
+        reverse=True,
+    )[:settings.radar_staging_limit]
     semaphore = asyncio.Semaphore(16)
 
     async def stage(row):
