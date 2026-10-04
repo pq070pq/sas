@@ -2,6 +2,8 @@ import asyncio
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+import httpx
+
 from .config import settings
 from .market import macro_quote
 from .market_calendar import market_status
@@ -43,6 +45,87 @@ def _fmt_pct(value):
         return str(value)
 
 
+def _valid_price(value):
+    try:
+        return value is not None and float(value) > 0
+    except Exception:
+        return False
+
+
+async def _public_holiday_fallback(symbol: str):
+    """مصادر مستقلة عن Twelve Data للرادار أثناء العطلة/نهاية الأسبوع.
+
+    الهدف هنا أن لا تصبح رسالة Holiday Radar فارغة بسبب نفاد حصة
+    Twelve Data أو فشل مزود واحد.
+    """
+    try:
+        headers = {"User-Agent": "Mozilla/5.0 SAS-PRO/2.1"}
+
+        # الذهب: XAUS مصدر عام مخصص للـ XAU/USD، بلا مفتاح API.
+        if symbol == "XAU/USD":
+            async with httpx.AsyncClient(timeout=10, follow_redirects=True, headers=headers) as client:
+                r = await client.get("https://xaus.com/api/v1/spot?compact=1")
+                if r.status_code < 400:
+                    d = r.json()
+                    price = d.get("spot_usd_oz")
+                    if _valid_price(price):
+                        return {
+                            "symbol": symbol,
+                            "price": float(price),
+                            "change_pct": None,
+                            "source": "XAUS Public",
+                            "is_extended_hours": False,
+                            "datetime": d.get("price_as_of") or d.get("updated_at"),
+                        }
+
+        # مؤشرات الأسهم: Stooq مستقل عن حصص مزودي API المدفوعة.
+        mapped = {
+            "SPX": "^spx",
+            "IXIC": "^ndq",
+            "DJI": "^dji",
+        }.get(symbol)
+        if mapped:
+            async with httpx.AsyncClient(timeout=12, follow_redirects=True, headers=headers) as client:
+                r = await client.get(
+                    "https://stooq.com/q/d/l/",
+                    params={"s": mapped, "i": "d"},
+                )
+                if r.status_code < 400:
+                    import csv
+                    import io
+
+                    rows = list(csv.DictReader(io.StringIO(r.text)))
+                    valid = []
+                    for row in rows:
+                        try:
+                            close = float(row.get("Close"))
+                            if close > 0:
+                                valid.append((row.get("Date"), close))
+                        except Exception:
+                            continue
+
+                    if valid:
+                        latest_date, latest = valid[-1]
+                        previous = valid[-2][1] if len(valid) > 1 else None
+                        change_pct = (
+                            ((latest - previous) / previous) * 100
+                            if previous
+                            else None
+                        )
+                        return {
+                            "symbol": symbol,
+                            "price": latest,
+                            "change_pct": change_pct,
+                            "source": "Stooq Last Close",
+                            "is_extended_hours": False,
+                            "datetime": latest_date,
+                        }
+    except Exception:
+        return None
+
+    return None
+
+
 def _btc_move_line(current_price, previous_price):
     if current_price is None or previous_price in (None, 0):
         return "⏱️ <b>حركة 4 ساعات:</b> قيد المقارنة"
@@ -65,10 +148,27 @@ async def holiday_snapshot():
     rows = []
     for symbol, label in MACRO:
         try:
-            q = await macro_quote(symbol)
+            # للمؤشرات والذهب نجرب المصدر المستقل أولاً، ثم طبقة السوق
+            # الحالية التي تحتوي Finnhub/FMP/Twelve Data وغيرها.
+            q = await _public_holiday_fallback(symbol)
+            if not q or not _valid_price(q.get("price")):
+                q = await macro_quote(symbol)
+
+            if not q:
+                q = {"price": None, "change_pct": None, "source": "unavailable"}
+
             rows.append((label, q))
         except Exception:
-            rows.append((label, {"price": None, "change_pct": None, "source": "unavailable"}))
+            rows.append(
+                (
+                    label,
+                    {
+                        "price": None,
+                        "change_pct": None,
+                        "source": "unavailable",
+                    },
+                )
+            )
     return rows
 
 
@@ -81,7 +181,6 @@ async def publish_market_update(reason: str = "نفاد رصيد Twelve Data"):
     news = []
     if settings.finnhub_api_key:
         try:
-            import httpx
             async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.get(
                     "https://finnhub.io/api/v1/news",
@@ -100,7 +199,10 @@ async def publish_market_update(reason: str = "نفاد رصيد Twelve Data"):
         "📊 <b>مؤشرات السوق</b>",
     ]
     for label, q in rows:
-        lines.append(f"{label}: <b>{_fmt_price(q.get('price'))}</b> ({_fmt_pct(q.get('change_pct'))})")
+        lines.append(
+            f"{label}: <b>{_fmt_price(q.get('price'))}</b> "
+            f"({_fmt_pct(q.get('change_pct'))})"
+        )
 
     lines += ["", "📰 <b>آخر مستجدات السوق</b>"]
     if news:
@@ -119,7 +221,11 @@ async def publish_market_update(reason: str = "نفاد رصيد Twelve Data"):
         "⚠️ تحديث معلوماتي للسوق، وليس توصية شراء أو بيع.",
     ]
     await send_message(settings.telegram_channel_id, "\n".join(lines))
-    return {"sent": True, "assets": ["NASDAQ", "SP500", "DOW", "BTC", "GOLD"], "news": len(news)}
+    return {
+        "sent": True,
+        "assets": ["NASDAQ", "SP500", "DOW", "BTC", "GOLD"],
+        "news": len(news),
+    }
 
 
 async def publish_holiday_radar():
@@ -173,10 +279,10 @@ async def publish_holiday_radar():
 
             if label == "₿ بيتكوين":
                 display_label = "🔹 <b>BTC</b>"
-                price_text = f"$" + price if price != "—" else price
+                price_text = "$" + price if price != "—" else price
             elif label == "🥇 الذهب":
                 display_label = "🔸 <b>Gold</b>"
-                price_text = f"$" + price if price != "—" else price
+                price_text = "$" + price if price != "—" else price
             elif label == "📊 Dow Jones Industrial":
                 display_label = "📊 <b>Dow Jones</b>"
                 price_text = price
