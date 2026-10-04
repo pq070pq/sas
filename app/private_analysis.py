@@ -138,8 +138,8 @@ async def build_private_analysis(symbol: str):
     fundamentals = value(fundamentals, {})
 
     try:
-        from .scanner import classify_faisal
-        classification = await classify_faisal(symbol, quote_data)
+        from .scanner import classify_sas
+        classification = await classify_sas(symbol, quote_data, allow_twelve_fallback=True)
     except Exception:
         classification = {}
 
@@ -162,79 +162,97 @@ async def build_private_analysis(symbol: str):
     if rvol is None:
         rvol = tech.get("volume_ratio")
 
-    target_text = "\n".join(
-        f"• الهدف {i}: <b>{_money(level)}</b>"
-        for i, level in enumerate(targets[:5], 1)
-    ) or "• لا يوجد هدف سعري مؤكد من مقاومة مرصودة."
+    def _safe_float(value):
+        try:
+            n = float(value)
+            return n if n > 0 else None
+        except (TypeError, ValueError):
+            return None
 
-    # حساب R:R من المستويات الفعلية نفسها، بدون اختراع هدف أو وقف.
-    entry = float(tech.get("price") or price or 0) if str(tech.get("price") or price or "").replace(".", "", 1).isdigit() else 0
-    try:
-        stop_n = float(stop) if stop is not None else 0
-        target1_n = float(targets[0]) if targets else 0
-    except (TypeError, ValueError):
-        stop_n, target1_n = 0, 0
-    risk = entry - stop_n
-    reward = target1_n - entry
-    risk_reward = (reward / risk) if risk > 0 and reward > 0 else None
+    entry = _safe_float(tech.get("price")) or _safe_float(price)
+    stop_n = _safe_float(stop)
+    target1_n = _safe_float(targets[0]) if targets else None
+    risk = (entry - stop_n) if entry is not None and stop_n is not None else None
+    reward = (target1_n - entry) if entry is not None and target1_n is not None else None
+    risk_reward = (reward / risk) if risk and risk > 0 and reward and reward > 0 else None
 
     sas_pass = bool(classification.get("pass"))
     target_pass = bool(targets) and str(tech.get("status") or "ok").lower() == "ok"
-    live_levels_pass = entry > 0 and stop_n > 0 and target1_n > entry
-    sas_status = "اجتاز شروط SAS" if sas_pass else "لم يثبت اجتياز شروط SAS"
-    rr_block = (
-        f"⚖️ <b>المخاطرة مقابل العائد (R:R)</b>\n"
-        f"1 : {risk_reward:.2f}\n"
-        f"{'🟢 <b>التقييم: مناسبة</b>' if risk_reward >= 1.5 else '🟠 <b>التقييم: منخفضة — تحذير فقط</b>'}\n"
-        f"📖 <b>المعنى:</b> مقابل كل 1 وحدة مخاطرة، يوجد عائد محتمل قدره {risk_reward:.2f} وحدة عند الهدف الأول."
-        if risk_reward is not None
-        else "⚖️ <b>المخاطرة مقابل العائد (R:R)</b>\nغير محسوبة\nℹ️ <b>التقييم: غير متوفر</b>"
-    )
+    live_levels_pass = bool(entry and stop_n and target1_n and target1_n > entry and stop_n < entry)
+    score = classification.get("score")
+    stock_type = classification.get("type") or "غير محدد"
+    behavior = classification.get("behavior") or "غير واضح"
+    source = quote_data.get("source") or "غير متوفر"
+
+    target_text = "\n".join(
+        f"   🎯 الهدف {i}: <b>{_money(level)}</b>"
+        for i, level in enumerate(targets[:5], 1)
+    ) if targets else "   ⚠️ لا يوجد هدف سعري مؤكد من مقاومة مرصودة."
+
+    if risk_reward is not None:
+        rr_eval = "🟢 مناسب" if risk_reward >= 1.5 else "🟠 منخفض — تحذير فقط"
+        rr_block = (
+            "⚖️ <b>المخاطرة مقابل العائد (R:R)</b>\n"
+            f"   1 : <b>{risk_reward:.2f}</b>\n"
+            f"   {rr_eval}\n"
+            f"   📖 يعني ذلك: كل 1 وحدة مخاطرة مقابل {risk_reward:.2f} وحدة عائد محتمل عند الهدف الأول.\n"
+            "   ℹ️ الحد المرجعي في SAS هو 1.5، وR:R تحذيري ولا يلغي الفرصة."
+        )
+    else:
+        rr_block = ("⚖️ <b>المخاطرة مقابل العائد (R:R)</b>\n"
+                    "   — غير محسوب\n"
+                    "   ℹ️ لا توجد مستويات صالحة كافية لحسابه؛ لم يتم التخمين.")
 
     fundamentals_text = (
-        f"• الشركة: {fundamentals.get('name') or symbol}\n"
-        f"• القطاع: {fundamentals.get('industry') or 'غير متوفر'}\n"
-        f"• القيمة السوقية: {_num(fundamentals.get('market_cap_m'), 'M')}\n"
-        f"• P/E: {_num(fundamentals.get('pe_ttm'))}\n"
-        f"• EPS: {_num(fundamentals.get('eps_ttm'))}\n"
-        f"• نمو الإيرادات 3 سنوات: {_pct(fundamentals.get('revenue_growth_3y'))}\n"
-        f"• الهامش الصافي: {_pct(fundamentals.get('net_margin'))}\n"
-        f"• ROE: {_pct(fundamentals.get('roe_ttm'))}\n"
-        f"• الدين/حقوق الملكية: {_num(fundamentals.get('debt_to_equity'))}"
+        f"   🏢 الشركة: <b>{html.escape(str(fundamentals.get('name') or symbol))}</b>\n"
+        f"   🏷️ القطاع: {html.escape(str(fundamentals.get('industry') or 'غير متوفر'))}\n"
+        f"   💰 القيمة السوقية: {_num(fundamentals.get('market_cap_m'), 'M')}\n"
+        f"   📐 P/E: {_num(fundamentals.get('pe_ttm'))}\n"
+        f"   🧮 EPS: {_num(fundamentals.get('eps_ttm'))}\n"
+        f"   📈 نمو الإيرادات (3 سنوات): {_pct(fundamentals.get('revenue_growth_3y'))}\n"
+        f"   💵 الهامش الصافي: {_pct(fundamentals.get('net_margin'))}\n"
+        f"   📊 ROE: {_pct(fundamentals.get('roe_ttm'))}\n"
+        f"   🏦 الدين/حقوق الملكية: {_num(fundamentals.get('debt_to_equity'))}"
     )
-
+    sas_status = "🟢 اجتاز شروط SAS Core" if sas_pass else "🟠 لم يثبت اجتياز شروط SAS Core"
+    news_count = len(news) if isinstance(news, list) else 0
     return (
-        f"🔎 <b>SAS PRO — تحليل خاص للسهم {symbol}</b>\n"
+        f"🔎 <b>SAS PRO | التحليل الخاص: {html.escape(symbol)}</b>\n"
         "━━━━━━━━━━━━━━━━━━\n"
-        f"💵 <b>السعر:</b> {_money(price)}\n"
-        f"📈 <b>التغير:</b> {_pct(change)}\n"
-        f"📊 <b>RVOL/حجم:</b> {_num(rvol, '×')}\n"
-        f"🏷️ <b>المصدر:</b> {quote_data.get('source') or 'غير متوفر'}\n"
+        "📍 <b>الخلاصة السريعة</b>\n"
+        f"   💵 السعر الحالي: <b>{_money(price)}</b>  |  📈 التغير: <b>{_pct(change)}</b>\n"
+        f"   🧭 الحالة الفنية: <b>{html.escape(str(behavior))}</b>\n"
+        f"   🏷️ التصنيف: <b>{html.escape(str(stock_type))}</b>\n"
+        f"   📡 مصدر السعر: {html.escape(str(source))}\n"
         "━━━━━━━━━━━━━━━━━━\n"
         "🎯 <b>المستويات الفنية</b>\n"
-        f"• الدخول المرجعي: <b>{_money(tech.get('price') or price)}</b>\n"
-        f"• الوقف/الدعم: <b>{_money(stop)}</b>\n"
+        f"   🟦 الدخول المرجعي: <b>{_money(entry)}</b>\n"
+        f"   🛑 الوقف / الدعم: <b>{_money(stop_n)}</b>\n"
         f"{target_text}\n"
-        f"• ATR: <b>{_money(tech.get('atr'))}</b>\n"
+        f"   📏 ATR: <b>{_money(tech.get('atr'))}</b>\n"
+        "   ℹ️ الدخول = السعر المرجعي، الوقف = مستوى حماية، والأهداف = مستويات سعرية محتملة.\n"
+        "━━━━━━━━━━━━━━━━━━\n"
         f"{rr_block}\n"
         "━━━━━━━━━━━━━━━━━━\n"
         "📌 <b>شروط SAS</b>\n"
-        f"🏷️ <b>نوع الرصد:</b> {classification.get('section') or classification.get('type') or 'غير محدد'}\n"
-        f"{'✅' if sas_pass else '⚠️'} <b>SAS Core:</b> {'مستوفى' if sas_pass else 'غير مستوفى'}\n"
-        f"{'✅' if target_pass else '⚠️'} <b>الهدف السعري:</b> {'مؤكد' if target_pass else 'غير مؤكد'}\n"
-        f"{'✅' if live_levels_pass else '⚠️'} <b>المستويات الحية:</b> {'الدخول/الوقف/الهدف صالحة' if live_levels_pass else 'غير مكتملة'}\n"
-        f"📊 <b>RVOL:</b> {_num(rvol, '×')}\n"
-        f"⭐ <b>النتيجة:</b> {classification.get('score') if classification.get('score') is not None else 'غير متوفر'}\n"
-        f"📍 <b>الحالة:</b> {'🟢 ' + sas_status if sas_pass else '🟠 ' + sas_status}\n"
+        f"   {'✅' if sas_pass else '⚠️'} SAS Core: <b>{'مستوفى' if sas_pass else 'غير مستوفى/غير مثبت'}</b>\n"
+        f"   {'✅' if target_pass else '⚠️'} الهدف السعري: <b>{'مؤكد' if target_pass else 'غير مؤكد'}</b>\n"
+        f"   {'✅' if live_levels_pass else '⚠️'} المستويات: <b>{'مكتملة وصالحة' if live_levels_pass else 'غير مكتملة'}</b>\n"
+        f"   📊 RVOL: <b>{_num(rvol, '×')}</b>\n"
+        f"   ⭐ نتيجة SAS: <b>{score if score is not None else 'غير متوفر'}</b>\n"
+        f"   📍 الحالة: <b>{sas_status}</b>\n"
+        "   ℹ️ «غير متوفر» تعني أن المصدر لم يقدم قيمة موثوقة؛ لم يتم تخمين البيانات.\n"
         "━━━━━━━━━━━━━━━━━━\n"
         "💼 <b>البيانات المالية</b>\n"
         f"{fundamentals_text}\n"
         "━━━━━━━━━━━━━━━━━━\n"
+        "🔄 <b>الأحداث المهمة</b>\n"
         f"{_format_corporate_actions(events)}\n"
         "━━━━━━━━━━━━━━━━━━\n"
         f"{_format_news(news)}\n"
+        f"   ℹ️ الأخبار المتاحة: <b>{news_count}</b>\n"
         "━━━━━━━━━━━━━━━━━━\n"
         f"{_format_ai(ai)}\n"
         "━━━━━━━━━━━━━━━━━━\n"
-        "⚠️ <b>هذا التقرير معلوماتي وتعليمي فقط، وليس توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول.</b>"
+        "⚠️ <b>تنبيه:</b> التقرير معلوماتي وتعليمي فقط، وليس توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول."
     )
