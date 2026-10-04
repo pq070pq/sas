@@ -187,6 +187,7 @@ async function analyzeSymbol(){
  const tech=analysis.sas_pro?.targets||{};
  const ai=analysis.analysis||{};
  const targets=Array.isArray(tech.targets)?tech.targets:[];
+ const newsFromAnalysis=Array.isArray(analysis.news)?analysis.news:news;
  const partial=analysis.partial;
  el.innerHTML='<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div><button onclick="toggleWatch(\''+escHtml(symbol)+'\')">'+(terminalState.watch.includes(symbol)?'★ محفوظ':'☆ حفظ')+'</button></div>'+
  '<div class="quote-line"><strong>$'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
@@ -194,7 +195,7 @@ async function analyzeSymbol(){
  '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
  '<div class="level-grid"><div><small>🟦 الدخول</small><b>$'+money(tech.price||q.price)+'</b></div><div><small>🛑 الوقف</small><b>$'+money(tech.exit)+'</b></div><div><small>🎯 الهدف 1</small><b>$'+money(targets[0])+'</b></div><div><small>⚖️ R:R</small><b>'+(tech.risk_reward!=null?Number(tech.risk_reward).toFixed(2):'—')+'</b></div></div>'+
  '<div class="ai-box"><b>🧠 زبدة التحليل</b><p>'+escHtml(ai.key_takeaway||ai.headline_summary||'لا يوجد تحليل مختصر موثق.')+'</p></div>'+
- '<div class="news-list">'+(news.length?news.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
+ '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
  '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
  drawChart(chart.candles||[]);
 }
