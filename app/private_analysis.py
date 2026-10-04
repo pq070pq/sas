@@ -182,6 +182,12 @@ async def build_private_analysis(symbol: str):
     score = classification.get("score")
     stock_type = classification.get("type") or "غير محدد"
     behavior = classification.get("behavior") or "غير واضح"
+    trading_style = classification.get("trading_style") or "غير محدد"
+    risk_level = classification.get("risk_level") or "غير محدد"
+    risk_score = classification.get("risk_score")
+    risk_emoji = classification.get("risk_emoji") or "⚠️"
+    holding_horizon = classification.get("holding_horizon")
+    risk_reasons = classification.get("risk_reasons") or []
     source = quote_data.get("source") or "غير متوفر"
 
     target_text = "\n".join(
@@ -244,7 +250,11 @@ async def build_private_analysis(symbol: str):
         "📋 <b>الملخص للمتداول</b>\\n"
         f"💵 السعر: <b>{_money(price)}</b>   📈 التغير: <b>{_pct(change)}</b>\\n"
         f"🧭 الحالة الفنية: <b>{html.escape(str(behavior))}</b>\\n"
-        f"🏷️ التصنيف: <b>{html.escape(str(stock_type))}</b>\\n"
+        f"🏷️ التصنيف الفني: <b>{html.escape(str(stock_type))}</b>\\n"
+        f"🎯 <b>نوع السهم:</b> {html.escape(str(trading_style))}\\n"
+        f"⚠️ <b>درجة الخطورة:</b> {risk_emoji} {html.escape(str(risk_level))}"
+        f"{f' ({int(risk_score)}/10)' if risk_score is not None else ''}\\n"
+        f"{f'⏱️ <b>الأفق:</b> {html.escape(str(holding_horizon))}\\n' if holding_horizon else ''}"
         f"📡 مصدر السعر: <b>{html.escape(str(source))}</b>\\n"
         "ℹ️ هذا القسم يوضح وضع السهم الآن قبل الدخول في التفاصيل.\\n"
         "━━━━━━━━━━━━━━━━━━\\n"
@@ -252,6 +262,7 @@ async def build_private_analysis(symbol: str):
         f"{'🟢' if sas_pass else '🟠'} <b>SAS Core:</b> {html.escape(sas_status.replace('🟢 ','').replace('🟠 ',''))}\\n"
         f"⭐ <b>النتيجة:</b> {score if score is not None else 'غير متوفرة'}\\n"
         f"📊 <b>RVOL:</b> {_num(rvol, '×')}\\n"
+        f"{'⚠️ <b>عوامل الخطورة:</b> ' + html.escape(' + '.join(str(x) for x in risk_reasons)) + chr(10) if risk_reasons else ''}"
         f"{'🧾 <b>سبب الحالة:</b> ' + html.escape(str(sas_reason)) + chr(10) if sas_reason else ''}"
         f"{'🟢' if target_pass else '🟠'} <b>الهدف السعري:</b> {'مؤكد من البيانات الفنية' if target_pass else 'غير مؤكد'}\\n"
         f"{'🟢' if live_levels_pass else '🟠'} <b>المستويات:</b> {'الدخول والوقف والهدف صالحة' if live_levels_pass else 'تحتاج بيانات إضافية'}\\n"
