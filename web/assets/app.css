@@ -274,3 +274,25 @@ body:after{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;back
 
 .partial-note{margin:10px 0;padding:10px 12px;border:1px solid rgba(245,192,120,.25);border-radius:10px;background:rgba(245,192,120,.06);color:#f3cf9c;font-size:12px;line-height:1.7}
 .fatal{line-height:1.9}
+
+/* SAS PRO US Market identity */
+.terminal-top{position:relative;overflow:hidden;background:
+ linear-gradient(90deg,rgba(2,9,18,.97) 0%,rgba(2,14,25,.90) 42%,rgba(2,9,18,.96) 100%),
+ repeating-linear-gradient(0deg,transparent 0 19px,rgba(39,194,255,.035) 20px 21px)!important;
+}
+.terminal-top:before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.22;background:
+ linear-gradient(155deg,transparent 0 48%,rgba(32,220,255,.28) 49%,transparent 50%),
+ repeating-linear-gradient(90deg,transparent 0 46px,rgba(32,220,255,.055) 47px 48px);
+}
+.terminal-top:after{content:"";position:absolute;right:16%;top:10px;width:180px;height:70px;opacity:.20;pointer-events:none;background:
+ linear-gradient(180deg,rgba(255,40,65,.55) 0 12%,transparent 12% 22%,rgba(255,255,255,.35) 22% 34%,transparent 34% 44%,rgba(255,40,65,.55) 44% 56%,transparent 56% 66%,rgba(255,255,255,.35) 66% 78%,transparent 78%),
+ radial-gradient(circle at 15% 22%,#3b82f6 0 3px,transparent 4px);
+filter:blur(.2px);
+}
+.brand{position:relative;z-index:2}
+.brand-mark.us-market-mark{width:54px;height:54px;border-radius:14px;position:relative;display:flex;align-items:flex-end;justify-content:center;gap:4px;padding:9px 7px;background:linear-gradient(145deg,rgba(4,31,52,.95),rgba(1,13,24,.9));border:1px solid rgba(48,213,255,.45);box-shadow:0 0 22px rgba(25,201,255,.16),inset 0 0 18px rgba(25,201,255,.06);overflow:hidden}
+.us-market-mark i{display:block;width:5px;border-radius:2px 2px 0 0;background:linear-gradient(180deg,#31f4bd,#08aeea);box-shadow:0 0 7px rgba(49,244,189,.35)}
+.us-market-mark i:nth-child(1){height:15px}.us-market-mark i:nth-child(2){height:23px}.us-market-mark i:nth-child(3){height:31px}.us-market-mark i:nth-child(4){height:40px}
+.us-market-mark:after{content:"";position:absolute;left:8px;right:7px;top:12px;height:2px;background:linear-gradient(135deg,transparent 0 18%,#43e8ff 20% 24%,#43e8ff 46% 50%,transparent 52%);transform:rotate(-12deg);box-shadow:0 0 8px #43e8ff}
+.us-market-mark em{position:absolute;top:3px;left:4px;font-style:normal;font-size:10px;filter:saturate(.9)}
+.brand small{letter-spacing:1.6px}
