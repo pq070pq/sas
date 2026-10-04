@@ -239,6 +239,8 @@ async function analyzeSymbol(){
  }
  const tech=analysis.sas_pro?.targets||{};
  const ai=analysis.analysis||{};
+ const fcc=analysis.sas_pro?.targets?.fcc_review||ai.fcc_review||{};
+ const fccHtml=fcc.available ? '<div class="ai-box"><b>🧠 مراجعة الذكاء الاصطناعي للسهم</b><p><b>التقييم:</b> '+escHtml(fcc.review_level||'محايد')+'</p>'+((fcc.strengths||[]).length?'<p><b>💪 نقاط القوة:</b><br>'+fcc.strengths.slice(0,4).map(x=>'• '+escHtml(x)).join('<br>')+'</p>':'')+((fcc.contradictions||[]).length?'<p><b>⚠️ نقاط تحتاج انتباه:</b><br>'+fcc.contradictions.slice(0,4).map(x=>'• '+escHtml(x)).join('<br>')+'</p>':'')+(fcc.note?'<p><b>📌 الخلاصة:</b> '+escHtml(fcc.note)+'</p>':'')+'<small>مراجعة مساعدة لفهم البيانات فقط، ولا تغيّر مستويات SAS PRO.</small></div>' : '';
  const targets=Array.isArray(tech.targets)?tech.targets:[];
  const newsFromAnalysis=Array.isArray(analysis.news)?analysis.news:news;
  const partial=Boolean(analysis.partial);
@@ -258,7 +260,7 @@ async function analyzeSymbol(){
    notice+
    '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
    '<div class="level-grid"><div><small>🟦 الدخول</small><b>$'+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>$'+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>$'+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+rr+'</b></div></div>'+
-   '<div class="ai-box"><b>'+(aiAvailable?'🧠 زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+
+   '<div class="ai-box"><b>'+(aiAvailable?'🧠 زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+
    '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
    '<div class="terminal-disclaimer"><b>⚠️ إخلاء المسؤولية:</b><br>هذا التقرير معلوماتي وتعليمي فقط، وليس توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول.</div>';
  drawChart(chart.candles||[]);
