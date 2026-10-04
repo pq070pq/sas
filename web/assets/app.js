@@ -188,34 +188,26 @@ async function analyzeSymbol(){
  const ai=analysis.analysis||{};
  const targets=Array.isArray(tech.targets)?tech.targets:[];
  const newsFromAnalysis=Array.isArray(analysis.news)?analysis.news:news;
- const partial=analysis.partial;
+ const partial=Boolean(analysis.partial);
  const aiAvailable=Boolean(ai.ai_available||ai.enabled);
- const fallbackType=ai.fallback_type||'';
- const entry=Number(tech.price||q.price), stop=Number(tech.exit||tech.stop), target1=Number(targets[0]||tech.target1);
+ const entry=Number(tech.price||q.price);
+ const stop=Number(tech.exit||tech.stop);
+ const target1=Number(targets[0]||tech.target1);
  const computedRR=Number.isFinite(entry)&&Number.isFinite(stop)&&Number.isFinite(target1)&&entry>stop&&target1>entry?((target1-entry)/(entry-stop)):null;
- el.innerHTML='<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div><button onclick="toggleWatch(\''+escHtml(symbol)+'\')">'+(terminalState.watch.includes(symbol)?'★ محفوظ':'☆ حفظ')+'</button></div>'+
- '<div class="quote-line"><strong>$'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
- (partial?'<div class="partial-note">🟡 بيانات السعر أو المستويات غير مكتملة من المصدر. لم يتم تخمين أي قيمة.</div>':(!aiAvailable?'<div class="partial-note">ℹ️ تحليل AI غير متاح حاليًا؛ تم عرض الخلاصة الفنية من بيانات السهم بدل ترك التقرير فارغًا.</div>':'') )+
- '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
- '<div class="level-grid"><div><small>🟦 الدخول</small><b>+
- '<div class="ai-box"><b>'+(aiAvailable?'🧠 زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(ai.key_takeaway||ai.headline_summary||'لا توجد خلاصة موثقة متاحة حاليًا.')+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+
- '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
- '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
- drawChart(chart.candles||[]);
-}+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>+
- '<div class="ai-box"><b>🧠 زبدة التحليل</b><p>'+escHtml(ai.key_takeaway||ai.headline_summary||'لا يوجد تحليل مختصر موثق.')+'</p></div>'+
- '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
- '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
- drawChart(chart.candles||[]);
-}+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>+
- '<div class="ai-box"><b>🧠 زبدة التحليل</b><p>'+escHtml(ai.key_takeaway||ai.headline_summary||'لا يوجد تحليل مختصر موثق.')+'</p></div>'+
- '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
- '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
- drawChart(chart.candles||[]);
-}+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+(computedRR!=null?computedRR.toFixed(2):(tech.risk_reward!=null?Number(tech.risk_reward).toFixed(2):'—'))+'</b></div></div>+
- '<div class="ai-box"><b>🧠 زبدة التحليل</b><p>'+escHtml(ai.key_takeaway||ai.headline_summary||'لا يوجد تحليل مختصر موثق.')+'</p></div>'+
- '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
- '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
+ const notice=partial
+   ? '<div class="partial-note">🟡 بيانات السعر أو المستويات غير مكتملة من المصدر. لم يتم تخمين أي قيمة.</div>'
+   : (!aiAvailable ? '<div class="partial-note">ℹ️ تحليل AI غير متاح حاليًا؛ تم عرض الخلاصة الفنية من بيانات السهم.</div>' : '');
+ const rr=computedRR!=null?computedRR.toFixed(2):(tech.risk_reward!=null?Number(tech.risk_reward).toFixed(2):'—');
+ const summary=ai.key_takeaway||ai.headline_summary||'لا توجد خلاصة موثقة متاحة حاليًا.';
+ el.innerHTML=
+   '<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div><button onclick="toggleWatch(\''+escHtml(symbol)+'\')">'+(terminalState.watch.includes(symbol)?'★ محفوظ':'☆ حفظ')+'</button></div>'+
+   '<div class="quote-line"><strong>$'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
+   notice+
+   '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
+   '<div class="level-grid"><div><small>🟦 الدخول</small><b>$'+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>$'+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>$'+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+rr+'</b></div></div>'+
+   '<div class="ai-box"><b>'+(aiAvailable?'🧠 زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+
+   '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
+   '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
  drawChart(chart.candles||[]);
 }
 function renderPartialAnalysis(el,symbol,q,chart,news){
