@@ -13,7 +13,6 @@ FINNHUB_SYMBOLS = {
     "BTC/USD": "BINANCE:BTCUSDT",
     "XAU/USD": "OANDA:XAU_USD",
     "VIX": "CBOE:VIX",
-    "WTI/USD": "OANDA:WTICO_USD",
 }
 
 FMP_SYMBOLS = {
@@ -22,7 +21,6 @@ FMP_SYMBOLS = {
     "DJI": ["^DJI", "DIA"],
     "XAU/USD": ["GCUSD", "GLD"],
     "VIX": ["^VIX", "VIXY"],
-    "WTI/USD": ["CLUSD", "USO"],
 }
 
 async def _finnhub_quote(symbol: str):
@@ -293,7 +291,6 @@ async def ticker():
     symbols = [
         ("BTC/USD", "BTC"),
         ("XAU/USD", "GOLD"),
-        ("WTI/USD", "OIL"),
         ("SPX", "S&P 500"),
         ("IXIC", "NASDAQ"),
         ("DJI", "DOW JONES"),
