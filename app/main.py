@@ -1593,8 +1593,10 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         result = {}
 
     try:
-        from .scanner import classify_faisal
-        classification = await classify_faisal(symbol, q)
+        # استخدم نفس محرك التصنيف الموجود في التحليل الخاص حتى تكون
+        # خلاصة Mini App متطابقة مع منطق SAS PRO في الخاص.
+        from .scanner import classify_sas
+        classification = await classify_sas(symbol, q, allow_twelve_fallback=True)
         if isinstance(classification, Exception):
             classification = {}
     except Exception:
@@ -1680,8 +1682,59 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     except Exception:
         report = None
 
+    # خلاصة قصيرة جدًا للواجهة؛ التفاصيل الكاملة تبقى في الخاص.
+    cls = classification if isinstance(classification, dict) else {}
+    target_list = targets.get("targets") if isinstance(targets, dict) else []
+    target_list = target_list if isinstance(target_list, list) else []
+    entry_value = targets.get("price") or q.get("price")
+    stop_value = targets.get("exit") or targets.get("stop") or targets.get("support")
+    target_value = target_list[0] if target_list else targets.get("target1")
+    rvol_value = cls.get("rvol")
+    try:
+        rvol_num = float(rvol_value) if rvol_value is not None else None
+    except (TypeError, ValueError):
+        rvol_num = None
+
+    behavior_value = str(cls.get("behavior") or "غير واضح")
+    if cls.get("market_structure_bearish"):
+        signal_value = "سلبية"
+    elif cls.get("strategy_pass") or cls.get("breakout_confirmed") or cls.get("accumulation"):
+        signal_value = "إيجابية"
+    else:
+        signal_value = "محايدة"
+
+    if rvol_num is not None and rvol_num >= 2:
+        momentum_value = "قوي"
+        liquidity_value = "مرتفعة"
+    elif rvol_num is not None and rvol_num >= 1.2:
+        momentum_value = "متوسط"
+        liquidity_value = "طبيعية"
+    else:
+        momentum_value = "ضعيف"
+        liquidity_value = "ضعيفة"
+
+    if signal_value == "إيجابية" and target_value:
+        mini_takeaway = f"الزخم {momentum_value} مع إشارة {signal_value}؛ راقب تأكيد المستوى قبل القرار."
+    elif signal_value == "سلبية":
+        mini_takeaway = "البنية الحالية تحتاج حذرًا إضافيًا قبل أي قرار."
+    else:
+        mini_takeaway = "الصورة الحالية محايدة وتحتاج تأكيدًا سعريًا إضافيًا."
+
+    mini_analysis = {
+        "direction": behavior_value,
+        "momentum": momentum_value,
+        "liquidity": liquidity_value,
+        "signal": signal_value,
+        "entry": entry_value,
+        "stop": stop_value,
+        "target": target_value,
+        "rvol": rvol_num,
+        "takeaway": mini_takeaway,
+    }
+
     payload = {
         "analysis": analysis_payload,
+        "mini_analysis": mini_analysis,
         "technical_analysis": result,
         "quote": q,
         "sas_pro": {
@@ -1710,6 +1763,26 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         await db.rollback()
 
     return payload
+
+@app.get("/api/stocks/{symbol}/private-link")
+async def stock_private_link(symbol: str, _: dict = Depends(require_pro)):
+    """رابط التحليل الكامل في الخاص مع تمرير رمز السهم تلقائيًا."""
+    symbol = symbol.upper().strip()
+    if not re.fullmatch(r"[A-Z]{1,5}(?:\.[A-Z])?", symbol):
+        raise HTTPException(400, "رمز سهم غير صالح")
+    try:
+        bot = await bot_api("getMe", {})
+        username = str(bot.get("username") or "").strip().lstrip("@")
+    except Exception as exc:
+        raise HTTPException(503, f"تعذر تجهيز رابط التحليل الخاص: {exc}")
+    if not username:
+        raise HTTPException(503, "لم يتم العثور على اسم مستخدم البوت")
+    return {
+        "ok": True,
+        "symbol": symbol,
+        "url": f"https://t.me/{username}?start=analysis_{symbol}",
+    }
+
 
 @app.get("/api/history/{symbol}")
 async def history(symbol: str, user=Depends(require_pro), db: AsyncSession = Depends(get_session)):
@@ -1945,6 +2018,16 @@ async def telegram_webhook(request: Request):
 
     if not telegram_id:
         return {"ok": True}
+
+    # Deep link من Mini App: /start analysis_SYMBOL
+    # نحوله إلى نفس مسار التحليل الخاص، مع الحفاظ على الاشتراك والصلاحيات.
+    deep_analysis = re.fullmatch(
+        r"/start(?:@\\w+)?\\s+analysis_([A-Za-z]{1,5}(?:\\.[A-Za-z])?)",
+        text,
+        re.IGNORECASE,
+    )
+    if deep_analysis:
+        text = deep_analysis.group(1).upper()
 
     # تحليل الأسهم الخاص: أرسل رمزًا واضحًا مثل AAPL في الخاص فقط.
     # لا نعترض الأوامر أو الرسائل العامة أو الرموز غير الصالحة.
