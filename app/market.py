@@ -339,7 +339,7 @@ async def ticker():
         try:
             # المؤشرات/الذهب تستخدم مسار macro_quote المستقل عن حصة Twelve Data.
             # هذا يمنع ظهور 0.00 أو فراغ عندما تكون الحصة محمية.
-            item = await macro_quote(symbol) if symbol in {"SPX", "IXIC", "DJI", "XAU/USD", "VIX", "WTI/USD"} else await quote(symbol)
+            item = await macro_quote(symbol) if symbol in {"SPX", "IXIC", "DJI", "XAU/USD", "VIX"} else await quote(symbol)
             item["label"] = label
             if not _valid_price(item.get("price")):
                 item["price"] = None
