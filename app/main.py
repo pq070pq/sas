@@ -1385,30 +1385,64 @@ async def stock_quote(symbol: str, _: dict = Depends(require_pro)):
 
 @app.post("/api/stocks/{symbol}/analyze")
 async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession = Depends(get_session)):
+    """تحليل Mini App مرن: تعطل مزود واحد لا يمنع بقية التقرير."""
     symbol = symbol.upper().strip()
-    result = await analyze(symbol)
-    targets = await technical_targets(symbol)
-    q = await quote(symbol)
-    from .scanner import classify_faisal
-    classification = await classify_faisal(symbol, q)
+
+    results = await asyncio.gather(
+        analyze(symbol),
+        technical_targets(symbol),
+        quote(symbol),
+        return_exceptions=True,
+    )
+    result, targets, q = results
+
+    if isinstance(result, Exception):
+        result = {"enabled": False, "error": f"{type(result).__name__}: {result}"}
+    if isinstance(targets, Exception):
+        targets = {"status": "error", "targets": [], "error": f"{type(targets).__name__}: {targets}"}
+    if isinstance(q, Exception):
+        q = {"symbol": symbol, "price": None, "change_pct": None, "source": "unavailable",
+             "error": f"{type(q).__name__}: {q}"}
+
+    try:
+        from .scanner import classify_faisal
+        classification = await classify_faisal(symbol, q)
+        if isinstance(classification, Exception):
+            classification = {}
+    except Exception:
+        classification = {}
+
+    try:
+        report = build_report(symbol, q, targets, classification)
+    except Exception:
+        report = None
+
     payload = {
         "analysis": result,
         "quote": q,
         "sas_pro": {
             "targets": targets,
             "classification": classification,
-            "report": build_report(symbol, q, targets, classification),
-
+            "report": report,
             "disclaimer": DISCLAIMER,
         },
+        "partial": bool(
+            isinstance(result, dict) and result.get("error")
+            or isinstance(targets, dict) and targets.get("error")
+            or isinstance(q, dict) and q.get("error")
+        ),
     }
 
-    db.add(StockAnalysis(
-        telegram_id=user["id"],
-        symbol=symbol,
-        payload=json.dumps(payload, ensure_ascii=False),
-    ))
-    await db.commit()
+    try:
+        db.add(StockAnalysis(
+            telegram_id=user["id"],
+            symbol=symbol,
+            payload=json.dumps(payload, ensure_ascii=False),
+        ))
+        await db.commit()
+    except Exception:
+        await db.rollback()
+
     return payload
 
 @app.get("/api/history/{symbol}")
