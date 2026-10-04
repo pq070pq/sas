@@ -39,6 +39,8 @@ async function load(){
   const initData=getInitData();
   if(!initData)throw new Error('لم تصل بيانات Telegram إلى التطبيق. أغلق Mini App وافتحه من زر SAS PRO داخل Telegram.');
   me=await api('/api/me');
+  // Verification succeeded; stop the startup watchdog before loading the dashboard.
+  clearTimeout(watchdog);
   if(me.admin){
    document.getElementById('subscriptionPage').hidden=true;
    document.getElementById('adminPage').hidden=false;
