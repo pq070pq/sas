@@ -207,11 +207,28 @@ function renderPartialAnalysis(el,symbol,q,chart,news){
  drawChart(chart.candles||[]);
 }
 function drawChart(candles){
- const canvas=document.getElementById('stockCanvas'); if(!canvas)return; const dpr=window.devicePixelRatio||1,w=canvas.clientWidth||600,h=230; canvas.width=w*dpr;canvas.height=h*dpr;const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);
- if(!candles.length){ctx.font='14px sans-serif';ctx.fillText('لا توجد بيانات شموع متاحة',20,40);return;}
- const vals=candles.map(x=>Number(x.close)).filter(Number.isFinite),min=Math.min(...vals),max=Math.max(...vals),pad=(max-min||1)*.08;
- ctx.lineWidth=2;ctx.beginPath();candles.forEach((x,i)=>{const v=Number(x.close),px=i*(w-20)/(candles.length-1)+10,py=h-20-((v-(min-pad))/(max-min+2*pad))*(h-35);i?ctx.lineTo(px,py):ctx.moveTo(px,py);});ctx.stroke();
- ctx.font='11px sans-serif';ctx.fillText('$'+money(max),10,14);ctx.fillText('$'+money(min),10,h-4);
+ const canvas=document.getElementById('stockCanvas'); if(!canvas)return;
+ const dpr=window.devicePixelRatio||1,w=canvas.clientWidth||600,h=230;
+ canvas.width=w*dpr;canvas.height=h*dpr;
+ const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+ ctx.fillStyle='rgba(2,12,22,.72)';ctx.fillRect(0,0,w,h);
+ if(!candles.length){
+   ctx.fillStyle='#8fa8b8';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('لا توجد بيانات شموع متاحة',w/2,40);return;
+ }
+ const vals=candles.map(x=>Number(x.close)).filter(Number.isFinite);
+ const min=Math.min(...vals),max=Math.max(...vals),pad=(max-min||1)*.08;
+ ctx.strokeStyle='rgba(91,211,255,.10)';ctx.lineWidth=1;
+ for(let g=1;g<5;g++){const y=20+g*(h-45)/5;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+ const points=candles.map((x,i)=>{
+   const v=Number(x.close),px=i*(w-24)/Math.max(1,candles.length-1)+12,py=h-22-((v-(min-pad))/(max-min+2*pad))*(h-48);return [px,py,v];
+ });
+ const grad=ctx.createLinearGradient(0,0,w,0);grad.addColorStop(0,'#20c9ff');grad.addColorStop(1,'#54f2b1');
+ ctx.strokeStyle=grad;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();
+ points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
+ ctx.strokeStyle='rgba(32,201,255,.16)';ctx.lineWidth=8;ctx.beginPath();
+ points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
+ ctx.fillStyle='#a9c1cf';ctx.font='11px sans-serif';ctx.textAlign='left';
+ ctx.fillText('$'+money(max),10,14);ctx.fillText('$'+money(min),10,h-4);
 }
 function formatTime(v){return v?new Date(v).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}):'—';}
 function renderAccount(){
