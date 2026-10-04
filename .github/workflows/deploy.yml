@@ -18,7 +18,7 @@ jobs:
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.OVH_HOST }}
-          username: ${{ secrets.OVH_USER }}
+          username: ${{ secrets.OVH_USER || 'root' }}
           key: ${{ secrets.OVH_SSH_KEY }}
           port: ${{ secrets.OVH_PORT || '22' }}
           script: |
