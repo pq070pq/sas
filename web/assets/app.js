@@ -84,7 +84,7 @@ function renderDashboard(d){
   '<div><small>'+(historical?'آخر جلسة':'فرص اليوم')+'</small><strong>'+Number(r.opportunities||terminalState.radar.length||0)+'</strong></div>'+
   '<div><small>أعلى حركة</small><strong>'+pct(r.top_move_pct)+'</strong></div>'+
   '<div><small>أعلى حجم</small><strong>'+(r.top_volume?Number(r.top_volume).toLocaleString('en-US'):'—')+'</strong></div>'+
-  '<div><small>آخر إشارة</small><strong>'+formatTime(r.last_signal_at)+'</strong></div>';
+  '<div><small>آخر إشارة</small><strong>'+formatDateTime(r.last_signal_at)+'</strong></div>';
  const el=document.getElementById('dashboardRadar');
  if(terminalState.radar.length) renderCards(el,terminalState.radar.slice(0,6));
  else el.innerHTML='<div class="empty-state">لا توجد إشارات محفوظة من آخر جلسة.</div>';
@@ -102,7 +102,21 @@ function renderMacro(){
    ticker.innerHTML=rows.map(x=>{
      const valid=Number(x.price)>0;
      const cls=Number(x.change_pct)>=0?'up':'down';
-     return '<div class="ticker-item"><span class="ticker-label">'+escHtml(x.label)+'</span><b>'+ (valid?money(x.price):'—') +'</b><em class="'+cls+'">'+pct(x.change_pct)+'</em></div>';
+     const cachedKey='saspro_macro_'+String(x.label).replace(/\\s+/g,'_');
+     let displayPrice=valid?money(x.price):'—';
+     let displayChange=valid?pct(x.change_pct):'—';
+     if(valid){
+       try{localStorage.setItem(cachedKey,JSON.stringify({price:x.price,change_pct:x.change_pct,updated_at:Date.now()}));}catch(e){}
+     }else{
+       try{
+         const cached=JSON.parse(localStorage.getItem(cachedKey)||'null');
+         if(cached && Number(cached.price)>0){
+           displayPrice=money(cached.price);
+           displayChange=Number.isFinite(Number(cached.change_pct))?pct(cached.change_pct):'—';
+         }
+       }catch(e){}
+     }
+     return '<div class="ticker-item"><span class="ticker-label">'+escHtml(x.label)+'</span><b>'+displayPrice+'</b><em class="'+cls+'">'+displayChange+'</em></div>';
    }).join('') || '<div class="empty-state">لا تتوفر أسعار السوق حاليًا.</div>';
  }
 }
@@ -255,6 +269,7 @@ function drawChart(candles){
  ctx.fillText('$'+money(max),10,14);ctx.fillText('$'+money(min),10,h-4);
 }
 function formatTime(v){return v?new Date(v).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}):'—';}
+function formatDateTime(v){return v?new Date(v).toLocaleString('ar-SA',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';}
 function renderAccount(){
  const exp=me.expires_at||me.trial_expires; document.getElementById('accountCards').innerHTML='<div><small>الحالة</small><b>🟢 فعال</b></div><div><small>الباقة</small><b>'+escHtml(me.user?.plan||'SAS PRO')+'</b></div><div><small>الانتهاء</small><b>'+escHtml(exp?fmtDate(exp):'—')+'</b></div>';
 }
