@@ -6,7 +6,7 @@ import httpx
 from sqlalchemy import select
 
 from .config import settings
-from .market import quote
+from .market import macro_quote, quote
 from .market_calendar import market_status
 from .telegram import send_message
 from .db import SessionLocal, ScheduledReport
@@ -105,7 +105,7 @@ async def publish_market_brief():
         quotes = []
         for symbol, label in symbols:
             try:
-                quotes.append((label, await quote(symbol)))
+                # استخدم نفس مسار المؤشرات المستقل المستخدم في شريط التطبيق والرادار،\n                # حتى لا تتوقف الأسعار في التقرير عند تعطل/نفاد مصدر Twelve Data.\n                quotes.append((label, await macro_quote(symbol)))
             except Exception:
                 quotes.append((label, {"price": None, "change_pct": None}))
 
