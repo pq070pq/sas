@@ -72,7 +72,7 @@ async def startup():
     logging.getLogger(__name__).warning("Background tasks started: scheduler=%s holiday_radar=%s", scheduler_task.get_name(), holiday_radar_task.get_name())
 
 def build_report(symbol: str, q: dict, tech: dict, classification: dict | None = None, outcome=None) -> str:
-    """Build a clean, beginner-friendly SAS PRO report from verified/observed data only."""
+    """Build the standard SAS PRO beginner-friendly stock report."""
     q = q or {}
     tech = tech or {}
     classification = classification or {}
@@ -104,19 +104,28 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             report.append("")
         report.extend(["━━━━━━━━━━━━━━━━━━", "", title, "", *clean])
 
+    def reason_lines(value):
+        if not value:
+            return []
+        if isinstance(value, (list, tuple)):
+            raw = [str(x).strip() for x in value if str(x).strip()]
+        else:
+            text_value = str(value).strip()
+            raw = [x.strip() for x in re.split(r"\s*(?:\+|;|،|\n)\s*", text_value) if x.strip()]
+        cleaned = []
+        for item in raw:
+            item = re.sub(r"^(?:•|-|\d+[.)])\s*", "", item).strip()
+            if item and item not in cleaned:
+                cleaned.append(item)
+        return [f"• {_esc(item)}" for item in cleaned[:8]]
+
     price = num(q.get("price"))
     change = num(q.get("change_pct"))
     score = num(classification.get("score"))
-    rvol = num(first_value(intraday.get("rvol"), intraday.get("intraday_rvol"), classification.get("rvol"), tech.get("volume_ratio")))
-    vwap = num(intraday.get("vwap"))
-    dollar_volume = num(classification.get("dollar_volume"))
-    buy_pressure = num(intraday.get("buy_pressure"))
-    acceleration = num(intraday.get("volume_acceleration"))
-    float_shares = num(tech.get("float_shares"))
-    shares_outstanding = num(tech.get("shares_outstanding"))
-    support = num(tech.get("support"))
-    resistance = num(tech.get("resistance"))
-    breakout = num(tech.get("breakout"))
+    rvol = num(first_value(intraday.get("rvol"), intraday.get("intraday_rvol"),
+                           classification.get("rvol"), tech.get("volume_ratio")))
+    momentum_rvol = num(radar_checks.get("momentum_rvol"))
+    rr = num(tech.get("risk_reward"))
     stop = num(first_value(tech.get("exit"), tech.get("stop"), tech.get("stop_loss")))
     targets = [num(x) for x in (tech.get("targets") or [])]
     targets = [x for x in targets if x is not None and x > 0]
@@ -124,6 +133,16 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     current_stop = num(getattr(outcome, "current_stop", None)) if outcome is not None else None
     if current_stop is None:
         current_stop = stop
+
+    sas_core = radar_checks.get("sas_core")
+    momentum_label = first_value(
+        radar_checks.get("momentum_label"),
+        classification.get("type"),
+        classification.get("behavior"),
+        tech.get("classification"),
+    )
+    target_ok = radar_checks.get("target")
+    live_levels = radar_checks.get("live_levels")
 
     if outcome is None:
         status_text = "الرصد نشط"
@@ -136,178 +155,123 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     else:
         status_text = "الرصد نشط"
 
-    sas_core = radar_checks.get("sas_core")
-    momentum = radar_checks.get("momentum")
-    momentum_label = first_value(radar_checks.get("momentum_label"), classification.get("type"), classification.get("behavior"))
-    momentum_rvol = num(radar_checks.get("momentum_rvol"))
-    liquidity = radar_checks.get("liquidity")
-    target_ok = radar_checks.get("target")
-    live_levels = radar_checks.get("live_levels")
+    report = ["🔎 <b>SAS PRO | تحليل السهم</b>"]
 
-    report = [
-        "🚨 <b>SAS PRO | تحليل السهم</b>",
-        "",
-        f"📈 <b>\u0024{_esc(symbol.upper())}</b>",
-    ]
+    summary_lines = [f"📈 السهم: <b>{_esc(symbol.upper())}</b>"]
     if price is not None:
-        report.append(f"💵 السعر الآن: <b>{_money(price)}</b>")
+        summary_lines.append(f"💵 السعر الحالي: <b>{_money(price)}</b>")
     if change is not None:
         icon = "🟢" if change > 0 else ("🔴" if change < 0 else "⚪")
-        report.append(f"{icon} التغير: <b>{change:+.2f}%</b>")
-    if q.get("source"):
-        report.append(f"📡 مصدر السعر: <b>{_esc(q.get('source'))}</b>")
+        summary_lines.append(f"{icon} التغير: <b>{change:+.2f}%</b>")
     if momentum_label:
-        report.append(f"🚦 الحالة: <b>{_esc(momentum_label)}</b>")
+        summary_lines.append(f"🧭 الحالة الفنية: <b>{_esc(momentum_label)}</b>")
+    classification_label = first_value(classification.get("label"), classification.get("name"), classification.get("status"))
+    if classification_label:
+        summary_lines.append(f"🏷️ التصنيف: <b>{_esc(classification_label)}</b>")
+    elif momentum_label:
+        summary_lines.append(f"🏷️ التصنيف: <b>{_esc(momentum_label)}</b>")
+    if q.get("source"):
+        summary_lines.append(f"📡 مصدر السعر: <b>{_esc(q.get('source'))}</b>")
+    add_section(report, "📋 <b>ملخص السهم</b>", summary_lines)
+
+    if momentum_label or classification_label:
+        add_section(report, "💡 <b>ماذا يعني ذلك؟</b>", [
+            "السهم في حالة فنية مرصودة، لكن استمرار الحركة يحتاج إلى تأكيد من السعر والسيولة."
+        ])
 
     sas_lines = []
     if sas_core is not None:
-        sas_lines.append("🟢 <b>SAS Core: اجتاز الشروط الأساسية</b>" if bool(sas_core) else "🔴 <b>SAS Core: لم يجتز الشروط الأساسية</b>")
+        sas_lines.append("🟢 <b>SAS اجتاز الشروط الأساسية</b>" if bool(sas_core) else "🔴 <b>SAS لم يجتز الشروط الأساسية</b>")
     if score is not None:
-        sas_lines.append(f"⭐ قوة الإشارة: <b>{score:.0f}/100</b>")
-    if momentum is not None:
-        sas_lines.append("📈 الزخم: <b>مستوفى</b>" if bool(momentum) else "📉 الزخم: <b>غير مستوفى</b>")
-    if momentum_rvol is not None:
-        sas_lines.append(f"📊 RVOL وقت الرصد: <b>{momentum_rvol:.2f}×</b>")
-    if liquidity is not None:
-        sas_lines.append("💧 السيولة: <b>مستوفاة</b>" if bool(liquidity) else "💧 السيولة: <b>غير مستوفاة</b>")
-    if target_ok is not None:
-        sas_lines.append("🎯 الهدف: <b>مدعوم فنيًا</b>" if bool(target_ok) else "🎯 الهدف: <b>غير مؤكد</b>")
-    if live_levels is not None:
-        sas_lines.append("📍 المستويات: <b>صالحة للرصد</b>" if bool(live_levels) else "📍 المستويات: <b>غير مكتملة</b>")
-    add_section(report, "📌 <b>نتيجة SAS</b>", sas_lines)
-
-    beginner = []
-    if sas_core is True:
-        beginner.append("🟢 اجتياز SAS Core يعني أن السهم مرّ من البوابة الفنية الأساسية.")
-    elif sas_core is False:
-        beginner.append("🔴 عدم اجتياز SAS Core يعني أن الشروط الأساسية للرصد لم تكتمل.")
-    if momentum is not None:
-        beginner.append("📈 الزخم = قوة حركة السهم وحجم التداول في الفترة الحالية.")
-    rr_intro = num(tech.get("risk_reward"))
-    if rr_intro is not None:
-        beginner.append(f"⚖️ R:R = مقارنة العائد المحتمل بالمخاطرة حتى الوقف: 1 : {rr_intro:.2f}.")
-    if beginner:
-        add_section(report, "🧭 <b>ماذا يعني هذا للمبتدئ؟</b>", beginner)
-
-    reason = first_value(radar_checks.get("reason"), radar_checks.get("summary"), tech.get("reason"), tech.get("technical_reason"))
+        sas_lines.append(f"⭐ قوة الإشارة: <b>{score:.0f} / 100</b>")
+    if rvol is not None:
+        sas_lines.append(f"📊 RVOL: <b>{rvol:.2f}×</b>")
+    elif momentum_rvol is not None:
+        sas_lines.append(f"📊 RVOL: <b>{momentum_rvol:.2f}×</b>")
+    reason = first_value(radar_checks.get("reason"), radar_checks.get("summary"),
+                         tech.get("reason"), tech.get("technical_reason"))
     if reason:
-        add_section(report, "🔎 <b>لماذا تم رصد السهم؟</b>", [f"• {_esc(reason)}"])
+        sas_lines += ["", "🔎 <b>سبب الرصد:</b>"] + reason_lines(reason)
+    if target_ok is not None:
+        sas_lines += ["", "🎯 الهدف السعري: <b>مؤكد فنيًا</b>" if bool(target_ok) else "🎯 الهدف السعري: <b>غير مؤكد</b>"]
+    if live_levels is not None:
+        sas_lines.append(f"📍 المستويات: <b>{'متوفرة للرصد' if bool(live_levels) else 'غير مكتملة'}</b>")
+    add_section(report, "📌 <b>SAS PRO</b>", sas_lines)
+
+    if sas_core is True:
+        add_section(report, "💡 <b>للمبتدئ</b>", [
+            "اجتياز SAS Core يعني أن الشروط الفنية الأساسية تحققت، لكنه لا يعني أن السهم سيصعد حتمًا."
+        ])
+    elif sas_core is False:
+        add_section(report, "💡 <b>للمبتدئ</b>", [
+            "عدم اجتياز SAS Core يعني أن الشروط الأساسية للرصد لم تكتمل."
+        ])
 
     level_lines = []
     if price is not None:
-        level_lines.append(f"🟦 السعر المرجعي: <b>{_money(price)}</b>")
-    if breakout is not None:
-        level_lines.append(f"⚡ مستوى الاختراق: <b>{_money(breakout)}</b>")
-    if stop is not None:
-        level_lines.append(f"🛑 الوقف / إلغاء السيناريو: <b>{_money(stop)}</b>")
-    if current_stop is not None and current_stop != stop:
-        level_lines.append(f"🛡 وقف الرصد الحالي: <b>{_money(current_stop)}</b>")
+        level_lines += ["🟦 <b>السعر المرجعي</b>", _money(price)]
+    if current_stop is not None:
+        level_lines += ["🛑 <b>الوقف</b>", _money(current_stop)]
     for idx, target in enumerate(targets, 1):
-        level_lines.append(f"🎯 الهدف {idx}: <b>{_money(target)}</b>")
-    if support is not None:
-        level_lines.append(f"🟦 الدعم: <b>{_money(support)}</b>")
-    if resistance is not None:
-        level_lines.append(f"🟥 المقاومة: <b>{_money(resistance)}</b>")
+        level_lines += [f"🎯 <b>الهدف {idx}</b>", _money(target)]
+    atr = num(first_value(tech.get("atr"), tech.get("ATR")))
+    if atr is not None:
+        level_lines += ["📏 <b>ATR</b>", _money(atr)]
     if level_lines:
-        add_section(report, "🎯 <b>المستويات المهمة</b>", level_lines)
-        add_section(report, "📖 <b>شرح المستويات</b>", [
-            "🟦 السعر المرجعي = السعر الذي بُني عليه الرصد.",
-            "🛑 الوقف = المستوى الذي يعني أن السيناريو لم يعد صالحًا.",
-            "🎯 الأهداف = مستويات محتملة للصعود وليست أسعارًا مضمونة.",
+        add_section(report, "🎯 <b>المستويات الفنية</b>", level_lines)
+        add_section(report, "📖 <b>كيف تقرأ المستويات؟</b>", [
+            "السعر المرجعي هو السعر الذي بُني عليه الرصد.",
+            "الوقف هو المستوى الذي عنده يعتبر السيناريو الفني غير صالح.",
+            "الأهداف هي مستويات محتملة للصعود وليست أسعارًا مضمونة."
         ])
 
-    rr = num(tech.get("risk_reward"))
     rr_lines = []
     if rr is not None:
-        rr_lines.append(f"⚖️ النسبة: <b>1 : {rr:.2f}</b>")
-        rr_lines.append("🟢 التقييم: <b>مقبولة حسب مرجع SAS</b>" if rr >= 1.5 else "🟠 التقييم: <b>منخفضة — انتبه للمخاطرة</b>")
-        rr_lines.append(f"📖 للمبتدئ: كل 1 وحدة مخاطرة مقابل عائد محتمل قدره {rr:.2f} وحدة عند الهدف الأول.")
-        rr_lines.append("📌 مرجع SAS: <b>1 : 1.5</b>")
-    add_section(report, "⚖️ <b>المخاطرة والعائد</b>", rr_lines)
+        rr_lines = [
+            "📊 R:R",
+            f"<b>1 : {rr:.2f}</b>",
+            "🟢 <b>التقييم: مقبول</b>" if rr >= 1.5 else "🟠 <b>التقييم: منخفض</b>",
+            "📌 مرجع SAS: <b>1 : 1.5</b>",
+            "📖 <b>للمبتدئ:</b>",
+            f"هذا يعني أن كل وحدة مخاطرة تقابلها حوالي <b>{rr:.2f}</b> وحدة عائد محتمل حتى الهدف الأول.",
+        ]
+        if rr < 1.5:
+            rr_lines.append("⚠️ النسبة منخفضة، لذلك يجب الانتباه للمخاطرة.")
+    add_section(report, "⚖️ <b>المخاطرة مقابل العائد</b>", rr_lines)
 
-    indicator_lines = []
-    if rvol is not None:
-        indicator_lines.append(f"📊 RVOL: <b>{rvol:.2f}×</b> — مقارنة حجم التداول بالمعتاد.")
-    if vwap is not None:
-        indicator_lines.append(f"📍 VWAP: <b>{_money(vwap)}</b>")
-    if buy_pressure is not None:
-        indicator_lines.append(f"📈 ضغط الشراء: <b>{buy_pressure:.1f}%</b>")
-    if acceleration is not None:
-        indicator_lines.append(f"⚡ تسارع الحجم: <b>{acceleration:.2f}×</b>")
-    if dollar_volume is not None:
-        indicator_lines.append(f"💧 السيولة بالدولار: <b>\u0024{dollar_volume:,.0f}</b>")
-    if indicator_lines:
-        add_section(report, "📊 <b>مؤشرات مساعدة</b>", indicator_lines)
-
-    financial_lines = []
     company = first_value(tech.get("company_name"), tech.get("company"), q.get("company"))
     sector = first_value(tech.get("sector"), q.get("sector"))
     market_cap = num(first_value(tech.get("market_cap"), tech.get("market_capitalization")))
-    pe = num(first_value(tech.get("pe"), tech.get("pe_ratio")))
     eps = num(tech.get("eps"))
     revenue_growth = num(first_value(tech.get("revenue_growth_3y"), tech.get("revenue_growth")))
     roe = num(tech.get("roe"))
+
+    financial_lines = []
     if company:
-        financial_lines.append(f"🏢 الشركة: <b>{_esc(company)}</b>")
+        financial_lines += ["🏢 الشركة", f"<b>{_esc(company)}</b>"]
     if sector:
-        financial_lines.append(f"🏷️ القطاع: <b>{_esc(sector)}</b>")
+        financial_lines += ["🏷️ القطاع", f"<b>{_esc(sector)}</b>"]
     if market_cap is not None:
-        financial_lines.append(f"💰 القيمة السوقية: <b>\u0024{market_cap:,.2f}M</b>")
-    if pe is not None:
-        financial_lines.append(f"📐 P/E: <b>{pe:.2f}</b>")
+        financial_lines += ["💰 القيمة السوقية", f"\${market_cap:,.2f}M"]
     if eps is not None:
-        financial_lines.append(f"🧮 EPS: <b>{eps:.2f}</b>")
+        financial_lines += ["🧮 EPS", f"<b>{eps:.2f}</b>"]
     if revenue_growth is not None:
-        financial_lines.append(f"📈 نمو الإيرادات: <b>{revenue_growth:+.2f}%</b>")
+        financial_lines += ["📈 نمو الإيرادات خلال 3 سنوات", f"<b>{revenue_growth:+.2f}%</b>"]
     if roe is not None:
-        financial_lines.append(f"📊 ROE: <b>{roe:+.2f}%</b>")
-    if ai.get("enabled") and ai.get("status") == "ok" and ai.get("financial_summary"):
-        financial_lines.append(f"🧠 قراءة مبسطة: <b>{_esc(ai.get('financial_summary'))}</b>")
-    if ai.get("risk_flags"):
-        financial_lines.append("⚠️ نقاط انتباه:")
-        financial_lines.extend(f"• {_esc(x)}" for x in (ai.get("risk_flags") or [])[:3])
+        financial_lines += ["📊 ROE", f"<b>{roe:+.2f}%</b>"]
     if financial_lines:
-        add_section(report, "🏢 <b>عن الشركة</b>", financial_lines)
-
-    valid_news = [item for item in news_items if isinstance(item, dict) and item.get("headline") and item.get("source")]
-    source_map = {str(item.get("id") or f"N{idx}"): item for idx, item in enumerate(valid_news, 1)}
-    primary_id = str(ai.get("primary_source_id") or "")
-    supporting_ids = [str(x) for x in (ai.get("supporting_source_ids") or [])]
-    source_ids = [primary_id] + [x for x in supporting_ids if x != primary_id]
-
-    if valid_news:
-        news_lines = []
-        for idx, item in enumerate(valid_news[:8], 1):
-            headline = _esc(item.get("headline"))
-            source = _esc(item.get("source"))
-            url = html.escape(str(item.get("url") or ""), quote=True)
-            line = f"{idx}️⃣ <b>{headline}</b> — {source}"
-            if url:
-                line += f' — <a href="{url}">الخبر</a>'
-            news_lines.append(line)
-        add_section(report, "📰 <b>أحدث الأخبار</b>", news_lines)
-
-        if ai.get("enabled") and ai.get("status") == "ok" and primary_id in source_map:
-            ai_lines = []
-            if ai.get("headline_summary"):
-                ai_lines.append(f"🧠 الملخص: <b>{_esc(ai.get('headline_summary'))}</b>")
-            if ai.get("why_rising"):
-                ai_lines.append(f"📌 لماذا يهم؟ <b>{_esc(ai.get('why_rising'))}</b>")
-            if ai.get("news_assessment"):
-                ai_lines.append(f"🔎 الارتباط بالحركة: <b>{_esc(ai.get('news_assessment'))}</b>")
-            if ai.get("key_takeaway"):
-                ai_lines.append(f"💡 الخلاصة: <b>{_esc(ai.get('key_takeaway'))}</b>")
-            if ai_lines:
-                add_section(report, "🧠 <b>فهم الخبر للمبتدئ</b>", ai_lines)
+        add_section(report, "💼 <b>البيانات المالية</b>", financial_lines)
+        if ai.get("financial_summary"):
+            add_section(report, "📖 <b>بشكل مبسط</b>", [_esc(ai.get("financial_summary"))])
 
     events = tech.get("corporate_events") or tech.get("events")
     event_lines = []
     if isinstance(events, list):
         for event in events[:5]:
             if isinstance(event, dict):
-                text = first_value(event.get("description"), event.get("headline"), event.get("title"))
-                if text:
-                    event_lines.append(f"• {_esc(text)}")
+                text_value = first_value(event.get("description"), event.get("headline"), event.get("title"))
+                if text_value:
+                    event_lines.append(f"• {_esc(text_value)}")
             elif event:
                 event_lines.append(f"• {_esc(event)}")
     elif isinstance(events, str) and events.strip():
@@ -315,38 +279,73 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     if event_lines:
         add_section(report, "🔄 <b>الأحداث المؤثرة</b>", event_lines)
 
-    share_lines = []
-    if float_shares is not None:
-        share_lines.append(f"📈 الأسهم الحرة (Float): <b>{float_shares / 1_000_000:.2f}M</b>")
-    if shares_outstanding is not None:
-        share_lines.append(f"🏦 إجمالي الأسهم: <b>{shares_outstanding / 1_000_000:.2f}M</b>")
-    if share_lines:
-        add_section(report, "📦 <b>بيانات الأسهم</b>", share_lines)
+    valid_news = [item for item in news_items if isinstance(item, dict) and item.get("headline")]
+    if valid_news:
+        news_lines = []
+        for idx, item in enumerate(valid_news[:8], 1):
+            news_lines += [
+                f"<b>{idx}️⃣</b> {_esc(item.get('headline'))}",
+                f"<b>المصدر:</b> {_esc(item.get('source') or 'مصدر غير محدد')}",
+                ""
+            ]
+        while news_lines and news_lines[-1] == "":
+            news_lines.pop()
+        count = len(news_items) if isinstance(news_items, list) else len(valid_news)
+        news_lines += ["", f"📚 عدد الأخبار المتاحة: <b>{count}</b>"]
+        add_section(report, "📰 <b>أحدث الأخبار</b>", news_lines)
 
-    status_lines = [f"الحالة: <b>{_esc(status_text)}</b>"]
-    if radar_checks.get("risk_reward_warning"):
-        status_lines.append("🟠 R:R أقل من مرجع SAS؛ هذا تحذير للمخاطرة وليس إلغاءً تلقائيًا للرصد.")
-    add_section(report, "📡 <b>حالة الرصد</b>", status_lines)
+        ai_lines = []
+        if ai.get("headline_summary"):
+            ai_lines += ["📌 <b>ماذا حدث؟</b>", _esc(ai.get("headline_summary")), ""]
+        if ai.get("why_rising"):
+            ai_lines += ["📈 <b>لماذا قد يهم المتداول؟</b>", _esc(ai.get("why_rising")), ""]
+        if ai.get("news_assessment"):
+            ai_lines += ["🔎 <b>علاقة الخبر بحركة السهم</b>", f"<b>{_esc(ai.get('news_assessment'))}</b>", ""]
+        if ai.get("momentum"):
+            ai_lines += ["🚀 <b>الزخم الإخباري</b>", f"<b>{_esc(ai.get('momentum'))}</b>", ""]
+        if ai.get("risk_flags"):
+            risks = ai.get("risk_flags")
+            risk_text = "\n".join(f"• {_esc(x)}" for x in risks[:5]) if isinstance(risks, list) else _esc(risks)
+            ai_lines += ["⚠️ <b>المخاطر الخبرية</b>", risk_text, ""]
+        elif ai.get("risk_summary"):
+            ai_lines += ["⚠️ <b>المخاطر الخبرية</b>", _esc(ai.get("risk_summary")), ""]
+        if ai_lines:
+            while ai_lines and ai_lines[-1] == "":
+                ai_lines.pop()
+            ai_lines += [
+                "",
+                "📌 <b>ملاحظة:</b>",
+                "تحليل AI يفسر الأخبار الموثقة فقط، ولا يغيّر مستويات الرصد أو قرار SAS PRO."
+            ]
+            add_section(report, "🧠 <b>زبدة الأخبار</b>", ai_lines)
 
-    add_section(report, "🧭 <b>كيف يقرأ المبتدئ التقرير؟</b>", [
-        "1️⃣ ابدأ بالحالة وSAS Core.",
-        "2️⃣ راجع السعر المرجعي والوقف.",
-        "3️⃣ راجع الأهداف ثم R:R.",
-        "4️⃣ اقرأ الأخبار كمعلومة مساعدة، وليس كسبب مؤكد للصعود.",
-        "5️⃣ القسم غير الظاهر يعني ببساطة أنه لا توجد بيانات موثوقة كافية لعرضه.",
-    ])
+    conclusion = []
+    if momentum_label:
+        conclusion.append(f"📌 <b>الوضع الحالي:</b>\nالسهم في حالة {_esc(momentum_label)} وتحت المراقبة.")
+    if sas_core is True:
+        conclusion.append("🟢 <b>نقطة القوة:</b>\nاجتياز SAS Core ووجود محفزات فنية وإخبارية.")
+    if rr is not None and rr < 1.5:
+        conclusion.append(f"🟠 <b>نقطة الانتباه:</b>\nنسبة R:R الحالية <b>{rr:.2f}</b> وهي أقل من مرجع SAS البالغ <b>1.5</b>.")
+    if current_stop is not None:
+        conclusion.append(f"🛑 <b>أهم مستوى للمراقبة:</b>\n<b>{_money(current_stop)}</b>")
+    if targets:
+        conclusion.append(f"🎯 <b>أول هدف:</b>\n<b>{_money(targets[0])}</b>")
+        if len(targets) > 1:
+            conclusion.append(f"📈 <b>الأهداف الأعلى:</b>\nحتى <b>{_money(targets[-1])}</b> وفق المستويات المرصودة.")
+    if conclusion:
+        conclusion.append("⚠️ <b>الخلاصة:</b>\nالسهم لديه إشارات فنية وإخبارية إيجابية، لكن استمرار الحركة غير مضمون، لذلك يبقى تحت المراقبة.")
+        add_section(report, "🧠 <b>الخلاصة للمبتدئ</b>", conclusion)
 
-    report.extend([
+    report += [
         "",
         "━━━━━━━━━━━━━━━━━━",
         "",
-        "⚠️ <b>تنبيه</b>",
-        "هذا التقرير معلوماتي وتعليمي فقط، وليس توصية شراء أو بيع.",
-        "قرار التداول وإدارة المخاطر مسؤولية المتداول.",
-        "⛔ <b>شرعية السهم مسؤوليتك — تحقق منها قبل التداول.</b>",
+        "⚠️ <b>هذا التقرير معلوماتي وتعليمي فقط، وليس توصية شراء أو بيع، وقرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</b>",
+        "",
+        "⛔ <b>شرعية السهم مسؤوليتك — تحقق منها قبل التداول ⛔</b>",
         "",
         "📡 <b>SAS PRO</b>",
-    ])
+    ]
     return "\n".join(report)
 
 def _money(value):
