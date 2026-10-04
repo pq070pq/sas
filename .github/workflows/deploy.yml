@@ -14,6 +14,22 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Verify OVH SSH configuration
+        shell: bash
+        env:
+          OVH_HOST: ${{ secrets.OVH_HOST }}
+          OVH_SSH_KEY: ${{ secrets.OVH_SSH_KEY }}
+        run: |
+          set -e
+          key_file="$RUNNER_TEMP/ovh_key"
+          printf '%s\n' "$OVH_SSH_KEY" > "$key_file"
+          chmod 600 "$key_file"
+          echo "OVH host resolution:"
+          getent hosts "$OVH_HOST" || true
+          echo "SSH key fingerprint from GitHub Secret:"
+          ssh-keygen -y -f "$key_file" | ssh-keygen -lf -
+          rm -f "$key_file"
+
       - name: Deploy to OVH
         uses: appleboy/ssh-action@v1.2.2
         with:
