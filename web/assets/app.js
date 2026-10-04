@@ -92,10 +92,19 @@ function renderDashboard(d){
 function renderMacro(){
  const wanted=['S&P 500','NASDAQ','DOW JONES','VIX','BTC','GOLD'];
  const rows=wanted.map(label=>terminalState.ticker.find(x=>String(x.label).toUpperCase()===label.toUpperCase())).filter(Boolean);
- document.getElementById('macroGrid').innerHTML=rows.map(x=>{
+ const cards=rows.map(x=>{
   const valid=Number(x.price)>0;
   return '<div class="macro-card '+(valid?'':'macro-unavailable')+'"><span>'+escHtml(x.label)+'</span><b>'+ (valid?money(x.price):'غير متاح') +'</b><em class="'+(Number(x.change_pct)>=0?'up':'down')+'">'+pct(x.change_pct)+'</em><small class="macro-source">'+escHtml(x.source||'غير متوفر')+'</small>'+(x.diagnostic?'<small class="macro-diagnostic">'+escHtml(x.diagnostic)+'</small>':'')+'</div>';
- }).join('') || '<div class="empty-state">لا تتوفر بيانات السوق حاليًا.</div>';
+ }).join('');
+ document.getElementById('macroGrid').innerHTML=cards || '<div class="empty-state">لا تتوفر بيانات السوق حاليًا.</div>';
+ const ticker=document.getElementById('marketTicker');
+ if(ticker){
+   ticker.innerHTML=rows.map(x=>{
+     const valid=Number(x.price)>0;
+     const cls=Number(x.change_pct)>=0?'up':'down';
+     return '<div class="ticker-item"><span class="ticker-label">'+escHtml(x.label)+'</span><b>'+ (valid?money(x.price):'—') +'</b><em class="'+cls+'">'+pct(x.change_pct)+'</em></div>';
+   }).join('') || '<div class="empty-state">لا تتوفر أسعار السوق حاليًا.</div>';
+ }
 }
 async function runRadar(show=true){
  try{
