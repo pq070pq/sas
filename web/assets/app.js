@@ -324,10 +324,9 @@ async function analyzeSymbol(){
        '<div><small>📈 الإشارة</small><b>'+escHtml(mini.signal||'محايدة')+'</b></div>'+
      '</div>'+
      '<div class="mini-levels">'+
-       '<span>🎯 الهدف <b>
-   '<div class="ai-box"><b>'+(aiAvailable?'🧠 زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+
-   '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
-   '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
+       '<span>🎯 الهدف <b>&#36;'+money(mini.target)+'</b></span>'+
+       '<span>🛑 الوقف <b>&#36;'+money(mini.stop)+'</b></span>'+
+     '</div>'+
  drawChart(chart.candles||[]);
 }
 async function openPrivateAnalysis(symbol){
