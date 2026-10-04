@@ -49,9 +49,22 @@
   </section>
 
   <section id="terminalPage" class="terminal-page" hidden>
+    <section class="terminal-hero-banner" aria-label="SAS PRO">
+      <img src="/assets/sas-pro-home.webp?v=20261004-hero" alt="SAS PRO سوق الأسهم" loading="eager">
+      <div class="hero-shade"></div>
+      <div class="hero-caption"><span>SAS PRO</span><small>US MARKET • SMART RADAR</small></div>
+    </section>
+    <section class="market-shortcuts" aria-label="أسواق رئيسية">
+      <button class="market-shortcut btc" onclick="switchTerminalTab('dashboard')"><span class="shortcut-icon">₿</span><b>BTC</b><small>Bitcoin</small></button>
+      <button class="market-shortcut gold" onclick="switchTerminalTab('dashboard')"><span class="shortcut-icon">▱</span><b>GOLD</b><small>Gold</small></button>
+      <button class="market-shortcut spx" onclick="switchTerminalTab('dashboard')"><span class="shortcut-icon">▥</span><b>S&amp;P 500</b><small>Index</small></button>
+      <button class="market-shortcut nasdaq" onclick="switchTerminalTab('dashboard')"><span class="shortcut-icon">↗</span><b>NASDAQ</b><small>Index</small></button>
+      <button class="market-shortcut dow" onclick="switchTerminalTab('dashboard')"><span class="shortcut-icon">⌁</span><b>DOW JONES</b><small>Index</small></button>
+      <button class="market-shortcut vix" onclick="switchTerminalTab('dashboard')"><span class="shortcut-icon">∿</span><b>VIX</b><small>Volatility</small></button>
+    </section>
     <header class="terminal-top">
-      <div class="brand"><span class="brand-mark us-market-mark" aria-label="السوق الأمريكي"><i></i><i></i><i></i><i></i><em>🇺🇸</em></span><div><b>SAS PRO</b><small>US MARKET TERMINAL</small></div></div>
-      <div class="top-actions"><span id="terminalClock">—</span><button class="icon-btn" onclick="refreshTerminal()">↻</button></div>
+    <div class="terminal-top-inner"><div class="brand"><span class="brand-mark us-market-mark" aria-label="السوق الأمريكي"><i></i><i></i><i></i><i></i><em>🇺🇸</em></span><div><b>SAS PRO</b><small>US MARKET TERMINAL</small></div></div>
+      <div class="top-actions"><span id="terminalClock">—</span><button class="icon-btn" onclick="refreshTerminal()">↻</button></div></div>
     </header>
     <div class="market-strip" id="marketStrip"><div class="loading">جاري تحميل السوق...</div></div>
     <nav class="terminal-tabs">
@@ -73,7 +86,7 @@
       <section id="tab-radar" class="terminal-tab"><div class="terminal-panel-head"><div><span class="eyebrow">SAS PRO RADAR</span><h2>بيانات الأسهم المرصودة</h2><small>السعر • الحركة • الحجم • RVOL • الدخول • الوقف • الهدف • R:R</small></div><button class="primary-btn" onclick="runRadar()">↻ تحديث البيانات</button></div><div id="radarDiagnostics" class="diagnostics"></div><div id="radarCandidates" class="radar-candidates" hidden></div><div id="radarGrid" class="stock-grid"></div></section>
       <section id="tab-search" class="terminal-tab"><div class="search-terminal"><input id="symbolSearch" maxlength="12" autocomplete="off" placeholder="ابحث عن رمز السهم مثل NVDA أو AAPL"><button class="primary-btn" onclick="analyzeSymbol()">تحليل</button></div><div id="symbolResult" class="symbol-result"><div class="empty-state">اكتب رمز السهم لعرض السعر، الرسم، المستويات، الأخبار وتحليل SAS PRO.</div></div></section>
       <section id="tab-watch" class="terminal-tab"><div class="terminal-panel-head"><div><span class="eyebrow">WATCHLIST</span><h2>الأسهم المحفوظة</h2></div></div><div id="watchGrid" class="stock-grid"></div></section>
-      <section id="tab-account" class="terminal-tab"><div class="account-terminal"><div class="account-avatar">🐬</div><h2 id="accountName">—</h2><p id="accountPlan">—</p><div class="account-cards" id="accountCards"></div><button class="secondary-btn" onclick="openChannel()">📡 فتح قناة SAS PRO</button></div></section>
+      <section id="tab-account" class="terminal-tab"><div class="account-terminal"><div class="account-avatar us-account-mark">📈</div><h2 id="accountName">—</h2><p id="accountPlan">—</p><div class="account-cards" id="accountCards"></div><button class="secondary-btn" onclick="openChannel()">📡 فتح قناة SAS PRO</button></div></section>
     </main>
     <footer class="terminal-footer">⚠️ المحتوى تعليمي/إخباري فقط، وليس توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول.</footer>
   </section>
