@@ -99,22 +99,8 @@ async def technical_targets(symbol: str):
             data = payload.get("data") or payload
             rows = data.get("klines", []) if isinstance(data, dict) else []
         except Exception:
-            # Fallback to Twelve Data when PanWatch has no daily candles.
-            if settings.twelve_data_api_key:
-                try:
-                    r = await twelve_call(client.get, "https://api.twelvedata.com/time_series",
-                        params={
-                            "symbol": symbol.upper(),
-                            "interval": "1day",
-                            "outputsize": 90,
-                            "apikey": settings.twelve_data_api_key,
-                        },
-                    )
-                    r.raise_for_status()
-                    payload = r.json()
-                    rows = list(reversed(payload.get("values") or []))
-                except Exception:
-                    rows = []
+            # Radar-safe fallback: never spend Twelve Data credits for target building.
+            # PanWatch is primary; Stooq is the keyless historical fallback.
             if not rows:
                 rows = await _stooq_ohlcv(symbol, 90)
 
