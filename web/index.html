@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#020912">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
 <title>SAS PRO — Market Terminal</title>
 <link rel="stylesheet" href="/assets/app.css?v=20261004-13">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
@@ -201,6 +203,18 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261004-14"></script>
+<script>
+setTimeout(async()=>{
+  const account=document.getElementById("userName");
+  if(account && account.textContent.includes("جاري التحقق")){
+    const fatal=document.createElement("div");
+    fatal.className="fatal";
+    fatal.innerHTML="<b>⚠️ الاتصال بالخادم لم يكتمل</b><br><small>الخادم وصل إليه التطبيق، لكن التحقق من Telegram لم ينتهِ.</small><br><button onclick="location.reload()">إعادة المحاولة</button>";
+    document.body.innerHTML=""; document.body.appendChild(fatal);
+    try{ const ctl=new AbortController(); setTimeout(()=>ctl.abort(),4000); const x=await fetch("/health?diag="+Date.now(),{cache:"no-store",signal:ctl.signal}); if(x.ok){fatal.innerHTML="<b>⚠️ الخادم يعمل لكن التحقق من Telegram متعطل</b><br><small>واجهة SAS PRO وصلت إلى الخادم، والمشكلة الآن في مسار Telegram/API.</small><br><button onclick="location.reload()">إعادة المحاولة</button>";} }catch(e){}
+  }
+},12000);
+</script>
+<script src="/assets/app.js?v=20261005-15"></script>
 </body>
 </html>
