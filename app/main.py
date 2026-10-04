@@ -284,7 +284,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     if sector:
         financial_lines += ["🏷️ القطاع", f"<b>{_esc(sector)}</b>"]
     if market_cap is not None:
-        financial_lines += ["💰 القيمة السوقية", f"\${market_cap:,.2f}M"]
+        financial_lines += ["💰 القيمة السوقية", f"${market_cap:,.2f}M"]
     if eps is not None:
         financial_lines += ["🧮 EPS", f"<b>{eps:.2f}</b>"]
     if revenue_growth is not None:
