@@ -35,7 +35,7 @@ app = FastAPI(title="SAS PRO", version="2.1.0")
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
 
 def webapp_url() -> str:
-    base = (webapp_url() or "").strip()
+    base = (settings.app_base_url or "").strip()
     if not base:
         return ""
     separator = "&" if "?" in base else "?"
@@ -66,9 +66,9 @@ async def startup():
                         {"command":"revoke","description":"إلغاء اشتراك"},
                     ],
                 })
-            if settings.telegram_webhook_auto_configure and webapp_url() and settings.telegram_webhook_secret:
+            if settings.telegram_webhook_auto_configure and settings.app_base_url and settings.telegram_webhook_secret:
                 await bot_api("setWebhook", {
-                    "url": webapp_url().rstrip("/") + "/api/telegram/webhook",
+                    "url": settings.app_base_url.rstrip("/") + "/api/telegram/webhook",
                     "secret_token": settings.telegram_webhook_secret,
                     "allowed_updates": ["message", "chat_join_request", "chat_member", "pre_checkout_query"],
                     "drop_pending_updates": False,
