@@ -1,7 +1,23 @@
+import csv
+import io
 import httpx
 from .config import settings
 from .twelve_guard import call as twelve_call
 
+
+
+async def _stooq_ohlcv(symbol: str, days: int = 90):
+    """Keyless daily OHLCV fallback."""
+    try:
+        async with httpx.AsyncClient(timeout=12, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0 SAS-PRO/2.1"}) as client:
+            stooq_symbol = symbol.lower() + ".us"
+            r = await client.get("https://stooq.com/q/d/l/", params={"s": stooq_symbol, "i": "d"})
+            if r.status_code >= 400:
+                return []
+            rows = list(csv.DictReader(io.StringIO(r.text)))
+            return rows[-max(20, min(int(days), 365)):]
+    except Exception:
+        return []
 
 async def analyze(symbol: str):
     base = settings.panwatch_base_url.rstrip("/")
@@ -52,6 +68,8 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
                     rows = list(reversed((r.json()).get("values") or []))
                 except Exception:
                     rows = []
+            if not rows:
+                rows = await _stooq_ohlcv(symbol, days)
     candles = []
     for row in rows:
         try:
@@ -97,6 +115,8 @@ async def technical_targets(symbol: str):
                     rows = list(reversed(payload.get("values") or []))
                 except Exception:
                     rows = []
+            if not rows:
+                rows = await _stooq_ohlcv(symbol, 90)
 
     candles = []
     for row in rows:
