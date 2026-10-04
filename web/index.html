@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#020912">
 <title>SAS PRO — Market Terminal</title>
-<link rel="stylesheet" href="/assets/app.css?v=20261004-6">
+<link rel="stylesheet" href="/assets/app.css?v=20261004-7">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 </head>
 <body>
@@ -54,13 +54,8 @@
       <div class="hero-shade"></div>
       <div class="hero-caption"><span>SAS PRO</span><small>US MARKET • SMART RADAR</small></div>
     </section>
-    <section class="market-shortcuts" aria-label="أسواق رئيسية">
-      <button class="market-shortcut btc" onclick="switchTerminalTab('dashboard')"><span class="shortcut-icon">₿</span><b>BTC</b><small>Bitcoin</small></button>
-      <button class="market-shortcut gold" onclick="switchTerminalTab('dashboard')"><span class="shortcut-icon">▱</span><b>GOLD</b><small>Gold</small></button>
-      <button class="market-shortcut spx" onclick="switchTerminalTab('dashboard')"><span class="shortcut-icon">▥</span><b>S&amp;P 500</b><small>Index</small></button>
-      <button class="market-shortcut nasdaq" onclick="switchTerminalTab('dashboard')"><span class="shortcut-icon">↗</span><b>NASDAQ</b><small>Index</small></button>
-      <button class="market-shortcut dow" onclick="switchTerminalTab('dashboard')"><span class="shortcut-icon">⌁</span><b>DOW JONES</b><small>Index</small></button>
-      <button class="market-shortcut vix" onclick="switchTerminalTab('dashboard')"><span class="shortcut-icon">∿</span><b>VIX</b><small>Volatility</small></button>
+    <section class="market-ticker-wrap" aria-label="أسعار الأسواق">
+      <div id="marketTicker" class="market-ticker"><div class="loading">جاري تحميل الأسعار...</div></div>
     </section>
     <div class="terminal-clock-floating" aria-label="الوقت الحالي"><span id="terminalClock">—</span></div>
     <div class="market-strip" id="marketStrip"><div class="loading">جاري تحميل السوق...</div></div>
@@ -85,7 +80,7 @@
       <section id="tab-watch" class="terminal-tab"><div class="terminal-panel-head"><div><span class="eyebrow">WATCHLIST</span><h2>الأسهم المحفوظة</h2></div></div><div id="watchGrid" class="stock-grid"></div></section>
       <section id="tab-account" class="terminal-tab"><div class="account-terminal"><div class="account-avatar us-account-mark">📈</div><h2 id="accountName">—</h2><p id="accountPlan">—</p><div class="account-cards" id="accountCards"></div><button class="secondary-btn" onclick="openChannel()">📡 فتح قناة SAS PRO</button></div></section>
     </main>
-    <footer class="terminal-footer">⚠️ المحتوى تعليمي/إخباري فقط، وليس توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول.</footer>
+    <footer class="terminal-footer"><div class="disclaimer-marquee"><span>⛔ المحتوى تعليمي إخباري فقط، وليس توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</span></div></footer>
   </section>
 
   <section id="adminPage" class="admin-page" hidden>
@@ -176,6 +171,6 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261004-6"></script>
+<script src="/assets/app.js?v=20261004-7"></script>
 </body>
 </html>
