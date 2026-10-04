@@ -197,7 +197,7 @@ async def _stooq_quote(symbol: str):
         "VIX": "^vix",
         "XAU/USD": "xauusd",
         "BTC/USD": "btcusd",
-    }.get(symbol)
+    }.get(symbol, f"{str(symbol).lower()}.us")
     if not mapped:
         return None
 
@@ -326,6 +326,14 @@ async def macro_quote(symbol: str):
         diagnostics.append(f"TwelveQuote:{item.get('source', 'no_data')}")
     except Exception as exc:
         diagnostics.append(f"TwelveQuote:{type(exc).__name__}")
+
+    try:
+        snapshot = await _stooq_quote(symbol)
+        if snapshot:
+            return snapshot
+        diagnostics.append("Stooq:no_data")
+    except Exception as exc:
+        diagnostics.append(f"Stooq:{type(exc).__name__}")
 
     try:
         last_close = await _twelve_last_close(symbol)
