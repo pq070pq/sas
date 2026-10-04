@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import json
 import base64
 import hashlib
@@ -25,6 +26,7 @@ from .holiday_radar import holiday_radar_scheduler
 from .timeutil import utcnow, aware
 from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, get_subscription_config, setting_set, setting_get, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings, create_user_channel_invite
 from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
+from .fcc_reviewer import review_stock
 
 scheduler_task = None
 holiday_radar_task = None
@@ -175,6 +177,21 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         summary_lines.append(f"🏷️ التصنيف: <b>{_esc(classification_label)}</b>")
     elif momentum_label:
         summary_lines.append(f"🏷️ التصنيف: <b>{_esc(momentum_label)}</b>")
+
+    trading_style = classification.get("trading_style")
+    risk_level = classification.get("risk_level")
+    risk_score = classification.get("risk_score")
+    risk_emoji = classification.get("risk_emoji") or "⚠️"
+    holding_horizon = classification.get("holding_horizon")
+    if trading_style:
+        summary_lines.append(f"🎯 نوع السهم: <b>{_esc(trading_style)}</b>")
+    if risk_level:
+        risk_text = f"{risk_emoji} <b>{_esc(risk_level)}</b>"
+        if risk_score is not None:
+            risk_text += f" ({int(risk_score)}/10)"
+        summary_lines.append(f"⚠️ درجة الخطورة: {risk_text}")
+    if holding_horizon:
+        summary_lines.append(f"⏱️ الأفق المناسب للرصد: <b>{_esc(holding_horizon)}</b>")
     if q.get("source"):
         summary_lines.append(f"📡 مصدر السعر: <b>{_esc(q.get('source'))}</b>")
     add_section(report, "📋 <b>ملخص السهم</b>", summary_lines)
@@ -189,6 +206,9 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         sas_lines.append("🟢 <b>SAS اجتاز الشروط الأساسية</b>" if bool(sas_core) else "🔴 <b>SAS لم يجتز الشروط الأساسية</b>")
     if score is not None:
         sas_lines.append(f"⭐ قوة الإشارة: <b>{score:.0f} / 100</b>")
+    risk_reasons = classification.get("risk_reasons") or []
+    if risk_reasons:
+        sas_lines += ["", "⚠️ <b>لماذا هذه الخطورة؟</b>"] + reason_lines(" + ".join(str(x) for x in risk_reasons))
     if rvol is not None:
         sas_lines.append(f"📊 RVOL: <b>{rvol:.2f}×</b>")
     elif momentum_rvol is not None:
@@ -323,6 +343,23 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
                 "تحليل AI يفسر الأخبار الموثقة فقط، ولا يغيّر مستويات الرصد أو قرار SAS PRO."
             ]
             add_section(report, "🧠 <b>زبدة الأخبار</b>", ai_lines)
+
+    fcc = tech.get("fcc_review") or {}
+    if fcc.get("available"):
+        fcc_lines = [f"🧠 <b>مستوى المراجعة:</b> {_esc(fcc.get('review_level') or 'محايد')}"]
+        strengths = fcc.get("strengths") or []
+        contradictions = fcc.get("contradictions") or []
+        if strengths:
+            fcc_lines += ["", "💪 <b>نقاط القوة:</b>"] + [f"• {_esc(x)}" for x in strengths[:4]]
+        if contradictions:
+            fcc_lines += ["", "⚠️ <b>التعارضات:</b>"] + [f"• {_esc(x)}" for x in contradictions[:4]]
+        if fcc.get("note"):
+            fcc_lines += ["", f"📝 <b>ملاحظة:</b> {_esc(fcc.get('note'))}"]
+        fcc_lines += [
+            "",
+            "🛡️ <b>دور FCC:</b> مراجعة الأدلة فقط؛ لا يغيّر السعر أو الوقف أو الأهداف أو RVOL أو قرار SAS PRO."
+        ]
+        add_section(report, "🧠 <b>SAS PRO AI Review</b>", fcc_lines)
 
     conclusion = []
     if momentum_label:
@@ -1539,6 +1576,44 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     except Exception:
         classification = {}
 
+    # FCC reviewer: طبقة مراجعة اختيارية بعد اجتياز SAS، وليست بوابة للرادار.
+    fcc_review = {"available": False, "status": "not_called"}
+    try:
+        if settings.fcc_reviewer_enabled and isinstance(classification, dict) and classification.get("pass"):
+            evidence = {
+                "classification": {
+                    "pass": classification.get("pass"),
+                    "score": classification.get("score"),
+                    "type": classification.get("type"),
+                    "behavior": classification.get("behavior"),
+                    "reason": classification.get("reason"),
+                    "rvol": classification.get("rvol"),
+                    "risk_level": classification.get("risk_level"),
+                },
+                "technical": {
+                    "status": targets.get("status"),
+                    "targets": targets.get("targets") or [],
+                    "exit": targets.get("exit"),
+                    "support": targets.get("support"),
+                    "resistance": targets.get("resistance"),
+                    "atr": targets.get("atr"),
+                },
+                "verified_news": [
+                    {
+                        "headline": item.get("headline"),
+                        "source": item.get("source"),
+                        "url": item.get("url"),
+                    }
+                    for item in (news or [])[:5]
+                    if isinstance(item, dict) and item.get("headline")
+                ],
+            }
+            fcc_review = await review_stock(symbol, evidence)
+    except Exception:
+        fcc_review = {"available": False, "status": "provider_error"}
+
+    targets["fcc_review"] = fcc_review
+
     # خلاصة فنية محلية مبنية فقط على البيانات الموجودة، بدون اختراع خبر أو سعر.
     # If the quote provider failed but OHLCV analysis produced a valid last close,
     # promote that observed close so the Mini App never shows a false "no data" state.
@@ -1574,6 +1649,7 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         analysis_payload["key_takeaway"] = technical_summary
         analysis_payload["fallback_type"] = "technical"
     analysis_payload["ai_available"] = bool(ai_result.get("enabled")) if isinstance(ai_result, dict) else False
+    analysis_payload["fcc_review"] = fcc_review
 
     try:
         report = build_report(symbol, q, targets, classification)

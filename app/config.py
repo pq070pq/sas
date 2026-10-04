@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     ai_max_news: int = 5
     ai_max_calls_per_cycle: int = 2
     ai_news_cache_minutes: int = 10
+    # Optional Free Claude Code reviewer. Never part of radar gating.
+    fcc_reviewer_enabled: bool = False
+    fcc_reviewer_base_url: str = ""
+    fcc_reviewer_model: str = ""
+    fcc_reviewer_timeout_seconds: int = 20
+    fcc_reviewer_failure_cooldown_seconds: int = 900
     groq_api_key: str = ""
     groq_api_keys: str = ""
     groq_base_url: str = "https://api.groq.com/openai/v1"
@@ -53,6 +59,8 @@ class Settings(BaseSettings):
     market_brief_enabled: bool = True
     market_brief_window_minutes: int = 65
     radar_interval_minutes: int = 30
+    radar_staging_limit: int = 500
+    radar_shortlist_limit: int = 180
     twelve_data_scan_fallback_symbols: int = 3
     twelve_data_intraday_symbols: int = 2
     # Safety limits: Twelve Data is optional and must never be allowed to drain the account.

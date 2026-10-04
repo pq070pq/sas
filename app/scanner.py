@@ -11,9 +11,10 @@ from .market import quote
 from .twelve_guard import call as twelve_call
 
 # رادار SAS PRO:
-# - السوق: NASDAQ فقط
-# - السعر: $0.30 - $15
-# - لا تُرسل القناة إلا الإشارات النوعية ذات السيولة والأهداف الصالحة.
+# - السوق: NASDAQ / NYSE / AMEX
+# - السعر: $0.50 - $20.00
+# - لا نعتمد على نسبة الارتفاع وحدها؛ نبحث عن حركة مؤكدة أو تجميع قابل للقياس.
+# - Twelve Data ليس مصدر الرصد الأساسي ولا يُستهلك أثناء دورة الرادار.
 # - استراتيجية SAS: السلوك، التداول، RVOL، الدعم/المقاومة والثبات.
 MIN_PRICE = 0.50
 MAX_PRICE = 20.00
@@ -517,9 +518,13 @@ async def _apply_daily_momentum_filter(candidates):
 
 
 async def _discover_us_exchanges(client):
-    # Nasdaq public screener: NASDAQ only.
+    """Public exchange screener used as the broad, keyless radar universe."""
     out = []
-    for exchange in ("NASDAQ",):
+    excluded_words = (
+        "WARRANT", "RIGHT", "UNIT", "PREFERRED", "ETF",
+        "NOTE", "DEPOSITARY", "TRUST", "FUND",
+    )
+    for exchange in ("NASDAQ", "NYSE", "AMEX"):
         try:
             r = await client.get(
                 "https://api.nasdaq.com/api/screener/stocks",
@@ -531,37 +536,34 @@ async def _discover_us_exchanges(client):
                     "download": "true",
                 },
                 headers={
-                    "User-Agent": (
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/146.0.0.0 Safari/537.36"
-                    ),
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/146.0.0.0 Safari/537.36",
                     "Accept": "application/json,text/plain,*/*",
                     "Origin": "https://www.nasdaq.com",
                     "Referer": "https://www.nasdaq.com/market-activity/stocks/screener",
                 },
+                timeout=15,
             )
             r.raise_for_status()
             payload = r.json()
             rows = ((payload.get("data") or {}).get("rows") or [])
-        except Exception:
+        except Exception as exc:
+            logger.warning("PUBLIC_SCREENER_FAILED exchange=%s error=%s", exchange, type(exc).__name__)
             continue
 
-        excluded_words = (
-            "WARRANT", "RIGHT", "UNIT", "PREFERRED", "ETF",
-            "NOTE", "DEPOSITARY", "TRUST",
-        )
         for row in rows:
             symbol = str(row.get("symbol") or "").upper().strip()
             name = str(row.get("name") or "").strip()
             price = _parse_money(row.get("lastsale"))
             change_pct = _parse_money(row.get("pctchange"))
             volume = _parse_money(row.get("volume"))
-            if not symbol or not name:
+            market_cap = _parse_money(row.get("marketCap"))
+            if not symbol or not name or _is_excluded_security(row):
                 continue
             if any(word in name.upper() for word in excluded_words):
                 continue
             if not (MIN_PRICE <= price <= MAX_PRICE):
+                continue
+            if volume <= 0:
                 continue
             out.append({
                 "symbol": symbol,
@@ -569,10 +571,10 @@ async def _discover_us_exchanges(client):
                 "price": price,
                 "change_pct": change_pct,
                 "volume": volume,
+                "market_cap": market_cap,
                 "exchange": exchange,
-                "source": "Nasdaq Screener",
+                "source": "Public US Exchange Screener",
             })
-    out.sort(key=lambda x: x["change_pct"], reverse=True)
     return out
 
 async def _discover_openterminal(client):
@@ -600,7 +602,7 @@ async def _discover_openterminal(client):
         exchange = _normalize_exchange(row.get("exchange"))
         symbol = str(row.get("symbol") or "").upper().strip()
         price = _f(row.get("price"), -1)
-        if exchange != "NASDAQ" or not symbol or not (MIN_PRICE <= price <= MAX_PRICE):
+        if exchange not in ALLOWED_EXCHANGES or not symbol or not (MIN_PRICE <= price <= MAX_PRICE):
             continue
         out.append({
             "symbol": symbol,
@@ -674,43 +676,166 @@ async def _discover_panwatch(client):
 
 
 async def discover_low_price_stocks():
-    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
-        yahoo = await _discover_yahoo_top_gainers(client)
-        if yahoo:
-            momentum_candidates = yahoo
-        else:
-            sources = await asyncio.gather(
-                _discover_us_exchanges(client),
-                _discover_openterminal(client),
-                _discover_panwatch(client),
-                return_exceptions=True,
-            )
-            momentum_candidates = []
-            seen = set()
-            for source_rows in sources:
-                if isinstance(source_rows, Exception):
-                    continue
-                for row in source_rows:
-                    if not _is_allowed_exchange(row):
-                        continue
-                    symbol = str(row.get("symbol") or "").upper().strip()
-                    if not symbol or symbol in seen:
-                        continue
+    """Build a broad, keyless US universe and stage candidates by evidence.
 
-                    # Yahoo is the preferred source. If it returns no rows,
-                    # reject obvious non-momentum fallback rows before any
-                    # per-symbol candle/RVOL requests. This keeps the exact
-                    # user-defined Small/Large entry rules unchanged while
-                    # preventing a broad fallback from flooding the RVOL stage.
-                    section = _classify_momentum_candidate(row)
-                    if section is None:
-                        continue
-                    row = dict(row)
-                    row["momentum_section"] = section
-                    seen.add(symbol)
-                    momentum_candidates.append(row)
-    filtered, _ = await _apply_daily_momentum_filter(momentum_candidates)
-    return filtered
+    The staging layer deliberately does not require a large price increase.
+    It preserves:
+      1) real movers,
+      2) unusual-volume names,
+      3) liquid quiet/compressing names that may be accumulating,
+      4) high-dollar-volume names.
+    Detailed OHLCV confirmation happens after staging.
+    """
+    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
+        sources = await asyncio.gather(
+            _discover_us_exchanges(client),
+            _discover_openterminal(client),
+            _discover_panwatch(client),
+            return_exceptions=True,
+        )
+
+    merged = {}
+    for source_rows in sources:
+        if isinstance(source_rows, Exception):
+            continue
+        for row in source_rows:
+            if not isinstance(row, dict) or not _is_allowed_exchange(row):
+                continue
+            symbol = str(row.get("symbol") or "").upper().strip()
+            price = _f(row.get("price"), 0)
+            volume = _f(row.get("volume"), 0)
+            if not symbol or _is_excluded_security(row):
+                continue
+            if not (MIN_PRICE <= price <= MAX_PRICE) or volume <= 0:
+                continue
+            current = merged.get(symbol)
+            # Prefer the row carrying the strongest volume/liquidity evidence.
+            if current is None or (price * volume) > (_f(current.get("price")) * _f(current.get("volume"))):
+                merged[symbol] = dict(row)
+
+    universe = list(merged.values())
+    if not universe:
+        return []
+
+    # Stage a diverse set rather than only gainers.
+    by_dollar = sorted(universe, key=lambda x: _f(x.get("price")) * _f(x.get("volume")), reverse=True)
+    by_volume = sorted(universe, key=lambda x: _f(x.get("volume")), reverse=True)
+    by_move = sorted(universe, key=lambda x: abs(_f(x.get("change_pct"))), reverse=True)
+    # Quiet names are useful for accumulation; keep liquid names with small daily moves.
+    quiet = sorted(
+        [x for x in universe if abs(_f(x.get("change_pct"))) <= 4.0],
+        key=lambda x: _f(x.get("price")) * _f(x.get("volume")),
+        reverse=True,
+    )
+
+    staged = {}
+    for rows, limit in ((by_dollar, 250), (by_volume, 200), (by_move, 200), (quiet, 200)):
+        for row in rows[:limit]:
+            staged[row["symbol"]] = row
+
+    # Hard cap protects PanWatch/local resources without narrowing the price universe.
+    candidates = sorted(
+        staged.values(),
+        key=lambda x: (
+            _f(x.get("price")) * _f(x.get("volume")),
+            abs(_f(x.get("change_pct"))),
+        ),
+        reverse=True,
+    )[:settings.radar_staging_limit]
+    semaphore = asyncio.Semaphore(16)
+
+    async def stage(row):
+        symbol = str(row.get("symbol") or "").upper()
+        async with semaphore:
+            async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 20)) as client:
+                candles, source = await _get_analysis_candles(client, symbol, allow_twelve_fallback=False)
+        if len(candles) < 30:
+            return None
+
+        closes = [x["close"] for x in candles]
+        volumes = [max(0.0, x["volume"]) for x in candles]
+        price = _f(row.get("price"), closes[-1])
+        if price <= 0:
+            price = closes[-1]
+
+        avg20 = sum(volumes[-21:-1]) / max(1, len(volumes[-21:-1]))
+        rvol = volumes[-1] / avg20 if avg20 else 0.0
+        recent = candles[-10:]
+        ranges = [max(0.0, x["high"] - x["low"]) for x in recent]
+        higher_lows = all(recent[i]["low"] >= recent[i-1]["low"] * 0.995 for i in range(1, len(recent)))
+        compression = bool(ranges and sum(ranges[-3:]) / 3 <= (sum(ranges) / len(ranges)) * 0.85)
+        prior_red = [x["volume"] for x in candles[-20:-10] if x["close"] < x["open"]]
+        recent_red = [x["volume"] for x in recent if x["close"] < x["open"]]
+        prior_sell_avg = sum(prior_red) / len(prior_red) if prior_red else 0.0
+        recent_sell_avg = sum(recent_red) / len(recent_red) if recent_red else 0.0
+        selling_dry = bool(
+            prior_sell_avg > 0
+            and recent_sell_avg <= prior_sell_avg * 0.75
+        )
+
+        supports, resistances = _local_levels(candles)
+        support = max([x for x in supports if x < price], default=None)
+        resistance = min([x for x in resistances if x > price], default=None)
+        near_support = bool(support and _near(support, price, 0.08))
+        dollar_volume = price * _f(row.get("volume"), 0)
+        change = _f(row.get("change_pct"), 0)
+
+        accumulation_signal = bool(
+            near_support
+            and higher_lows
+            and (compression or selling_dry)
+            and rvol >= 0.80
+            and dollar_volume >= MIN_DAILY_DOLLAR_VOLUME
+        )
+        movement_signal = bool(
+            change >= 1.5
+            and rvol >= 1.20
+            and dollar_volume >= MIN_DAILY_DOLLAR_VOLUME
+        )
+        breakout_setup = bool(
+            resistance
+            and 0 <= ((resistance / price) - 1) * 100 <= 5
+            and rvol >= 1.10
+            and higher_lows
+        )
+
+        # Reject only if there is no evidence of either movement or accumulation.
+        if not (accumulation_signal or movement_signal or breakout_setup):
+            return None
+
+        result = dict(row)
+        result.update({
+            "momentum_section": "accumulation" if accumulation_signal else "movement",
+            "momentum_rvol_10d": round(rvol, 2),
+            "momentum_rvol_threshold": 0.80 if accumulation_signal else 1.20,
+            "momentum_candle_source": source,
+            "momentum_session_verified": True,
+            "accumulation_signal": accumulation_signal,
+            "movement_signal": movement_signal,
+            "breakout_setup": breakout_setup,
+            "staging_reason": (
+                "تجميع: قرب دعم + قيعان أعلى + انكماش/جفاف بيع"
+                if accumulation_signal
+                else "حركة: تغير سعري + RVOL غير عادي"
+                if movement_signal
+                else "اقتراب من مقاومة مع حجم داعم"
+            ),
+        })
+        return result
+
+    staged_rows = await asyncio.gather(*(stage(row) for row in candidates), return_exceptions=False)
+    accepted = [x for x in staged_rows if x]
+    accepted.sort(
+        key=lambda x: (
+            bool(x.get("accumulation_signal")),
+            _f(x.get("momentum_rvol_10d")),
+            abs(_f(x.get("change_pct"))),
+            _f(x.get("price")) * _f(x.get("volume")),
+        ),
+        reverse=True,
+    )
+    return accepted[:settings.radar_shortlist_limit]
+
 
 
 async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool = False):
@@ -749,8 +874,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
     # This prevents 429 storms when 100+ symbols have no PanWatch candles.
     if (
         allow_twelve_fallback
-        and settings.twelve_data_api_key
-        and not _twelve_data_quota_exhausted
+        and False  # Radar is keyless-first; Twelve Data is reserved for manual/explicit fallbacks.
     ):
         try:
             async with asyncio.timeout(8):
@@ -794,6 +918,170 @@ def _ema(values, period):
     for value in values[period:]:
         ema = value * k + ema * (1 - k)
     return ema
+
+
+def _rsi_series(values, period=14):
+    """Return RSI values aligned to the close series using Wilder smoothing."""
+    if len(values) < period + 1:
+        return [None] * len(values)
+    out = [None] * len(values)
+    gains = [max(values[i] - values[i - 1], 0.0) for i in range(1, len(values))]
+    losses = [max(values[i - 1] - values[i], 0.0) for i in range(1, len(values))]
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    out[period] = 100.0 if avg_loss == 0 else 100.0 - (100.0 / (1.0 + avg_gain / avg_loss))
+    for i in range(period, len(gains)):
+        avg_gain = ((avg_gain * (period - 1)) + gains[i]) / period
+        avg_loss = ((avg_loss * (period - 1)) + losses[i]) / period
+        out[i + 1] = 100.0 if avg_loss == 0 else 100.0 - (100.0 / (1.0 + avg_gain / avg_loss))
+    return out
+
+
+def _advanced_structure(candles):
+    """Score recent HH/HL versus LH/LL market structure from observed OHLCV."""
+    if len(candles) < 12:
+        return {"trend": "غير واضح", "bullish": False, "bearish": False, "score": 0}
+    recent = candles[-12:]
+    highs = [x["high"] for x in recent]
+    lows = [x["low"] for x in recent]
+    hh = highs[-1] > max(highs[-5:-1])
+    hl = lows[-1] > min(lows[-5:-1])
+    lh = highs[-1] < max(highs[-5:-1])
+    ll = lows[-1] < min(lows[-5:-1])
+    if hh and hl:
+        return {"trend": "صاعد HH/HL", "bullish": True, "bearish": False, "score": 15}
+    if lh and ll:
+        return {"trend": "هابط LH/LL", "bullish": False, "bearish": True, "score": 0}
+    if hh or hl:
+        return {"trend": "يميل للصعود", "bullish": True, "bearish": False, "score": 8}
+    if lh or ll:
+        return {"trend": "يميل للهبوط", "bullish": False, "bearish": True, "score": 2}
+    return {"trend": "محايد", "bullish": False, "bearish": False, "score": 5}
+
+
+def _fibonacci_context(candles, price, lookback=60):
+    """Use the latest observed swing range; never invent a Fibonacci anchor."""
+    rows = candles[-lookback:]
+    if len(rows) < 20 or price <= 0:
+        return {"valid": False, "zone": None, "level": None, "levels": {}, "score": 0}
+    low = min(x["low"] for x in rows)
+    high = max(x["high"] for x in rows)
+    span = high - low
+    if span <= 0:
+        return {"valid": False, "zone": None, "level": None, "levels": {}, "score": 0}
+    levels = {
+        "0.382": high - span * 0.382,
+        "0.500": high - span * 0.500,
+        "0.618": high - span * 0.618,
+    }
+    nearest = min(levels.items(), key=lambda item: abs(price - item[1]))
+    distance_pct = abs(price - nearest[1]) / price * 100
+    zone = nearest[0] if distance_pct <= 2.5 else None
+    return {
+        "valid": True,
+        "zone": zone,
+        "level": round(nearest[1], 4),
+        "distance_pct": round(distance_pct, 2),
+        "levels": {k: round(v, 4) for k, v in levels.items()},
+        "swing_low": round(low, 4),
+        "swing_high": round(high, 4),
+        "score": 10 if zone else (5 if distance_pct <= 5 else 0),
+    }
+
+
+def _fair_value_gap(candles, price, lookback=40):
+    """Detect the latest unfilled bullish/bearish three-candle gap."""
+    rows = candles[-lookback:]
+    latest = None
+    for i in range(2, len(rows)):
+        left, right = rows[i - 2], rows[i]
+        if right["low"] > left["high"]:
+            latest = {
+                "type": "bullish",
+                "low": left["high"],
+                "high": right["low"],
+                "index": i,
+            }
+        elif right["high"] < left["low"]:
+            latest = {
+                "type": "bearish",
+                "low": right["high"],
+                "high": left["low"],
+                "index": i,
+            }
+    if not latest:
+        return {"found": False, "active": False, "type": None, "low": None, "high": None, "score": 0}
+
+    gap_low, gap_high = latest["low"], latest["high"]
+    if latest["type"] == "bullish":
+        active = price >= gap_low * 0.995
+        score = 10 if active and price <= gap_high * 1.08 else 5 if active else 0
+    else:
+        active = price <= gap_high * 1.005
+        score = 0
+    return {
+        "found": True,
+        "active": bool(active),
+        "type": latest["type"],
+        "low": round(gap_low, 4),
+        "high": round(gap_high, 4),
+        "score": score,
+    }
+
+
+def _rsi_divergence(candles, rsi_values, lookback=60):
+    """Compare the two latest confirmed swing lows/highs with RSI."""
+    rows = candles[-lookback:]
+    rsis = rsi_values[-lookback:]
+    lows, highs = [], []
+    for i in range(2, len(rows) - 2):
+        if rows[i]["low"] <= rows[i-1]["low"] and rows[i]["low"] <= rows[i-2]["low"] and rows[i]["low"] <= rows[i+1]["low"] and rows[i]["low"] <= rows[i+2]["low"]:
+            if rsis[i] is not None:
+                lows.append((i, rows[i]["low"], rsis[i]))
+        if rows[i]["high"] >= rows[i-1]["high"] and rows[i]["high"] >= rows[i-2]["high"] and rows[i]["high"] >= rows[i+1]["high"] and rows[i]["high"] >= rows[i+2]["high"]:
+            if rsis[i] is not None:
+                highs.append((i, rows[i]["high"], rsis[i]))
+    bullish = len(lows) >= 2 and lows[-1][1] < lows[-2][1] and lows[-1][2] > lows[-2][2]
+    bearish = len(highs) >= 2 and highs[-1][1] > highs[-2][1] and highs[-1][2] < highs[-2][2]
+    if bullish:
+        state, score = "إيجابي", 10
+    elif bearish:
+        state, score = "سلبي", 0
+    else:
+        state, score = "محايد", 5
+    return {"state": state, "bullish": bullish, "bearish": bearish, "score": score}
+
+
+def _advanced_confirmation_score(*, structure, fibonacci, fvg, divergence, breakout_confirmed,
+                                 rvol, rsi14, near_entry, resistance_distance_pct, breakout_room_pct):
+    """Second-layer confirmation score; advisory until the final radar gate."""
+    score = 0
+    score += int(structure.get("score", 0))
+    if breakout_confirmed:
+        score += 15
+    elif near_entry:
+        score += 8
+    if rvol >= 2.0:
+        score += 15
+    elif rvol >= 1.5:
+        score += 10
+    elif rvol >= 1.2:
+        score += 5
+    if rsi14 is not None:
+        if 55 <= rsi14 <= 70:
+            score += 10
+        elif 50 <= rsi14 <= 75:
+            score += 6
+    if (
+        (resistance_distance_pct is not None and 0 <= resistance_distance_pct <= 5)
+        or (breakout_room_pct is not None and breakout_room_pct >= 3)
+        or near_entry
+    ):
+        score += 10
+    score += int(fibonacci.get("score", 0))
+    score += int(fvg.get("score", 0))
+    score += int(divergence.get("score", 0))
+    return min(100, score)
 
 def _rsi(values, period=14):
     if len(values) < period + 1:
@@ -849,6 +1137,110 @@ async def _benchmark_return(symbol="QQQ", lookback=20):
     if len(closes) <= lookback:
         return None, None
     return closes[-1] / closes[-1-lookback] - 1.0, key
+
+
+
+def _trading_profile(*, price, atr_pct, rvol, power_trend, accumulation, breakout,
+                     change_pct, chase_risk, distribution_risk, support, bearish_divergence):
+    """Classify the trading style and risk from observed daily behavior only."""
+    risk_score = 0
+    reasons = []
+
+    if atr_pct >= 10:
+        risk_score += 4
+        reasons.append("ATR مرتفع جدًا")
+    elif atr_pct >= 7:
+        risk_score += 3
+        reasons.append("تذبذب سعري مرتفع")
+    elif atr_pct >= 4:
+        risk_score += 2
+        reasons.append("تذبذب سعري متوسط")
+    elif atr_pct >= 2:
+        risk_score += 1
+
+    if rvol >= 3:
+        risk_score += 2
+        reasons.append("RVOL مرتفع جدًا")
+    elif rvol >= 2:
+        risk_score += 1
+        reasons.append("RVOL مرتفع")
+
+    if price < 1:
+        risk_score += 2
+        reasons.append("سعر منخفض جدًا")
+    elif price < 2:
+        risk_score += 1
+        reasons.append("سعر منخفض")
+
+    if abs(change_pct) >= 10:
+        risk_score += 2
+        reasons.append("حركة يومية حادة")
+    elif abs(change_pct) >= 6:
+        risk_score += 1
+
+    if chase_risk:
+        risk_score += 2
+        reasons.append("خطر مطاردة السعر")
+    if distribution_risk:
+        risk_score += 2
+        reasons.append("إشارة توزيع محتملة")
+    if bearish_divergence:
+        risk_score += 1
+        reasons.append("انحراف RSI سلبي")
+    if support is None:
+        risk_score += 1
+        reasons.append("لا يوجد دعم قريب موثوق")
+
+    risk_score = min(10, risk_score)
+    if risk_score >= 9:
+        risk_level = "مرتفع جدًا"
+        risk_emoji = "🔴"
+    elif risk_score >= 6:
+        risk_level = "مرتفع"
+        risk_emoji = "🟠"
+    elif risk_score >= 3:
+        risk_level = "متوسط"
+        risk_emoji = "🟡"
+    else:
+        risk_level = "منخفض"
+        risk_emoji = "🟢"
+
+    # The style is descriptive: it tells the user how the stock currently behaves,
+    # not whether it is personally suitable for their portfolio.
+    if (
+        atr_pct >= 7 or rvol >= 2.0 or price < 2 or abs(change_pct) >= 8
+        or chase_risk or breakout and risk_score >= 6
+    ):
+        trading_style = "مضاربي"
+        horizon = "من دقائق إلى عدة جلسات"
+    elif (
+        power_trend and atr_pct <= 6 and not distribution_risk
+        and (accumulation or breakout or rvol >= 1.1)
+    ):
+        trading_style = "سوينق"
+        horizon = "عدة أيام إلى عدة أسابيع"
+    elif (
+        power_trend and atr_pct <= 4 and rvol < 1.8
+        and not chase_risk and not distribution_risk
+    ):
+        trading_style = "استثماري"
+        horizon = "متوسط إلى طويل الأجل"
+    else:
+        trading_style = "سوينق"
+        horizon = "عدة أيام إلى عدة أسابيع"
+
+    if not reasons:
+        reasons.append("تذبذب وسيولة ضمن النطاق الطبيعي للرصد")
+
+    return {
+        "trading_style": trading_style,
+        "risk_level": risk_level,
+        "risk_score": risk_score,
+        "risk_emoji": risk_emoji,
+        "risk_reasons": reasons[:5],
+        "holding_horizon": horizon,
+        "risk_note": "التصنيف وصفي مبني على التذبذب والحجم والبنية اليومية، وليس حكمًا على ملاءمة السهم لمحفظتك.",
+    }
 
 async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fallback: bool = False):
     async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 30)) as client:
@@ -976,11 +1368,58 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         support is not None
     )
 
+    structure = _advanced_structure(candles)
+    rsi_values = _rsi_series(closes, 14)
+    fibonacci = _fibonacci_context(candles, price)
+    fvg = _fair_value_gap(candles, price)
+    divergence = _rsi_divergence(candles, rsi_values)
+
     patterns = _detect_chart_patterns(candles, price, rvol)
     double_bottom_confirmed = patterns["double_bottom_confirmed"]
     inverse_hs_confirmed = patterns["inverse_hs_confirmed"]
 
     distribution_risk = rvol >= 2.5 and abs(change_pct) < 1.5
+
+    advanced_score = _advanced_confirmation_score(
+        structure=structure,
+        fibonacci=fibonacci,
+        fvg=fvg,
+        divergence=divergence,
+        breakout_confirmed=breakout_confirmed,
+        rvol=rvol,
+        rsi14=rsi14,
+        near_entry=near_entry,
+        resistance_distance_pct=resistance_distance_pct,
+        breakout_room_pct=breakout_room_pct,
+    )
+    accumulation_hint = bool((quote or {}).get("accumulation_signal"))
+    # التأكيد المتقدم طبقة ترجيح وليست بوابة صلبة؛ حتى لا تتعارض
+    # Market Structure/Fibonacci/FVG/RSI مع اكتشاف التجميع أو بداية الحركة.
+    # الرفض الصريح يقتصر على تناقض هابط قوي، بينما الدرجة تحدد قوة التأكيد.
+    advanced_hard_block = bool(
+        (divergence.get("bearish") and not breakout_confirmed)
+        or (accumulation_hint and distribution_risk)
+    )
+    if breakout_confirmed:
+        advanced_min_score = 30
+    elif accumulation_hint and accumulation:
+        advanced_min_score = 30
+    elif rvol >= 1.20 and change_pct >= 1.5:
+        advanced_min_score = 30
+    else:
+        advanced_min_score = 35
+    advanced_confirmation_pass = bool(
+        not advanced_hard_block and advanced_score >= advanced_min_score
+    )
+    advanced_confirmation_status = (
+        "حظر هابط قوي"
+        if advanced_hard_block
+        else "تأكيد قوي"
+        if advanced_score >= 50
+        else "تأكيد جيد"
+        if advanced_score >= advanced_min_score
+        else "تأكيد مبكر/ضعيف — لا يُسقط الفرصة وحده"
+    )
     bearish_head_shoulders = patterns["head_shoulders"] and (
         patterns["head_shoulders_neckline"] is not None
         and price < patterns["head_shoulders_neckline"] * 0.995
@@ -1044,6 +1483,20 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         (distance_from_ema20_pct is not None and distance_from_ema20_pct > 8)
         or (rsi14 is not None and rsi14 > 73)
         or (breakout_confirmed and breakout_extension_pct is not None and breakout_extension_pct > 8)
+    )
+
+    trading_profile = _trading_profile(
+        price=price,
+        atr_pct=atr_pct * 100,
+        rvol=rvol,
+        power_trend=power_trend,
+        accumulation=accumulation,
+        breakout=breakout,
+        change_pct=change_pct,
+        chase_risk=chase_risk,
+        distribution_risk=distribution_risk,
+        support=support,
+        bearish_divergence=bool(divergence.get("bearish")),
     )
 
     score = trend_score + momentum_score + volume_score + relative_strength_score + breakout_quality_score + risk_score
@@ -1148,6 +1601,13 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         "behavior": behavior,
         "type": stock_type,
         "emoji": emoji,
+        "trading_style": trading_profile["trading_style"],
+        "risk_level": trading_profile["risk_level"],
+        "risk_score": trading_profile["risk_score"],
+        "risk_emoji": trading_profile["risk_emoji"],
+        "risk_reasons": trading_profile["risk_reasons"],
+        "holding_horizon": trading_profile["holding_horizon"],
+        "risk_note": trading_profile["risk_note"],
         "score": score,
         "pass": core_pass,
         "reason": " + ".join(evidence) if evidence else "بيانات فنية صالحة؛ لا توجد ملاحظة استراتيجية إضافية",
@@ -1185,6 +1645,14 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
             "breakout_quality": breakout_quality_score,
             "risk": risk_score,
         },
+        "advanced_confirmation_score": advanced_score,
+        "advanced_confirmation_pass": advanced_confirmation_pass,
+        "market_structure": structure.get("trend"),
+        "market_structure_bullish": bool(structure.get("bullish")),
+        "market_structure_bearish": bool(structure.get("bearish")),
+        "fibonacci": fibonacci,
+        "fvg": fvg,
+        "rsi_divergence": divergence,
         "atr_pct": round(atr_pct * 100, 2),
         "support": round(support, 4) if support else None,
         "resistance": round(resistance, 4) if resistance else None,
@@ -1328,8 +1796,9 @@ async def scan_us_low_price_stocks():
         "sas_no_distribution": 0,
         "sas_no_bearish_hs": 0,
         "sas_no_chase": 0,
-        "momentum_small_candidates": 0,
-        "momentum_large_candidates": 0,
+        "momentum_accumulation_candidates": 0,
+        "momentum_movement_candidates": 0,
+        "momentum_breakout_candidates": 0,
         "momentum_rvol_pass": 0,
         "sas_breakout_confirmed": 0,
         "sas_breakout_retest": 0,
@@ -1393,10 +1862,12 @@ async def scan_us_low_price_stocks():
                 )
                 filter_counts["classify_checked"] += 1
                 # عدّ شروط SAS الفردية لتحديد نقطة الاختناق، دون تغيير pass.
-                if row.get("momentum_section") == "small":
-                    filter_counts["momentum_small_candidates"] += 1
-                elif row.get("momentum_section") == "large":
-                    filter_counts["momentum_large_candidates"] += 1
+                if row.get("momentum_section") == "accumulation":
+                    filter_counts["momentum_accumulation_candidates"] += 1
+                elif row.get("momentum_section") == "movement":
+                    filter_counts["momentum_movement_candidates"] += 1
+                elif row.get("momentum_section") == "breakout":
+                    filter_counts["momentum_breakout_candidates"] += 1
                 if row.get("momentum_rvol_10d") is not None:
                     filter_counts["momentum_rvol_pass"] += 1
                 if classification.get("power_trend"):
@@ -1495,7 +1966,21 @@ async def scan_us_low_price_stocks():
                         "data_source": classification.get("data_source"),
                     }
 
-                # فلترة السيولة: بعد بوابة الزخم، نريد تداولًا نقديًا فعليًا
+                # التأكيد المتقدم لا يعمل كحاجز ثانٍ فوق بوابة SAS الأساسية.
+                # إذا كانت الإشارة الأساسية صالحة، نستخدم التأكيد لرفع/خفض الثقة
+                # فقط. الحظر الحقيقي يُترك للتناقضات الهابطة القوية.
+                if classification.get("advanced_confirmation_status") == "حظر هابط قوي":
+                    return None, {
+                        "symbol": symbol,
+                        "exchange": row.get("exchange"),
+                        "status": "filtered",
+                        "reason": "تناقض هابط قوي في التأكيد المتقدم",
+                        "advanced_confirmation_score": classification.get("advanced_confirmation_score"),
+                        "market_structure": classification.get("market_structure"),
+                        "rsi_divergence": classification.get("rsi_divergence"),
+                    }
+
+                # فلترة السيولة: بعد بوابة SAS الأساسية، نتحقق من التداول النقدي الفعلي
                 # وحجمًا متوافقًا مع الحركة. لا توجد هنا بوابة Strategy قديمة.
                 entry_price = _f(row.get("price"), 0)
                 daily_volume = _f(row.get("volume"), 0)
@@ -1505,7 +1990,10 @@ async def scan_us_low_price_stocks():
                     entry_price <= 0
                     or daily_volume <= 0
                     or dollar_volume < MIN_DAILY_DOLLAR_VOLUME
-                    or daily_rvol < 1.0
+                    or (
+                        daily_rvol < 0.80
+                        and not bool(row.get("accumulation_signal"))
+                    )
                 ):
                     return None, {
                         "symbol": symbol,
@@ -1653,7 +2141,15 @@ async def scan_us_low_price_stocks():
                 # حالة شروط الرادار الفعلية التي اجتازها السهم.
                 # هذه بيانات مشتقة من الفلاتر المستخدمة فعليًا، وليست تقييمًا إنشائيًا.
                 momentum_section = str(row.get("momentum_section") or "").lower()
-                momentum_label = "سهم صغير" if momentum_section == "small" else "سهم متوسط/كبير" if momentum_section == "large" else "غير محدد"
+                momentum_label = (
+                    "تجميع"
+                    if momentum_section == "accumulation"
+                    else "حركة"
+                    if momentum_section == "movement"
+                    else "اختراق قريب"
+                    if momentum_section == "breakout"
+                    else "غير محدد"
+                )
                 momentum_threshold = _f(row.get("momentum_rvol_threshold"), 0)
                 momentum_rvol = _f(row.get("momentum_rvol_10d"), 0)
                 radar_checks = {
@@ -1669,6 +2165,13 @@ async def scan_us_low_price_stocks():
                     "no_distribution": not bool(classification.get("distribution_risk")),
                     "no_bearish_hs": not bool(classification.get("bearish_head_shoulders")),
                     "no_chase": not bool(classification.get("chase_risk")),
+                    "advanced_confirmation": bool(classification.get("advanced_confirmation_pass")),
+                    "advanced_confirmation_status": classification.get("advanced_confirmation_status"),
+                    "advanced_confirmation_score": classification.get("advanced_confirmation_score"),
+                    "market_structure": classification.get("market_structure"),
+                    "fibonacci_zone": (classification.get("fibonacci") or {}).get("zone"),
+                    "fvg": (classification.get("fvg") or {}).get("type") if (classification.get("fvg") or {}).get("active") else None,
+                    "rsi_divergence": (classification.get("rsi_divergence") or {}).get("state"),
                     "risk_reward": round(_f(targets.get("risk_reward"), 0), 2) if isinstance(targets, dict) and targets.get("risk_reward") is not None else None,
                     "risk_reward_warning": bool(isinstance(targets, dict) and targets.get("risk_reward_warning")),
                 }
