@@ -1385,7 +1385,7 @@ async def stock_quote(symbol: str, _: dict = Depends(require_pro)):
 
 @app.post("/api/stocks/{symbol}/analyze")
 async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession = Depends(get_session)):
-    """تحليل Mini App مرن: تعطل مزود واحد لا يمنع بقية التقرير."""
+    """تحليل Mini App متعدد الطبقات: البيانات الفنية لا تتوقف بسبب غياب AI أو خبر."""
     symbol = symbol.upper().strip()
 
     results = await asyncio.gather(
@@ -1402,38 +1402,37 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         q = {"symbol": symbol, "price": None, "change_pct": None, "source": "unavailable",
              "error": f"{type(q).__name__}: {q}"}
 
-    # PanWatch/TradingAgents may be unavailable even when price and technical data work.
-    # In that case use SAS's own evidence-grounded AI layer instead of returning an empty analysis.
-    news = []
-    fundamentals = {}
+    # الأخبار والأساسيات تُجمع دائمًا؛ غيابها لا يمنع التحليل الفني.
+    news, fundamentals = await asyncio.gather(
+        company_news(symbol, days=3),
+        company_fundamentals(symbol),
+        return_exceptions=True,
+    )
+    if isinstance(news, Exception):
+        news = []
+    if isinstance(fundamentals, Exception):
+        fundamentals = {}
+
+    # طبقة AI تفسيرية فقط. إذا لم توجد أخبار موثقة فلا نختلق تفسيرًا.
+    ai_result = {}
+    try:
+        from .ai_radar import analyze_stock
+        ai_result = await analyze_stock(
+            symbol,
+            company=fundamentals,
+            news=news,
+            fundamentals=fundamentals,
+            market={"change_pct": q.get("change_pct"), "price": q.get("price")},
+        )
+    except Exception as exc:
+        ai_result = {"enabled": False, "status": "provider_error", "error": str(exc)[:300]}
+
+    # إذا كانت طبقة التحليل الفني الخارجية فارغة، نحتفظ بها كبيانات إضافية
+    # ولا نجعلها شرطًا لعرض السعر/المستويات/الخلاصة الفنية.
     if isinstance(result, Exception):
-        try:
-            from .news import company_news, company_fundamentals
-            news, fundamentals = await asyncio.gather(
-                company_news(symbol, days=3),
-                company_fundamentals(symbol),
-                return_exceptions=True,
-            )
-            if isinstance(news, Exception):
-                news = []
-            if isinstance(fundamentals, Exception):
-                fundamentals = {}
-            from .ai_radar import analyze_stock
-            result = await analyze_stock(
-                symbol,
-                company=fundamentals,
-                news=news,
-                fundamentals=fundamentals,
-                market={"change_pct": q.get("change_pct"), "price": q.get("price")},
-            )
-        except Exception as exc:
-            result = {"enabled": False, "error": f"{type(exc).__name__}: {exc}"}
-    else:
-        try:
-            from .news import company_news
-            news = await company_news(symbol, days=3)
-        except Exception:
-            news = []
+        result = {}
+    if not isinstance(result, dict):
+        result = {}
 
     try:
         from .scanner import classify_faisal
@@ -1443,13 +1442,43 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     except Exception:
         classification = {}
 
+    # خلاصة فنية محلية مبنية فقط على البيانات الموجودة، بدون اختراع خبر أو سعر.
+    entry = targets.get("price") or q.get("price")
+    stop = targets.get("exit") or targets.get("stop")
+    target_list = targets.get("targets") if isinstance(targets, dict) else []
+    target1 = target_list[0] if isinstance(target_list, list) and target_list else targets.get("target1")
+    technical_summary = "لا توجد خلاصة فنية كافية."
+    try:
+        if entry and stop and target1:
+            risk = float(entry) - float(stop)
+            reward = float(target1) - float(entry)
+            rr = round(reward / risk, 2) if risk > 0 else None
+            if rr is not None:
+                technical_summary = (
+                    f"السعر المرجعي {float(entry):.4g}، الوقف {float(stop):.4g}، "
+                    f"والهدف الأول {float(target1):.4g}. "
+                    f"نسبة R:R المحسوبة للهدف الأول هي 1 : {rr:.2f}."
+                )
+        elif q.get("change_pct") is not None:
+            technical_summary = f"التغير الحالي المسجل: {float(q.get('change_pct')):+.2f}%. راجع المستويات الفنية قبل اتخاذ أي قرار."
+    except Exception:
+        pass
+
+    # الواجهة تعرض AI إن توفر، وإلا تعرض الخلاصة الفنية بدل شاشة فارغة.
+    analysis_payload = dict(ai_result) if isinstance(ai_result, dict) else {}
+    if not analysis_payload.get("key_takeaway"):
+        analysis_payload["key_takeaway"] = technical_summary
+        analysis_payload["fallback_type"] = "technical"
+    analysis_payload["ai_available"] = bool(ai_result.get("enabled")) if isinstance(ai_result, dict) else False
+
     try:
         report = build_report(symbol, q, targets, classification)
     except Exception:
         report = None
 
     payload = {
-        "analysis": result,
+        "analysis": analysis_payload,
+        "technical_analysis": result,
         "quote": q,
         "sas_pro": {
             "targets": targets,
@@ -1459,9 +1488,9 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         },
         "news": news if isinstance(news, list) else [],
         "fundamentals": fundamentals if isinstance(fundamentals, dict) else {},
+        "ai_status": ai_result.get("status") if isinstance(ai_result, dict) else "unavailable",
         "partial": bool(
-            isinstance(result, dict) and result.get("error")
-            or isinstance(targets, dict) and targets.get("error")
+            isinstance(targets, dict) and targets.get("error")
             or isinstance(q, dict) and q.get("error")
         ),
     }
