@@ -1138,6 +1138,110 @@ async def _benchmark_return(symbol="QQQ", lookback=20):
         return None, None
     return closes[-1] / closes[-1-lookback] - 1.0, key
 
+
+
+def _trading_profile(*, price, atr_pct, rvol, power_trend, accumulation, breakout,
+                     change_pct, chase_risk, distribution_risk, support, bearish_divergence):
+    """Classify the trading style and risk from observed daily behavior only."""
+    risk_score = 0
+    reasons = []
+
+    if atr_pct >= 10:
+        risk_score += 4
+        reasons.append("ATR مرتفع جدًا")
+    elif atr_pct >= 7:
+        risk_score += 3
+        reasons.append("تذبذب سعري مرتفع")
+    elif atr_pct >= 4:
+        risk_score += 2
+        reasons.append("تذبذب سعري متوسط")
+    elif atr_pct >= 2:
+        risk_score += 1
+
+    if rvol >= 3:
+        risk_score += 2
+        reasons.append("RVOL مرتفع جدًا")
+    elif rvol >= 2:
+        risk_score += 1
+        reasons.append("RVOL مرتفع")
+
+    if price < 1:
+        risk_score += 2
+        reasons.append("سعر منخفض جدًا")
+    elif price < 2:
+        risk_score += 1
+        reasons.append("سعر منخفض")
+
+    if abs(change_pct) >= 10:
+        risk_score += 2
+        reasons.append("حركة يومية حادة")
+    elif abs(change_pct) >= 6:
+        risk_score += 1
+
+    if chase_risk:
+        risk_score += 2
+        reasons.append("خطر مطاردة السعر")
+    if distribution_risk:
+        risk_score += 2
+        reasons.append("إشارة توزيع محتملة")
+    if bearish_divergence:
+        risk_score += 1
+        reasons.append("انحراف RSI سلبي")
+    if support is None:
+        risk_score += 1
+        reasons.append("لا يوجد دعم قريب موثوق")
+
+    risk_score = min(10, risk_score)
+    if risk_score >= 9:
+        risk_level = "مرتفع جدًا"
+        risk_emoji = "🔴"
+    elif risk_score >= 6:
+        risk_level = "مرتفع"
+        risk_emoji = "🟠"
+    elif risk_score >= 3:
+        risk_level = "متوسط"
+        risk_emoji = "🟡"
+    else:
+        risk_level = "منخفض"
+        risk_emoji = "🟢"
+
+    # The style is descriptive: it tells the user how the stock currently behaves,
+    # not whether it is personally suitable for their portfolio.
+    if (
+        atr_pct >= 7 or rvol >= 2.0 or price < 2 or abs(change_pct) >= 8
+        or chase_risk or breakout and risk_score >= 6
+    ):
+        trading_style = "مضاربي"
+        horizon = "من دقائق إلى عدة جلسات"
+    elif (
+        power_trend and atr_pct <= 6 and not distribution_risk
+        and (accumulation or breakout or rvol >= 1.1)
+    ):
+        trading_style = "سوينق"
+        horizon = "عدة أيام إلى عدة أسابيع"
+    elif (
+        power_trend and atr_pct <= 4 and rvol < 1.8
+        and not chase_risk and not distribution_risk
+    ):
+        trading_style = "استثماري"
+        horizon = "متوسط إلى طويل الأجل"
+    else:
+        trading_style = "سوينق"
+        horizon = "عدة أيام إلى عدة أسابيع"
+
+    if not reasons:
+        reasons.append("تذبذب وسيولة ضمن النطاق الطبيعي للرصد")
+
+    return {
+        "trading_style": trading_style,
+        "risk_level": risk_level,
+        "risk_score": risk_score,
+        "risk_emoji": risk_emoji,
+        "risk_reasons": reasons[:5],
+        "holding_horizon": horizon,
+        "risk_note": "التصنيف وصفي مبني على التذبذب والحجم والبنية اليومية، وليس حكمًا على ملاءمة السهم لمحفظتك.",
+    }
+
 async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fallback: bool = False):
     async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 30)) as client:
         candles, data_source = await _get_analysis_candles(client, symbol, allow_twelve_fallback)
@@ -1270,6 +1374,12 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
     fvg = _fair_value_gap(candles, price)
     divergence = _rsi_divergence(candles, rsi_values)
 
+    patterns = _detect_chart_patterns(candles, price, rvol)
+    double_bottom_confirmed = patterns["double_bottom_confirmed"]
+    inverse_hs_confirmed = patterns["inverse_hs_confirmed"]
+
+    distribution_risk = rvol >= 2.5 and abs(change_pct) < 1.5
+
     advanced_score = _advanced_confirmation_score(
         structure=structure,
         fibonacci=fibonacci,
@@ -1291,12 +1401,6 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         and not (divergence.get("bearish") and not breakout_confirmed)
         and not (accumulation_hint and distribution_risk)
     )
-
-    patterns = _detect_chart_patterns(candles, price, rvol)
-    double_bottom_confirmed = patterns["double_bottom_confirmed"]
-    inverse_hs_confirmed = patterns["inverse_hs_confirmed"]
-
-    distribution_risk = rvol >= 2.5 and abs(change_pct) < 1.5
     bearish_head_shoulders = patterns["head_shoulders"] and (
         patterns["head_shoulders_neckline"] is not None
         and price < patterns["head_shoulders_neckline"] * 0.995
@@ -1360,6 +1464,20 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         (distance_from_ema20_pct is not None and distance_from_ema20_pct > 8)
         or (rsi14 is not None and rsi14 > 73)
         or (breakout_confirmed and breakout_extension_pct is not None and breakout_extension_pct > 8)
+    )
+
+    trading_profile = _trading_profile(
+        price=price,
+        atr_pct=atr_pct * 100,
+        rvol=rvol,
+        power_trend=power_trend,
+        accumulation=accumulation,
+        breakout=breakout,
+        change_pct=change_pct,
+        chase_risk=chase_risk,
+        distribution_risk=distribution_risk,
+        support=support,
+        bearish_divergence=bool(divergence.get("bearish")),
     )
 
     score = trend_score + momentum_score + volume_score + relative_strength_score + breakout_quality_score + risk_score
@@ -1464,6 +1582,13 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         "behavior": behavior,
         "type": stock_type,
         "emoji": emoji,
+        "trading_style": trading_profile["trading_style"],
+        "risk_level": trading_profile["risk_level"],
+        "risk_score": trading_profile["risk_score"],
+        "risk_emoji": trading_profile["risk_emoji"],
+        "risk_reasons": trading_profile["risk_reasons"],
+        "holding_horizon": trading_profile["holding_horizon"],
+        "risk_note": trading_profile["risk_note"],
         "score": score,
         "pass": core_pass,
         "reason": " + ".join(evidence) if evidence else "بيانات فنية صالحة؛ لا توجد ملاحظة استراتيجية إضافية",
