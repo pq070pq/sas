@@ -11,9 +11,10 @@ from .market import quote
 from .twelve_guard import call as twelve_call
 
 # رادار SAS PRO:
-# - السوق: NASDAQ فقط
-# - السعر: $0.30 - $15
-# - لا تُرسل القناة إلا الإشارات النوعية ذات السيولة والأهداف الصالحة.
+# - السوق: NASDAQ / NYSE / AMEX
+# - السعر: $0.50 - $20.00
+# - لا نعتمد على نسبة الارتفاع وحدها؛ نبحث عن حركة مؤكدة أو تجميع قابل للقياس.
+# - Twelve Data ليس مصدر الرصد الأساسي ولا يُستهلك أثناء دورة الرادار.
 # - استراتيجية SAS: السلوك، التداول، RVOL، الدعم/المقاومة والثبات.
 MIN_PRICE = 0.50
 MAX_PRICE = 20.00
@@ -517,9 +518,13 @@ async def _apply_daily_momentum_filter(candidates):
 
 
 async def _discover_us_exchanges(client):
-    # Nasdaq public screener: NASDAQ only.
+    """Public exchange screener used as the broad, keyless radar universe."""
     out = []
-    for exchange in ("NASDAQ",):
+    excluded_words = (
+        "WARRANT", "RIGHT", "UNIT", "PREFERRED", "ETF",
+        "NOTE", "DEPOSITARY", "TRUST", "FUND",
+    )
+    for exchange in ("NASDAQ", "NYSE", "AMEX"):
         try:
             r = await client.get(
                 "https://api.nasdaq.com/api/screener/stocks",
@@ -531,37 +536,34 @@ async def _discover_us_exchanges(client):
                     "download": "true",
                 },
                 headers={
-                    "User-Agent": (
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/146.0.0.0 Safari/537.36"
-                    ),
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/146.0.0.0 Safari/537.36",
                     "Accept": "application/json,text/plain,*/*",
                     "Origin": "https://www.nasdaq.com",
                     "Referer": "https://www.nasdaq.com/market-activity/stocks/screener",
                 },
+                timeout=15,
             )
             r.raise_for_status()
             payload = r.json()
             rows = ((payload.get("data") or {}).get("rows") or [])
-        except Exception:
+        except Exception as exc:
+            logger.warning("PUBLIC_SCREENER_FAILED exchange=%s error=%s", exchange, type(exc).__name__)
             continue
 
-        excluded_words = (
-            "WARRANT", "RIGHT", "UNIT", "PREFERRED", "ETF",
-            "NOTE", "DEPOSITARY", "TRUST",
-        )
         for row in rows:
             symbol = str(row.get("symbol") or "").upper().strip()
             name = str(row.get("name") or "").strip()
             price = _parse_money(row.get("lastsale"))
             change_pct = _parse_money(row.get("pctchange"))
             volume = _parse_money(row.get("volume"))
-            if not symbol or not name:
+            market_cap = _parse_money(row.get("marketCap"))
+            if not symbol or not name or _is_excluded_security(row):
                 continue
             if any(word in name.upper() for word in excluded_words):
                 continue
             if not (MIN_PRICE <= price <= MAX_PRICE):
+                continue
+            if volume <= 0:
                 continue
             out.append({
                 "symbol": symbol,
@@ -569,10 +571,10 @@ async def _discover_us_exchanges(client):
                 "price": price,
                 "change_pct": change_pct,
                 "volume": volume,
+                "market_cap": market_cap,
                 "exchange": exchange,
-                "source": "Nasdaq Screener",
+                "source": "Public US Exchange Screener",
             })
-    out.sort(key=lambda x: x["change_pct"], reverse=True)
     return out
 
 async def _discover_openterminal(client):
@@ -600,7 +602,7 @@ async def _discover_openterminal(client):
         exchange = _normalize_exchange(row.get("exchange"))
         symbol = str(row.get("symbol") or "").upper().strip()
         price = _f(row.get("price"), -1)
-        if exchange != "NASDAQ" or not symbol or not (MIN_PRICE <= price <= MAX_PRICE):
+        if exchange not in ALLOWED_EXCHANGES or not symbol or not (MIN_PRICE <= price <= MAX_PRICE):
             continue
         out.append({
             "symbol": symbol,
@@ -674,43 +676,154 @@ async def _discover_panwatch(client):
 
 
 async def discover_low_price_stocks():
-    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
-        yahoo = await _discover_yahoo_top_gainers(client)
-        if yahoo:
-            momentum_candidates = yahoo
-        else:
-            sources = await asyncio.gather(
-                _discover_us_exchanges(client),
-                _discover_openterminal(client),
-                _discover_panwatch(client),
-                return_exceptions=True,
-            )
-            momentum_candidates = []
-            seen = set()
-            for source_rows in sources:
-                if isinstance(source_rows, Exception):
-                    continue
-                for row in source_rows:
-                    if not _is_allowed_exchange(row):
-                        continue
-                    symbol = str(row.get("symbol") or "").upper().strip()
-                    if not symbol or symbol in seen:
-                        continue
+    """Build a broad, keyless US universe and stage candidates by evidence.
 
-                    # Yahoo is the preferred source. If it returns no rows,
-                    # reject obvious non-momentum fallback rows before any
-                    # per-symbol candle/RVOL requests. This keeps the exact
-                    # user-defined Small/Large entry rules unchanged while
-                    # preventing a broad fallback from flooding the RVOL stage.
-                    section = _classify_momentum_candidate(row)
-                    if section is None:
-                        continue
-                    row = dict(row)
-                    row["momentum_section"] = section
-                    seen.add(symbol)
-                    momentum_candidates.append(row)
-    filtered, _ = await _apply_daily_momentum_filter(momentum_candidates)
-    return filtered
+    The staging layer deliberately does not require a large price increase.
+    It preserves:
+      1) real movers,
+      2) unusual-volume names,
+      3) liquid quiet/compressing names that may be accumulating,
+      4) high-dollar-volume names.
+    Detailed OHLCV confirmation happens after staging.
+    """
+    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
+        sources = await asyncio.gather(
+            _discover_us_exchanges(client),
+            _discover_openterminal(client),
+            _discover_panwatch(client),
+            return_exceptions=True,
+        )
+
+    merged = {}
+    for source_rows in sources:
+        if isinstance(source_rows, Exception):
+            continue
+        for row in source_rows:
+            if not isinstance(row, dict) or not _is_allowed_exchange(row):
+                continue
+            symbol = str(row.get("symbol") or "").upper().strip()
+            price = _f(row.get("price"), 0)
+            volume = _f(row.get("volume"), 0)
+            if not symbol or _is_excluded_security(row):
+                continue
+            if not (MIN_PRICE <= price <= MAX_PRICE) or volume <= 0:
+                continue
+            current = merged.get(symbol)
+            # Prefer the row carrying the strongest volume/liquidity evidence.
+            if current is None or (price * volume) > (_f(current.get("price")) * _f(current.get("volume"))):
+                merged[symbol] = dict(row)
+
+    universe = list(merged.values())
+    if not universe:
+        return []
+
+    # Stage a diverse set rather than only gainers.
+    by_dollar = sorted(universe, key=lambda x: _f(x.get("price")) * _f(x.get("volume")), reverse=True)
+    by_volume = sorted(universe, key=lambda x: _f(x.get("volume")), reverse=True)
+    by_move = sorted(universe, key=lambda x: abs(_f(x.get("change_pct"))), reverse=True)
+    # Quiet names are useful for accumulation; keep liquid names with small daily moves.
+    quiet = sorted(
+        [x for x in universe if abs(_f(x.get("change_pct"))) <= 4.0],
+        key=lambda x: _f(x.get("price")) * _f(x.get("volume")),
+        reverse=True,
+    )
+
+    staged = {}
+    for rows, limit in ((by_dollar, 250), (by_volume, 200), (by_move, 200), (quiet, 200)):
+        for row in rows[:limit]:
+            staged[row["symbol"]] = row
+
+    # Hard cap protects PanWatch/local resources without narrowing the price universe.
+    candidates = list(staged.values())[:settings.radar_staging_limit]
+    semaphore = asyncio.Semaphore(16)
+
+    async def stage(row):
+        symbol = str(row.get("symbol") or "").upper()
+        async with semaphore:
+            async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 20)) as client:
+                candles, source = await _get_analysis_candles(client, symbol, allow_twelve_fallback=False)
+        if len(candles) < 30:
+            return None
+
+        closes = [x["close"] for x in candles]
+        volumes = [max(0.0, x["volume"]) for x in candles]
+        price = _f(row.get("price"), closes[-1])
+        if price <= 0:
+            price = closes[-1]
+
+        avg20 = sum(volumes[-21:-1]) / max(1, len(volumes[-21:-1]))
+        rvol = volumes[-1] / avg20 if avg20 else 0.0
+        recent = candles[-10:]
+        ranges = [max(0.0, x["high"] - x["low"]) for x in recent]
+        higher_lows = all(recent[i]["low"] >= recent[i-1]["low"] * 0.995 for i in range(1, len(recent)))
+        compression = bool(ranges and sum(ranges[-3:]) / 3 <= (sum(ranges) / len(ranges)) * 0.85)
+        prior_sell = sum(x["volume"] for x in candles[-20:-10] if x["close"] < x["open"])
+        recent_sell = sum(x["volume"] for x in recent if x["close"] < x["open"])
+        selling_dry = recent_sell < prior_sell if prior_sell > 0 else False
+
+        supports, resistances = _local_levels(candles)
+        support = max([x for x in supports if x < price], default=None)
+        resistance = min([x for x in resistances if x > price], default=None)
+        near_support = bool(support and _near(support, price, 0.08))
+        dollar_volume = price * _f(row.get("volume"), 0)
+        change = _f(row.get("change_pct"), 0)
+
+        accumulation_signal = bool(
+            near_support
+            and higher_lows
+            and (compression or selling_dry)
+            and rvol >= 0.80
+            and dollar_volume >= MIN_DAILY_DOLLAR_VOLUME
+        )
+        movement_signal = bool(
+            change >= 1.5
+            and rvol >= 1.20
+            and dollar_volume >= MIN_DAILY_DOLLAR_VOLUME
+        )
+        breakout_setup = bool(
+            resistance
+            and 0 <= ((resistance / price) - 1) * 100 <= 5
+            and rvol >= 1.10
+            and higher_lows
+        )
+
+        # Reject only if there is no evidence of either movement or accumulation.
+        if not (accumulation_signal or movement_signal or breakout_setup):
+            return None
+
+        result = dict(row)
+        result.update({
+            "momentum_section": "accumulation" if accumulation_signal else "movement",
+            "momentum_rvol_10d": round(rvol, 2),
+            "momentum_rvol_threshold": 0.80 if accumulation_signal else 1.20,
+            "momentum_candle_source": source,
+            "momentum_session_verified": True,
+            "accumulation_signal": accumulation_signal,
+            "movement_signal": movement_signal,
+            "breakout_setup": breakout_setup,
+            "staging_reason": (
+                "تجميع: قرب دعم + قيعان أعلى + انكماش/جفاف بيع"
+                if accumulation_signal
+                else "حركة: تغير سعري + RVOL غير عادي"
+                if movement_signal
+                else "اقتراب من مقاومة مع حجم داعم"
+            ),
+        })
+        return result
+
+    staged_rows = await asyncio.gather(*(stage(row) for row in candidates), return_exceptions=False)
+    accepted = [x for x in staged_rows if x]
+    accepted.sort(
+        key=lambda x: (
+            bool(x.get("accumulation_signal")),
+            _f(x.get("momentum_rvol_10d")),
+            abs(_f(x.get("change_pct"))),
+            _f(x.get("price")) * _f(x.get("volume")),
+        ),
+        reverse=True,
+    )
+    return accepted[:settings.radar_shortlist_limit]
+
 
 
 async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool = False):
@@ -749,8 +862,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
     # This prevents 429 storms when 100+ symbols have no PanWatch candles.
     if (
         allow_twelve_fallback
-        and settings.twelve_data_api_key
-        and not _twelve_data_quota_exhausted
+        and False  # Radar is keyless-first; Twelve Data is reserved for manual/explicit fallbacks.
     ):
         try:
             async with asyncio.timeout(8):
@@ -1523,8 +1635,9 @@ async def scan_us_low_price_stocks():
         "sas_no_distribution": 0,
         "sas_no_bearish_hs": 0,
         "sas_no_chase": 0,
-        "momentum_small_candidates": 0,
-        "momentum_large_candidates": 0,
+        "momentum_accumulation_candidates": 0,
+        "momentum_movement_candidates": 0,
+        "momentum_breakout_candidates": 0,
         "momentum_rvol_pass": 0,
         "sas_breakout_confirmed": 0,
         "sas_breakout_retest": 0,
@@ -1588,10 +1701,12 @@ async def scan_us_low_price_stocks():
                 )
                 filter_counts["classify_checked"] += 1
                 # عدّ شروط SAS الفردية لتحديد نقطة الاختناق، دون تغيير pass.
-                if row.get("momentum_section") == "small":
-                    filter_counts["momentum_small_candidates"] += 1
-                elif row.get("momentum_section") == "large":
-                    filter_counts["momentum_large_candidates"] += 1
+                if row.get("momentum_section") == "accumulation":
+                    filter_counts["momentum_accumulation_candidates"] += 1
+                elif row.get("momentum_section") == "movement":
+                    filter_counts["momentum_movement_candidates"] += 1
+                elif row.get("momentum_section") == "breakout":
+                    filter_counts["momentum_breakout_candidates"] += 1
                 if row.get("momentum_rvol_10d") is not None:
                     filter_counts["momentum_rvol_pass"] += 1
                 if classification.get("power_trend"):
@@ -1713,7 +1828,10 @@ async def scan_us_low_price_stocks():
                     entry_price <= 0
                     or daily_volume <= 0
                     or dollar_volume < MIN_DAILY_DOLLAR_VOLUME
-                    or daily_rvol < 1.0
+                    or (
+                        daily_rvol < 0.80
+                        and not bool(row.get("accumulation_signal"))
+                    )
                 ):
                     return None, {
                         "symbol": symbol,
@@ -1861,7 +1979,15 @@ async def scan_us_low_price_stocks():
                 # حالة شروط الرادار الفعلية التي اجتازها السهم.
                 # هذه بيانات مشتقة من الفلاتر المستخدمة فعليًا، وليست تقييمًا إنشائيًا.
                 momentum_section = str(row.get("momentum_section") or "").lower()
-                momentum_label = "سهم صغير" if momentum_section == "small" else "سهم متوسط/كبير" if momentum_section == "large" else "غير محدد"
+                momentum_label = (
+                    "تجميع"
+                    if momentum_section == "accumulation"
+                    else "حركة"
+                    if momentum_section == "movement"
+                    else "اختراق قريب"
+                    if momentum_section == "breakout"
+                    else "غير محدد"
+                )
                 momentum_threshold = _f(row.get("momentum_rvol_threshold"), 0)
                 momentum_rvol = _f(row.get("momentum_rvol_10d"), 0)
                 radar_checks = {
