@@ -353,8 +353,12 @@ async function openPrivateAnalysis(symbol){
 }
 function renderPartialAnalysis(el,symbol,q,chart,news){
  el.innerHTML='<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div></div>'+
- '<div class="quote-line"><strong>$'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
- '<div class="partial-note">🟡 تم تحميل البيانات المتاحة فقط. التحليل الفني الكامل سيظهر عند توفر مصدر التحليل.</div>'+
+ '<div class="quote-line"><strong>&#36;'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
+ '<div class="mini-analysis">'+
+   '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO QUICK ANALYSIS</span><b>🧠 التحليل المختصر</b></div></div>'+
+   '<p class="mini-takeaway">🟡 البيانات الفنية غير مكتملة حاليًا؛ لم يتم تخمين أي مستوى.</p>'+
+   '<button class="private-analysis-btn" onclick="openPrivateAnalysis(\\''+escHtml(symbol)+'\\')">📩 التحليل الكامل في الخاص</button>'+
+ '</div>'+
  '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
  '<div class="news-list">'+(news.length?news.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'')+'</div>';
  drawChart(chart.candles||[]);
