@@ -47,6 +47,41 @@ async def _finnhub_quote(symbol: str):
     }
 
 
+async def _fmp_index_quote(symbol: str):
+    """Use FMP's dedicated index quote endpoint for the three US benchmarks."""
+    keys = [x.strip() for x in str(getattr(settings, "fmp_api_keys", "") or "").split(",") if x.strip()]
+    if getattr(settings, "fmp_api_key", ""):
+        keys.insert(0, settings.fmp_api_key.strip())
+    keys = list(dict.fromkeys(keys))
+    mapped = {"SPX": "^GSPC", "IXIC": "^IXIC", "DJI": "^DJI"}.get(symbol)
+    if not keys or not mapped:
+        return None
+    async with httpx.AsyncClient(timeout=10) as client:
+        for key in keys:
+            try:
+                r = await client.get(
+                    "https://financialmodelingprep.com/stable/quote",
+                    params={"symbol": mapped, "apikey": key},
+                )
+                if r.status_code >= 400:
+                    continue
+                data = r.json()
+                row = data[0] if isinstance(data, list) and data else None
+                if not isinstance(row, dict) or not _valid_price(row.get("price")):
+                    continue
+                return {
+                    "symbol": symbol,
+                    "price": float(row["price"]),
+                    "change_pct": row.get("changePercentage"),
+                    "source": "FMP Index",
+                    "is_extended_hours": False,
+                    "datetime": row.get("timestamp"),
+                }
+            except Exception:
+                continue
+    return None
+
+
 async def _fmp_quote(symbol: str):
     """Reliable macro fallback that does not consume Twelve Data credits."""
     keys = [
@@ -152,6 +187,9 @@ async def macro_quote(symbol: str):
     diagnostics = []
 
     try:
+        fallback = await _fmp_index_quote(symbol) if symbol in {"SPX", "IXIC", "DJI"} else None
+        if fallback:
+            return fallback
         fallback = await _fmp_quote(symbol)
         if fallback:
             return fallback
