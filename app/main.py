@@ -5,6 +5,7 @@ import base64
 import hashlib
 import hmac
 import html
+import httpx
 from datetime import datetime, timedelta, timezone
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse
@@ -683,6 +684,32 @@ async def subscription_invoice(plan: str, user=Depends(telegram_user)):
         return await create_invoice_for_user(user, plan)
     except ValueError as exc:
         raise HTTPException(409, str(exc))
+
+@app.get("/api/admin/deploy-status")
+async def admin_deploy_status(user=Depends(telegram_user)):
+    await require_admin_permission(user, "settings")
+    url = "https://api.github.com/repos/pq070pq/sas/actions/runs?per_page=10"
+    try:
+        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+            r = await client.get(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "SAS-PRO-Admin"})
+            r.raise_for_status()
+            data = r.json()
+        runs = data.get("workflow_runs") or []
+        deploy = next((x for x in runs if x.get("name") == "Deploy SAS PRO to OVH"), runs[0] if runs else None)
+        if not deploy:
+            return {"ok": True, "status": "unknown", "message": "لا توجد عملية نشر مسجلة بعد."}
+        return {
+            "ok": True,
+            "status": deploy.get("status") or "unknown",
+            "conclusion": deploy.get("conclusion"),
+            "run_number": deploy.get("run_number"),
+            "attempt": deploy.get("run_attempt"),
+            "sha": (deploy.get("head_sha") or "")[:7],
+            "updated_at": deploy.get("updated_at"),
+            "url": deploy.get("html_url"),
+        }
+    except Exception as exc:
+        return {"ok": False, "status": "unknown", "message": f"تعذر قراءة حالة GitHub Actions: {exc}"}
 
 @app.get("/api/admin/overview")
 async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
