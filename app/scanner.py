@@ -1393,13 +1393,32 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         breakout_room_pct=breakout_room_pct,
     )
     accumulation_hint = bool((quote or {}).get("accumulation_signal"))
+    # التأكيد المتقدم طبقة ترجيح وليست بوابة صلبة؛ حتى لا تتعارض
+    # Market Structure/Fibonacci/FVG/RSI مع اكتشاف التجميع أو بداية الحركة.
+    # الرفض الصريح يقتصر على تناقض هابط قوي، بينما الدرجة تحدد قوة التأكيد.
+    advanced_hard_block = bool(
+        (divergence.get("bearish") and not breakout_confirmed)
+        or (accumulation_hint and distribution_risk)
+    )
+    if breakout_confirmed:
+        advanced_min_score = 30
+    elif accumulation_hint and accumulation:
+        advanced_min_score = 30
+    elif rvol >= 1.20 and change_pct >= 1.5:
+        advanced_min_score = 30
+    else:
+        advanced_min_score = 35
     advanced_confirmation_pass = bool(
-        (
-            advanced_score >= 50
-            or (accumulation_hint and accumulation and advanced_score >= 40)
-        )
-        and not (divergence.get("bearish") and not breakout_confirmed)
-        and not (accumulation_hint and distribution_risk)
+        not advanced_hard_block and advanced_score >= advanced_min_score
+    )
+    advanced_confirmation_status = (
+        "حظر هابط قوي"
+        if advanced_hard_block
+        else "تأكيد قوي"
+        if advanced_score >= 50
+        else "تأكيد جيد"
+        if advanced_score >= advanced_min_score
+        else "تأكيد مبكر/ضعيف — لا يُسقط الفرصة وحده"
     )
     bearish_head_shoulders = patterns["head_shoulders"] and (
         patterns["head_shoulders_neckline"] is not None
@@ -1947,20 +1966,21 @@ async def scan_us_low_price_stocks():
                         "data_source": classification.get("data_source"),
                     }
 
-                # طبقة التأكيد الجديدة: لا تستبدل بوابة الزخم، لكنها تمنع
-                # المرشحين ضعيفي البنية أو الانعكاس الهابط من الوصول إلى مرحلة الإشارة.
-                if not classification.get("advanced_confirmation_pass"):
+                # التأكيد المتقدم لا يعمل كحاجز ثانٍ فوق بوابة SAS الأساسية.
+                # إذا كانت الإشارة الأساسية صالحة، نستخدم التأكيد لرفع/خفض الثقة
+                # فقط. الحظر الحقيقي يُترك للتناقضات الهابطة القوية.
+                if classification.get("advanced_confirmation_status") == "حظر هابط قوي":
                     return None, {
                         "symbol": symbol,
                         "exchange": row.get("exchange"),
                         "status": "filtered",
-                        "reason": "تأكيد فني متقدم غير كافٍ",
+                        "reason": "تناقض هابط قوي في التأكيد المتقدم",
                         "advanced_confirmation_score": classification.get("advanced_confirmation_score"),
                         "market_structure": classification.get("market_structure"),
                         "rsi_divergence": classification.get("rsi_divergence"),
                     }
 
-                # فلترة السيولة: بعد بوابة الزخم، نريد تداولًا نقديًا فعليًا
+                # فلترة السيولة: بعد بوابة SAS الأساسية، نتحقق من التداول النقدي الفعلي
                 # وحجمًا متوافقًا مع الحركة. لا توجد هنا بوابة Strategy قديمة.
                 entry_price = _f(row.get("price"), 0)
                 daily_volume = _f(row.get("volume"), 0)
@@ -2146,6 +2166,7 @@ async def scan_us_low_price_stocks():
                     "no_bearish_hs": not bool(classification.get("bearish_head_shoulders")),
                     "no_chase": not bool(classification.get("chase_risk")),
                     "advanced_confirmation": bool(classification.get("advanced_confirmation_pass")),
+                    "advanced_confirmation_status": classification.get("advanced_confirmation_status"),
                     "advanced_confirmation_score": classification.get("advanced_confirmation_score"),
                     "market_structure": classification.get("market_structure"),
                     "fibonacci_zone": (classification.get("fibonacci") or {}).get("zone"),
