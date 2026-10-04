@@ -105,7 +105,9 @@ async def publish_market_brief():
         quotes = []
         for symbol, label in symbols:
             try:
-                # استخدم نفس مسار المؤشرات المستقل المستخدم في شريط التطبيق والرادار،\n                # حتى لا تتوقف الأسعار في التقرير عند تعطل/نفاد مصدر Twelve Data.\n                quotes.append((label, await macro_quote(symbol)))
+                # استخدم نفس مسار المؤشرات المستقل المستخدم في شريط التطبيق والرادار,
+                # حتى لا تتوقف الأسعار في التقرير عند تعطل/نفاد مصدر Twelve Data.
+                quotes.append((label, await macro_quote(symbol)))
             except Exception:
                 quotes.append((label, {"price": None, "change_pct": None}))
 
