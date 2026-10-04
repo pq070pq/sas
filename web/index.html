@@ -122,6 +122,16 @@
       <div id="staffList"></div>
     </section>
 
+    <section class="admin-panel" id="deployPanel" hidden>
+      <div class="section-head"><b>🚀 مركز النشر</b><span>إدارة النشر من الجوال بدون الدخول إلى OVH</span></div>
+      <div id="deployStatus" class="deploy-status"><div class="loading">جاري فحص حالة النشر...</div></div>
+      <div class="deploy-actions">
+        <button onclick="loadDeployStatus()">↻ تحديث الحالة</button>
+        <button onclick="openDeployActions()">⚙️ فتح GitHub Actions</button>
+      </div>
+      <div class="deploy-note">أي تعديل على فرع <b>main</b> يُنشر تلقائيًا إلى OVH عبر GitHub Actions. لا تظهر مفاتيح SSH داخل التطبيق.</div>
+    </section>
+
     <section class="admin-panel">
       <div class="section-head"><b>🔎 البحث عن مستخدم</b><span>Telegram ID أو Username</span></div>
       <div class="search-row"><input id="adminSearch" placeholder="مثال: 123456789 أو username"><button onclick="adminSearch()">بحث</button></div>
@@ -171,6 +181,6 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261004-9"></script>
+<script src="/assets/app.js?v=20261004-10"></script>
 </body>
 </html>
