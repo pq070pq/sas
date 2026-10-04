@@ -795,6 +795,170 @@ def _ema(values, period):
         ema = value * k + ema * (1 - k)
     return ema
 
+
+def _rsi_series(values, period=14):
+    """Return RSI values aligned to the close series using Wilder smoothing."""
+    if len(values) < period + 1:
+        return [None] * len(values)
+    out = [None] * len(values)
+    gains = [max(values[i] - values[i - 1], 0.0) for i in range(1, len(values))]
+    losses = [max(values[i - 1] - values[i], 0.0) for i in range(1, len(values))]
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    out[period] = 100.0 if avg_loss == 0 else 100.0 - (100.0 / (1.0 + avg_gain / avg_loss))
+    for i in range(period, len(gains)):
+        avg_gain = ((avg_gain * (period - 1)) + gains[i]) / period
+        avg_loss = ((avg_loss * (period - 1)) + losses[i]) / period
+        out[i + 1] = 100.0 if avg_loss == 0 else 100.0 - (100.0 / (1.0 + avg_gain / avg_loss))
+    return out
+
+
+def _advanced_structure(candles):
+    """Score recent HH/HL versus LH/LL market structure from observed OHLCV."""
+    if len(candles) < 12:
+        return {"trend": "غير واضح", "bullish": False, "bearish": False, "score": 0}
+    recent = candles[-12:]
+    highs = [x["high"] for x in recent]
+    lows = [x["low"] for x in recent]
+    hh = highs[-1] > max(highs[-5:-1])
+    hl = lows[-1] > min(lows[-5:-1])
+    lh = highs[-1] < max(highs[-5:-1])
+    ll = lows[-1] < min(lows[-5:-1])
+    if hh and hl:
+        return {"trend": "صاعد HH/HL", "bullish": True, "bearish": False, "score": 15}
+    if lh and ll:
+        return {"trend": "هابط LH/LL", "bullish": False, "bearish": True, "score": 0}
+    if hh or hl:
+        return {"trend": "يميل للصعود", "bullish": True, "bearish": False, "score": 8}
+    if lh or ll:
+        return {"trend": "يميل للهبوط", "bullish": False, "bearish": True, "score": 2}
+    return {"trend": "محايد", "bullish": False, "bearish": False, "score": 5}
+
+
+def _fibonacci_context(candles, price, lookback=60):
+    """Use the latest observed swing range; never invent a Fibonacci anchor."""
+    rows = candles[-lookback:]
+    if len(rows) < 20 or price <= 0:
+        return {"valid": False, "zone": None, "level": None, "levels": {}, "score": 0}
+    low = min(x["low"] for x in rows)
+    high = max(x["high"] for x in rows)
+    span = high - low
+    if span <= 0:
+        return {"valid": False, "zone": None, "level": None, "levels": {}, "score": 0}
+    levels = {
+        "0.382": high - span * 0.382,
+        "0.500": high - span * 0.500,
+        "0.618": high - span * 0.618,
+    }
+    nearest = min(levels.items(), key=lambda item: abs(price - item[1]))
+    distance_pct = abs(price - nearest[1]) / price * 100
+    zone = nearest[0] if distance_pct <= 2.5 else None
+    return {
+        "valid": True,
+        "zone": zone,
+        "level": round(nearest[1], 4),
+        "distance_pct": round(distance_pct, 2),
+        "levels": {k: round(v, 4) for k, v in levels.items()},
+        "swing_low": round(low, 4),
+        "swing_high": round(high, 4),
+        "score": 10 if zone else (5 if distance_pct <= 5 else 0),
+    }
+
+
+def _fair_value_gap(candles, price, lookback=40):
+    """Detect the latest unfilled bullish/bearish three-candle gap."""
+    rows = candles[-lookback:]
+    latest = None
+    for i in range(2, len(rows)):
+        left, right = rows[i - 2], rows[i]
+        if right["low"] > left["high"]:
+            latest = {
+                "type": "bullish",
+                "low": left["high"],
+                "high": right["low"],
+                "index": i,
+            }
+        elif right["high"] < left["low"]:
+            latest = {
+                "type": "bearish",
+                "low": right["high"],
+                "high": left["low"],
+                "index": i,
+            }
+    if not latest:
+        return {"found": False, "active": False, "type": None, "low": None, "high": None, "score": 0}
+
+    gap_low, gap_high = latest["low"], latest["high"]
+    if latest["type"] == "bullish":
+        active = price >= gap_low * 0.995
+        score = 10 if active and price <= gap_high * 1.08 else 5 if active else 0
+    else:
+        active = price <= gap_high * 1.005
+        score = 0
+    return {
+        "found": True,
+        "active": bool(active),
+        "type": latest["type"],
+        "low": round(gap_low, 4),
+        "high": round(gap_high, 4),
+        "score": score,
+    }
+
+
+def _rsi_divergence(candles, rsi_values, lookback=60):
+    """Compare the two latest confirmed swing lows/highs with RSI."""
+    rows = candles[-lookback:]
+    rsis = rsi_values[-lookback:]
+    lows, highs = [], []
+    for i in range(2, len(rows) - 2):
+        if rows[i]["low"] <= rows[i-1]["low"] and rows[i]["low"] <= rows[i-2]["low"] and rows[i]["low"] <= rows[i+1]["low"] and rows[i]["low"] <= rows[i+2]["low"]:
+            if rsis[i] is not None:
+                lows.append((i, rows[i]["low"], rsis[i]))
+        if rows[i]["high"] >= rows[i-1]["high"] and rows[i]["high"] >= rows[i-2]["high"] and rows[i]["high"] >= rows[i+1]["high"] and rows[i]["high"] >= rows[i+2]["high"]:
+            if rsis[i] is not None:
+                highs.append((i, rows[i]["high"], rsis[i]))
+    bullish = len(lows) >= 2 and lows[-1][1] < lows[-2][1] and lows[-1][2] > lows[-2][2]
+    bearish = len(highs) >= 2 and highs[-1][1] > highs[-2][1] and highs[-1][2] < highs[-2][2]
+    if bullish:
+        state, score = "إيجابي", 10
+    elif bearish:
+        state, score = "سلبي", 0
+    else:
+        state, score = "محايد", 5
+    return {"state": state, "bullish": bullish, "bearish": bearish, "score": score}
+
+
+def _advanced_confirmation_score(*, structure, fibonacci, fvg, divergence, breakout_confirmed,
+                                 rvol, rsi14, near_entry, resistance_distance_pct, breakout_room_pct):
+    """Second-layer confirmation score; advisory until the final radar gate."""
+    score = 0
+    score += int(structure.get("score", 0))
+    if breakout_confirmed:
+        score += 15
+    elif near_entry:
+        score += 8
+    if rvol >= 2.0:
+        score += 15
+    elif rvol >= 1.5:
+        score += 10
+    elif rvol >= 1.2:
+        score += 5
+    if rsi14 is not None:
+        if 55 <= rsi14 <= 70:
+            score += 10
+        elif 50 <= rsi14 <= 75:
+            score += 6
+    if (
+        (resistance_distance_pct is not None and 0 <= resistance_distance_pct <= 5)
+        or (breakout_room_pct is not None and breakout_room_pct >= 3)
+        or near_entry
+    ):
+        score += 10
+    score += int(fibonacci.get("score", 0))
+    score += int(fvg.get("score", 0))
+    score += int(divergence.get("score", 0))
+    return min(100, score)
+
 def _rsi(values, period=14):
     if len(values) < period + 1:
         return None
@@ -974,6 +1138,30 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         change_pct > 3 and price < old_high and
         sma20 >= sma50 * 0.98 and rvol >= 1.2 and
         support is not None
+    )
+
+    structure = _advanced_structure(candles)
+    rsi_values = _rsi_series(closes, 14)
+    fibonacci = _fibonacci_context(candles, price)
+    fvg = _fair_value_gap(candles, price)
+    divergence = _rsi_divergence(candles, rsi_values)
+
+    advanced_score = _advanced_confirmation_score(
+        structure=structure,
+        fibonacci=fibonacci,
+        fvg=fvg,
+        divergence=divergence,
+        breakout_confirmed=breakout_confirmed,
+        rvol=rvol,
+        rsi14=rsi14,
+        near_entry=near_entry,
+        resistance_distance_pct=resistance_distance_pct,
+        breakout_room_pct=breakout_room_pct,
+    )
+    advanced_confirmation_pass = bool(
+        advanced_score >= 50
+        and not (divergence.get("bearish") and not breakout_confirmed)
+        and not structure.get("bearish")
     )
 
     patterns = _detect_chart_patterns(candles, price, rvol)
@@ -1185,6 +1373,14 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
             "breakout_quality": breakout_quality_score,
             "risk": risk_score,
         },
+        "advanced_confirmation_score": advanced_score,
+        "advanced_confirmation_pass": advanced_confirmation_pass,
+        "market_structure": structure.get("trend"),
+        "market_structure_bullish": bool(structure.get("bullish")),
+        "market_structure_bearish": bool(structure.get("bearish")),
+        "fibonacci": fibonacci,
+        "fvg": fvg,
+        "rsi_divergence": divergence,
         "atr_pct": round(atr_pct * 100, 2),
         "support": round(support, 4) if support else None,
         "resistance": round(resistance, 4) if resistance else None,
@@ -1495,6 +1691,19 @@ async def scan_us_low_price_stocks():
                         "data_source": classification.get("data_source"),
                     }
 
+                # طبقة التأكيد الجديدة: لا تستبدل بوابة الزخم، لكنها تمنع
+                # المرشحين ضعيفي البنية أو الانعكاس الهابط من الوصول إلى مرحلة الإشارة.
+                if not classification.get("advanced_confirmation_pass"):
+                    return None, {
+                        "symbol": symbol,
+                        "exchange": row.get("exchange"),
+                        "status": "filtered",
+                        "reason": "تأكيد فني متقدم غير كافٍ",
+                        "advanced_confirmation_score": classification.get("advanced_confirmation_score"),
+                        "market_structure": classification.get("market_structure"),
+                        "rsi_divergence": classification.get("rsi_divergence"),
+                    }
+
                 # فلترة السيولة: بعد بوابة الزخم، نريد تداولًا نقديًا فعليًا
                 # وحجمًا متوافقًا مع الحركة. لا توجد هنا بوابة Strategy قديمة.
                 entry_price = _f(row.get("price"), 0)
@@ -1669,6 +1878,12 @@ async def scan_us_low_price_stocks():
                     "no_distribution": not bool(classification.get("distribution_risk")),
                     "no_bearish_hs": not bool(classification.get("bearish_head_shoulders")),
                     "no_chase": not bool(classification.get("chase_risk")),
+                    "advanced_confirmation": bool(classification.get("advanced_confirmation_pass")),
+                    "advanced_confirmation_score": classification.get("advanced_confirmation_score"),
+                    "market_structure": classification.get("market_structure"),
+                    "fibonacci_zone": (classification.get("fibonacci") or {}).get("zone"),
+                    "fvg": (classification.get("fvg") or {}).get("type") if (classification.get("fvg") or {}).get("active") else None,
+                    "rsi_divergence": (classification.get("rsi_divergence") or {}).get("state"),
                     "risk_reward": round(_f(targets.get("risk_reward"), 0), 2) if isinstance(targets, dict) and targets.get("risk_reward") is not None else None,
                     "risk_reward_warning": bool(isinstance(targets, dict) and targets.get("risk_reward_warning")),
                 }
