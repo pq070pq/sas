@@ -29,6 +29,16 @@ let loadStarted=false;
 async function load(){
  if(loadStarted)return;
  loadStarted=true;
+ const startedAt=Date.now();
+ const showFatal=(msg)=>{
+  loadStarted=false;
+  document.body.innerHTML='<div class="fatal"><b>⚠️ تعذر فتح SAS PRO</b><br><small>'+escHtml(msg)+'</small><br><button onclick="location.reload()">إعادة المحاولة</button></div>';
+ };
+ const showTimeout=()=>{
+  if(!loadStarted)return;
+  showFatal('الخادم لم يُرجع نتيجة التحقق خلال 8 ثوانٍ. المشكلة في اتصال Mini App بالخادم وليست في الاشتراك.');
+ };
+ const watchdog=setTimeout(showTimeout,8500);
  try{
   if(!tg)throw new Error('تعذر الوصول إلى Telegram WebApp. افتح SAS PRO من داخل Telegram.');
   const initData=getInitData();
@@ -54,7 +64,7 @@ async function load(){
   document.getElementById('paidPlansSection').hidden=!cfg.paid_plans_visible;
   renderPlans(plans.plans||{});
  }catch(e){
-  loadStarted=false;
+  clearTimeout(watchdog);
   const msg=e?.message||'تعذر التحقق من Telegram.';
   document.body.innerHTML='<div class="fatal"><b>⚠️ تعذر فتح SAS PRO</b><br><small>'+escHtml(msg)+'</small><br><button onclick="location.reload()">إعادة المحاولة</button></div>';
  }
