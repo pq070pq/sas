@@ -764,9 +764,14 @@ async def discover_low_price_stocks():
         ranges = [max(0.0, x["high"] - x["low"]) for x in recent]
         higher_lows = all(recent[i]["low"] >= recent[i-1]["low"] * 0.995 for i in range(1, len(recent)))
         compression = bool(ranges and sum(ranges[-3:]) / 3 <= (sum(ranges) / len(ranges)) * 0.85)
-        prior_sell = sum(x["volume"] for x in candles[-20:-10] if x["close"] < x["open"])
-        recent_sell = sum(x["volume"] for x in recent if x["close"] < x["open"])
-        selling_dry = recent_sell < prior_sell if prior_sell > 0 else False
+        prior_red = [x["volume"] for x in candles[-20:-10] if x["close"] < x["open"]]
+        recent_red = [x["volume"] for x in recent if x["close"] < x["open"]]
+        prior_sell_avg = sum(prior_red) / len(prior_red) if prior_red else 0.0
+        recent_sell_avg = sum(recent_red) / len(recent_red) if recent_red else 0.0
+        selling_dry = bool(
+            prior_sell_avg > 0
+            and recent_sell_avg <= prior_sell_avg * 0.75
+        )
 
         supports, resistances = _local_levels(candles)
         support = max([x for x in supports if x < price], default=None)
@@ -1277,9 +1282,14 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         resistance_distance_pct=resistance_distance_pct,
         breakout_room_pct=breakout_room_pct,
     )
+    accumulation_hint = bool((quote or {}).get("accumulation_signal"))
     advanced_confirmation_pass = bool(
-        advanced_score >= 50
+        (
+            advanced_score >= 50
+            or (accumulation_hint and accumulation and advanced_score >= 40)
+        )
         and not (divergence.get("bearish") and not breakout_confirmed)
+        and not (accumulation_hint and distribution_risk)
     )
 
     patterns = _detect_chart_patterns(candles, price, rvol)
