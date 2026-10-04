@@ -296,3 +296,10 @@ filter:blur(.2px);
 .us-market-mark:after{content:"";position:absolute;left:8px;right:7px;top:12px;height:2px;background:linear-gradient(135deg,transparent 0 18%,#43e8ff 20% 24%,#43e8ff 46% 50%,transparent 52%);transform:rotate(-12deg);box-shadow:0 0 8px #43e8ff}
 .us-market-mark em{position:absolute;top:3px;left:4px;font-style:normal;font-size:10px;filter:saturate(.9)}
 .brand small{letter-spacing:1.6px}
+
+/* Stock analysis readability fixes */
+.detail-head button,.stock-actions button{background:linear-gradient(135deg,#0b4567,#082b43)!important;color:#eaf8ff!important;border:1px solid rgba(39,211,255,.45)!important;border-radius:10px!important;padding:9px 14px!important;font-family:inherit!important;box-shadow:0 0 14px rgba(28,195,255,.12)!important}
+.detail-head button:hover,.stock-actions button:hover{filter:brightness(1.12)}
+.chart-box{background:rgba(1,10,18,.92)!important;border:1px solid rgba(45,205,255,.18)!important;overflow:hidden}
+.chart-box canvas{display:block;width:100%;height:230px}
+.quote-line{align-items:center}
