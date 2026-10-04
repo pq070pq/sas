@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     ai_max_news: int = 5
     ai_max_calls_per_cycle: int = 2
     ai_news_cache_minutes: int = 10
+    # Optional Free Claude Code reviewer. Never part of radar gating.
+    fcc_reviewer_enabled: bool = False
+    fcc_reviewer_base_url: str = ""
+    fcc_reviewer_model: str = ""
+    fcc_reviewer_timeout_seconds: int = 20
+    fcc_reviewer_failure_cooldown_seconds: int = 900
     groq_api_key: str = ""
     groq_api_keys: str = ""
     groq_base_url: str = "https://api.groq.com/openai/v1"
