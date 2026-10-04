@@ -2022,7 +2022,7 @@ async def telegram_webhook(request: Request):
     # Deep link من Mini App: /start analysis_SYMBOL
     # نحوله إلى نفس مسار التحليل الخاص، مع الحفاظ على الاشتراك والصلاحيات.
     deep_analysis = re.fullmatch(
-        r"/start(?:@\\w+)?\\s+analysis_([A-Za-z]{1,5}(?:\\.[A-Za-z])?)",
+        r"/start(?:@\w+)?\s+analysis_([A-Za-z]{1,5}(?:\.[A-Za-z])?)",
         text,
         re.IGNORECASE,
     )
