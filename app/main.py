@@ -82,7 +82,12 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     news_items = tech.get("news_items") or []
 
     def _esc(value):
-        return html.escape(str(value)) if value is not None else ""
+        if value is None:
+            return ""
+        # بعض مزودي التحليل يعيدون فواصل الأسطر كنص حرفي "\\n".
+        # نحولها إلى أسطر فعلية قبل إرسال التقرير إلى Telegram.
+        text_value = str(value).replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\r", "\r")
+        return html.escape(text_value)
 
     def num(value):
         try:
@@ -346,7 +351,10 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         "",
         "📡 <b>SAS PRO</b>",
     ]
-    return "\n".join(report)
+    # حماية نهائية: لا تسمح بظهور \\n كنص حرفي في رسالة Telegram.
+    final_report = "\n".join(report)
+    final_report = final_report.replace("\\\\r\\n", "\n").replace("\\\\n", "\n").replace("\\\\r", "\r")
+    return final_report
 
 def _money(value):
     if value is None:
