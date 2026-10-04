@@ -271,3 +271,6 @@ body:after{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;back
 .stock-gates .gate-ok{color:#83dcb8;border-color:rgba(25,239,139,.14);background:rgba(25,239,139,.05)}
 .stock-gates .gate-warn{color:#f5c078;border-color:rgba(245,192,120,.14);background:rgba(245,192,120,.05)}
 @media(max-width:600px){.terminal-page:before{background-position:center top;background-size:cover}.macro-grid{grid-template-columns:repeat(2,1fr)}.terminal-hero{backdrop-filter:blur(12px)}}
+
+.partial-note{margin:10px 0;padding:10px 12px;border:1px solid rgba(245,192,120,.25);border-radius:10px;background:rgba(245,192,120,.06);color:#f3cf9c;font-size:12px;line-height:1.7}
+.fatal{line-height:1.9}
