@@ -295,6 +295,41 @@ async def _public_macro_quote(symbol: str):
     if symbol != "XAU/USD":
         return None
 
+    # Gold source 1: XAUS public API (keyless, explicit freshness state).
+    try:
+        async with httpx.AsyncClient(
+            timeout=5, follow_redirects=True, headers=headers
+        ) as client:
+            r = await client.get("https://xaus.com/api/v1/spot?currency=USD")
+            if r.status_code < 400:
+                d = r.json()
+                price = d.get("spot_usd_oz")
+                if not _valid_price(price):
+                    xau = d.get("xau") or {}
+                    price = xau.get("price")
+                if _valid_price(price):
+                    state = d.get("data_state") or {}
+                    freshness = str(state.get("status") or "").strip().lower()
+                    source = "XAUS Public"
+                    if freshness == "stale":
+                        source += " (stale last real price)"
+                    elif freshness:
+                        source += f" ({freshness})"
+                    return {
+                        "symbol": symbol,
+                        "price": float(price),
+                        "change_pct": None,
+                        "source": source,
+                        "is_extended_hours": False,
+                        "datetime": d.get("updated_at") or state.get("as_of"),
+                    }
+    except Exception as exc:
+        logger.warning(
+            "PUBLIC_MACRO_SOURCE_FAILED symbol=%s source=XAUS error=%s",
+            symbol,
+            type(exc).__name__,
+        )
+
     # Gold source 1: Metals.live.
     try:
         async with httpx.AsyncClient(
