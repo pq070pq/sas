@@ -374,3 +374,78 @@ filter:blur(.2px);
 @media(max-width:700px){
   .terminal-clock-floating{top:9px;left:9px;min-width:70px;height:31px;padding:0 9px;font-size:11px;border-radius:10px}
 }
+
+/* SAS PRO terminal v6 — live market ticker + animated disclaimer */
+.market-ticker-wrap{
+  width:100%;
+  overflow:hidden;
+  border-top:1px solid rgba(45,244,255,.14);
+  border-bottom:1px solid rgba(45,244,255,.16);
+  background:rgba(1,10,17,.82);
+  backdrop-filter:blur(12px);
+  direction:ltr;
+}
+.market-ticker{
+  display:flex;
+  align-items:center;
+  gap:0;
+  width:max-content;
+  min-width:100%;
+  animation:marketTickerMove 28s linear infinite;
+  will-change:transform;
+}
+.ticker-item{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:150px;
+  padding:11px 18px;
+  border-right:1px solid rgba(45,244,255,.12);
+  white-space:nowrap;
+  font-size:11px;
+}
+.ticker-label{color:#b9d2d9;font-weight:800}
+.ticker-item b{color:#effcff;font-size:12px}
+.ticker-item em{font-style:normal;font-weight:900}
+.ticker-item .up{color:var(--green)}
+.ticker-item .down{color:var(--red)}
+@keyframes marketTickerMove{
+  0%{transform:translateX(0)}
+  100%{transform:translateX(-45%)}
+}
+.market-ticker:hover{animation-play-state:paused}
+
+.terminal-footer{
+  overflow:hidden!important;
+  padding:0!important;
+  height:34px;
+  display:flex;
+  align-items:center;
+  background:rgba(1,7,12,.94)!important;
+}
+.disclaimer-marquee{
+  width:100%;
+  overflow:hidden;
+  white-space:nowrap;
+  direction:rtl;
+}
+.disclaimer-marquee span{
+  display:inline-block;
+  padding-right:100%;
+  color:#dcebef;
+  font-size:11px;
+  font-weight:800;
+  line-height:34px;
+  letter-spacing:.1px;
+  animation:disclaimerMove 20s linear infinite;
+  text-shadow:0 0 8px rgba(45,244,255,.14);
+}
+@keyframes disclaimerMove{
+  0%{transform:translateX(0)}
+  100%{transform:translateX(100%)}
+}
+@media(max-width:600px){
+  .ticker-item{min-width:132px;padding:10px 13px;font-size:10px}
+  .ticker-item b{font-size:11px}
+  .disclaimer-marquee span{font-size:10px}
+}
