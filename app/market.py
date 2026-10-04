@@ -256,9 +256,49 @@ async def _stooq_quote(symbol: str):
         return None
 
 
+async def _public_macro_quote(symbol: str):
+    """Public no-key fallbacks for BTC and gold."""
+    headers = {"User-Agent": "Mozilla/5.0 SAS-PRO/2.1"}
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True, headers=headers) as client:
+            if symbol == "BTC/USD":
+                r = await client.get("https://data-api.binance.vision/api/v3/ticker/24hr", params={"symbol": "BTCUSDT"})
+                if r.status_code < 400:
+                    d = r.json()
+                    if _valid_price(d.get("lastPrice")):
+                        return {"symbol": symbol, "price": float(d["lastPrice"]), "change_pct": d.get("priceChangePercent"), "source": "Binance Public", "is_extended_hours": False, "datetime": d.get("closeTime")}
+            if symbol == "XAU/USD":
+                r = await client.get("https://api.metals.live/v1/spot")
+                if r.status_code < 400:
+                    data = r.json()
+                    for row in data if isinstance(data, list) else []:
+                        if isinstance(row, dict) and _valid_price(row.get("gold")):
+                            return {"symbol": symbol, "price": float(row["gold"]), "change_pct": None, "source": "Metals.live Public", "is_extended_hours": False, "datetime": data[-1].get("timestamp") if isinstance(data[-1], dict) else None}
+                        if isinstance(row, dict) and str(row.get("metal", "")).lower() == "gold" and _valid_price(row.get("price")):
+                            return {"symbol": symbol, "price": float(row["price"]), "change_pct": None, "source": "Metals.live Public", "is_extended_hours": False, "datetime": row.get("timestamp")}
+                r = await client.get("https://data-asg.goldprice.org/dbXRates/USD")
+                if r.status_code < 400:
+                    d = r.json()
+                    items = d.get("items") or []
+                    if items and _valid_price(items[0].get("xauPrice")):
+                        item = items[0]
+                        return {"symbol": symbol, "price": float(item["xauPrice"]), "change_pct": item.get("pcXau"), "source": "GoldPrice.org Public", "is_extended_hours": False, "datetime": d.get("ts")}
+    except Exception as exc:
+        logger.warning("PUBLIC_MACRO_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+    return None
+
 async def macro_quote(symbol: str):
     """Holiday/macro quote with independent fallbacks and automatic diagnostics."""
     diagnostics = []
+
+    if symbol in {"BTC/USD", "XAU/USD"}:
+        try:
+            fallback = await _public_macro_quote(symbol)
+            if fallback:
+                return fallback
+            diagnostics.append("Public:no_data")
+        except Exception as exc:
+            diagnostics.append(f"Public:{type(exc).__name__}")
 
     try:
         fallback = await _fmp_index_quote(symbol) if symbol in {"SPX", "IXIC", "DJI"} else None
@@ -421,7 +461,7 @@ async def ticker():
         try:
             # المؤشرات/الذهب تستخدم مسار macro_quote المستقل عن حصة Twelve Data.
             # هذا يمنع ظهور 0.00 أو فراغ عندما تكون الحصة محمية.
-            item = await macro_quote(symbol) if symbol in {"SPX", "IXIC", "DJI", "XAU/USD", "VIX"} else await quote(symbol)
+            item = await macro_quote(symbol) if symbol in {"SPX", "IXIC", "DJI", "XAU/USD", "VIX", "BTC/USD"} else await quote(symbol)
             item["label"] = label
             if not _valid_price(item.get("price")):
                 item["price"] = None
