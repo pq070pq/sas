@@ -189,11 +189,30 @@ async function analyzeSymbol(){
  const targets=Array.isArray(tech.targets)?tech.targets:[];
  const newsFromAnalysis=Array.isArray(analysis.news)?analysis.news:news;
  const partial=analysis.partial;
+ const aiAvailable=Boolean(ai.ai_available||ai.enabled);
+ const fallbackType=ai.fallback_type||'';
+ const entry=Number(tech.price||q.price), stop=Number(tech.exit||tech.stop), target1=Number(targets[0]||tech.target1);
+ const computedRR=Number.isFinite(entry)&&Number.isFinite(stop)&&Number.isFinite(target1)&&entry>stop&&target1>entry?((target1-entry)/(entry-stop)):null;
  el.innerHTML='<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div><button onclick="toggleWatch(\''+escHtml(symbol)+'\')">'+(terminalState.watch.includes(symbol)?'★ محفوظ':'☆ حفظ')+'</button></div>'+
  '<div class="quote-line"><strong>$'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
- (partial?'<div class="partial-note">🟡 التحليل مكتمل جزئيًا: أحد مصادر البيانات غير متاح حاليًا، ولم يتم تخمين البيانات الناقصة.</div>':'')+
+ (partial?'<div class="partial-note">🟡 بيانات السعر أو المستويات غير مكتملة من المصدر. لم يتم تخمين أي قيمة.</div>':(!aiAvailable?'<div class="partial-note">ℹ️ تحليل AI غير متاح حاليًا؛ تم عرض الخلاصة الفنية من بيانات السهم بدل ترك التقرير فارغًا.</div>':'') )+
  '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
- '<div class="level-grid"><div><small>🟦 الدخول</small><b>$'+money(tech.price||q.price)+'</b></div><div><small>🛑 الوقف</small><b>$'+money(tech.exit)+'</b></div><div><small>🎯 الهدف 1</small><b>$'+money(targets[0])+'</b></div><div><small>⚖️ R:R</small><b>'+(tech.risk_reward!=null?Number(tech.risk_reward).toFixed(2):'—')+'</b></div></div>'+
+ '<div class="level-grid"><div><small>🟦 الدخول</small><b>+
+ '<div class="ai-box"><b>'+(aiAvailable?'🧠 زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(ai.key_takeaway||ai.headline_summary||'لا توجد خلاصة موثقة متاحة حاليًا.')+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+
+ '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
+ '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
+ drawChart(chart.candles||[]);
+}+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>+
+ '<div class="ai-box"><b>🧠 زبدة التحليل</b><p>'+escHtml(ai.key_takeaway||ai.headline_summary||'لا يوجد تحليل مختصر موثق.')+'</p></div>'+
+ '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
+ '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
+ drawChart(chart.candles||[]);
+}+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>+
+ '<div class="ai-box"><b>🧠 زبدة التحليل</b><p>'+escHtml(ai.key_takeaway||ai.headline_summary||'لا يوجد تحليل مختصر موثق.')+'</p></div>'+
+ '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
+ '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
+ drawChart(chart.candles||[]);
+}+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+(computedRR!=null?computedRR.toFixed(2):(tech.risk_reward!=null?Number(tech.risk_reward).toFixed(2):'—'))+'</b></div></div>+
  '<div class="ai-box"><b>🧠 زبدة التحليل</b><p>'+escHtml(ai.key_takeaway||ai.headline_summary||'لا يوجد تحليل مختصر موثق.')+'</p></div>'+
  '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
  '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
@@ -209,26 +228,29 @@ function renderPartialAnalysis(el,symbol,q,chart,news){
 }
 function drawChart(candles){
  const canvas=document.getElementById('stockCanvas'); if(!canvas)return;
- const dpr=window.devicePixelRatio||1,w=canvas.clientWidth||600,h=230;
- canvas.width=w*dpr;canvas.height=h*dpr;
- const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
- ctx.fillStyle='rgba(2,12,22,.72)';ctx.fillRect(0,0,w,h);
+ const dpr=Math.max(1,window.devicePixelRatio||1),w=canvas.clientWidth||600,h=230;
+ canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+ const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);
+ ctx.clearRect(0,0,w,h);
+ const bg=ctx.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#071a2a');bg.addColorStop(1,'#020b14');
+ ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
  if(!candles.length){
-   ctx.fillStyle='#8fa8b8';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('لا توجد بيانات شموع متاحة',w/2,40);return;
+   ctx.fillStyle='#a9c1cf';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('لا توجد بيانات شموع متاحة',w/2,40);return;
  }
  const vals=candles.map(x=>Number(x.close)).filter(Number.isFinite);
- const min=Math.min(...vals),max=Math.max(...vals),pad=(max-min||1)*.08;
- ctx.strokeStyle='rgba(91,211,255,.10)';ctx.lineWidth=1;
- for(let g=1;g<5;g++){const y=20+g*(h-45)/5;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+ if(!vals.length){ctx.fillStyle='#a9c1cf';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('لا توجد أسعار صالحة للرسم',w/2,40);return;}
+ const min=Math.min(...vals),max=Math.max(...vals),range=max-min||Math.max(max*.02,1),pad=range*.08;
+ ctx.strokeStyle='rgba(91,211,255,.12)';ctx.lineWidth=1;
+ for(let g=0;g<=4;g++){const y=18+g*(h-42)/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
  const points=candles.map((x,i)=>{
-   const v=Number(x.close),px=i*(w-24)/Math.max(1,candles.length-1)+12,py=h-22-((v-(min-pad))/(max-min+2*pad))*(h-48);return [px,py,v];
- });
- const grad=ctx.createLinearGradient(0,0,w,0);grad.addColorStop(0,'#20c9ff');grad.addColorStop(1,'#54f2b1');
+   const v=Number(x.close),px=i*(w-30)/Math.max(1,candles.length-1)+15,py=h-20-((v-(min-pad))/(range+2*pad))*(h-44);return [px,py,v];
+ }).filter(p=>Number.isFinite(p[2]));
+ const grad=ctx.createLinearGradient(0,0,w,0);grad.addColorStop(0,'#28d7ff');grad.addColorStop(1,'#55f2b1');
+ ctx.strokeStyle='rgba(40,215,255,.18)';ctx.lineWidth=9;ctx.beginPath();
+ points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
  ctx.strokeStyle=grad;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();
  points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
- ctx.strokeStyle='rgba(32,201,255,.16)';ctx.lineWidth=8;ctx.beginPath();
- points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
- ctx.fillStyle='#a9c1cf';ctx.font='11px sans-serif';ctx.textAlign='left';
+ ctx.fillStyle='#d9f5ff';ctx.font='bold 11px sans-serif';ctx.textAlign='left';
  ctx.fillText('$'+money(max),10,14);ctx.fillText('$'+money(min),10,h-4);
 }
 function formatTime(v){return v?new Date(v).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}):'—';}
