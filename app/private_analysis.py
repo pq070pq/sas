@@ -238,7 +238,7 @@ async def build_private_analysis(symbol: str):
     sas_status = "🟢 اجتاز SAS Core" if sas_pass else "🟠 لم يثبت اجتياز SAS Core"
     sas_reason = classification.get("reason") if isinstance(classification, dict) else None
     news_count = len(news) if isinstance(news, list) else 0
-    return (
+    report = (
         f"🔎 <b>SAS PRO | تحليل السهم: {html.escape(symbol)}</b>\\n"
         "━━━━━━━━━━━━━━━━━━\\n"
         "📋 <b>الملخص للمتداول</b>\\n"
@@ -286,3 +286,6 @@ async def build_private_analysis(symbol: str):
         "━━━━━━━━━━━━━━━━━━\\n"
         "⚠️ <b>تنبيه:</b> التقرير معلوماتي وتعليمي فقط، وليس توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول."
     )
+    # بعض أجزاء التقرير تُبنى بفواصل أسطر مكتوبة كنص حرفي \\n.
+    # نحولها قبل الإرسال إلى Telegram إلى فواصل أسطر فعلية.
+    return report.replace("\\\\r\\\\n", "\\n").replace("\\\\n", "\\n").replace("\\\\r", "\\r")
