@@ -79,7 +79,7 @@ function renderDashboard(d){
  const enabled=Boolean(r.enabled);
  document.getElementById('radarStatusText').textContent=enabled
   ? '🟢 الرصد الآلي يعمل — يبحث عن الأسهم التي تستوفي بوابة SAS PRO.'
-  : (historical ? '🟡 السوق مغلق — يتم عرض آخر رصد محفوظ مع بياناته وتحليله.' : '🔴 الرصد متوقف حاليًا خارج جلسة الأسهم الأمريكية.');
+  : (historical ? '🟡 السوق مغلق — هذه آخر بيانات رصد محفوظة من الجلسة السابقة، ويعود الفحص الحي مع الافتتاح.' : '🔴 الرصد متوقف حاليًا خارج جلسة الأسهم الأمريكية.');
  document.getElementById('dashboardMetrics').innerHTML=
   '<div><small>'+(historical?'آخر جلسة':'فرص اليوم')+'</small><strong>'+Number(r.opportunities||terminalState.radar.length||0)+'</strong></div>'+
   '<div><small>أعلى حركة</small><strong>'+pct(r.top_move_pct)+'</strong></div>'+
