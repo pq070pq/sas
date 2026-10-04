@@ -257,34 +257,113 @@ async def _stooq_quote(symbol: str):
 
 
 async def _public_macro_quote(symbol: str):
-    """Public no-key fallbacks for BTC and gold."""
+    """Public no-key fallbacks for BTC and gold.
+
+    Each provider is isolated so a network failure in one gold source does not
+    prevent the next provider from being tried.
+    """
     headers = {"User-Agent": "Mozilla/5.0 SAS-PRO/2.1"}
-    try:
-        async with httpx.AsyncClient(timeout=10, follow_redirects=True, headers=headers) as client:
-            if symbol == "BTC/USD":
-                r = await client.get("https://data-api.binance.vision/api/v3/ticker/24hr", params={"symbol": "BTCUSDT"})
+
+    if symbol == "BTC/USD":
+        try:
+            async with httpx.AsyncClient(
+                timeout=6, follow_redirects=True, headers=headers
+            ) as client:
+                r = await client.get(
+                    "https://data-api.binance.vision/api/v3/ticker/24hr",
+                    params={"symbol": "BTCUSDT"},
+                )
                 if r.status_code < 400:
                     d = r.json()
                     if _valid_price(d.get("lastPrice")):
-                        return {"symbol": symbol, "price": float(d["lastPrice"]), "change_pct": d.get("priceChangePercent"), "source": "Binance Public", "is_extended_hours": False, "datetime": d.get("closeTime")}
-            if symbol == "XAU/USD":
-                r = await client.get("https://api.metals.live/v1/spot")
-                if r.status_code < 400:
-                    data = r.json()
-                    for row in data if isinstance(data, list) else []:
-                        if isinstance(row, dict) and _valid_price(row.get("gold")):
-                            return {"symbol": symbol, "price": float(row["gold"]), "change_pct": None, "source": "Metals.live Public", "is_extended_hours": False, "datetime": data[-1].get("timestamp") if isinstance(data[-1], dict) else None}
-                        if isinstance(row, dict) and str(row.get("metal", "")).lower() == "gold" and _valid_price(row.get("price")):
-                            return {"symbol": symbol, "price": float(row["price"]), "change_pct": None, "source": "Metals.live Public", "is_extended_hours": False, "datetime": row.get("timestamp")}
-                r = await client.get("https://data-asg.goldprice.org/dbXRates/USD")
-                if r.status_code < 400:
-                    d = r.json()
-                    items = d.get("items") or []
-                    if items and _valid_price(items[0].get("xauPrice")):
-                        item = items[0]
-                        return {"symbol": symbol, "price": float(item["xauPrice"]), "change_pct": item.get("pcXau"), "source": "GoldPrice.org Public", "is_extended_hours": False, "datetime": d.get("ts")}
+                        return {
+                            "symbol": symbol,
+                            "price": float(d["lastPrice"]),
+                            "change_pct": d.get("priceChangePercent"),
+                            "source": "Binance Public",
+                            "is_extended_hours": False,
+                            "datetime": d.get("closeTime"),
+                        }
+        except Exception as exc:
+            logger.warning(
+                "PUBLIC_MACRO_SOURCE_FAILED symbol=%s source=Binance error=%s",
+                symbol,
+                type(exc).__name__,
+            )
+        return None
+
+    if symbol != "XAU/USD":
+        return None
+
+    # Gold source 1: Metals.live.
+    try:
+        async with httpx.AsyncClient(
+            timeout=5, follow_redirects=True, headers=headers
+        ) as client:
+            r = await client.get("https://api.metals.live/v1/spot")
+            if r.status_code < 400:
+                data = r.json()
+                rows = data if isinstance(data, list) else []
+                for row in rows:
+                    if isinstance(row, dict) and _valid_price(row.get("gold")):
+                        return {
+                            "symbol": symbol,
+                            "price": float(row["gold"]),
+                            "change_pct": None,
+                            "source": "Metals.live Public",
+                            "is_extended_hours": False,
+                            "datetime": (
+                                rows[-1].get("timestamp")
+                                if rows and isinstance(rows[-1], dict)
+                                else None
+                            ),
+                        }
+                    if (
+                        isinstance(row, dict)
+                        and str(row.get("metal", "")).lower() == "gold"
+                        and _valid_price(row.get("price"))
+                    ):
+                        return {
+                            "symbol": symbol,
+                            "price": float(row["price"]),
+                            "change_pct": None,
+                            "source": "Metals.live Public",
+                            "is_extended_hours": False,
+                            "datetime": row.get("timestamp"),
+                        }
     except Exception as exc:
-        logger.warning("PUBLIC_MACRO_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+        logger.warning(
+            "PUBLIC_MACRO_SOURCE_FAILED symbol=%s source=Metals.live error=%s",
+            symbol,
+            type(exc).__name__,
+        )
+
+    # Gold source 2: GoldPrice.org.
+    try:
+        async with httpx.AsyncClient(
+            timeout=5, follow_redirects=True, headers=headers
+        ) as client:
+            r = await client.get("https://data-asg.goldprice.org/dbXRates/USD")
+            if r.status_code < 400:
+                d = r.json()
+                items = d.get("items") or []
+                if items and _valid_price(items[0].get("xauPrice")):
+                    item = items[0]
+                    return {
+                        "symbol": symbol,
+                        "price": float(item["xauPrice"]),
+                        "change_pct": item.get("pcXau"),
+                        "source": "GoldPrice.org Public",
+                        "is_extended_hours": False,
+                        "datetime": d.get("ts"),
+                    }
+    except Exception as exc:
+        logger.warning(
+            "PUBLIC_MACRO_SOURCE_FAILED symbol=%s source=GoldPrice.org error=%s",
+            symbol,
+            type(exc).__name__,
+        )
+
     return None
 
 async def macro_quote(symbol: str):
@@ -326,14 +405,6 @@ async def macro_quote(symbol: str):
         diagnostics.append(f"TwelveQuote:{item.get('source', 'no_data')}")
     except Exception as exc:
         diagnostics.append(f"TwelveQuote:{type(exc).__name__}")
-
-    try:
-        snapshot = await _stooq_quote(symbol)
-        if snapshot:
-            return snapshot
-        diagnostics.append("Stooq:no_data")
-    except Exception as exc:
-        diagnostics.append(f"Stooq:{type(exc).__name__}")
 
     try:
         last_close = await _twelve_last_close(symbol)
