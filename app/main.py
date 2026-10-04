@@ -1470,6 +1470,13 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         classification = {}
 
     # خلاصة فنية محلية مبنية فقط على البيانات الموجودة، بدون اختراع خبر أو سعر.
+    # If the quote provider failed but OHLCV analysis produced a valid last close,
+    # promote that observed close so the Mini App never shows a false "no data" state.
+    if not q.get("price") and targets.get("price"):
+        q["price"] = targets.get("price")
+        q["source"] = q.get("source") if q.get("source") not in {None, "unavailable"} else "OHLCV analysis"
+        q.pop("error", None)
+
     entry = targets.get("price") or q.get("price")
     stop = targets.get("exit") or targets.get("stop")
     target_list = targets.get("targets") if isinstance(targets, dict) else []
@@ -1517,8 +1524,8 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         "fundamentals": fundamentals if isinstance(fundamentals, dict) else {},
         "ai_status": ai_result.get("status") if isinstance(ai_result, dict) else "unavailable",
         "partial": bool(
-            isinstance(targets, dict) and targets.get("error")
-            or isinstance(q, dict) and q.get("error")
+            (isinstance(targets, dict) and targets.get("error") and not targets.get("targets"))
+            or (isinstance(q, dict) and q.get("error") and not q.get("price"))
         ),
     }
 
