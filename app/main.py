@@ -488,9 +488,20 @@ async def require_pro(user=Depends(telegram_user), db: AsyncSession = Depends(ge
 
     raise HTTPException(403, "صلاحيات SAS PRO غير مفعلة أو منتهية")
 
+@app.middleware("http")
+async def miniapp_no_cache(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path == "/" or request.url.path in {"/assets/app.js", "/assets/app.css"}:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 @app.get("/")
 async def home():
-    return FileResponse("web/index.html")
+    response = FileResponse("web/index.html")
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return response
 
 @app.get("/health")
 async def health():
@@ -687,11 +698,17 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
         await db.commit()
         await db.refresh(existing)
     else:
-        existing.username = user.get("username")
-        existing.first_name = user.get("first_name")
-        existing.last_name = user.get("last_name")
-        existing.updated_at = utcnow()
-        await db.commit()
+        changed = (
+            existing.username != user.get("username")
+            or existing.first_name != user.get("first_name")
+            or existing.last_name != user.get("last_name")
+        )
+        if changed:
+            existing.username = user.get("username")
+            existing.first_name = user.get("first_name")
+            existing.last_name = user.get("last_name")
+            existing.updated_at = utcnow()
+            await db.commit()
 
     sub = (await db.execute(
         select(Subscription).where(Subscription.telegram_id == user["id"], Subscription.active == True)

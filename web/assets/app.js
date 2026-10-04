@@ -4,7 +4,7 @@ const getInitData=()=>tg?.initData||new URLSearchParams(location.hash.slice(1)).
 const headers=()=>({'X-Telegram-Init-Data':getInitData()});
 async function api(path,opt={}){
  const controller=new AbortController();
- const timeout=setTimeout(()=>controller.abort(),10000);
+ const timeout=setTimeout(()=>controller.abort(),8000);
  try{
   opt.headers=Object.assign(headers(),opt.headers||{});
   opt.signal=controller.signal;
