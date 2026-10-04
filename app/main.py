@@ -1396,13 +1396,44 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     )
     result, targets, q = results
 
-    if isinstance(result, Exception):
-        result = {"enabled": False, "error": f"{type(result).__name__}: {result}"}
     if isinstance(targets, Exception):
         targets = {"status": "error", "targets": [], "error": f"{type(targets).__name__}: {targets}"}
     if isinstance(q, Exception):
         q = {"symbol": symbol, "price": None, "change_pct": None, "source": "unavailable",
              "error": f"{type(q).__name__}: {q}"}
+
+    # PanWatch/TradingAgents may be unavailable even when price and technical data work.
+    # In that case use SAS's own evidence-grounded AI layer instead of returning an empty analysis.
+    news = []
+    fundamentals = {}
+    if isinstance(result, Exception):
+        try:
+            from .news import company_news, company_fundamentals
+            news, fundamentals = await asyncio.gather(
+                company_news(symbol, days=3),
+                company_fundamentals(symbol),
+                return_exceptions=True,
+            )
+            if isinstance(news, Exception):
+                news = []
+            if isinstance(fundamentals, Exception):
+                fundamentals = {}
+            from .ai_radar import analyze_stock
+            result = await analyze_stock(
+                symbol,
+                company=fundamentals,
+                news=news,
+                fundamentals=fundamentals,
+                market={"change_pct": q.get("change_pct"), "price": q.get("price")},
+            )
+        except Exception as exc:
+            result = {"enabled": False, "error": f"{type(exc).__name__}: {exc}"}
+    else:
+        try:
+            from .news import company_news
+            news = await company_news(symbol, days=3)
+        except Exception:
+            news = []
 
     try:
         from .scanner import classify_faisal
@@ -1426,6 +1457,8 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
             "report": report,
             "disclaimer": DISCLAIMER,
         },
+        "news": news if isinstance(news, list) else [],
+        "fundamentals": fundamentals if isinstance(fundamentals, dict) else {},
         "partial": bool(
             isinstance(result, dict) and result.get("error")
             or isinstance(targets, dict) and targets.get("error")
