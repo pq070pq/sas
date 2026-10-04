@@ -175,6 +175,21 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         summary_lines.append(f"🏷️ التصنيف: <b>{_esc(classification_label)}</b>")
     elif momentum_label:
         summary_lines.append(f"🏷️ التصنيف: <b>{_esc(momentum_label)}</b>")
+
+    trading_style = classification.get("trading_style")
+    risk_level = classification.get("risk_level")
+    risk_score = classification.get("risk_score")
+    risk_emoji = classification.get("risk_emoji") or "⚠️"
+    holding_horizon = classification.get("holding_horizon")
+    if trading_style:
+        summary_lines.append(f"🎯 نوع السهم: <b>{_esc(trading_style)}</b>")
+    if risk_level:
+        risk_text = f"{risk_emoji} <b>{_esc(risk_level)}</b>"
+        if risk_score is not None:
+            risk_text += f" ({int(risk_score)}/10)"
+        summary_lines.append(f"⚠️ درجة الخطورة: {risk_text}")
+    if holding_horizon:
+        summary_lines.append(f"⏱️ الأفق المناسب للرصد: <b>{_esc(holding_horizon)}</b>")
     if q.get("source"):
         summary_lines.append(f"📡 مصدر السعر: <b>{_esc(q.get('source'))}</b>")
     add_section(report, "📋 <b>ملخص السهم</b>", summary_lines)
@@ -189,6 +204,9 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         sas_lines.append("🟢 <b>SAS اجتاز الشروط الأساسية</b>" if bool(sas_core) else "🔴 <b>SAS لم يجتز الشروط الأساسية</b>")
     if score is not None:
         sas_lines.append(f"⭐ قوة الإشارة: <b>{score:.0f} / 100</b>")
+    risk_reasons = classification.get("risk_reasons") or []
+    if risk_reasons:
+        sas_lines += ["", "⚠️ <b>لماذا هذه الخطورة؟</b>"] + reason_lines(" + ".join(str(x) for x in risk_reasons))
     if rvol is not None:
         sas_lines.append(f"📊 RVOL: <b>{rvol:.2f}×</b>")
     elif momentum_rvol is not None:
