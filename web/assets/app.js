@@ -90,8 +90,8 @@ function renderDashboard(d){
  else el.innerHTML='<div class="empty-state">لا توجد إشارات محفوظة من آخر جلسة.</div>';
 }
 function renderMacro(){
- const wanted=['S&P 500','NASDAQ','DOW JONES','VIX','BTC','GOLD','OIL'];
- const rows=wanted.map(label=>terminalState.ticker.find(x=>String(x.label).toUpperCase()===label.toUpperCase())).filter(Boolean);
+ const wanted=['S&P 500','NASDAQ','DOW JONES','VIX','BTC','GOLD'];
+ const rows=wanted.map(label=>terminalState.ticker.find(x=>String(x.label).toUpperCase()===label.toUpperCase())).filter(x=>x && Number(x.price)>0);
  document.getElementById('macroGrid').innerHTML=rows.map(x=>{
   const valid=Number(x.price)>0;
   return '<div class="macro-card '+(valid?'':'macro-unavailable')+'"><span>'+escHtml(x.label)+'</span><b>'+money(x.price)+'</b><em class="'+(Number(x.change_pct)>=0?'up':'down')+'">'+pct(x.change_pct)+'</em><small class="macro-source">'+escHtml(x.source||'غير متوفر')+'</small>'+(x.diagnostic?'<small class="macro-diagnostic">'+escHtml(x.diagnostic)+'</small>':'')+'</div>';
@@ -111,15 +111,15 @@ async function runRadar(show=true){
 }
 function renderRadar(){renderCards(document.getElementById('radarGrid'),terminalState.radar);}
 function renderCards(el,rows){
- if(!rows.length){el.innerHTML='<div class="empty-state">لا توجد فرص مكتملة حاليًا.</div>';return;}
+ if(!rows.length){el.innerHTML='<div class="empty-state">لا توجد فرص مكتملة حاليًا. إذا كان السوق مغلقًا ستظهر آخر إشارات محفوظة تلقائيًا.</div>';return;}
  el.innerHTML=rows.map(stockCard).join('');
 }
 function stockCard(x){
  const raw=String(x.symbol||'—'), s=escHtml(raw), price=x.price??x.entry_price, change=x.change_pct, rr=x.risk_reward;
  const targets=Array.isArray(x.targets)?x.targets:[], target=targets[0]??x.target1??x.target;
- const stop=x.exit??x.stop_loss??x.stop;
+ const stop=x.exit??x.stop_loss??x.stop??x.stop_price;
  const volume=Number(x.volume), rvol=Number(x.rvol), warning=Boolean(x.risk_reward_warning);
- const ai=x.ai_analysis||{};
+ const ai=x.ai_analysis||x.ai||{};
  return '<article class="stock-card"><div class="stock-head"><div><b>'+s+'</b><small>'+(x.section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • '+formatTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div><strong>$'+money(price)+'</strong><div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div><div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div><div class="stock-gates"><i>✓ SAS Core</i><i>✓ السيولة</i><i>✓ الهدف</i><i>✓ المستويات</i></div><div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div><div class="stock-actions"><button onclick="event.stopPropagation();openSymbol(\''+raw+'\')">🧠 تحليل كامل</button><button onclick="event.stopPropagation();toggleWatch(\''+raw+'\')">'+(terminalState.watch.includes(raw)?'★ محفوظ':'☆ حفظ')+'</button></div></article>';
 }
 function toggleWatch(symbol){symbol=symbol.toUpperCase();terminalState.watch=terminalState.watch.includes(symbol)?terminalState.watch.filter(x=>x!==symbol):[...terminalState.watch,symbol];localStorage.setItem('saspro_watchlist',JSON.stringify(terminalState.watch));renderWatchlist();renderRadar();}
