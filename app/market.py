@@ -185,10 +185,10 @@ async def _twelve_last_close(symbol: str):
 
 
 async def _stooq_quote(symbol: str):
-    """Keyless last quote fallback for macro assets when paid providers return no data.
+    """Keyless fallback for macro prices.
 
-    Stooq's quote snapshot is used only as a fallback; it never replaces the
-    configured FMP/Finnhub/Twelve Data sources.
+    Stooq exposes two useful CSV endpoints. Some environments return an empty
+    snapshot from q/l, while the daily endpoint still works, so we try both.
     """
     mapped = {
         "SPX": "^spx",
@@ -200,38 +200,59 @@ async def _stooq_quote(symbol: str):
     }.get(symbol)
     if not mapped:
         return None
-    url = "https://stooq.com/q/l/"
+
+    headers = {"User-Agent": "Mozilla/5.0 SAS-PRO/2.1"}
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
+            # 1) Intraday/latest snapshot.
             r = await client.get(
-                url,
-                params={"s": mapped, "f": "sd2t2ohlcvnp", "h": "", "e": "csv"},
-                headers={"User-Agent": "SAS-PRO/1.0"},
+                "https://stooq.com/q/l/",
+                params={"s": mapped, "f": "sd2t2ohlcvn", "e": "csv"},
+                headers=headers,
+            )
+            if r.status_code < 400:
+                rows = list(csv.DictReader(io.StringIO(r.text)))
+                row = rows[0] if rows else None
+                if isinstance(row, dict) and _valid_price(row.get("Close")):
+                    price = float(row["Close"])
+                    return {
+                        "symbol": symbol,
+                        "price": price,
+                        "change_pct": None,
+                        "source": "Stooq Snapshot",
+                        "is_extended_hours": False,
+                        "datetime": f"{row.get('Date', '')} {row.get('Time', '')}".strip(),
+                    }
+
+            # 2) Daily history. Calculate the change from the last two closes.
+            r = await client.get(
+                "https://stooq.com/q/d/l/",
+                params={"s": mapped, "i": "d"},
+                headers=headers,
             )
             if r.status_code >= 400:
                 return None
             rows = list(csv.DictReader(io.StringIO(r.text)))
-            row = rows[0] if rows else None
-            if not isinstance(row, dict):
+            valid = [x for x in rows if isinstance(x, dict) and _valid_price(x.get("Close"))]
+            if not valid:
                 return None
-            price = row.get("Close")
-            if not _valid_price(price):
-                return None
-            previous = row.get("Prev")
+            latest = valid[-1]
+            previous = valid[-2] if len(valid) > 1 else None
+            price = float(latest["Close"])
             change_pct = None
-            if _valid_price(previous):
-                prev = float(previous)
-                change_pct = ((float(price) - prev) / prev) * 100 if prev else None
+            if previous and _valid_price(previous.get("Close")):
+                prev = float(previous["Close"])
+                change_pct = ((price - prev) / prev) * 100 if prev else None
             return {
                 "symbol": symbol,
-                "price": float(price),
+                "price": price,
                 "change_pct": change_pct,
-                "source": "Stooq Snapshot",
+                "source": "Stooq Last Close",
                 "is_extended_hours": False,
-                "datetime": f"{row.get('Date', '')} {row.get('Time', '')}".strip(),
+                "datetime": latest.get("Date"),
             }
     except Exception as exc:
-        logger.debug("STOOQ_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+        logger.warning("STOOQ_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
         return None
 
 
