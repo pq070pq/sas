@@ -58,15 +58,26 @@ async function initTerminal(){
 }
 async function refreshTerminal(){
  document.getElementById('terminalClock').textContent=new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
- try{
-  const [status,home,ticker]=await Promise.all([api('/api/market/radar-status'),api('/api/dashboard/home'),api('/api/market/ticker')]);
-  terminalState.ticker=ticker||[];
-  renderMarketStrip(status);
-  renderDashboard(home);
-  renderMacro();
-  if(terminalState.tab==='radar') await runRadar(false);
-  if(terminalState.tab==='watch') renderWatchlist();
- }catch(e){document.getElementById('radarStatusText').textContent='تعذر تحديث بيانات السوق: '+e.message;}
+ const results=await Promise.allSettled([
+  api('/api/market/radar-status'),
+  api('/api/dashboard/home'),
+  api('/api/market/ticker')
+ ]);
+ const status=results[0]?.status==='fulfilled'?results[0].value:null;
+ const home=results[1]?.status==='fulfilled'?results[1].value:null;
+ const ticker=results[2]?.status==='fulfilled'?results[2].value:null;
+
+ if(status) renderMarketStrip(status);
+ if(home) renderDashboard(home);
+ if(Array.isArray(ticker)) terminalState.ticker=ticker;
+ renderMacro();
+
+ const errors=results.filter(x=>x.status==='rejected').map(x=>x.reason?.message||'خطأ غير معروف');
+ if(errors.length && !ticker){
+  console.warn('SAS PRO market ticker refresh failed:',errors);
+ }
+ if(terminalState.tab==='radar' && !errors.length) await runRadar(false);
+ if(terminalState.tab==='watch') renderWatchlist();
 }
 function renderMarketStrip(s){
  const label=s.open?'🟢 السوق مفتوح':'🔴 السوق مغلق';
@@ -90,8 +101,27 @@ function renderDashboard(d){
  else el.innerHTML='<div class="empty-state">لا توجد إشارات محفوظة من آخر جلسة.</div>';
 }
 function renderMacro(){
- const wanted=['S&P 500','NASDAQ','DOW JONES','VIX','BTC','GOLD'];
- const rows=wanted.map(label=>terminalState.ticker.find(x=>String(x.label).toUpperCase()===label.toUpperCase())).filter(Boolean);
+ const wanted=[
+  {label:'S&P 500',symbols:['SPX','^GSPC','SPY']},
+  {label:'NASDAQ',symbols:['IXIC','^IXIC','QQQ']},
+  {label:'DOW JONES',symbols:['DJI','^DJI','DIA']},
+  {label:'VIX',symbols:['VIX','^VIX','VIXY']},
+  {label:'BTC',symbols:['BTC/USD','BTCUSD','BTCUSDT']},
+  {label:'GOLD',symbols:['XAU/USD','XAUUSD','GCUSD','GLD']}
+ ];
+ const rows=wanted.map(item=>{
+  const found=terminalState.ticker.find(x=>{
+   const label=String(x?.label||'').toUpperCase();
+   const symbol=String(x?.symbol||'').toUpperCase();
+   return label===item.label.toUpperCase() || item.symbols.some(s=>s.toUpperCase()===symbol);
+  });
+  if(found)return {...found,label:item.label};
+  try{
+   const cached=JSON.parse(localStorage.getItem('saspro_macro_'+item.label.replace(/\\s+/g,'_'))||'null');
+   if(cached && Number(cached.price)>0)return {label:item.label,price:cached.price,change_pct:cached.change_pct,source:'آخر سعر محفوظ'};
+  }catch(e){}
+  return null;
+ }).filter(Boolean);
  const cards=rows.map(x=>{
   const valid=Number(x.price)>0;
   return '<div class="macro-card '+(valid?'':'macro-unavailable')+'"><span>'+escHtml(x.label)+'</span><b>'+ (valid?money(x.price):'غير متاح') +'</b><em class="'+(Number(x.change_pct)>=0?'up':'down')+'">'+pct(x.change_pct)+'</em><small class="macro-source">'+escHtml(x.source||'غير متوفر')+'</small>'+(x.diagnostic?'<small class="macro-diagnostic">'+escHtml(x.diagnostic)+'</small>':'')+'</div>';
