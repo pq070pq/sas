@@ -102,7 +102,7 @@ function renderMacro(){
    ticker.innerHTML=rows.map(x=>{
      const valid=Number(x.price)>0;
      const cls=Number(x.change_pct)>=0?'up':'down';
-     const cachedKey='saspro_macro_'+String(x.label).replace(/\\s+/g,'_');
+     const cachedKey='saspro_macro_'+String(x.label).replace(/\s+/g,'_');
      let displayPrice=valid?money(x.price):'—';
      let displayChange=valid?pct(x.change_pct):'—';
      if(valid){
