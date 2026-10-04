@@ -203,56 +203,86 @@ async def build_private_analysis(symbol: str):
                     "   — غير محسوب\n"
                     "   ℹ️ لا توجد مستويات صالحة كافية لحسابه؛ لم يتم التخمين.")
 
+    # عرض البيانات المالية المتاحة فقط حتى لا يبدو التقرير عشوائيًا أو ممتلئًا
+    # بعبارات "غير متوفر". أي قيمة غير موثقة تُحذف من القائمة ولا يتم تخمينها.
+    fundamental_fields = [
+        ("🏢", "الشركة", fundamentals.get("name"), "text"),
+        ("🏷️", "القطاع", fundamentals.get("industry"), "text"),
+        ("💰", "القيمة السوقية", fundamentals.get("market_cap_m"), "market_cap"),
+        ("📐", "P/E", fundamentals.get("pe_ttm"), "number"),
+        ("🧮", "EPS", fundamentals.get("eps_ttm"), "number"),
+        ("📈", "نمو الإيرادات (3 سنوات)", fundamentals.get("revenue_growth_3y"), "pct"),
+        ("💵", "الهامش الصافي", fundamentals.get("net_margin"), "pct"),
+        ("📊", "ROE", fundamentals.get("roe_ttm"), "pct"),
+        ("🏦", "الدين/حقوق الملكية", fundamentals.get("debt_to_equity"), "number"),
+    ]
+    fundamental_lines = []
+    for icon, label, raw, kind in fundamental_fields:
+        if raw is None or raw == "":
+            continue
+        if kind == "market_cap":
+            value_text = _num(raw, "M")
+        elif kind == "pct":
+            value_text = _pct(raw)
+        elif kind == "number":
+            value_text = _num(raw)
+        else:
+            value_text = html.escape(str(raw))
+        fundamental_lines.append(f"   {icon} {label}: <b>{value_text}</b>")
     fundamentals_text = (
-        f"   🏢 الشركة: <b>{html.escape(str(fundamentals.get('name') or symbol))}</b>\n"
-        f"   🏷️ القطاع: {html.escape(str(fundamentals.get('industry') or 'غير متوفر'))}\n"
-        f"   💰 القيمة السوقية: {_num(fundamentals.get('market_cap_m'), 'M')}\n"
-        f"   📐 P/E: {_num(fundamentals.get('pe_ttm'))}\n"
-        f"   🧮 EPS: {_num(fundamentals.get('eps_ttm'))}\n"
-        f"   📈 نمو الإيرادات (3 سنوات): {_pct(fundamentals.get('revenue_growth_3y'))}\n"
-        f"   💵 الهامش الصافي: {_pct(fundamentals.get('net_margin'))}\n"
-        f"   📊 ROE: {_pct(fundamentals.get('roe_ttm'))}\n"
-        f"   🏦 الدين/حقوق الملكية: {_num(fundamentals.get('debt_to_equity'))}"
+        "\n".join(fundamental_lines)
+        if fundamental_lines
+        else "   ℹ️ لا تتوفر بيانات مالية موثوقة من المصدر الحالي."
     )
-    sas_status = "🟢 اجتاز شروط SAS Core" if sas_pass else "🟠 لم يثبت اجتياز شروط SAS Core"
+
+    sas_status = "🟢 اجتاز SAS Core" if sas_pass else "🟠 لم يثبت اجتياز SAS Core"
+    sas_reason = classification.get("reason") if isinstance(classification, dict) else None
     news_count = len(news) if isinstance(news, list) else 0
     return (
-        f"🔎 <b>SAS PRO | التحليل الخاص: {html.escape(symbol)}</b>\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        "📍 <b>الخلاصة السريعة</b>\n"
-        f"   💵 السعر الحالي: <b>{_money(price)}</b>  |  📈 التغير: <b>{_pct(change)}</b>\n"
-        f"   🧭 الحالة الفنية: <b>{html.escape(str(behavior))}</b>\n"
-        f"   🏷️ التصنيف: <b>{html.escape(str(stock_type))}</b>\n"
-        f"   📡 مصدر السعر: {html.escape(str(source))}\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        "🎯 <b>المستويات الفنية</b>\n"
-        f"   🟦 الدخول المرجعي: <b>{_money(entry)}</b>\n"
-        f"   🛑 الوقف / الدعم: <b>{_money(stop_n)}</b>\n"
-        f"{target_text}\n"
-        f"   📏 ATR: <b>{_money(tech.get('atr'))}</b>\n"
-        "   ℹ️ الدخول = السعر المرجعي، الوقف = مستوى حماية، والأهداف = مستويات سعرية محتملة.\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        f"{rr_block}\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        "📌 <b>شروط SAS</b>\n"
-        f"   {'✅' if sas_pass else '⚠️'} SAS Core: <b>{'مستوفى' if sas_pass else 'غير مستوفى/غير مثبت'}</b>\n"
-        f"   {'✅' if target_pass else '⚠️'} الهدف السعري: <b>{'مؤكد' if target_pass else 'غير مؤكد'}</b>\n"
-        f"   {'✅' if live_levels_pass else '⚠️'} المستويات: <b>{'مكتملة وصالحة' if live_levels_pass else 'غير مكتملة'}</b>\n"
-        f"   📊 RVOL: <b>{_num(rvol, '×')}</b>\n"
-        f"   ⭐ نتيجة SAS: <b>{score if score is not None else 'غير متوفر'}</b>\n"
-        f"   📍 الحالة: <b>{sas_status}</b>\n"
-        "   ℹ️ «غير متوفر» تعني أن المصدر لم يقدم قيمة موثوقة؛ لم يتم تخمين البيانات.\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        "💼 <b>البيانات المالية</b>\n"
-        f"{fundamentals_text}\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        "🔄 <b>الأحداث المهمة</b>\n"
-        f"{_format_corporate_actions(events)}\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        f"{_format_news(news)}\n"
-        f"   ℹ️ الأخبار المتاحة: <b>{news_count}</b>\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        f"{_format_ai(ai)}\n"
-        "━━━━━━━━━━━━━━━━━━\n"
+        f"🔎 <b>SAS PRO | تحليل السهم: {html.escape(symbol)}</b>\\n"
+        "━━━━━━━━━━━━━━━━━━\\n"
+        "📋 <b>الملخص للمتداول</b>\\n"
+        f"💵 السعر: <b>{_money(price)}</b>   📈 التغير: <b>{_pct(change)}</b>\\n"
+        f"🧭 الحالة الفنية: <b>{html.escape(str(behavior))}</b>\\n"
+        f"🏷️ التصنيف: <b>{html.escape(str(stock_type))}</b>\\n"
+        f"📡 مصدر السعر: <b>{html.escape(str(source))}</b>\\n"
+        "ℹ️ هذا القسم يوضح وضع السهم الآن قبل الدخول في التفاصيل.\\n"
+        "━━━━━━━━━━━━━━━━━━\\n"
+        "📌 <b>حكم شروط SAS</b>\\n"
+        f"{'🟢' if sas_pass else '🟠'} <b>SAS Core:</b> {html.escape(sas_status.replace('🟢 ','').replace('🟠 ',''))}\\n"
+        f"⭐ <b>النتيجة:</b> {score if score is not None else 'غير متوفرة'}\\n"
+        f"📊 <b>RVOL:</b> {_num(rvol, '×')}\\n"
+        f"{'🧾 <b>سبب الحالة:</b> ' + html.escape(str(sas_reason)) + chr(10) if sas_reason else ''}"
+        f"{'🟢' if target_pass else '🟠'} <b>الهدف السعري:</b> {'مؤكد من البيانات الفنية' if target_pass else 'غير مؤكد'}\\n"
+        f"{'🟢' if live_levels_pass else '🟠'} <b>المستويات:</b> {'الدخول والوقف والهدف صالحة' if live_levels_pass else 'تحتاج بيانات إضافية'}\\n"
+        "💡 <b>للمبتدئ:</b> اجتياز SAS Core يعني أن البوابة الفنية الأساسية تحققت؛ لا يعني ذلك ضمان صعود السهم.\\n"
+        "━━━━━━━━━━━━━━━━━━\\n"
+        "🎯 <b>المستويات الفنية</b>\\n"
+        f"🟦 <b>الدخول المرجعي:</b> {_money(entry)}\\n"
+        f"🛑 <b>الوقف / الدعم:</b> {_money(stop_n)}\\n"
+        f"{target_text}\\n"
+        f"📏 <b>ATR:</b> {_money(tech.get('atr'))}\\n"
+        "📖 <b>كيف تقرأها؟</b> الدخول هو السعر المرجعي، الوقف مستوى حماية، والأهداف مستويات صعود محتملة وليست ضمانًا.\\n"
+        "━━━━━━━━━━━━━━━━━━\\n"
+        f"{rr_block}\\n"
+        "━━━━━━━━━━━━━━━━━━\\n"
+        "💼 <b>البيانات المالية</b>\\n"
+        f"{fundamentals_text}\\n"
+        "━━━━━━━━━━━━━━━━━━\\n"
+        "🔄 <b>الأحداث المؤثرة</b>\\n"
+        f"{_format_corporate_actions(events)}\\n"
+        "━━━━━━━━━━━━━━━━━━\\n"
+        f"{_format_news(news)}\\n"
+        f"📚 <b>عدد الأخبار المعروضة:</b> {news_count}\\n"
+        "━━━━━━━━━━━━━━━━━━\\n"
+        f"{_format_ai(ai)}\\n"
+        "━━━━━━━━━━━━━━━━━━\\n"
+        "🧠 <b>كيف يقرأ المبتدئ التقرير؟</b>\\n"
+        "1️⃣ ابدأ بالسعر والتغير لمعرفة وضع السهم.\\n"
+        "2️⃣ راجع SAS Core وسبب الحالة بدل الاعتماد على النتيجة وحدها.\\n"
+        "3️⃣ راجع الدخول والوقف والهدف ثم R:R قبل اتخاذ أي قرار.\\n"
+        "4️⃣ راجع الأخبار والأحداث لمعرفة وجود محفز أو مخاطرة إضافية.\\n"
+        "5️⃣ أي خانة غير متوفرة تعني أن المصدر لم يقدم بيانات موثوقة؛ لم يتم تخمينها.\\n"
+        "━━━━━━━━━━━━━━━━━━\\n"
         "⚠️ <b>تنبيه:</b> التقرير معلوماتي وتعليمي فقط، وليس توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول."
     )
