@@ -317,7 +317,7 @@ async def publish_holiday_radar():
 
         lines += [
             "",
-            "₿ <b>بيتكوين — مستقل</b>",
+            "₿ <b>بيتكوين</b>",
             "",
             f"💵 <b>السعر الحالي:</b> $" + (_fmt_price(btc_price) if btc_price is not None else "—"),
             f"📈 <b>التغير خلال 6 ساعات:</b> {_fmt_pct(btc_change_6h)}",
