@@ -299,25 +299,13 @@ async function analyzeSymbol(){
  drawChart(chart.candles||[]);
 }
 function renderPartialAnalysis(el,symbol,q,chart,news){
- const candles=Array.isArray(chart?.candles)?chart.candles:[];
- const closes=candles.map(x=>Number(x.close)).filter(Number.isFinite);
- const price=Number(q.price);
- const recent=closes.slice(-20);
- const prev=closes.length>=6?closes[closes.length-6]:null;
- const trend=Number.isFinite(price)&&Number.isFinite(prev)?(price>prev?'صاعد':price<prev?'هابط':'مستقر'):'غير محدد';
- const recentHigh=recent.length?Math.max(...recent):null;
- const recentLow=recent.length?Math.min(...recent):null;
- const target=Number.isFinite(recentHigh)&&recentHigh>price?recentHigh:null;
- const stop=Number.isFinite(recentLow)&&recentLow<price?recentLow:null;
- const rr=Number.isFinite(target)&&Number.isFinite(stop)&&price>stop?((target-price)/(price-stop)):null;
- const technicalText=trend==='صاعد'
-   ? 'الاتجاه قصير الأجل يميل للصعود وفق حركة الإغلاق الأخيرة.'
-   : trend==='هابط'
-     ? 'الاتجاه قصير الأجل يميل للهبوط وفق حركة الإغلاق الأخيرة.'
-     : 'الحركة الأخيرة مستقرة أو لا تكفي لتحديد اتجاه واضح.';
- const levels=(Number.isFinite(stop)||Number.isFinite(target))?
-   '<div class="level-grid">'+
-   '<div><small>🟦 السعر المرجعي</small><b>
+ el.innerHTML='<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div></div>'+
+ '<div class="quote-line"><strong>$'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
+ '<div class="partial-note">🟡 تم تحميل البيانات المتاحة فقط. التحليل الفني الكامل سيظهر عند توفر مصدر التحليل.</div>'+
+ '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
+ '<div class="news-list">'+(news.length?news.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'')+'</div>';
+ drawChart(chart.candles||[]);
+}
 function drawChart(candles){
  const canvas=document.getElementById('stockCanvas'); if(!canvas)return;
  const dpr=Math.max(1,window.devicePixelRatio||1),w=canvas.clientWidth||600,h=230;
