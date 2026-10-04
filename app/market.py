@@ -1,4 +1,6 @@
 import asyncio
+import csv
+import io
 import logging
 import httpx
 from .config import settings
@@ -182,6 +184,57 @@ async def _twelve_last_close(symbol: str):
         }
 
 
+async def _stooq_quote(symbol: str):
+    """Keyless last quote fallback for macro assets when paid providers return no data.
+
+    Stooq's quote snapshot is used only as a fallback; it never replaces the
+    configured FMP/Finnhub/Twelve Data sources.
+    """
+    mapped = {
+        "SPX": "^spx",
+        "IXIC": "^ndq",
+        "DJI": "^dji",
+        "VIX": "^vix",
+        "XAU/USD": "xauusd",
+        "BTC/USD": "btcusd",
+    }.get(symbol)
+    if not mapped:
+        return None
+    url = "https://stooq.com/q/l/"
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                url,
+                params={"s": mapped, "f": "sd2t2ohlcvnp", "h": "", "e": "csv"},
+                headers={"User-Agent": "SAS-PRO/1.0"},
+            )
+            if r.status_code >= 400:
+                return None
+            rows = list(csv.DictReader(io.StringIO(r.text)))
+            row = rows[0] if rows else None
+            if not isinstance(row, dict):
+                return None
+            price = row.get("Close")
+            if not _valid_price(price):
+                return None
+            previous = row.get("Prev")
+            change_pct = None
+            if _valid_price(previous):
+                prev = float(previous)
+                change_pct = ((float(price) - prev) / prev) * 100 if prev else None
+            return {
+                "symbol": symbol,
+                "price": float(price),
+                "change_pct": change_pct,
+                "source": "Stooq Snapshot",
+                "is_extended_hours": False,
+                "datetime": f"{row.get('Date', '')} {row.get('Time', '')}".strip(),
+            }
+    except Exception as exc:
+        logger.debug("STOOQ_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+        return None
+
+
 async def macro_quote(symbol: str):
     """Holiday/macro quote with independent fallbacks and automatic diagnostics."""
     diagnostics = []
@@ -220,6 +273,14 @@ async def macro_quote(symbol: str):
         diagnostics.append("TwelveLastClose:no_data")
     except Exception as exc:
         diagnostics.append(f"TwelveLastClose:{type(exc).__name__}")
+
+    try:
+        snapshot = await _stooq_quote(symbol)
+        if snapshot:
+            return snapshot
+        diagnostics.append("Stooq:no_data")
+    except Exception as exc:
+        diagnostics.append(f"Stooq:{type(exc).__name__}")
 
     logger.warning("HOLIDAY_RADAR_PRICE_FAILED symbol=%s diagnostics=%s", symbol, " | ".join(diagnostics))
     return {
