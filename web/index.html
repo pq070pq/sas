@@ -85,17 +85,37 @@
 
   <section id="adminPage" class="admin-page" hidden>
     <header class="admin-header">
-      <div><b>🛡️ SAS PRO ADMIN</b><span>مركز إدارة المنصة والاشتراكات</span></div>
-      <button onclick="adminRefresh()">↻ تحديث</button>
+      <div class="admin-brand">
+        <div class="admin-brand-mark">S</div>
+        <div><b>SAS PRO <em>ADMIN</em></b><span>مركز التحكم وإدارة المنصة</span></div>
+      </div>
+      <div class="admin-header-actions">
+        <span class="admin-live"><i></i> النظام يعمل</span>
+        <button class="admin-refresh" onclick="adminRefresh()">↻ تحديث</button>
+      </div>
     </header>
 
-    <section class="admin-stats" id="adminStats"></section>
+    <nav class="admin-nav" aria-label="أقسام الإدارة">
+      <button class="active" data-admin-target="adminOverview" onclick="adminSection('adminOverview',this)">⌂ <span>نظرة عامة</span></button>
+      <button data-admin-target="adminUsersPanel" onclick="adminSection('adminUsersPanel',this)">👥 <span>المشتركون</span></button>
+      <button data-admin-target="adminSubscriptionPanel" onclick="adminSection('adminSubscriptionPanel',this)">💎 <span>الاشتراكات</span></button>
+      <button data-admin-target="starsPanel" onclick="adminSection('starsPanel',this)">⭐ <span>المدفوعات</span></button>
+      <button data-admin-target="staffPanel" onclick="adminSection('staffPanel',this)">🛡️ <span>المشرفون</span></button>
+      <button data-admin-target="deployPanel" onclick="adminSection('deployPanel',this)">🚀 <span>النشر</span></button>
+    </nav>
 
-<section class="admin-panel monthly-report-panel">
+    <section id="adminOverview" class="admin-overview">
+      <div class="admin-welcome">
+        <div><span>CONTROL CENTER</span><h1>لوحة إدارة SAS PRO</h1><p>إدارة المشتركين، الاشتراكات، المدفوعات، الصلاحيات والنشر من مكان واحد.</p></div>
+        <div class="admin-security">🔐 <b>وصول آمن</b><small>صلاحياتك الإدارية مفعلة</small></div>
+      </div>
+      <section class="admin-stats" id="adminStats"></section>
+      <section class="admin-panel monthly-report-panel">
       <div id="monthlyReport"><div class="loading">جاري تحميل التقرير الشهري...</div></div>
     </section>
 
-        <section class="owner-card admin-panel" id="ownerCard">
+        </section>
+    <section class="owner-card admin-panel" id="ownerCard">
       <div class="owner-badge"><span>OWNER</span><small>المالك</small></div>
       <div class="owner-main">
         <div class="owner-title">🛡️ الحساب الرئيسي لـ SAS PRO</div>
@@ -132,13 +152,13 @@
       <div class="deploy-note">أي تعديل على فرع <b>main</b> يُنشر تلقائيًا إلى OVH عبر GitHub Actions. لا تظهر مفاتيح SSH داخل التطبيق.</div>
     </section>
 
-    <section class="admin-panel">
+    <section class="admin-panel" id="adminUsersPanel">
       <div class="section-head"><b>🔎 البحث عن مستخدم</b><span>Telegram ID أو Username</span></div>
       <div class="search-row"><input id="adminSearch" placeholder="مثال: 123456789 أو username"><button onclick="adminSearch()">بحث</button></div>
       <div id="adminUsers"></div>
     </section>
 
-    <section class="admin-panel">
+    <section class="admin-panel" id="adminSubscriptionPanel">
       <div class="section-head"><b>⚙️ إعدادات الاشتراك</b><span>التحكم في ظهور الباقات والتجربة المجانية</span></div>
       <div class="subscription-controls">
         <label class="toggle-row"><span><b>إظهار الاشتراكات المدفوعة</b><small>عند الإخفاء يظهر للمستخدم خيار التجربة المجانية فقط.</small></span><input id="paidPlansVisible" type="checkbox"></label>
