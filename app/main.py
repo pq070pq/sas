@@ -34,6 +34,13 @@ holiday_radar_task = None
 app = FastAPI(title="SAS PRO", version="2.1.0")
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
 
+def webapp_url() -> str:
+    base = (webapp_url() or "").strip()
+    if not base:
+        return ""
+    separator = "&" if "?" in base else "?"
+    return f"{base}{separator}v=20261005-16"
+
 DISCLAIMER = "لا يعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️"
 PLANS = {}
 PLAN_LABELS = {}
@@ -59,9 +66,9 @@ async def startup():
                         {"command":"revoke","description":"إلغاء اشتراك"},
                     ],
                 })
-            if settings.telegram_webhook_auto_configure and settings.app_base_url and settings.telegram_webhook_secret:
+            if settings.telegram_webhook_auto_configure and webapp_url() and settings.telegram_webhook_secret:
                 await bot_api("setWebhook", {
-                    "url": settings.app_base_url.rstrip("/") + "/api/telegram/webhook",
+                    "url": webapp_url().rstrip("/") + "/api/telegram/webhook",
                     "secret_token": settings.telegram_webhook_secret,
                     "allowed_updates": ["message", "chat_join_request", "chat_member", "pre_checkout_query"],
                     "drop_pending_updates": False,
@@ -1290,7 +1297,7 @@ async def staff_grant(telegram_id:int, days:str="30", user=Depends(telegram_user
     try:
         kb={"inline_keyboard":[
             [{"text":"🚀 دخول قناة SAS PRO","url":link}],
-            *([[{"text":"📱 فتح SAS PRO","web_app":{"url":settings.app_base_url}}]] if settings.app_base_url else [])
+            *([[{"text":"📱 فتح SAS PRO","web_app":{"url":webapp_url()}}]] if webapp_url() else [])
         ]}
         await send_message(telegram_id,"✅ <b>تم تفعيل SAS PRO</b>\n\n📅 الانتهاء: <b>"+exp.strftime("%d/%m/%Y")+"</b>\n\n🔗 رابط القناة صالح 48 ساعة ويستخدم مرة واحدة.\n📱 يمكنك فتح التطبيق من الزر التالي.",kb)
     except Exception: pass
@@ -2159,8 +2166,8 @@ async def telegram_webhook(request: Request):
     if text == "/access":
         name = sender.get("first_name") or sender.get("username") or "عزيزي المستخدم"
         kb = None
-        if settings.app_base_url:
-            kb = {"inline_keyboard": [[{"text": "🔐 فتح SAS PRO وطلب إذن الدخول", "web_app": {"url": settings.app_base_url}}]]}
+        if webapp_url():
+            kb = {"inline_keyboard": [[{"text": "🔐 فتح SAS PRO وطلب إذن الدخول", "web_app": {"url": webapp_url()}}]]}
         await send_message(
             chat_id,
             f"👋 <b>أهلًا {name}</b>\n\n"
@@ -2179,7 +2186,7 @@ async def telegram_webhook(request: Request):
                 f"👋 <b>أهلًا {name}</b>\n\n"
                 "🛠️ <b>لوحة إدارة SAS PRO</b>\n"
                 "هذه الصفحة مخصصة لإدارة المشتركين فقط.",
-                {"inline_keyboard": [[{"text": "🛠️ فتح لوحة الإدارة", "web_app": {"url": settings.app_base_url}}]]},
+                {"inline_keyboard": [[{"text": "🛠️ فتح لوحة الإدارة", "web_app": {"url": webapp_url()}}]]},
             )
             return {"ok": True}
         async with SessionLocal() as db:
@@ -2202,7 +2209,7 @@ async def telegram_webhook(request: Request):
         await send_message(
             chat_id,
             msg,
-            {"inline_keyboard": [[{"text": "🚀 دخول إلى SAS PRO", "web_app": {"url": settings.app_base_url}}]]},
+            {"inline_keyboard": [[{"text": "🚀 دخول إلى SAS PRO", "web_app": {"url": webapp_url()}}]]},
         )
         return {"ok": True}
 
@@ -2237,7 +2244,7 @@ async def successful_payment(request: Request, db: AsyncSession = Depends(get_se
             f"💰 القيمة: <b>{result['plan']['sar']} ريال</b> / <b>{result['plan']['stars']} ⭐</b>\n"
             f"📅 الانتهاء: <b>{exp.strftime('%d/%m/%Y')}</b>\n\n"
             "🚀 اضغط «انضمام للقناة» وسيتم قبول طلبك تلقائيًا لأن اشتراكك فعال.",
-            {"inline_keyboard": [[{"text": "🚀 انضمام لقناة SAS PRO", "url": result["channel_link"]}], [{"text": "📱 فتح SAS PRO", "web_app": {"url": settings.app_base_url}}]]},
+            {"inline_keyboard": [[{"text": "🚀 انضمام لقناة SAS PRO", "url": result["channel_link"]}], [{"text": "📱 فتح SAS PRO", "web_app": {"url": webapp_url()}}]]},
         )
     except Exception:
         pass
