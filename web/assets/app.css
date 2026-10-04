@@ -303,3 +303,41 @@ filter:blur(.2px);
 .chart-box{background:rgba(1,10,18,.92)!important;border:1px solid rgba(45,205,255,.18)!important;overflow:hidden}
 .chart-box canvas{display:block;width:100%;height:230px}
 .quote-line{align-items:center}
+
+/* SAS PRO mobile terminal redesign */
+.terminal-page{background:#02080f!important}
+.terminal-hero-banner{position:relative;width:100%;height:clamp(210px,42vw,390px);overflow:hidden;border-bottom:1px solid rgba(45,244,255,.28);background:#020910}
+.terminal-hero-banner img{width:100%;height:100%;display:block;object-fit:cover;object-position:center center;filter:saturate(1.05) contrast(1.04) brightness(.92)}
+.terminal-hero-banner .hero-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(1,8,14,.04) 0%,rgba(1,8,14,.08) 48%,rgba(1,8,14,.76) 100%),linear-gradient(90deg,rgba(1,8,14,.18),transparent 35%,transparent 65%,rgba(1,8,14,.22));pointer-events:none}
+.hero-caption{position:absolute;right:20px;bottom:15px;display:flex;flex-direction:column;align-items:flex-start;text-shadow:0 2px 14px #000}
+.hero-caption span{font-size:22px;font-weight:1000;letter-spacing:3px;color:#eaffff;text-shadow:0 0 18px rgba(45,244,255,.6)}
+.hero-caption small{font-size:9px;letter-spacing:1.7px;color:#9fe9ef;margin-top:2px}
+.market-shortcuts{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;padding:10px 12px 12px;background:linear-gradient(180deg,rgba(2,12,19,.96),rgba(2,9,15,.88));border-bottom:1px solid rgba(45,244,255,.12)}
+.market-shortcut{min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:76px;padding:8px 4px;border:1px solid rgba(45,244,255,.18);border-radius:15px;background:linear-gradient(145deg,rgba(6,32,43,.9),rgba(2,13,21,.96));color:#e8fbff;box-shadow:inset 0 1px rgba(255,255,255,.035),0 7px 20px rgba(0,0,0,.18)}
+.market-shortcut:hover{border-color:rgba(45,244,255,.5);transform:translateY(-2px);box-shadow:0 0 24px rgba(45,244,255,.1)}
+.market-shortcut .shortcut-icon{height:31px;display:grid;place-items:center;font-size:27px;line-height:1;font-weight:1000;color:#2df4ff;text-shadow:0 0 13px rgba(45,244,255,.38)}
+.market-shortcut b{font-size:9px;white-space:nowrap;letter-spacing:.2px}
+.market-shortcut small{font-size:7px;color:#6f8e9c;white-space:nowrap}
+.market-shortcut.gold .shortcut-icon{color:#ffd75a}.market-shortcut.btc .shortcut-icon{color:#2df4ff}.market-shortcut.vix .shortcut-icon{color:#74d8ff}.market-shortcut.dow .shortcut-icon{color:#61f4d1}
+.terminal-top{padding:10px 14px!important;border-radius:0!important;border-left:0!important;border-right:0!important}
+.terminal-top-inner{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%}
+.terminal-top .brand{font-size:20px}
+.terminal-top .brand-mark.us-market-mark{width:42px;height:42px}
+.market-strip{border-radius:0!important}
+.terminal-main{padding-top:5px}
+.terminal-tabs{margin:0 10px 10px;border-radius:16px!important;top:0!important;position:sticky;z-index:15}
+.terminal-hero{border-radius:20px!important;background:linear-gradient(145deg,rgba(4,27,38,.92),rgba(2,11,18,.95))!important}
+.metric-grid>div{background:linear-gradient(145deg,rgba(5,28,39,.9),rgba(2,12,19,.96))!important;border-radius:16px}
+.macro-card{background:linear-gradient(145deg,rgba(5,28,39,.88),rgba(2,12,19,.96))!important}
+.account-avatar.us-account-mark{font-size:35px;width:66px;height:66px;display:grid;place-items:center;border-radius:18px;background:linear-gradient(145deg,rgba(45,244,255,.12),rgba(2,12,19,.9));border:1px solid rgba(45,244,255,.28);box-shadow:0 0 24px rgba(45,244,255,.1)}
+@media(max-width:700px){
+ .terminal-hero-banner{height:clamp(210px,58vw,300px)}
+ .market-shortcuts{grid-template-columns:repeat(3,1fr);gap:7px;padding:8px}
+ .market-shortcut{min-height:70px}
+ .market-shortcut .shortcut-icon{font-size:24px;height:27px}
+ .terminal-top .brand{font-size:17px}
+ .terminal-top .brand small{font-size:7px}
+}
+@media(min-width:701px){
+ .terminal-hero-banner{height:430px}
+}
