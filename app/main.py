@@ -1556,8 +1556,17 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     """تحليل Mini App متعدد الطبقات: البيانات الفنية لا تتوقف بسبب غياب AI أو خبر."""
     symbol = symbol.upper().strip()
 
+    # PanWatch's optional agent can take longer than the Mini App request window.
+    # Keep the SAS/targets/quote path independent: a slow external agent must never
+    # turn a valid technical analysis into a timeout.
+    async def _optional_agent_analysis():
+        try:
+            return await asyncio.wait_for(analyze(symbol), timeout=6.0)
+        except Exception as exc:
+            return exc
+
     results = await asyncio.gather(
-        analyze(symbol),
+        _optional_agent_analysis(),
         technical_targets(symbol),
         quote(symbol),
         return_exceptions=True,
