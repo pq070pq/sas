@@ -1624,18 +1624,22 @@ async def radar_scan(_: dict = Depends(require_pro)):
                     seen.add(row.symbol)
             except Exception:
                 continue
+        latest_scan_at = rows[0].created_at.isoformat() if rows and rows[0].created_at else None
         return {
             "enabled": False,
             "historical": True,
             "reason": status["label_ar"],
             "session": status["session"],
+            "scan_at": latest_scan_at,
             "stocks": stocks[:20],
             "diagnostics": {"candidates": 0, "passed": len(stocks[:20]), "filtered": 0, "errors": 0},
         }
     result = await scan_us_low_price_stocks()
+    from datetime import datetime, timezone
     return {
         "enabled": True,
         "historical": False,
+        "scan_at": datetime.now(timezone.utc).isoformat(),
         "range": {"min": 0.50, "max": 30.00},
         "method": "Faisal",
         "session": status["session"],
