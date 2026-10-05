@@ -157,17 +157,39 @@ async function refreshTerminal(){
  if(terminalState.tab==='watch') renderWatchlist();
 }
 function renderMarketStrip(s){
- const label=s.open?'🟢 السوق مفتوح':'🔴 السوق مغلق';
- document.getElementById('marketStrip').innerHTML='<div class="market-state '+(s.open?'open':'closed')+'"><b>'+label+'</b><span>'+escHtml(s.label_ar||'')+'</span></div><div class="market-state"><b>📡 الرادار</b><span>'+(s.stock_radar_enabled?'يعمل':'متوقف')+'</span></div><div class="market-state"><b>🕒 الجلسة</b><span>'+escHtml(s.session||'—')+'</span></div>';
+ const activeSession=Boolean(s.stock_radar_enabled);
+ const label=s.open?'🟢 السوق مفتوح':(activeSession?'🟡 التداول الممتد':'🔴 السوق مغلق');
+ const sessionLabel=s.label_ar||({
+  premarket:'قبل الافتتاح 🟡',
+  regular:'السوق مفتوح الآن 🟢',
+  afterhours:'بعد الإغلاق 🟠',
+  night:'التداول الإلكتروني الليلي 🟣',
+  overnight:'خارج جلسة التداول 🔴'
+ }[s.session]||'—');
+ document.getElementById('marketStrip').innerHTML=
+  '<div class="market-state '+(s.open?'open':(activeSession?'extended':'closed'))+'"><b>'+label+'</b><span>'+escHtml(sessionLabel)+'</span></div>'+
+  '<div class="market-state"><b>📡 الرادار</b><span>'+(activeSession?'يعمل':'متوقف')+'</span></div>'+
+  '<div class="market-state"><b>🕒 الجلسة</b><span>'+escHtml(sessionLabel)+'</span></div>';
 }
 function renderDashboard(d){
  const r=d.radar||{};
  if(Array.isArray(r.stocks)) terminalState.radar=r.stocks;
  const historical=Boolean(r.historical);
  const enabled=Boolean(r.enabled);
+ const market=d.market||{};
+ const session=String(market.session||'');
+ const extended=['premarket','afterhours','night'].includes(session);
+ const sessionLabel=market.label_ar||({
+  premarket:'قبل الافتتاح 🟡',
+  regular:'السوق مفتوح الآن 🟢',
+  afterhours:'بعد الإغلاق 🟠',
+  night:'التداول الإلكتروني الليلي 🟣'
+ }[session]||'');
  document.getElementById('radarStatusText').textContent=enabled
-  ? '🟢 الرصد الآلي يعمل — يبحث عن الأسهم التي تستوفي بوابة SAS PRO.'
-  : (historical ? '🟡 السوق مغلق — هذه آخر بيانات رصد محفوظة من الجلسة السابقة، ويعود الفحص الحي مع الافتتاح.' : '🔴 الرصد متوقف حاليًا خارج جلسة الأسهم الأمريكية.');
+  ? (extended
+    ? '🟡 الرصد الآلي يعمل في '+sessionLabel+' — لا تُنشر الإشارة إلا بعد تأكيد السعر والسيولة والزخم.'
+    : '🟢 الرصد الآلي يعمل — يبحث عن الأسهم التي تستوفي بوابة SAS PRO.')
+  : (historical ? '🟡 السوق مغلق — هذه آخر بيانات رصد محفوظة من الجلسة السابقة.' : '🔴 الرصد متوقف حاليًا خارج جلسات الرصد.');
  document.getElementById('dashboardMetrics').innerHTML=
   '<div><small>'+(historical?'آخر جلسة':'فرص اليوم')+'</small><strong>'+Number(r.opportunities||terminalState.radar.length||0)+'</strong></div>'+
   '<div><small>أعلى حركة</small><strong>'+pct(r.top_move_pct)+'</strong></div>'+
