@@ -29,6 +29,8 @@ from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, get_subscriptio
 from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
 from .fcc_reviewer import review_stock
 
+logger = logging.getLogger(__name__)
+
 scheduler_task = None
 holiday_radar_task = None
 
@@ -2365,16 +2367,30 @@ async def telegram_webhook(request: Request):
                 "🔒 <b>تحليل الأسهم الخاص متاح لمشتركي SAS PRO.</b>\n\n"
                 "افتح Mini App لتفعيل التجربة أو الاشتراك، ثم أرسل رمز السهم مثل <code>AAPL</code> هنا.")
             return {"ok": True}
-        try:
-            # عند فتح رابط التحليل من Mini App يرسل البوت نفس الرمز أولًا،
-            # ثم يبدأ التحليل مباشرة بدون طلب أي إدخال إضافي من المستخدم.
-            await send_message(chat_id, f"<code>{symbol}</code>")
-            from .private_analysis import build_private_analysis
-            report = await build_private_analysis(symbol)
-            await send_message(chat_id, report)
-        except Exception as exc:
-            logger.exception("Private stock analysis failed for %s: %s", symbol, exc)
-            await send_message(chat_id, "❌ تعذر إكمال التحليل حاليًا. حاول مرة أخرى بعد قليل.")
+        # لا ننفذ التحليل الثقيل داخل طلب Telegram نفسه؛ يجب أن نعيد 200 بسرعة
+        # حتى لا يعيد Telegram إرسال نفس الرسالة بسبب تأخر مزودي البيانات.
+        await send_message(
+            chat_id,
+            f"🔎 <b>تم استلام {html.escape(symbol)}</b>\nجارٍ تحليل السهم وإرسال النتيجة هنا..."
+        )
+
+        async def _run_private_analysis():
+            try:
+                from .private_analysis import build_private_analysis
+                report = await build_private_analysis(symbol)
+                await send_message(chat_id, report)
+            except Exception as exc:
+                logger.exception("Private stock analysis failed for %s: %s", symbol, exc)
+                try:
+                    await send_message(
+                        chat_id,
+                        "❌ تعذر إكمال التحليل حاليًا.\n"
+                        "تحقق من رمز السهم وحاول مرة أخرى بعد قليل."
+                    )
+                except Exception:
+                    logger.exception("Failed to send private analysis error for %s", symbol)
+
+        asyncio.create_task(_run_private_analysis(), name=f"saspro-private-analysis-{symbol}")
         return {"ok": True}
 
     async with SessionLocal() as db:
