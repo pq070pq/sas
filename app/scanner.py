@@ -1334,8 +1334,12 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
     breakout_extension_pct = breakout_info["extension_pct"]
     breakout_room_pct = breakout_info["room_pct"]
 
-    # Relative strength: compare the stock's 20-session return with NASDAQ proxy QQQ.
-    benchmark_return, benchmark_symbol = await _benchmark_return("QQQ", 20)
+    # Relative strength: compare the stock with QQQ when the benchmark is available.
+    # تعطل QQQ أو مزود البيانات المرجعي يجب ألا يعطل محرك SAS الفني للسهم نفسه.
+    try:
+        benchmark_return, benchmark_symbol = await _benchmark_return("QQQ", 20)
+    except Exception:
+        benchmark_return, benchmark_symbol = None, "QQQ (unavailable)"
     stock_return_20 = (price / closes[-21] - 1.0) if len(closes) > 21 and closes[-21] else None
     relative_strength = (
         stock_return_20 - benchmark_return
