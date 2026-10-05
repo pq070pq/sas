@@ -135,6 +135,71 @@ async def _fmp_quote(symbol: str):
     return None
 
 
+_FRED_INDEX_MAP = {
+    "SPX": "SP500",
+    "IXIC": "NASDAQCOM",
+    "DJI": "DJIA",
+}
+_FRED_CACHE = {}
+
+
+async def _fred_index_quote(symbol: str):
+    """Keyless daily-close fallback for US indices.
+
+    Used only after the configured market-data providers fail. FRED carries
+    daily closes for S&P 500, Nasdaq Composite and Dow Jones Industrial
+    Average, so a weekend/holiday message can still show the last real close.
+    """
+    series = _FRED_INDEX_MAP.get(symbol)
+    if not series:
+        return None
+
+    cached = _FRED_CACHE.get(series)
+    if cached:
+        cached_at, cached_item = cached
+        if (asyncio.get_running_loop().time() - cached_at) < 900:
+            return dict(cached_item)
+
+    try:
+        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+            r = await client.get(
+                "https://fred.stlouisfed.org/graph/fredgraph.csv",
+                params={"id": series},
+                headers={"User-Agent": "SAS-PRO/2.1"},
+            )
+            r.raise_for_status()
+
+        rows = list(csv.DictReader(io.StringIO(r.text)))
+        values = []
+        for row in rows:
+            try:
+                value = float(row.get(series, ""))
+                if value > 0:
+                    values.append((row.get("DATE"), value))
+            except (TypeError, ValueError):
+                continue
+
+        if not values:
+            return None
+
+        date, price = values[-1]
+        previous = values[-2][1] if len(values) > 1 else None
+        change_pct = ((price - previous) / previous) * 100 if previous else None
+        item = {
+            "symbol": symbol,
+            "price": float(price),
+            "change_pct": change_pct,
+            "source": "FRED Last Close",
+            "is_extended_hours": False,
+            "datetime": date,
+        }
+        _FRED_CACHE[series] = (asyncio.get_running_loop().time(), dict(item))
+        return item
+    except Exception as exc:
+        logger.warning("FRED_INDEX_FAILED symbol=%s series=%s error=%s", symbol, series, type(exc).__name__)
+        return None
+
+
 def _valid_price(value):
     try:
         return value is not None and float(value) > 0
@@ -456,6 +521,16 @@ async def macro_quote(symbol: str):
         diagnostics.append("Stooq:no_data")
     except Exception as exc:
         diagnostics.append(f"Stooq:{type(exc).__name__}")
+
+    # Final keyless fallback for the three cash indices. This is intentionally
+    # after all configured providers so it cannot mask a live/provider quote.
+    try:
+        fred = await _fred_index_quote(symbol)
+        if fred:
+            return fred
+        diagnostics.append("FRED:no_data")
+    except Exception as exc:
+        diagnostics.append(f"FRED:{type(exc).__name__}")
 
     logger.warning("HOLIDAY_RADAR_PRICE_FAILED symbol=%s diagnostics=%s", symbol, " | ".join(diagnostics))
     return {
