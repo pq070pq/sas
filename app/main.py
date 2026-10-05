@@ -97,13 +97,20 @@ async def startup():
                         {"command":"revoke","description":"إلغاء اشتراك"},
                     ],
                 })
-            if settings.telegram_webhook_auto_configure and settings.app_base_url and settings.telegram_webhook_secret:
-                await bot_api("setWebhook", {
+            if settings.telegram_webhook_auto_configure and settings.app_base_url:
+                webhook_payload = {
                     "url": settings.app_base_url.rstrip("/") + "/api/telegram/webhook",
-                    "secret_token": settings.telegram_webhook_secret,
                     "allowed_updates": ["message", "chat_join_request", "chat_member", "pre_checkout_query"],
                     "drop_pending_updates": False,
-                })
+                }
+                if settings.telegram_webhook_secret:
+                    webhook_payload["secret_token"] = settings.telegram_webhook_secret
+                webhook_result = await bot_api("setWebhook", webhook_payload)
+                logging.getLogger(__name__).warning(
+                    "Telegram webhook configured: url=%s pending=%s",
+                    webhook_payload["url"],
+                    webhook_result.get("pending_update_count", "?") if isinstance(webhook_result, dict) else "?",
+                )
         except Exception:
             pass
     global scheduler_task, holiday_radar_task
