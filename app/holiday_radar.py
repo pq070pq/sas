@@ -431,6 +431,9 @@ async def holiday_radar_scheduler():
 
 
 def stock_radar_enabled() -> bool:
-    """Stock radar works across weekday sessions; holidays/weekends use holiday radar."""
+    """الرادار يعمل فقط عندما تكون هناك جلسة رصد فعلية: البري ماركت/الرئيسية/بعد الإغلاق."""
     status = market_status()
-    return not status["holiday"] and status["session"] != "weekend"
+    return (
+        not status["holiday"]
+        and status["session"] in {"premarket", "regular", "afterhours", "night"}
+    )
