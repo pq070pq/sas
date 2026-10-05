@@ -47,6 +47,39 @@ _news_cache = {}
 _FUNDAMENTALS_CACHE_TTL = 3600
 _fundamentals_cache = {}
 _earnings_calendar_cache = None
+_tipranks_cache = {}
+
+async def tipranks_analysis(symbol: str):
+    """Fetch TipRanks stock-analysis page as external AI evidence; never used for SAS price/targets."""
+    key = str(symbol or "").upper().strip()
+    if not key or Fetcher is None:
+        return {}
+    now = time.monotonic()
+    cached = _tipranks_cache.get(key)
+    if cached and now - cached[0] < 3600:
+        return cached[1]
+    url = f"https://www.tipranks.com/stocks/{key.lower()}"
+    try:
+        page = await asyncio.to_thread(Fetcher.get, url, stealthy_headers=True, timeout=10, retries=1)
+        try:
+            raw = str(page.markdown() or "")
+        except Exception:
+            raw = str(page.get_text() or "")
+        text = " ".join(raw.split())
+        if not text:
+            return {}
+        # Keep the payload compact; AI receives the site's own text and translates it.
+        data = {
+            "source": "TipRanks",
+            "url": url,
+            "symbol": key,
+            "page_text": text[:12000],
+            "retrieved_at": datetime.now(timezone.utc).isoformat(),
+        }
+        _tipranks_cache[key] = (now, data)
+        return data
+    except Exception:
+        return {}
 
 
 def _safe_timestamp(value):
