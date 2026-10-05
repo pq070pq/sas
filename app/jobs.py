@@ -474,7 +474,7 @@ async def stock_radar_cycle():
 
                 # لا نكرر نفس السهم بلا سبب.
                 # نعيد التحليل فقط إذا ظهرت قفزة موثوقة في التداول مقارنة بآخر رصد محفوظ.
-                if existing:
+                if existing and existing.telegram_message_id:
                     try:
                         previous = json.loads(existing.payload or "{}")
                     except Exception:
@@ -503,6 +503,12 @@ async def stock_radar_cycle():
                         "Radar reanalysis triggered: %s | volume_jump=%s price_jump=%s",
                         symbol, volume_jump, price_jump,
                     )
+                elif existing:
+                    # A candidate previously found but not published is a live
+                    # watch candidate. Re-check it every cycle so a real breakout
+                    # can reach the channel later without being lost to dedupe.
+                    cycle_stats["reanalyzed"] += 1
+                    logger.info("Radar pending candidate rechecked: %s", symbol)
 
                 try:
                     q = await quote(symbol, prefer_extended=status.get("session") in {"premarket", "afterhours", "night"})
@@ -532,6 +538,29 @@ async def stock_radar_cycle():
                 channel_ok, channel_reason = _radar_channel_gate(status, row, q)
                 if not channel_ok:
                     cycle_stats["skipped"] += 1
+                    row["channel_gate"] = {
+                        "passed": False,
+                        "session": status.get("session"),
+                        "reason": channel_reason,
+                    }
+                    # Keep rejected-but-promising candidates as watch records.
+                    # They do not generate Telegram messages, but they are
+                    # rechecked on the next cycle so a real confirmation is not lost.
+                    try:
+                        if existing:
+                            existing.payload = json.dumps(row, ensure_ascii=False)
+                            existing.created_at = utcnow()
+                        else:
+                            existing = RadarSignal(
+                                symbol=symbol,
+                                session_date=session_date,
+                                payload=json.dumps(row, ensure_ascii=False),
+                            )
+                            db.add(existing)
+                        await db.commit()
+                    except Exception:
+                        await db.rollback()
+                        logger.exception("Radar watch candidate persistence failed: %s", symbol)
                     logger.info(
                         "Radar channel gate skipped: %s | session=%s | reason=%s",
                         symbol, status.get("session"), channel_reason,
