@@ -26,27 +26,56 @@ FMP_SYMBOLS = {
 }
 
 async def _finnhub_quote(symbol: str):
-    if not settings.finnhub_api_key:
+    """Finnhub quote with independent-key rotation and provider failover."""
+    keys = [
+        x.strip()
+        for x in str(getattr(settings, "finnhub_api_keys", "") or "").replace("\n", ",").replace(";", ",").split(",")
+        if x.strip()
+    ]
+    if getattr(settings, "finnhub_api_key", ""):
+        keys.insert(0, settings.finnhub_api_key.strip())
+    if not keys:
         return None
     mapped = FINNHUB_SYMBOLS.get(symbol, symbol)
-    async with httpx.AsyncClient(timeout=8) as c:
-        r = await c.get(
-            "https://finnhub.io/api/v1/quote",
-            params={"symbol": mapped, "token": settings.finnhub_api_key},
-        )
-        r.raise_for_status()
-        d = r.json()
-    price = d.get("c")
-    if not _valid_price(price):
-        return None
-    return {
-        "symbol": symbol,
-        "price": price,
-        "change_pct": d.get("dp"),
-        "source": "Finnhub fallback",
-        "is_extended_hours": False,
-        "datetime": d.get("t"),
-    }
+    # Use the shared pool so a bad/rate-limited key is cooled down and the next
+    # independently provisioned key is tried automatically.
+    from .key_pool import KeyPool
+    pool = getattr(_finnhub_quote, "_pool", None)
+    if pool is None:
+        pool = KeyPool(dict.fromkeys(keys), settings.api_key_cooldown_seconds)
+        setattr(_finnhub_quote, "_pool", pool)
+    async with httpx.AsyncClient(timeout=8) as client:
+        for _ in range(max(1, pool.size)):
+            key = await pool.acquire()
+            if not key:
+                break
+            try:
+                response = await client.get(
+                    "https://finnhub.io/api/v1/quote",
+                    params={"symbol": mapped, "token": key},
+                )
+                if response.status_code in (401, 403, 429):
+                    retry = response.headers.get("Retry-After")
+                    await pool.mark_failure(key, retry_after=int(retry) if retry and retry.isdigit() else None)
+                    continue
+                response.raise_for_status()
+                data = response.json()
+                price = data.get("c")
+                if not _valid_price(price):
+                    await pool.mark_failure(key)
+                    continue
+                await pool.mark_success(key)
+                return {
+                    "symbol": symbol,
+                    "price": float(price),
+                    "change_pct": data.get("dp"),
+                    "source": "Finnhub",
+                    "is_extended_hours": False,
+                    "datetime": data.get("t"),
+                }
+            except Exception:
+                await pool.mark_failure(key)
+    return None
 
 
 async def _fmp_index_quote(symbol: str):
@@ -546,7 +575,7 @@ async def quote(symbol: str, prefer_extended: bool = False):
     # During pre/after-hours, prefer a provider response that explicitly marks
     # the quote as extended. A regular-session close must never masquerade as
     # live extended-hours activity.
-    if prefer_extended and settings.twelve_data_api_key:
+    if prefer_extended and (settings.twelve_data_api_key or settings.twelve_data_api_keys):
         try:
             async with httpx.AsyncClient(timeout=12) as c:
                 params = {
@@ -583,14 +612,14 @@ async def quote(symbol: str, prefer_extended: bool = False):
     if not settings.twelve_data_api_key:
         return {"symbol": symbol, "price": None, "change_pct": None, "source": "not_configured"}
 
-    async with httpx.AsyncClient(timeout=12) as c:
-        params = {
-            "symbol": symbol,
-            "apikey": settings.twelve_data_api_key,
-            # يدعم بيانات قبل/بعد السوق في خطط Twelve Data التي توفر Extended Hours.
-            "prepost": "true",
-        }
-        r = await twelve_call(c.get, "https://api.twelvedata.com/quote", params=params)
+    try:
+        async with httpx.AsyncClient(timeout=12) as c:
+            params = {
+                "symbol": symbol,
+                # twelve_guard injects the currently healthy key.
+                "prepost": "true",
+            }
+            r = await twelve_call(c.get, "https://api.twelvedata.com/quote", params=params)
         if r.status_code == 429:
             fallback = await _finnhub_quote(symbol)
             if fallback:
@@ -658,14 +687,23 @@ async def quote(symbol: str, prefer_extended: bool = False):
             prev = float(d["previous_close"])
             change_pct = ((float(price) - prev) / prev) * 100 if prev else None
 
-    return {
-        "symbol": symbol,
-        "price": price,
-        "change_pct": change_pct,
-        "source": source if _valid_price(price) else "unavailable",
-        "is_extended_hours": bool(d.get("is_extended_hours")) or _valid_price(extended_price),
-        "datetime": d.get("datetime"),
-    }
+        return {
+            "symbol": symbol,
+            "price": price,
+            "change_pct": change_pct,
+            "source": source if _valid_price(price) else "unavailable",
+            "is_extended_hours": bool(d.get("is_extended_hours")) or _valid_price(extended_price),
+            "datetime": d.get("datetime"),
+        }
+    except Exception as exc:
+        logger.warning("TWELVE_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+        fallback = await _finnhub_quote(symbol)
+        if fallback:
+            return fallback
+        stooq = await _stooq_quote(symbol)
+        if stooq:
+            return stooq
+        return {"symbol": symbol, "price": None, "change_pct": None, "source": "unavailable"}
 
 
 _TICKER_CACHE = {}
