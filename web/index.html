@@ -111,7 +111,14 @@
         <div><span>CONTROL CENTER</span><h1>لوحة إدارة SAS PRO</h1><p>إدارة المشتركين، الاشتراكات، المدفوعات، الصلاحيات والنشر من مكان واحد.</p></div>
         <div class="admin-security">🔐 <b>وصول آمن</b><small>صلاحياتك الإدارية مفعلة</small></div>
       </div>
-      <section class="admin-stats" id="adminStats"></section>
+      <section class="admin-alerts-panel admin-panel" id="adminAlertsPanel">
+      <div class="section-head"><b>🚨 مراقبة النظام والرادار</b><span id="adminAlertsUpdated">آخر فحص: —</span></div>
+      <div id="adminAlertsSummary" class="admin-alerts-summary">
+        <div class="admin-system-ok"><b>🟢 النظام سليم</b><small>جاري فحص الرادار والخدمات...</small></div>
+      </div>
+      <div id="adminAlertsList" class="admin-alerts-list"></div>
+    </section>
+    <section class="admin-stats" id="adminStats"></section>
       <section class="admin-panel monthly-report-panel">
       <div id="monthlyReport"><div class="loading">جاري تحميل التقرير الشهري...</div></div>
     </section>
