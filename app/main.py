@@ -10,7 +10,7 @@ import html
 import httpx
 from datetime import date, datetime, timedelta, timezone
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -65,6 +65,30 @@ def _analysis_lock(symbol):
 
 
 app = FastAPI(title="SAS PRO", version="2.1.0")
+
+@app.exception_handler(Exception)
+async def saspro_exception_handler(request: Request, exc: Exception):
+    # Telegram must receive HTTP 200 even when an unexpected internal error
+    # occurs; otherwise it keeps retrying the same update and the user sees
+    # no response. Keep the full traceback in the container logs for diagnosis.
+    logger.exception("Unhandled SAS PRO request error: %s %s", request.method, request.url.path, exc_info=exc)
+    if request.url.path == "/api/telegram/webhook":
+        return JSONResponse({"ok": True, "handled_error": True}, status_code=200)
+    return JSONResponse({"detail": "Internal Server Error"}, status_code=500)
+
+@app.middleware("http")
+async def telegram_webhook_logging(request: Request, call_next):
+    if request.url.path == "/api/telegram/webhook":
+        logger.info("Telegram webhook request received: method=%s", request.method)
+        try:
+            response = await call_next(request)
+            logger.info("Telegram webhook response: status=%s", response.status_code)
+            return response
+        except Exception as exc:
+            logger.exception("Telegram webhook raised exception: %s", exc)
+            return JSONResponse({"ok": True, "handled_error": True}, status_code=200)
+    return await call_next(request)
+
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
 
 def webapp_url() -> str:
