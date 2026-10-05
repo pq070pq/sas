@@ -136,6 +136,20 @@ async def startup():
     scheduler_task = asyncio.create_task(scheduler(), name="saspro-scheduler")
     holiday_radar_task = asyncio.create_task(holiday_radar_scheduler(), name="saspro-holiday-radar")
     telegram_polling_task = asyncio.create_task(telegram_polling_loop(), name="saspro-telegram-polling")
+    def _telegram_polling_done(task):
+        try:
+            exc = task.exception()
+        except asyncio.CancelledError:
+            logging.getLogger(__name__).warning("Telegram polling task cancelled.")
+            return
+        if exc:
+            logging.getLogger(__name__).exception(
+                "Telegram polling task crashed: %s", exc,
+                exc_info=(type(exc), exc, exc.__traceback__),
+            )
+        else:
+            logging.getLogger(__name__).warning("Telegram polling task stopped unexpectedly.")
+    telegram_polling_task.add_done_callback(_telegram_polling_done)
     logging.getLogger(__name__).warning(
         "Background tasks started: scheduler=%s holiday_radar=%s telegram=%s",
         scheduler_task.get_name(), holiday_radar_task.get_name(), telegram_polling_task.get_name()
@@ -148,7 +162,16 @@ async def telegram_polling_loop():
         return
     offset = None
     timeout = 20
-    logger.info("Telegram polling receiver started.")
+    logging.getLogger(__name__).warning("Telegram polling receiver started.")
+    try:
+        me = await bot_api("getMe", {})
+        logging.getLogger(__name__).warning(
+            "Telegram polling bot authenticated: id=%s username=%s",
+            me.get("id"), me.get("username"),
+        )
+    except Exception as exc:
+        logging.getLogger(__name__).exception("Telegram polling bot authentication failed: %s", exc)
+        await asyncio.sleep(5)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="http://saspro.local",
