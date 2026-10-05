@@ -510,7 +510,9 @@ async def require_terms(user=Depends(telegram_user), db: AsyncSession = Depends(
 async def require_pro(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     # المالك يدخل مباشرة. المستخدم يدخل SAS PRO عند وجود اشتراك فعال،
     # تجربة فعالة، أو وصول مجاني منحه المشرف.
-    if int(user["id"]) == int(settings.owner_telegram_id):
+    # المالك وأي مشرف SAS PRO مصرح له يستطيع فتح واجهة المستخدم
+    # من لوحة الإدارة لمعاينة نفس المحطة والبيانات المتاحة للمشترك.
+    if int(user["id"]) == int(settings.owner_telegram_id) or await get_admin(int(user["id"])):
         return user
 
     row = (await db.execute(
