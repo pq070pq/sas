@@ -856,11 +856,44 @@ async def discover_low_price_stocks():
 
     staged_rows = await asyncio.gather(*(stage(row) for row in candidates), return_exceptions=False)
     accepted = [x for x in staged_rows if x]
+
+    # لا نسمح بانهيار الرادار إلى صفر فقط لأن RVOL/بنية الشموع اليومية
+    # لم تتأكد بعد. إذا لم ينجح مسار التأكيد الكامل، نحافظ على أفضل
+    # المتحركين الحقيقيين كـ "مراقبة مبكرة" ليعاد فحصهم في الدورة التالية.
+    # هذا المسار لا يتجاوز بوابة السعر الحي/السيولة في jobs.py ولا يرسل
+    # ارتفاعاً وهمياً إلى القناة.
+    if not accepted:
+        early_watch = []
+        for row in gainers[:120]:
+            symbol = str(row.get("symbol") or "").upper()
+            price = _f(row.get("price"), 0)
+            volume = _f(row.get("volume"), 0)
+            change = _f(row.get("change_pct"), 0)
+            dollar_volume = price * volume
+            if not symbol or price <= 0 or volume <= 0:
+                continue
+            if change < 1.0 or dollar_volume < MIN_DAILY_DOLLAR_VOLUME:
+                continue
+            early_watch.append({
+                **row,
+                "momentum_section": "early_mover",
+                "momentum_rvol_10d": None,
+                "momentum_rvol_threshold": 0.0,
+                "momentum_candle_source": "discovery",
+                "momentum_session_verified": True,
+                "accumulation_signal": False,
+                "movement_signal": True,
+                "breakout_setup": False,
+                "early_watch": True,
+                "staging_reason": "متحرك مبكر: ارتفاع + سيولة نقدية كافية؛ يحتاج تأكيد فني قبل النشر",
+            })
+        accepted = early_watch
+
     accepted.sort(
         key=lambda x: (
-            bool(x.get("accumulation_signal")),
+            bool(x.get("early_watch")),
             _f(x.get("momentum_rvol_10d")),
-            abs(_f(x.get("change_pct"))),
+            _f(x.get("change_pct")),
             _f(x.get("price")) * _f(x.get("volume")),
         ),
         reverse=True,
