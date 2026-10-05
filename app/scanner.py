@@ -1861,6 +1861,8 @@ async def scan_us_low_price_stocks():
         "risk_reward_pass": 0,
         "risk_reward_warning": 0,
         "final_pass": 0,
+        "watch_candidates": 0,
+        "advanced_warnings": 0,
     }
 
     # Top Gainers + RVOL 10 أيام هي بوابة الرادار، ثم السيولة والأهداف/الوقف وR:R.
@@ -2012,16 +2014,9 @@ async def scan_us_low_price_stocks():
                 # التأكيد المتقدم لا يعمل كحاجز ثانٍ فوق بوابة SAS الأساسية.
                 # إذا كانت الإشارة الأساسية صالحة، نستخدم التأكيد لرفع/خفض الثقة
                 # فقط. الحظر الحقيقي يُترك للتناقضات الهابطة القوية.
-                if classification.get("advanced_confirmation_status") == "حظر هابط قوي":
-                    return None, {
-                        "symbol": symbol,
-                        "exchange": row.get("exchange"),
-                        "status": "filtered",
-                        "reason": "تناقض هابط قوي في التأكيد المتقدم",
-                        "advanced_confirmation_score": classification.get("advanced_confirmation_score"),
-                        "market_structure": classification.get("market_structure"),
-                        "rsi_divergence": classification.get("rsi_divergence"),
-                    }
+                # التأكيد المتقدم أصبح درجة ثقة لا بوابة حذف.
+                # نحتفظ بالتناقض الهابط كتحذير حتى لا نخفي فرصة مبكرة بسبب مؤشر ثانوي.
+                advanced_warning = classification.get("advanced_confirmation_status") == "حظر هابط قوي"
 
                 # فلترة السيولة: بعد بوابة SAS الأساسية، نتحقق من التداول النقدي الفعلي
                 # وحجمًا متوافقًا مع الحركة. لا توجد هنا بوابة Strategy قديمة.
@@ -2060,26 +2055,27 @@ async def scan_us_low_price_stocks():
                     company_news(symbol, days=2),
                 )
 
-                # لا تُرسل إشارة قابلة للتنفيذ بدون هدف سعري مرصود فعليًا.
-                # status=ok مع targets=[] يعني أن البيانات موجودة لكن لا توجد مقاومة
-                # مؤكدة فوق السعر يمكن اعتمادها كهدف.
-                target_levels = targets.get("targets") if isinstance(targets, dict) else None
-                if (
-                    not isinstance(targets, dict)
-                    or targets.get("status") != "ok"
-                    or not isinstance(target_levels, list)
-                    or not target_levels
-                ):
-                    return None, {
-                        "symbol": symbol,
-                        "exchange": row.get("exchange"),
-                        "status": "filtered",
-                        "reason": "لا يوجد هدف سعري مؤكد من مقاومة مرصودة",
-                        "data_source": (targets or {}).get("method") if isinstance(targets, dict) else None,
-                        "target_status": (targets or {}).get("status") if isinstance(targets, dict) else None,
+                # الهدف السعري ليس شرط اكتشاف. غيابه لا يلغي الفرصة؛
+                # يصنف السهم "مبكر/تحت المراقبة" بدل إسقاطه من الرادار.
+                # لا نُنشئ هدفًا وهميًا: نستخدم فقط المستويات المرصودة إن وجدت.
+                if not isinstance(targets, dict):
+                    targets = {"status": "watch", "targets": [], "resistances": [], "exit": 0, "support": 0}
+                target_levels = targets.get("targets") or []
+                has_confirmed_target = (
+                    targets.get("status") == "ok"
+                    and isinstance(target_levels, list)
+                    and bool(target_levels)
+                )
+                if has_confirmed_target:
+                    filter_counts["targets_pass"] += 1
+                else:
+                    targets = {
+                        **targets,
+                        "status": "watch",
+                        "targets": [],
+                        "resistances": [],
+                        "target_warning": "لا توجد مقاومة مؤكدة صالحة كهدف حاليًا",
                     }
-
-                filter_counts["targets_pass"] += 1
 
                 live_price = _f(row.get("live_price"), 0)
                 if live_price <= 0:
@@ -2110,24 +2106,32 @@ async def scan_us_low_price_stocks():
                     if exit_level >= live_price or exit_level <= 0:
                         exit_level = live_price - atr if atr > 0 else 0
 
-                    if not raw_targets or exit_level <= 0:
-                        return None, {
-                            "symbol": symbol,
-                            "exchange": row.get("exchange"),
-                            "status": "filtered",
-                            "reason": "لا يوجد هدف فوق السعر الحالي مع وقف أسفل سعر الدخول",
-                            "data_source": "PanWatch",
+                    if raw_targets and exit_level > 0:
+                        targets = {
+                            **targets,
+                            "status": "ok",
+                            "targets": raw_targets,
+                            "resistances": raw_targets,
+                            "exit": round(exit_level, 4),
+                            "support": round(exit_level, 4),
+                        }
+                    else:
+                        # لا نحذف المرشح إذا تعذر اشتقاق هدف/وقف حي؛
+                        # يبقى مرشح مراقبة حتى تتوفر المستويات في دورة لاحقة.
+                        targets = {
+                            **targets,
+                            "status": "watch",
+                            "targets": raw_targets,
+                            "resistances": raw_targets,
+                            "exit": round(exit_level, 4) if exit_level > 0 else 0,
+                            "support": round(exit_level, 4) if exit_level > 0 else 0,
+                            "target_warning": "المستويات الحية غير مكتملة",
                         }
 
-                    targets = {
-                        **targets,
-                        "targets": raw_targets,
-                        "resistances": raw_targets,
-                        "exit": round(exit_level, 4),
-                        "support": round(exit_level, 4),
-                    }
-
                 filter_counts["live_levels_pass"] += 1
+                filter_counts["watch_candidates"] = filter_counts.get("watch_candidates", 0) + (0 if has_confirmed_target else 1)
+                if advanced_warning:
+                    filter_counts["advanced_warnings"] = filter_counts.get("advanced_warnings", 0) + 1
 
                 # fallback وحيد عند الحاجة فقط.
                 if live_price <= 0:
