@@ -122,13 +122,21 @@ async def expiry_cycle():
 
 
 async def evaluate_radar_outcomes():
-    """Track active radar targets and link every update to its original radar message."""
-    async with SessionLocal() as db:
-        signals = (await db.execute(select(RadarSignal))).scalars().all()
-        for signal in signals:
-            if not signal.telegram_message_id:
-                continue
+    """Evaluate only today's published radar signals with valid upward targets.
 
+    Historical signals are never re-evaluated against today's price.
+    """
+    today_session = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    async with SessionLocal() as db:
+        signals = (await db.execute(
+            select(RadarSignal).where(
+                RadarSignal.session_date == today_session,
+                RadarSignal.telegram_message_id.is_not(None),
+            )
+        )).scalars().all()
+        logger.info("Radar outcome evaluation: %d today's published signals.", len(signals))
+
+        for signal in signals:
             payload = json.loads(signal.payload or "{}")
             tech = payload.get("targets") or {}
             targets = []
@@ -184,7 +192,30 @@ async def evaluate_radar_outcomes():
                     existing.target3, existing.target4, existing.target5
                 ) if x is not None
             ]
-            if existing.status == "failed" or not ordered_targets or int(existing.achieved_target or 0) >= len(ordered_targets):
+
+            # Reject malformed bullish targets: every target must be above entry
+            # and targets must increase strictly. Invalid records can never alert.
+            if existing.entry_price is None or existing.entry_price <= 0:
+                existing.status = "failed"
+                logger.warning("Invalid radar outcome without entry: %s id=%s", signal.symbol, signal.id)
+                continue
+            valid_targets = (
+                bool(ordered_targets)
+                and all(float(t) > float(existing.entry_price) for t in ordered_targets)
+                and all(
+                    float(ordered_targets[i]) > float(ordered_targets[i - 1])
+                    for i in range(1, len(ordered_targets))
+                )
+            )
+            if not valid_targets:
+                existing.status = "failed"
+                logger.warning(
+                    "Invalid radar targets rejected: %s id=%s entry=%s targets=%s",
+                    signal.symbol, signal.id, existing.entry_price, ordered_targets,
+                )
+                continue
+
+            if existing.status == "failed" or int(existing.achieved_target or 0) >= len(ordered_targets):
                 continue
 
             try:
