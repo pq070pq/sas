@@ -242,6 +242,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     radar_checks = tech.get("radar_checks") or {}
     ai = tech.get("ai_analysis") or {}
     news_items = tech.get("news_items") or []
+    tipranks = tech.get("tipranks_analysis") or {}
 
     def _esc(value):
         if value is None:
@@ -354,6 +355,14 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         summary_lines.append(f"⏱️ <b>مدة الرصد المتوقعة:</b> {_esc(holding_horizon)}")
     add_section(report, "📋 <b>ملخص سريع للمبتدئ</b>", summary_lines)
 
+    if tipranks.get("summary") or ai.get("tipranks_summary"):
+        tr_summary = tipranks.get("summary") or ai.get("tipranks_summary")
+        tr_signal = tipranks.get("signal") or ai.get("tipranks_signal") or "غير واضح"
+        add_section(report, "🌐 <b>تحليل TipRanks — ترجمة AI</b>", [
+            f"🧠 <b>الخلاصة:</b> {_esc(tr_summary)}",
+            f"📊 <b>إشارة TipRanks:</b> {_esc(tr_signal)}",
+            "ℹ️ هذا تحليل خارجي مترجم؛ لا يغيّر سعر الدخول أو الوقف أو الأهداف التي يرصدها SAS PRO."
+        ])
     if momentum_label or classification_label:
         add_section(report, "💡 <b>ماذا يعني ذلك؟</b>", [
             "السهم في حالة فنية مرصودة، لكن استمرار الحركة يحتاج إلى تأكيد من السعر والسيولة."
@@ -1862,16 +1871,23 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
              "error": f"{type(q).__name__}: {q}"}
 
     # الأخبار والأساسيات تُجمع دائمًا؛ غيابها لا يمنع التحليل الفني.
-    news, fundamentals = await asyncio.gather(
+    news, fundamentals, tipranks_data = await asyncio.gather(
         company_news(symbol, days=3),
         company_fundamentals(symbol),
+        tipranks_analysis(symbol),
         return_exceptions=True,
     )
     if isinstance(news, Exception):
         news = []
     if isinstance(fundamentals, Exception):
         fundamentals = {}
+    if isinstance(tipranks_data, Exception) or not isinstance(tipranks_data, dict):
+        tipranks_data = {}
 
+    # TipRanks مصدر تحليلي إضافي؛ AI يترجمه ويختصره دون تحويله إلى هدف أو قرار SAS PRO.
+    if tipranks_data:
+        tipranks_data = {**tipranks_data, "summary": "", "signal": "غير واضح"}
+    
     # طبقة AI تفسيرية فقط. إذا لم توجد أخبار موثقة فلا نختلق تفسيرًا.
     ai_result = {}
     try:
@@ -1882,6 +1898,7 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
             news=news,
             fundamentals=fundamentals,
             market={"change_pct": q.get("change_pct"), "price": q.get("price")},
+            tipranks=tipranks_data,
         )
     except Exception as exc:
         ai_result = {"enabled": False, "status": "provider_error", "error": str(exc)[:300]}
