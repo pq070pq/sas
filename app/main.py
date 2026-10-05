@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 scheduler_task = None
 holiday_radar_task = None
+telegram_polling_task = None
 
 # ذاكرة SAS PRO للتحليل: تمنع إعادة التحليل الفني/الأخبار/AI لكل فتح للسهم.
 # السعر الحي يبقى منفصلًا ويُحدّث بسرعة.
@@ -123,29 +124,67 @@ async def startup():
                         {"command":"revoke","description":"إلغاء اشتراك"},
                     ],
                 })
-            if settings.telegram_webhook_auto_configure and settings.app_base_url:
-                # Reset the webhook connection while preserving pending updates.
-                # This clears Telegram's previous failed-delivery backoff after a deploy.
+            if settings.telegram_webhook_auto_configure:
+                # The OVH reverse-proxy path has been unreliable for inbound Telegram
+                # updates. Use Telegram long polling instead so private analysis and
+                # payment updates do not depend on an inbound HTTPS POST.
                 await bot_api("deleteWebhook", {"drop_pending_updates": False})
-                webhook_payload = {
-                    "url": settings.app_base_url.rstrip("/") + "/api/telegram/webhook",
-                    "allowed_updates": ["message", "chat_join_request", "chat_member", "pre_checkout_query"],
-                    "drop_pending_updates": False,
-                }
-                if settings.telegram_webhook_secret:
-                    webhook_payload["secret_token"] = settings.telegram_webhook_secret
-                webhook_result = await bot_api("setWebhook", webhook_payload)
-                logging.getLogger(__name__).warning(
-                    "Telegram webhook configured: url=%s pending=%s",
-                    webhook_payload["url"],
-                    webhook_result.get("pending_update_count", "?") if isinstance(webhook_result, dict) else "?",
-                )
+                logger.warning("Telegram webhook disabled; SAS PRO polling receiver will be started.")
         except Exception:
             pass
-    global scheduler_task, holiday_radar_task
+    global scheduler_task, holiday_radar_task, telegram_polling_task
     scheduler_task = asyncio.create_task(scheduler(), name="saspro-scheduler")
     holiday_radar_task = asyncio.create_task(holiday_radar_scheduler(), name="saspro-holiday-radar")
-    logging.getLogger(__name__).warning("Background tasks started: scheduler=%s holiday_radar=%s", scheduler_task.get_name(), holiday_radar_task.get_name())
+    telegram_polling_task = asyncio.create_task(telegram_polling_loop(), name="saspro-telegram-polling")
+    logging.getLogger(__name__).warning(
+        "Background tasks started: scheduler=%s holiday_radar=%s telegram=%s",
+        scheduler_task.get_name(), holiday_radar_task.get_name(), telegram_polling_task.get_name()
+    )
+
+async def telegram_polling_loop():
+    """Receive Telegram updates without relying on the public webhook proxy."""
+    if not settings.telegram_bot_token:
+        return
+    offset = None
+    timeout = 20
+    async with httpx.AsyncClient(timeout=30) as client:
+        while True:
+            try:
+                payload = {
+                    "timeout": timeout,
+                    "allowed_updates": ["message", "chat_join_request", "chat_member", "pre_checkout_query"],
+                }
+                if offset is not None:
+                    payload["offset"] = offset
+                result = await bot_api("getUpdates", payload)
+                for update_item in result or []:
+                    update_id = int(update_item.get("update_id") or 0)
+                    try:
+                        headers = {"Content-Type": "application/json"}
+                        if settings.telegram_webhook_secret:
+                            headers["X-Telegram-Bot-Api-Secret-Token"] = settings.telegram_webhook_secret
+                        response = await client.post(
+                            "http://127.0.0.1:8000/api/telegram/webhook",
+                            headers=headers,
+                            json=update_item,
+                        )
+                        logger.info(
+                            "Telegram polling update=%s local_webhook_status=%s",
+                            update_id, response.status_code
+                        )
+                        if response.status_code != 200:
+                            raise RuntimeError(f"local webhook returned HTTP {response.status_code}")
+                        if update_id:
+                            offset = update_id + 1
+                    except Exception as exc:
+                        logger.exception("Telegram update processing failed: update_id=%s error=%s", update_id, exc)
+                        # Do not advance offset; Telegram will retry this update.
+                        break
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.exception("Telegram polling failed: %s", exc)
+                await asyncio.sleep(3)
 
 def build_report(symbol: str, q: dict, tech: dict, classification: dict | None = None, outcome=None) -> str:
     """Build the standard SAS PRO beginner-friendly stock report."""
