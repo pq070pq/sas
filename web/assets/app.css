@@ -342,39 +342,55 @@ filter:blur(.2px);
  .terminal-hero-banner{height:430px}
 }
 
-/* SAS PRO terminal v5 — clean top-left clock */
+/* SAS PRO terminal v7 — clock in the open left space */
 .hero-brand-row{
   display:flex;
   align-items:center;
-  justify-content:flex-start;
+  justify-content:space-between;
   gap:12px;
+  width:100%;
 }
 .hero-brand-row time{
-  display:inline-flex;
+  order:-1;
+  display:flex;
   align-items:center;
-  justify-content:center;
-  min-width:70px;
-  height:28px;
-  padding:0 9px;
-  border:1px solid rgba(45,244,255,.28);
-  border-radius:9px;
-  background:rgba(1,10,17,.68);
+  gap:7px;
+  min-width:118px;
+  height:34px;
+  padding:0 10px;
+  border:1px solid rgba(45,244,255,.24);
+  border-radius:11px;
+  background:linear-gradient(135deg,rgba(1,14,22,.78),rgba(2,8,14,.55));
   color:#dffcff;
-  font-size:11px;
-  font-weight:900;
-  letter-spacing:.4px;
+  box-shadow:0 6px 18px rgba(0,0,0,.24),inset 0 1px rgba(255,255,255,.03);
   direction:rtl;
-  box-shadow:0 5px 16px rgba(0,0,0,.25);
 }
-.hero-brand-row time:before{
-  content:"⏳";
-  margin-left:5px;
-  color:var(--cyan);
+.hero-brand-row time .clock-time{
   font-size:12px;
+  font-weight:1000;
+  letter-spacing:.3px;
+  white-space:nowrap;
+}
+.hero-brand-row time small{
+  color:#789ca5;
+  font-size:8px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.hero-brand-row time i{
+  width:6px;
+  height:6px;
+  flex:0 0 6px;
+  border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 9px var(--green);
 }
 @media(max-width:700px){
   .hero-brand-row{gap:8px}
-  .hero-brand-row time{min-width:64px;height:25px;padding:0 7px;font-size:10px}
+  .hero-brand-row time{min-width:104px;height:30px;padding:0 8px;gap:5px}
+  .hero-brand-row time .clock-time{font-size:10px}
+  .hero-brand-row time small{font-size:7px}
+  .hero-brand-row time i{width:5px;height:5px;flex-basis:5px}
 }
 
 /* SAS PRO terminal v6 — live market ticker + animated disclaimer */
