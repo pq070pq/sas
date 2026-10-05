@@ -285,7 +285,8 @@ async function runRadar(show=true){
   terminalState.radar=d.stocks||[];
   const diag=d.diagnostics||{};
   const mode=d.session==='overnight'?'🟡 قبل الافتتاح — بانتظار بداية البري ماركت':(d.historical?'🗂️ آخر رصد محفوظ':'🔴 فحص حي');
-  document.getElementById('radarDiagnostics').innerHTML='<b class="radar-mode">'+mode+'</b><span>مرشحون '+Number(diag.candidates||0)+'</span><span>اجتازوا '+Number(diag.passed||0)+'</span><span>مستبعدون '+Number(diag.filtered||0)+'</span><span>أخطاء '+Number(diag.errors||0)+'</span>';
+  const scanAt=d.scan_at?formatDateTime(d.scan_at):'—';
+  document.getElementById('radarDiagnostics').innerHTML='<b class="radar-mode">'+mode+'</b><span>🕒 وقت الرصد: '+escHtml(scanAt)+' بتوقيت الرياض</span><span>مرشحون '+Number(diag.candidates||0)+'</span><span>اجتازوا '+Number(diag.passed||0)+'</span><span>مستبعدون '+Number(diag.filtered||0)+'</span><span>أخطاء '+Number(diag.errors||0)+'</span>';
   const candidateEl=document.getElementById('radarCandidates');
   const candidates=Array.isArray(diag.filtered_examples)?diag.filtered_examples:[];
   if(candidateEl && candidates.length){
