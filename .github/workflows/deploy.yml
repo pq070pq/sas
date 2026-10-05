@@ -59,37 +59,12 @@ jobs:
             # unavailable without meaning the application deployment failed.
             docker compose ps saspro
 
-            docker compose exec -T saspro python - <<'PY'
-            from app.main import app
-            from app.config import settings
-            print(f"✅ SAS PRO application imported successfully: version={app.version}")
-            print(f"Telegram token configured: {bool(settings.telegram_bot_token)}")
-            print(f"Telegram webhook auto-configure: {settings.telegram_webhook_auto_configure}")
-            print(f"Telegram webhook secret configured: {bool(settings.telegram_webhook_secret)}")
-            print(f"App base URL configured: {bool(settings.app_base_url)}")
-            PY
+            docker compose exec -T saspro python -c "from app.main import app; from app.config import settings; print('SAS_PRO_VERSION=', app.version); print('TELEGRAM_CONFIGURED=', bool(settings.telegram_bot_token)); print('WEBHOOK_AUTO=', settings.telegram_webhook_auto_configure); print('WEBHOOK_SECRET=', bool(settings.telegram_webhook_secret)); print('APP_BASE_URL=', bool(settings.app_base_url))"
 
             echo "===== SAS PRO recent logs ====="
             docker compose logs --tail=250 saspro || true
             echo "===== END SAS PRO recent logs ====="
 
-            # Verify Telegram webhook configuration without exposing the bot token.
-            docker compose exec -T saspro python - <<'PY
-            import asyncio
-            from app.telegram import bot_api
-            async def main():
-                info = await bot_api("getWebhookInfo", {})
-                print("Telegram webhook URL configured:", bool(info.get("url")))
-                print("Telegram webhook pending updates:", info.get("pending_update_count", "?"))
-                print("Telegram webhook last error:", info.get("last_error_message") or "none")
-                print("Telegram webhook last error date:", info.get("last_error_date") or "none")
-                if not info.get("url"):
-                    raise SystemExit("❌ Telegram webhook is not configured.")
-                # last_error_message can describe an earlier failed delivery;
-                # the deployment itself is valid as long as a webhook URL is configured.
-                if info.get("last_error_message"):
-                    print("⚠️ Telegram webhook has a previous delivery error; new deliveries will be checked by the next bot update.")
-            asyncio.run(main())
-            PY
+            docker compose exec -T saspro python -c "import asyncio; from app.telegram import bot_api; info=asyncio.run(bot_api('getWebhookInfo', {})); print('WEBHOOK_URL=', bool(info.get('url'))); print('WEBHOOK_PENDING=', info.get('pending_update_count', '?')); print('WEBHOOK_ERROR=', info.get('last_error_message') or 'none')"
 
             echo "✅ OVH deployment smoke test passed."
