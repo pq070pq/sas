@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import logging
 import re
 import json
@@ -30,6 +31,36 @@ from .fcc_reviewer import review_stock
 
 scheduler_task = None
 holiday_radar_task = None
+
+# ذاكرة SAS PRO للتحليل: تمنع إعادة التحليل الفني/الأخبار/AI لكل فتح للسهم.
+# السعر الحي يبقى منفصلًا ويُحدّث بسرعة.
+_ANALYSIS_CACHE_TTL = 900
+_QUICK_SCAN_CACHE_TTL = 300
+_analysis_cache = {}
+_quick_scan_cache = {}
+_analysis_locks = {}
+
+def _cache_get(cache, symbol, ttl):
+    item = cache.get(symbol.upper())
+    if not item:
+        return None
+    created, payload = item
+    if (datetime.now(timezone.utc) - created).total_seconds() > ttl:
+        cache.pop(symbol.upper(), None)
+        return None
+    return copy.deepcopy(payload)
+
+def _cache_put(cache, symbol, payload):
+    cache[symbol.upper()] = (datetime.now(timezone.utc), copy.deepcopy(payload))
+
+def _analysis_lock(symbol):
+    key = symbol.upper()
+    lock = _analysis_locks.get(key)
+    if lock is None:
+        lock = asyncio.Lock()
+        _analysis_locks[key] = lock
+    return lock
+
 
 app = FastAPI(title="SAS PRO", version="2.1.0")
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
@@ -1556,7 +1587,22 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     """تحليل Mini App متعدد الطبقات: البيانات الفنية لا تتوقف بسبب غياب AI أو خبر."""
     symbol = symbol.upper().strip()
 
-    # PanWatch's optional agent can take longer than the Mini App request window.
+    cached = _cache_get(_analysis_cache, symbol, _ANALYSIS_CACHE_TTL)
+    if cached is not None:
+        try:
+            live_quote = await quote(symbol)
+            if isinstance(live_quote, dict) and live_quote.get("price"):
+                cached["quote"] = live_quote
+        except Exception:
+            pass
+        return cached
+
+    async with _analysis_lock(symbol):
+        cached = _cache_get(_analysis_cache, symbol, _ANALYSIS_CACHE_TTL)
+        if cached is not None:
+            return cached
+
+        # PanWatch's optional agent can take longer than the Mini App request window.
     # Keep the SAS/targets/quote path independent: a slow external agent must never
     # turn a valid technical analysis into a timeout.
     async def _optional_agent_analysis():
@@ -1804,12 +1850,40 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     except Exception:
         await db.rollback()
 
+    _cache_put(_analysis_cache, symbol, payload)
+    _cache_put(_quick_scan_cache, symbol, payload.get("mini_analysis") or {})
     return payload
 
 @app.get("/api/stocks/{symbol}/mini-analysis")
 async def stock_mini_analysis(symbol: str, _: dict = Depends(require_pro)):
-    """تحليل SAS PRO مختصر ومباشر للـMini App بدون AI أو طبقات خارجية بطيئة."""
+    """تحليل SAS PRO مختصر سريع مع ذاكرة مؤقتة لمنع إعادة التحليل المتكرر."""
     symbol = symbol.upper().strip()
+    cached = _cache_get(_quick_scan_cache, symbol, _QUICK_SCAN_CACHE_TTL)
+    if cached is not None:
+        try:
+            q_live = await quote(symbol)
+        except Exception:
+            q_live = None
+        return {
+            "ok": True,
+            "symbol": symbol,
+            "quote": q_live if isinstance(q_live, dict) and q_live.get("price") else cached.get("quote", {}),
+            "mini_analysis": cached.get("mini_analysis", cached),
+            "cached": True,
+        }
+
+    full_cached = _cache_get(_analysis_cache, symbol, _ANALYSIS_CACHE_TTL)
+    if full_cached is not None:
+        mini = full_cached.get("mini_analysis") or {}
+        return {
+            "ok": True,
+            "symbol": symbol,
+            "quote": full_cached.get("quote") or {},
+            "mini_analysis": mini,
+            "classification": full_cached.get("sas_pro", {}).get("classification", {}),
+            "targets": full_cached.get("sas_pro", {}).get("targets", {}),
+            "cached": True,
+        }
     try:
         q = await quote(symbol)
     except Exception:
@@ -1885,7 +1959,7 @@ async def stock_mini_analysis(symbol: str, _: dict = Depends(require_pro)):
     else:
         takeaway = "الإشارة محايدة وفق محرك SAS PRO."
 
-    return {
+    response = {
         "ok": True,
         "symbol": symbol,
         "quote": q,
@@ -1902,7 +1976,10 @@ async def stock_mini_analysis(symbol: str, _: dict = Depends(require_pro)):
         },
         "classification": cls,
         "targets": targets,
+        "cached": False,
     }
+    _cache_put(_quick_scan_cache, symbol, response)
+    return response
 
 @app.get("/api/stocks/{symbol}/private-link")
 async def stock_private_link(symbol: str, _: dict = Depends(require_pro)):
