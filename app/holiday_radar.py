@@ -194,7 +194,7 @@ async def holiday_snapshot():
     return rows
 
 
-async def publish_market_update(reason: str = "نفاد رصيد Twelve Data"):
+async def publish_market_update(reason: str = "تحديث السوق عبر مصادر بديلة"):
     """Send a fallback market/news update without consuming Twelve Data when quota is exhausted."""
     if not settings.telegram_channel_id or not settings.telegram_bot_token:
         return {"sent": False, "reason": "Telegram not configured"}
@@ -216,7 +216,7 @@ async def publish_market_update(reason: str = "نفاد رصيد Twelve Data"):
     lines = [
         "📰 <b>SAS PRO — تحديث السوق</b>",
         "",
-        f"ℹ️ <b>{reason}</b>",
+        "ℹ️ <b>تحديث السوق عبر مصادر بديلة</b>",
         "",
         "📊 <b>مؤشرات السوق</b>",
     ]
