@@ -118,6 +118,49 @@ def _format_ai(ai):
     )
 
 
+
+def _filter_relevant_news(news, symbol: str, company_name=None):
+    """Filter provider leakage so unrelated companies do not appear in a symbol report."""
+    key = str(symbol or "").upper().strip()
+    name = str(company_name or "").strip()
+    tokens = {key} if key else set()
+    for token in name.replace("-", " ").replace("/", " ").split():
+        clean = "".join(ch for ch in token if ch.isalnum())
+        if len(clean) >= 4:
+            tokens.add(clean.upper())
+    tokens.difference_update({"CORPORATION", "COMPANY", "LIMITED", "HOLDINGS", "GROUP", "PLC", "INCORPORATED"})
+    if not tokens:
+        return [x for x in news if isinstance(x, dict) and x.get("headline")]
+    return [
+        x for x in news
+        if isinstance(x, dict)
+        and x.get("headline")
+        and any(token in str(x.get("headline")).upper() for token in tokens)
+    ]
+
+
+def _evidence_summary(behavior, rvol, rsi, score, stop, target1):
+    parts = [str(behavior)] if behavior else []
+    if rvol is not None and rvol < 1:
+        parts.append("الحجم دون متوسطه، لذلك التأكيد ضعيف")
+    elif rvol is not None and rvol >= 1:
+        parts.append("الحجم أعلى من متوسطه")
+    try:
+        if rsi is not None:
+            rv = float(rsi)
+            parts.append("RSI في المنطقة المحايدة" if 30 <= rv <= 70 else ("RSI في تشبع بيعي" if rv < 30 else "RSI في تشبع شرائي"))
+    except (TypeError, ValueError):
+        pass
+    try:
+        if score is not None and float(score) < 30:
+            parts.append("قوة SAS Core محدودة")
+    except (TypeError, ValueError):
+        pass
+    if stop is None or target1 is None:
+        parts.append("لا توجد مستويات وقف وهدف موثوقة كافية لحساب R:R")
+    return "، ".join(parts) + "." if parts else "لا توجد أدلة كافية لبناء خلاصة موثوقة."
+
+
 async def build_private_analysis(symbol: str):
     symbol = symbol.upper().strip()
     quote_data, tech, events, news, fundamentals = await asyncio.gather(
@@ -149,6 +192,8 @@ async def build_private_analysis(symbol: str):
         news = []
     if not isinstance(fundamentals, dict):
         fundamentals = {}
+
+    news = _filter_relevant_news(news, symbol, fundamentals.get("name"))[:10]
 
     try:
         from .scanner import classify_sas
@@ -299,13 +344,18 @@ async def build_private_analysis(symbol: str):
 
     rvol_text = _num(rvol, "×") if rvol is not None else "غير متوفر"
     rvol_note = ""
+    rvol_n = None
     try:
-        if rvol is not None and float(rvol) < 1:
+        rvol_n = float(rvol) if rvol is not None else None
+        if rvol_n is not None and rvol_n < 1:
             rvol_note = " — أقل من متوسط الحجم"
-        elif rvol is not None and float(rvol) > 1:
+        elif rvol_n is not None and rvol_n > 1:
             rvol_note = " — فوق متوسط الحجم"
     except (TypeError, ValueError):
-        pass
+        rvol_n = None
+    behavior_display = str(behavior)
+    if "اختراق" in behavior_display and rvol_n is not None and rvol_n < 1:
+        behavior_display = "اختراق تحت المراقبة"
     rsi14 = classification.get("rsi14") if isinstance(classification, dict) else None
     rsi_text = _num(rsi14) if rsi14 is not None else "غير متوفر"
     try:
@@ -318,7 +368,7 @@ async def build_private_analysis(symbol: str):
         f"🚀 <b>SAS PRO | {html.escape(symbol)}</b>\n"
         "━━━━━━━━━━━━━━━━━━\n"
         f"💵 <b>السعر:</b> {_money(price)}   📈 <b>التغير:</b> {_pct(change)}\n"
-        f"🧭 <b>السلوك:</b> {html.escape(str(behavior))}\n"
+        f"🧭 <b>السلوك:</b> {html.escape(behavior_display)}\n"
         f"📊 <b>RVOL:</b> {rvol_text}{rvol_note}\n"
         f"📉 <b>RSI:</b> {rsi_text}\n"
         f"⭐ <b>SAS Core:</b> {score_text}\n"
@@ -331,7 +381,7 @@ async def build_private_analysis(symbol: str):
         f"🎯 الهدف 1: <b>{target1_text}</b>\n"
         f"⚖️ <b>R:R:</b> {rr_text}\n"
         f"{news_text}"
-        f"{('🧠 <b>الخلاصة:</b> ' + html.escape(str(ai.get('key_takeaway') or 'لا توجد خلاصة موثقة إضافية.')) + chr(10)) if isinstance(ai, dict) else ''}"
+        f"🧠 <b>الخلاصة:</b> {html.escape(_evidence_summary(behavior_display, rvol_n, rsi14, score, stop_n, target1_n))}\n"
         f"{('🧾 <b>سبب الحالة:</b> ' + html.escape(str(sas_reason)) + chr(10)) if sas_reason else ''}"
         "━━━━━━━━━━━━━━━━━━\n"
         f"📚 <b>الأخبار المعروضة:</b> {news_count}\n"
