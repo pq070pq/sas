@@ -572,138 +572,84 @@ async def macro_quote(symbol: str):
     }
 
 async def quote(symbol: str, prefer_extended: bool = False):
-    # During pre/after-hours, prefer a provider response that explicitly marks
-    # the quote as extended. A regular-session close must never masquerade as
-    # live extended-hours activity.
+    """Return a real quote using rotating keys and independent provider fallbacks."""
     if prefer_extended and (settings.twelve_data_api_key or settings.twelve_data_api_keys):
         try:
-            async with httpx.AsyncClient(timeout=12) as c:
-                params = {
-                    "symbol": symbol,
-                    "apikey": settings.twelve_data_api_key,
-                    "prepost": "true",
-                }
-                r = await twelve_call(c.get, "https://api.twelvedata.com/quote", params=params)
-                if r.status_code != 429:
-                    r.raise_for_status()
-                    d = r.json()
-                    extended_price = d.get("extended_price")
-                    if _valid_price(extended_price):
-                        change_pct = (
-                            d.get("extended_percent_change")
-                            if d.get("extended_percent_change") is not None
-                            else d.get("percent_change")
-                        )
-                        return {
-                            "symbol": symbol,
-                            "price": float(extended_price),
-                            "change_pct": change_pct,
-                            "source": "Twelve Data Extended Hours",
-                            "is_extended_hours": True,
-                            "datetime": d.get("datetime"),
-                        }
+            async with httpx.AsyncClient(timeout=12) as client:
+                r = await twelve_call(
+                    client.get,
+                    "https://api.twelvedata.com/quote",
+                    params={"symbol": symbol, "prepost": "true"},
+                )
+                r.raise_for_status()
+                d = r.json()
+                extended_price = d.get("extended_price")
+                if _valid_price(extended_price):
+                    return {
+                        "symbol": symbol,
+                        "price": float(extended_price),
+                        "change_pct": d.get("extended_percent_change", d.get("percent_change")),
+                        "source": "Twelve Data Extended Hours",
+                        "is_extended_hours": True,
+                        "datetime": d.get("datetime"),
+                    }
         except Exception as exc:
-            logger.info("EXTENDED_QUOTE_PRIMARY_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+            logger.info("EXTENDED_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
 
-    # Normal quote path: Finnhub is preferred to preserve Twelve Data credits.
+    # 1) Finnhub: rotate all independently configured keys.
     fallback = await _finnhub_quote(symbol)
     if fallback:
         return fallback
-    if not settings.twelve_data_api_key:
-        return {"symbol": symbol, "price": None, "change_pct": None, "source": "not_configured"}
 
-    try:
-        async with httpx.AsyncClient(timeout=12) as c:
-            params = {
-                "symbol": symbol,
-                # twelve_guard injects the currently healthy key.
-                "prepost": "true",
-            }
-            r = await twelve_call(c.get, "https://api.twelvedata.com/quote", params=params)
-        if r.status_code == 429:
-            fallback = await _finnhub_quote(symbol)
-            if fallback:
-                return fallback
-            r.raise_for_status()
-        r.raise_for_status()
-        d = r.json()
+    # 2) Twelve Data: twelve_guard rotates its own key pool.
+    if settings.twelve_data_api_key or settings.twelve_data_api_keys:
+        try:
+            async with httpx.AsyncClient(timeout=12) as client:
+                r = await twelve_call(
+                    client.get,
+                    "https://api.twelvedata.com/quote",
+                    params={"symbol": symbol, "prepost": "true"},
+                )
+                r.raise_for_status()
+                d = r.json()
 
-        # إذا لم تكن بيانات Extended Hours متاحة على الخطة، نرجع تلقائيًا
-        # إلى السعر العادي بدل تعطيل الرادار بالكامل.
-        if d.get("status") == "error":
-            fallback = await twelve_call(c.get, "https://api.twelvedata.com/quote",
-                params={"symbol": symbol, "apikey": settings.twelve_data_api_key},
-            )
-            fallback.raise_for_status()
-            d = fallback.json()
+                price = d.get("extended_price") if _valid_price(d.get("extended_price")) else d.get("close")
+                if not _valid_price(price):
+                    price = d.get("price")
 
-        # بعض الردود قد ترجع "0" كسعر غير صالح. لا نعتبر الصفر سعراً حقيقياً.
-        extended_price = d.get("extended_price")
-        regular_price = d.get("close")
-        if not _valid_price(regular_price):
-            regular_price = d.get("price")
+                source = "Twelve Data Extended Hours" if _valid_price(d.get("extended_price")) else "Twelve Data"
+                change_pct = d.get("extended_percent_change")
+                if change_pct is None:
+                    change_pct = d.get("percent_change")
 
-        price = extended_price if _valid_price(extended_price) else regular_price
-        change_pct = (
-            d.get("extended_percent_change")
-            if d.get("extended_percent_change") is not None
-            else d.get("percent_change")
-        )
-        source = "Twelve Data Extended Hours" if _valid_price(extended_price) else "Twelve Data"
+                if not _valid_price(price):
+                    price_r = await twelve_call(
+                        client.get,
+                        "https://api.twelvedata.com/price",
+                        params={"symbol": symbol, "prepost": "true"},
+                    )
+                    price_r.raise_for_status()
+                    pd = price_r.json()
+                    price = pd.get("price")
+                    source = "Twelve Data Price"
 
-        # Fallback خفيف لمصادر الأصول التي لا يعيد لها /quote سعراً صالحاً.
-        if not _valid_price(price):
-            price_r = await twelve_call(c.get, "https://api.twelvedata.com/price",
-                params={"symbol": symbol, "apikey": settings.twelve_data_api_key, "prepost": "true"},
-            )
-            price_r.raise_for_status()
-            pd = price_r.json()
-            fallback_price = pd.get("price")
-            if _valid_price(fallback_price):
-                price = fallback_price
-                source = "Twelve Data Price"
+                if _valid_price(price):
+                    return {
+                        "symbol": symbol,
+                        "price": float(price),
+                        "change_pct": change_pct,
+                        "source": source,
+                        "is_extended_hours": _valid_price(d.get("extended_price")),
+                        "datetime": d.get("datetime"),
+                    }
+        except Exception as exc:
+            logger.warning("TWELVE_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
 
-        # آخر fallback: آخر إغلاق متاح من /time_series، مفيد خصوصاً عند إغلاق السوق.
-        if not _valid_price(price):
-            ts_r = await twelve_call(c.get, "https://api.twelvedata.com/time_series",
-                params={
-                    "symbol": symbol,
-                    "interval": "1day",
-                    "outputsize": 1,
-                    "apikey": settings.twelve_data_api_key,
-                },
-            )
-            ts_r.raise_for_status()
-            td = ts_r.json()
-            values = td.get("values") or []
-            if values and _valid_price(values[0].get("close")):
-                price = values[0].get("close")
-                source = "Twelve Data Last Close"
-
-        if d.get("status") == "error" and not _valid_price(price):
-            raise RuntimeError(d.get("message", "Twelve Data error"))
-
-        if change_pct is None and _valid_price(price) and _valid_price(d.get("previous_close")):
-            prev = float(d["previous_close"])
-            change_pct = ((float(price) - prev) / prev) * 100 if prev else None
-
-        return {
-            "symbol": symbol,
-            "price": price,
-            "change_pct": change_pct,
-            "source": source if _valid_price(price) else "unavailable",
-            "is_extended_hours": bool(d.get("is_extended_hours")) or _valid_price(extended_price),
-            "datetime": d.get("datetime"),
-        }
-    except Exception as exc:
-        logger.warning("TWELVE_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
-        fallback = await _finnhub_quote(symbol)
-        if fallback:
-            return fallback
-        stooq = await _stooq_quote(symbol)
-        if stooq:
-            return stooq
-        return {"symbol": symbol, "price": None, "change_pct": None, "source": "unavailable"}
+    # 3) Keyless last-close fallback. A provider outage must not kill private analysis.
+    stooq = await _stooq_quote(symbol)
+    if stooq:
+        return stooq
+    return {"symbol": symbol, "price": None, "change_pct": None, "source": "unavailable"}
 
 
 _TICKER_CACHE = {}
