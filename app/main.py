@@ -1846,7 +1846,10 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         await db.rollback()
 
     _cache_put(_analysis_cache, symbol, payload)
-    _cache_put(_quick_scan_cache, symbol, payload.get("mini_analysis") or {})
+    _cache_put(_quick_scan_cache, symbol, {
+        "quote": payload.get("quote") or {},
+        "mini_analysis": payload.get("mini_analysis") or {},
+    })
     return payload
 
 @app.get("/api/stocks/{symbol}/mini-analysis")
