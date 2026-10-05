@@ -44,3 +44,51 @@ jobs:
             docker rm -f saspro-saspro-1 2>/dev/null || true
             docker compose up -d --no-deps saspro
             docker compose ps saspro
+
+      - name: Smoke test Holiday Radar data
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.OVH_HOST }}
+          username: ${{ secrets.OVH_USER || 'root' }}
+          key_path: ${{ runner.temp }}/ovh_key
+          port: ${{ secrets.OVH_PORT || '22' }}
+          script: |
+            set -e
+            cd /opt/saspro
+            docker compose exec -T saspro python - <<'PY'
+            import asyncio
+            from app.holiday_radar import holiday_snapshot
+
+            async def main():
+                rows = await holiday_snapshot()
+                print("🌙 HOLIDAY RADAR TEST")
+                required = {"📊 Nasdaq", "📊 S&P 500", "📊 Dow Jones Industrial"}
+                found = set()
+                valid = 0
+
+                for label, item in rows:
+                    price = item.get("price")
+                    source = item.get("source") or "—"
+                    print(f"{label} => {price if price is not None else '—'} | {source}")
+                    if price is not None:
+                        try:
+                            if float(price) > 0:
+                                valid += 1
+                        except (TypeError, ValueError):
+                            pass
+                    if label in required and price is not None:
+                        try:
+                            if float(price) > 0:
+                                found.add(label)
+                        except (TypeError, ValueError):
+                            pass
+
+                print(f"VALID ASSETS: {valid}/{len(rows)}")
+                print(f"REQUIRED INDICES: {len(found)}/{len(required)}")
+
+                if found != required:
+                    missing = ", ".join(sorted(required - found))
+                    raise SystemExit(f"Holiday Radar smoke test failed; missing required indices: {missing}")
+
+            asyncio.run(main())
+            PY
