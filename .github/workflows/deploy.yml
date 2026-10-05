@@ -59,7 +59,7 @@ jobs:
             # unavailable without meaning the application deployment failed.
             docker compose ps saspro
 
-            test "$(docker inspect -f '{{.State.Running}}' saspro-saspro-1 2>/dev/null || true)" = "true"
+            test "$(docker inspect --format "{{.State.Running}}" saspro-saspro-1 2>/dev/null || true)" = "true"
 
             docker compose exec -T saspro python - <<'PY'
             from app.main import app
