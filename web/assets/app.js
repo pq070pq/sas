@@ -11,7 +11,7 @@ const digitObserver=new MutationObserver(()=>normalizeEnglishDigits(document.bod
 digitObserver.observe(document.body,{subtree:true,childList:true,characterData:true});
 const getInitData=()=>tg?.initData||new URLSearchParams(location.hash.slice(1)).get('tgWebAppData')||new URLSearchParams(location.search).get('tgWebAppData')||'';
 const headers=()=>{const d=getInitData();return {'X-Telegram-Init-Data':d,'Authorization':d?'tma '+d:''};};
-async function waitForTelegramInitData(maxWait=10000){
+async function waitForTelegramInitData(maxWait=5000){
  const started=Date.now();
  while(Date.now()-started<maxWait){
   refreshTelegramWebApp();
@@ -23,7 +23,7 @@ async function waitForTelegramInitData(maxWait=10000){
 }
 async function api(path,opt={}){
  const controller=new AbortController();
- const timeoutMs=Number(opt.timeoutMs||15000);
+ const timeoutMs=Number(opt.timeoutMs||8000);
  const {timeoutMs:_,...fetchOptions}=opt;
  const timeout=setTimeout(()=>controller.abort(),timeoutMs);
  try{
@@ -55,14 +55,14 @@ async function load(){
  const watchdog=setTimeout(()=>{
   if(!loadStarted)return;
   loadStarted=false;
-  document.body.innerHTML='<div class="fatal"><b>⚠️ تعذر فتح SAS PRO</b><br><small>الخادم لم يُرجع نتيجة التحقق خلال 25 ثانية. سنعيد المحاولة دون اعتبار المشكلة مشكلة اشتراك.</small><br><button onclick="location.reload()">إعادة المحاولة</button></div>';
- },25000);
+  document.body.innerHTML='<div class="fatal"><b>⚠️ تعذر فتح SAS PRO</b><br><small>الخادم لم يُرجع نتيجة التحقق خلال 8 ثوانٍ. المشكلة في اتصال Mini App بالخادم وليست في الاشتراك.</small><br><button onclick="location.reload()">إعادة المحاولة</button></div>';
+ },8500);
  try{
   refreshTelegramWebApp();
   if(!tg)throw new Error('تعذر الوصول إلى Telegram WebApp. افتح SAS PRO من داخل Telegram.');
-  const initData=await waitForTelegramInitData(10000);
+  const initData=await waitForTelegramInitData(5000);
   if(!initData)throw new Error('لم تصل بيانات Telegram الموثقة إلى التطبيق. أغلق Mini App وافتحه من زر SAS PRO داخل Telegram ثم أعد المحاولة.');
-  me=await api('/api/me',{timeoutMs:15000});
+  me=await api('/api/me');
   // Verification succeeded; stop the startup watchdog before loading the dashboard.
   clearTimeout(watchdog);
   if(me.admin){
@@ -324,7 +324,7 @@ async function runRadar(show=true){
   const scanLabel=d.historical
    ? (sessionDate ? 'جلسة '+sessionDate+(scanAt?' — آخر تحديث '+scanAt:'') : 'غير متوفر')
    : (scanAt ? scanAt+' بتوقيت الرياض' : 'غير متوفر');
-  document.getElementById('radarDiagnostics').innerHTML='<b class="radar-mode">'+mode+'</b><span>🕒 وقت الرصد: '+escHtml(scanLabel)+'</span><span>🎯 فرص حقيقية '+Number(diag.passed||terminalState.radar.length||0)+'</span><span>🔎 مرشحون '+Number(diag.candidates||0)+'</span><span>💧 فرز السيولة + الحجم + RVOL + فيبو + السعر</span><span>🛡 حماية من الارتفاع الوهمي</span><span>🚫 الهدف فقط إذا كان مبنيًا على مقاومة مرصودة</span><span>مستبعدون '+Number(diag.filtered||0)+'</span><span>أخطاء '+Number(diag.errors||0)+'</span>';
+  document.getElementById('radarDiagnostics').innerHTML='<b class="radar-mode">'+mode+'</b><span>🕒 وقت الرصد: '+escHtml(scanLabel)+'</span><span>مرشحون '+Number(diag.candidates||0)+'</span><span>اجتازوا '+Number(diag.passed||0)+'</span><span>مستبعدون '+Number(diag.filtered||0)+'</span><span>أخطاء '+Number(diag.errors||0)+'</span>';
   const candidateEl=document.getElementById('radarCandidates');
   const candidates=Array.isArray(diag.filtered_examples)?diag.filtered_examples:[];
   if(candidateEl && candidates.length){
@@ -363,12 +363,8 @@ function stockCard(x){
  const change=x.live_change_pct??x.change_pct;
  const target=targetList[0]??tgt.target1??x.target1??x.target;
  const stop=x.exit??tgt.exit??x.stop_loss??x.stop??x.stop_price;
- const hasTarget=Number(target)>0;
- const hasStop=Number(stop)>0;
  const volume=Number(x.volume);
  const rvol=Number(x.rvol??cls.rvol??x.momentum_rvol_10d);
- const opportunity=Number(x.opening_opportunity_score??x.opportunity_score??0);
- const fib=(cls.fibonacci||{}).zone||x.fibonacci_zone||'—';
  const rr=x.risk_reward??tgt.risk_reward;
  const warning=Boolean(x.risk_reward_warning??tgt.risk_reward_warning);
  const section=x.momentum_section||x.section;
@@ -378,9 +374,10 @@ function stockCard(x){
  const gate=(ok,label)=>'<i class="'+(ok?'gate-ok':'gate-warn')+'">'+(ok?'✓ ':'⚠️ ')+label+'</i>';
  return '<article class="stock-card"><div class="stock-head"><div><b>'+s+'</b><small>'+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • '+formatTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+
  '<strong>$'+money(price)+'</strong>'+
- '<div class="stock-levels"><span>دخول <b>+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div>'+
+ '<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
+ '<div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div>'+
  '<div class="stock-gates">'+gate(gates.sas_core!==false,'SAS Core')+gate(gates.liquidity!==false,'السيولة')+gate(gates.target!==false,'الهدف')+gate(gates.live_levels!==false,'المستويات')+'</div>'+
- '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+(opportunity>0?'<span>🎯 ترتيب افتتاحي '+opportunity.toFixed(0)+'/100</span>':'')+(x.live_price_source?'<span>📡 '+escHtml(x.live_price_source)+'</span>':'')+'</div>'+
+ '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+(x.live_price_source?'<span>📡 '+escHtml(x.live_price_source)+'</span>':'')+'</div>'+
  '<div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||cls.reason||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div>'+
  '<div class="stock-actions"><button onclick="event.stopPropagation();openSymbol(\''+raw+'\')">⏳ تحليل كامل</button><button onclick="event.stopPropagation();toggleWatch(\''+raw+'\')">'+(terminalState.watch.includes(raw)?'★ محفوظ':'☆ حفظ')+'</button></div></article>';
 }
@@ -632,25 +629,23 @@ async function continueTerms(){
  try{
   const accepted=await api('/api/terms/accept',{method:'POST'});
 
-  // بعد قبول الشروط لا نعيد تحميل Mini App ولا نغلق WebView.
-  // إعادة التحميل كانت تسبب شاشة انتهاء مهلة الاتصال مباشرة بعد نجاح القبول.
-  // ننتقل إلى المحطة داخل نفس الجلسة، ويستطيع المستخدم فتح رابط القناة
-  // من زر القناة بعد استقرار الواجهة.
+  // للمستخدم العادي يجب أن تبدأ التجربة ويُعاد رابط القناة. أما المالك/المشرف
+  // فقد لا تُمنح له تجربة، لذلك لا نحول موافقة الشروط الصحيحة إلى خطأ.
   if(action==='trial'){
-   if(!accepted.ok)throw new Error('تعذر تسجيل الموافقة على الشروط. حاول مرة أخرى.');
-   me=Object.assign(me||{},{
-    terms_accepted:true,
-    terms_version:accepted.version,
-    pro:true,
-    status:accepted.trial_started?'trial':(me?.status||'new'),
-    trial_expires:accepted.trial?.trial_expires||me?.trial_expires||null
-   });
-   closeTerms();
-   document.getElementById('subscriptionPage').hidden=true;
-   document.getElementById('terminalPage').hidden=false;
-   loadStarted=true;
-   await initTerminal();
-   return;
+   if(accepted.trial_started&&accepted.trial?.channel_link){
+    closeTerms();
+    if(tg?.openTelegramLink)tg.openTelegramLink(accepted.trial.channel_link);
+    else if(tg?.openLink)tg.openLink(accepted.trial.channel_link);
+    else window.open(accepted.trial.channel_link,'_blank');
+    setTimeout(()=>{loadStarted=false;load();},900);
+    return;
+   }
+   if(accepted.ok){
+    closeTerms();
+    setTimeout(()=>{loadStarted=false;load();},300);
+    return;
+   }
+   throw new Error('تعذر تفعيل التجربة أو إنشاء رابط القناة. حاول مرة أخرى.');
   }
 
   if(action?.startsWith('buy:')){
