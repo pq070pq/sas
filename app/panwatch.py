@@ -175,11 +175,10 @@ async def technical_targets(symbol: str):
     # Keep only confirmed resistance levels. Do not fabricate targets or force a
     # minimum count; fewer than five real levels is valid and is reported as such.
 
-    # Exit is the nearest confirmed support below price, with ATR fallback only when a
-    # real support is unavailable. The fallback is calculated from observed price/ATR,
-    # not a hardcoded percentage.
+    # Stop is shown only when a confirmed support exists. ATR is a diagnostic
+    # measurement, never a fabricated target/stop for the Telegram report.
     below = [s for s in supports if s < price]
-    exit_level = max(below) if below else price - atr
+    exit_level = max(below) if below else None
 
     return {
         "status": "ok",
@@ -187,8 +186,8 @@ async def technical_targets(symbol: str):
         "atr": round(atr, 4),
         "volume_ratio": round(volume_ratio, 2) if volume_ratio is not None else None,
         "resistances": targets,
-        "support": round(exit_level, 4),
+        "support": round(exit_level, 4) if exit_level is not None else None,
         "targets": targets,
-        "exit": round(exit_level, 4),
+        "exit": round(exit_level, 4) if exit_level is not None else None,
         "method": "swing-resistance + ATR + volume confirmation",
     }
