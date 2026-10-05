@@ -700,30 +700,91 @@ async function adminRefresh(){
  await Promise.all(tasks);
  startAdminHealthMonitor();
 }
+const STAFF_ROLE_PERMISSIONS={
+ moderator:['users','channel'],
+ radar_manager:['radar'],
+ subscription_manager:['subscriptions','payments'],
+ admin:['users','subscriptions','channel','radar','payments','admins','settings','audit'],
+ viewer:[]
+};
+const STAFF_ROLE_LABELS={
+ moderator:'مشرف عام',
+ radar_manager:'مشرف الرادار',
+ subscription_manager:'مشرف الاشتراكات',
+ admin:'مدير كامل',
+ viewer:'مشاهد فقط',
+ owner:'المالك'
+};
+const STAFF_ROLE_HINTS={
+ moderator:'المشرف العام: إدارة المستخدمين والقناة.',
+ radar_manager:'مشرف الرادار: إدارة ومتابعة الرصد.',
+ subscription_manager:'مشرف الاشتراكات: إدارة الاشتراكات والمدفوعات.',
+ admin:'المدير الكامل: جميع الصلاحيات الإدارية.',
+ viewer:'مشاهد فقط: بدون صلاحيات تعديل.'
+};
+function updateStaffRoleHint(){
+ const role=document.getElementById('staffRole')?.value;
+ const hint=document.getElementById('staffRoleHint');
+ if(hint)hint.textContent=STAFF_ROLE_HINTS[role]||'';
+}
 async function loadStaff(){
  try{
   const d=await api('/api/admin/staff');
-  const mePerms=me?.admin_permissions||[];
-  const catalog=d.find(x=>x.role==='owner')?.permissions||[];
-  const labels={users:'إدارة المشتركين',subscriptions:'إدارة الاشتراكات',channel:'إدارة القناة',radar:'إدارة الرصد',payments:'إدارة المدفوعات',admins:'إدارة المشرفين',settings:'إعدادات النظام',audit:'سجل العمليات'};
-  document.getElementById('staffPermissions').innerHTML=Object.entries(labels).map(([k,v])=>
-   '<label><input type="checkbox" class="perm" value="'+k+'"> '+v+'</label>'
-  ).join('');
-  document.getElementById('staffList').innerHTML=d.map(x=>{
-   const canEdit=x.role!=='owner';
-   return '<div class="user-row"><div><b>'+esc(x.role)+' — '+esc(x.telegram_id)+'</b><br><small>'+esc((x.permissions||[]).join('، '))+' — '+(x.enabled?'🟢 فعال':'🔴 معطل')+'</small></div>'+
-    (canEdit?'<div class="user-actions">'+(x.enabled?'<button class="danger" onclick="staffToggle('+x.telegram_id+',false)">تعطيل</button>':'<button onclick="staffToggle('+x.telegram_id+',true)">تفعيل</button>')+'<button class="danger" onclick="staffDelete('+x.telegram_id+')">حذف</button></div>':'')+'</div>';
-  }).join('');
- }catch(e){document.getElementById('staffList').textContent=e.message;}
+  const list=Array.isArray(d)?d:[];
+  const count=document.getElementById('staffCount');
+  if(count)count.textContent=list.filter(x=>x.role!=='owner').length+' مشرف';
+  const el=document.getElementById('staffList');
+  if(!el)return;
+  el.innerHTML=list.map(x=>{
+   const isOwner=x.role==='owner';
+   const roleLabel=STAFF_ROLE_LABELS[x.role]||x.role||'مشرف';
+   const perms=(x.permissions||[]).length;
+   const status=x.enabled?'🟢 فعال':'🔴 معطل';
+   const actions=isOwner
+    ? '<span class="staff-owner-tag">حساب المالك</span>'
+    : '<div class="staff-row-actions">'+
+      (x.enabled
+       ? '<button class="staff-disable" onclick="staffToggle('+x.telegram_id+',false)">تعطيل</button>'
+       : '<button class="staff-enable" onclick="staffToggle('+x.telegram_id+',true)">تفعيل</button>')+
+      '<button class="staff-delete" onclick="staffDelete('+x.telegram_id+')">حذف</button>'+
+      '</div>';
+   return '<article class="staff-simple-row">'+
+    '<div class="staff-avatar">'+(isOwner?'👑':'🛡️')+'</div>'+
+    '<div class="staff-row-main"><b>'+esc(roleLabel)+'</b><small>Telegram ID: '+esc(x.telegram_id)+'</small><span class="'+(x.enabled?'staff-status-on':'staff-status-off')+'">'+status+' • '+(isOwner?'كل الصلاحيات':perms+' صلاحيات')+'</span></div>'+
+    actions+
+   '</article>';
+  }).join('')||'<div class="empty-state">لا يوجد مشرفون مضافون حاليًا.</div>';
+ }catch(e){
+  const el=document.getElementById('staffList');
+  if(el)el.innerHTML='<div class="fatal">'+esc(e.message)+'</div>';
+ }
 }
 async function addStaff(){
- const id=Number(document.getElementById('staffId').value); const role=document.getElementById('staffRole').value;
- const permissions=[...document.querySelectorAll('.perm:checked')].map(x=>x.value);
- if(!id){alert('أدخل Telegram ID');return;}
- try{await api('/api/admin/staff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_id:id,role,permissions})});await loadStaff();alert('تم حفظ صلاحيات المشرف');}catch(e){alert(e.message);}
+ const input=document.getElementById('staffId');
+ const id=Number(input?.value);
+ const role=document.getElementById('staffRole')?.value||'moderator';
+ if(!Number.isInteger(id)||id<=0){alert('أدخل Telegram ID صحيحًا.');return;}
+ const permissions=STAFF_ROLE_PERMISSIONS[role]||[];
+ const button=document.querySelector('.staff-save-btn');
+ const oldText=button?.textContent;
+ if(button){button.disabled=true;button.textContent='جاري الحفظ…';}
+ try{
+  await api('/api/admin/staff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_id:id,role,permissions})});
+  if(input)input.value='';
+  await loadStaff();
+  alert('تم حفظ المشرف: '+(STAFF_ROLE_LABELS[role]||role));
+ }catch(e){alert(e.message);}
+ finally{if(button){button.disabled=false;button.textContent=oldText||'حفظ المشرف';}}
 }
-async function staffToggle(id,enabled){try{await api('/api/admin/staff/'+id+'/'+(enabled?'enable':'disable'),{method:'POST'});await loadStaff();}catch(e){alert(e.message);}}
-async function staffDelete(id){if(!confirm('حذف هذا المشرف؟'))return;try{await api('/api/admin/staff/'+id,{method:'DELETE'});await loadStaff();}catch(e){alert(e.message);}}
+async function staffToggle(id,enabled){
+ try{await api('/api/admin/staff/'+id+'/'+(enabled?'enable':'disable'),{method:'POST'});await loadStaff();}
+ catch(e){alert(e.message);}
+}
+async function staffDelete(id){
+ if(!confirm('حذف هذا المشرف نهائيًا؟'))return;
+ try{await api('/api/admin/staff/'+id,{method:'DELETE'});await loadStaff();}
+ catch(e){alert(e.message);}
+}
 async function loadStarsWallet(){
  try{
   const [b,t]=await Promise.all([api('/api/admin/stars/balance'),api('/api/admin/stars/transactions')]);
