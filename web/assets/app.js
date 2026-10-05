@@ -19,11 +19,13 @@ async function waitForTelegramInitData(maxWait=5000){
 }
 async function api(path,opt={}){
  const controller=new AbortController();
- const timeout=setTimeout(()=>controller.abort(),8000);
+ const timeoutMs=Number(opt.timeoutMs||8000);
+ const {timeoutMs:_,...fetchOptions}=opt;
+ const timeout=setTimeout(()=>controller.abort(),timeoutMs);
  try{
-  opt.headers=Object.assign(headers(),opt.headers||{});
-  opt.signal=controller.signal;
-  const r=await fetch(path,opt);
+  fetchOptions.headers=Object.assign(headers(),fetchOptions.headers||{});
+  fetchOptions.signal=controller.signal;
+  const r=await fetch(path,fetchOptions);
   if(!r.ok){
    let msg='تعذر تنفيذ العملية';
    try{const d=await r.json();msg=d.detail||d.message||msg;}
@@ -300,7 +302,7 @@ async function analyzeSymbol(){
    api('/api/stocks/'+encodeURIComponent(symbol)+'/quote'),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/chart'),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/news'),
-   api('/api/stocks/'+encodeURIComponent(symbol)+'/analyze',{method:'POST'})
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/analyze',{method:'POST',timeoutMs:30000})
  ]);
  const q=qR.status==='fulfilled'?qR.value:{symbol,price:null,change_pct:null,source:'غير متاح'};
  const chart=chartR.status==='fulfilled'?chartR.value:{candles:[]};
@@ -383,7 +385,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news){
  '<div class="quote-line"><strong>&#36;'+priceText+'</strong><span class="'+(change>=0?'up':'down')+'">'+changeText+'</span><span>'+escHtml(q?.source||'')+'</span></div>'+
  '<div class="mini-analysis">'+
    '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO QUICK ANALYSIS</span><b>🧠 التحليل الفني المختصر</b></div></div>'+
-   '<p class="mini-takeaway">🟡 تعذر تحميل محرك SAS PRO الفني بالكامل حاليًا. لم يتم تخمين الاتجاه أو الزخم أو أي مستوى سعري.</p>'+
+   '<p class="mini-takeaway">🟡 التحليل المختصر لم يكتمل خلال المهلة الحالية. لم يتم تخمين الاتجاه أو الزخم أو أي مستوى سعري.</p>'+
    '<button class="private-analysis-btn" onclick="openPrivateAnalysis(\''+escHtml(symbol)+'\')">📩 الانتقال للتحليل في الخاص</button>'+
  '</div>'+
  '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
