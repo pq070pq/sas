@@ -1526,10 +1526,14 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
     # 1) Early SAS: يحافظ على منطق الاتجاه المبكر لكن لا يشترط عمر 1-5 جلسات وحده.
     # 2) Breakout: يطبق منهج الملف المرفق: إغلاق + فوليوم + استمرار، مع منع المصيدة
     #    والمساحة الضيقة، وإعادة الاختبار كتعزيز وليست شرطًا وحيدًا.
+    # RSI is a warning signal, not a hard gate. High RSI can mean an
+    # extended move, but rejecting it outright can hide valid momentum
+    # breakouts. The actual safety gates remain trend/structure, RVOL,
+    # entry proximity, distribution and bearish structure.
     early_setup_pass = bool(
         power_trend
         and (early_timing or accumulation)
-        and 50 <= (rsi14 or 0) <= 72
+        and rsi14 is not None
         and rvol >= 1.2
         and near_entry
         and not distribution_risk
@@ -1537,7 +1541,7 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
     )
     breakout_pass = bool(
         breakout_confirmed
-        and 48 <= (rsi14 or 0) <= 75
+        and rsi14 is not None
         and rvol >= 1.5
         and (power_trend or sma20 >= sma50 * 0.98 or accumulation)
         and not distribution_risk
@@ -1553,8 +1557,8 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
 
     breakout_reject_reasons = []
     if breakout_confirmed and not breakout_pass:
-        if not (48 <= (rsi14 or 0) <= 75):
-            breakout_reject_reasons.append("RSI خارج 48-75")
+        if rsi14 is None:
+            breakout_reject_reasons.append("RSI غير متاح")
         if rvol < 1.5:
             breakout_reject_reasons.append("RVOL أقل من 1.5x")
         if not (power_trend or sma20 >= sma50 * 0.98 or accumulation):
@@ -1589,6 +1593,8 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         evidence.append(f"Power Trend ON — العمر {power_trend_age} جلسة")
     if rsi14 is not None:
         evidence.append(f"RSI {rsi14:.1f}")
+        if rsi14 > 75:
+            evidence.append("⚠️ RSI مرتفع — تحذير زخم ممتد وليس سبب رفض")
     if former_runner:
         evidence.append("سلوك سابق قوي")
     if rvol >= 1.5:
@@ -1639,6 +1645,7 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         "power_trend": power_trend,
         "power_trend_age": power_trend_age,
         "rsi14": round(rsi14, 2) if rsi14 is not None else None,
+        "rsi_warning": bool(rsi14 is not None and rsi14 > 75),
         "relative_strength": round(relative_strength * 100, 2) if relative_strength is not None else None,
         "relative_strength_benchmark": benchmark_symbol,
         "distance_from_ema20_pct": round(distance_from_ema20_pct, 2) if distance_from_ema20_pct is not None else None,
