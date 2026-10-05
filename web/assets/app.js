@@ -742,7 +742,7 @@ function startAdminHealthMonitor(){
 async function adminRefresh(){
  const p=me?.admin_permissions||[];
  const tasks=[];
- if(p.includes('users')){tasks.push(loadAdminStats(),adminSearch(),loadAdminMonthlyReport());}
+ if(p.includes('users')){tasks.push(loadAdminStats(),adminSearch(),loadAdminMonthlyReport(),loadAdminTerms());}
  if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;document.getElementById('plansEditorPanel').hidden=false;document.getElementById('deployPanel').hidden=false;tasks.push(loadAdminPlans(),loadSubscriptionConfig(),loadDeployStatus());}
  else {document.getElementById('planEditor').closest('.admin-panel').hidden=true;document.getElementById('plansEditorPanel').hidden=true;document.getElementById('deployPanel').hidden=true;document.getElementById('planEditor').closest('.admin-panel').previousElementSibling.hidden=true;}
  if(p.includes('payments')){document.getElementById('starsPanel').hidden=false;tasks.push(loadStarsWallet());}else{document.getElementById('starsPanel').hidden=true;}
@@ -860,6 +860,25 @@ async function openStarsWithdrawal(){
  }catch(e){alert(e.message);}
 }
 
+async function loadAdminTerms(){
+ try{
+  const d=await api('/api/admin/terms-status');
+  const rows=Array.isArray(d.users)?d.users:[];
+  const accepted=Number(d.accepted||0), pending=Number(d.pending||0), total=Number(d.total||rows.length);
+  const summary=document.getElementById('termsAdminSummary');
+  const list=document.getElementById('termsAdminList');
+  if(summary)summary.innerHTML='<b>'+accepted.toLocaleString('en-US')+'</b><span>موافقون • غير موافق: '+pending.toLocaleString('en-US')+' • الإجمالي: '+total.toLocaleString('en-US')+' • النسخة الحالية: '+esc(d.terms_version||'—')+'</span>';
+  if(list)list.innerHTML=rows.length?rows.map(u=>{
+   const name=[u.first_name,u.last_name].filter(Boolean).join(' ')||'بدون اسم';
+   const acceptedNow=Boolean(u.accepted);
+   const date=u.accepted_at?new Date(u.accepted_at).toLocaleString('ar-SA'):'لم تتم الموافقة بعد';
+   const ver=u.terms_version||'—';
+   return '<article class="terms-admin-row"><div class="terms-admin-avatar">'+(acceptedNow?'✅':'⏳')+'</div><div class="terms-admin-main"><b>'+esc(name)+'</b><small>'+(u.username?'@'+esc(u.username)+' • ':'')+'Telegram ID: '+esc(u.telegram_id)+'</small><span class="'+(acceptedNow?'terms-ok':'terms-pending')+'">'+(acceptedNow?'موافق على الشروط':'لم يوافق بعد')+'</span><small>النسخة: '+esc(ver)+' • التاريخ: '+esc(date)+'</small></div></article>';
+  }).join(''):'<div class="empty-state">لا توجد بيانات مستخدمين حتى الآن.</div>';
+ }catch(e){
+  const el=document.getElementById('termsAdminList'); if(el)el.innerHTML='<div class="fatal">تعذر تحميل موافقات الشروط: '+esc(e.message)+'</div>';
+ }
+}
 async function loadAdminMonthlyReport(){
  try{
   const input=document.getElementById('reportMonth');
