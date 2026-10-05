@@ -12,5 +12,6 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m compileall -q app
+      - run: node --check web/assets/app.js
       - run: pip install -r requirements.txt
       - run: python -c "import app.main; print('SAS PRO import OK')"
