@@ -360,9 +360,16 @@ async function analyzeSymbol(){
 async function openPrivateAnalysis(symbol){
  try{
    const d=await api('/api/stocks/'+encodeURIComponent(symbol)+'/private-link');
-   if(tg?.openTelegramLink)tg.openTelegramLink(d.url);
-   else if(tg?.openLink)tg.openLink(d.url);
-   else window.open(d.url,'_blank');
+   const url=d?.url;
+   if(!url)throw new Error('لم يتم تجهيز رابط التحليل الخاص.');
+   refreshTelegramWebApp();
+   if(tg?.openTelegramLink){
+     try{ tg.openTelegramLink(url); return; }catch(e){}
+   }
+   if(tg?.openLink){
+     try{ tg.openLink(url,{try_instant_view:false}); return; }catch(e){}
+   }
+   window.location.href=url;
  }catch(e){
    alert(e?.message||'تعذر فتح التحليل الخاص.');
  }
@@ -377,7 +384,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news){
  '<div class="mini-analysis">'+
    '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO QUICK ANALYSIS</span><b>🧠 التحليل الفني المختصر</b></div></div>'+
    '<p class="mini-takeaway">🟡 تعذر تحميل محرك SAS PRO الفني بالكامل حاليًا. لم يتم تخمين الاتجاه أو الزخم أو أي مستوى سعري.</p>'+
-   '<button class="private-analysis-btn" onclick="openPrivateAnalysis(\''+escHtml(symbol)+'\')">📊 عرض التحليل الكامل</button>'+
+   '<button class="private-analysis-btn" onclick="openPrivateAnalysis(\''+escHtml(symbol)+'\')">📩 الانتقال للتحليل في الخاص</button>'+
  '</div>'+
  '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
  '<div class="news-list">'+(news.length?news.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'')+'</div>';
