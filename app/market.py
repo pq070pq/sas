@@ -593,6 +593,8 @@ async def quote(symbol: str, prefer_extended: bool = False):
     }
 
 
+_TICKER_CACHE = {}
+
 async def ticker():
     symbols = [
         ("BTC/USD", "BTC"),
@@ -605,18 +607,36 @@ async def ticker():
 
     async def one(symbol, label):
         try:
-            # المؤشرات/الذهب تستخدم مسار macro_quote المستقل عن حصة Twelve Data.
-            # هذا يمنع ظهور 0.00 أو فراغ عندما تكون الحصة محمية.
-            item = await macro_quote(symbol) if symbol in {"SPX", "IXIC", "DJI", "XAU/USD", "VIX", "BTC/USD"} else await quote(symbol)
+            # لا نسمح لمصدر واحد بطيء أن يحجب لوحة الإدارة.
+            item = await asyncio.wait_for(
+                macro_quote(symbol),
+                timeout=5.5,
+            )
             item["label"] = label
-            if not _valid_price(item.get("price")):
-                item["price"] = None
+            if _valid_price(item.get("price")):
+                _TICKER_CACHE[symbol] = dict(item)
+            else:
+                cached = _TICKER_CACHE.get(symbol)
+                if cached:
+                    item = dict(cached)
+                    item["source"] = f"{item.get('source', 'مصدر سابق')} — آخر سعر حقيقي محفوظ"
+                    item["stale"] = True
+            item["price"] = float(item["price"]) if _valid_price(item.get("price")) else None
             return item
         except Exception as exc:
+            cached = _TICKER_CACHE.get(symbol)
+            if cached:
+                item = dict(cached)
+                item["label"] = label
+                item["source"] = f"{item.get('source', 'مصدر سابق')} — آخر سعر حقيقي محفوظ"
+                item["stale"] = True
+                return item
             logger.warning("MARKET_TICKER_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
             return {
                 "symbol": symbol, "label": label,
                 "price": None, "change_pct": None, "source": "unavailable",
+                "diagnostic": f"timeout_or_source_error:{type(exc).__name__}",
             }
 
+    # جميع الأصول تُجلب بالتوازي.
     return await asyncio.gather(*(one(symbol, label) for symbol, label in symbols))
