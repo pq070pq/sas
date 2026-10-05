@@ -242,7 +242,7 @@ async function runRadar(show=true){
     candidateEl.innerHTML='<div class="candidate-title"><b>🔎 تحليل المرشحين</b><small>هذه الأسهم اجتازت مرحلة البحث الأولي ولم تدخل الإشارة النهائية. سبب الاستبعاد ظاهر لكل سهم.</small></div>'+
       '<div class="candidate-grid">'+candidates.slice(0,12).map(x=>{
         const sym=String(x.symbol||'—');
-        return '<article class="candidate-card"><div><b>'+escHtml(sym)+'</b><small>'+escHtml(x.data_source||'مصدر الرصد')+'</small></div><p>'+escHtml(x.reason||'تم استبعاده في مرحلة لاحقة')+'</p><button onclick="openSymbol(\''+escHtml(sym)+'\')">🧠 تحليل</button></article>';
+        return '<article class="candidate-card"><div><b>'+escHtml(sym)+'</b><small>'+escHtml(x.data_source||'مصدر الرصد')+'</small></div><p>'+escHtml(x.reason||'تم استبعاده في مرحلة لاحقة')+'</p><button onclick="openSymbol(\''+escHtml(sym)+'\')">⏳ تحليل</button></article>';
       }).join('')+'</div>';
   }else if(candidateEl){
     candidateEl.hidden=true;
@@ -282,7 +282,7 @@ function stockCard(x){
  '<div class="stock-gates">'+gate(gates.sas_core!==false,'SAS Core')+gate(gates.liquidity!==false,'السيولة')+gate(gates.target!==false,'الهدف')+gate(gates.live_levels!==false,'المستويات')+'</div>'+
  '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+(x.live_price_source?'<span>📡 '+escHtml(x.live_price_source)+'</span>':'')+'</div>'+
  '<div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||cls.reason||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div>'+
- '<div class="stock-actions"><button onclick="event.stopPropagation();openSymbol(\''+raw+'\')">🧠 تحليل كامل</button><button onclick="event.stopPropagation();toggleWatch(\''+raw+'\')">'+(terminalState.watch.includes(raw)?'★ محفوظ':'☆ حفظ')+'</button></div></article>';
+ '<div class="stock-actions"><button onclick="event.stopPropagation();openSymbol(\''+raw+'\')">⏳ تحليل كامل</button><button onclick="event.stopPropagation();toggleWatch(\''+raw+'\')">'+(terminalState.watch.includes(raw)?'★ محفوظ':'☆ حفظ')+'</button></div></article>';
 }
 function toggleWatch(symbol){symbol=symbol.toUpperCase();terminalState.watch=terminalState.watch.includes(symbol)?terminalState.watch.filter(x=>x!==symbol):[...terminalState.watch,symbol];localStorage.setItem('saspro_watchlist',JSON.stringify(terminalState.watch));renderWatchlist();renderRadar();}
 async function renderWatchlist(){
@@ -297,7 +297,7 @@ async function analyzeSymbol(){
  const symbol=(input.value||'').trim().toUpperCase().replace(/[^A-Z.\-]/g,'');
  if(!symbol)return;
  const el=document.getElementById('symbolResult');
- el.innerHTML='<div class="loading">🧠 يجري تحليل '+escHtml(symbol)+'...</div>';
+ el.innerHTML='<div class="loading">⏳ يجري تحليل '+escHtml(symbol)+'...</div>';
  const [qR,chartR,newsR,analysisR,miniR]=await Promise.allSettled([
    api('/api/stocks/'+encodeURIComponent(symbol)+'/quote'),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/chart'),
@@ -323,7 +323,7 @@ async function analyzeSymbol(){
  const tech=analysis.sas_pro?.targets||{};
  const ai=analysis.analysis||{};
  const fcc=analysis.sas_pro?.targets?.fcc_review||ai.fcc_review||{};
- const fccHtml=fcc.available ? '<div class="ai-box"><b>🧠 مراجعة الذكاء الاصطناعي للسهم</b><p><b>التقييم:</b> '+escHtml(fcc.review_level||'محايد')+'</p>'+((fcc.strengths||[]).length?'<p><b>💪 نقاط القوة:</b><br>'+fcc.strengths.slice(0,4).map(x=>'• '+escHtml(x)).join('<br>')+'</p>':'')+((fcc.contradictions||[]).length?'<p><b>⚠️ نقاط تحتاج انتباه:</b><br>'+fcc.contradictions.slice(0,4).map(x=>'• '+escHtml(x)).join('<br>')+'</p>':'')+(fcc.note?'<p><b>📌 الخلاصة:</b> '+escHtml(fcc.note)+'</p>':'')+'<small>مراجعة مساعدة لفهم البيانات فقط، ولا تغيّر مستويات SAS PRO.</small></div>' : '';
+ const fccHtml=fcc.available ? '<div class="ai-box"><b>⏳ مراجعة الذكاء الاصطناعي للسهم</b><p><b>التقييم:</b> '+escHtml(fcc.review_level||'محايد')+'</p>'+((fcc.strengths||[]).length?'<p><b>💪 نقاط القوة:</b><br>'+fcc.strengths.slice(0,4).map(x=>'• '+escHtml(x)).join('<br>')+'</p>':'')+((fcc.contradictions||[]).length?'<p><b>⚠️ نقاط تحتاج انتباه:</b><br>'+fcc.contradictions.slice(0,4).map(x=>'• '+escHtml(x)).join('<br>')+'</p>':'')+(fcc.note?'<p><b>📌 الخلاصة:</b> '+escHtml(fcc.note)+'</p>':'')+'<small>مراجعة مساعدة لفهم البيانات فقط، ولا تغيّر مستويات SAS PRO.</small></div>' : '';
  const targets=Array.isArray(tech.targets)?tech.targets:[];
  const newsFromAnalysis=Array.isArray(analysis.news)?analysis.news:news;
  const partial=Boolean(analysis.partial);
@@ -340,7 +340,7 @@ async function analyzeSymbol(){
  const mini=analysis.mini_analysis||{};
  const miniAnalysisHtml=
    '<section class="mini-analysis">'+
-     '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO QUICK ANALYSIS</span><b>🧠 تحليل مختصر</b></div></div>'+
+     '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO QUICK ANALYSIS</span><b>⏳ تحليل مختصر</b></div></div>'+
      '<div class="mini-analysis-grid">'+
        '<div><small>📊 الاتجاه</small><b>'+escHtml(mini.direction||'غير واضح')+'</b></div>'+
        '<div><small>🚀 الزخم</small><b>'+escHtml(mini.momentum||'—')+'</b></div>'+
@@ -361,7 +361,7 @@ async function analyzeSymbol(){
    miniAnalysisHtml+
    '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
    '<div class="level-grid"><div><small>🟦 الدخول</small><b>&#36;'+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>&#36;'+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>&#36;'+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+rr+'</b></div></div>'+
-   '<div class="ai-box"><b>'+(aiAvailable?'🧠 زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+
+   '<div class="ai-box"><b>'+(aiAvailable?'⏳ زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+
    '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
    '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>'; drawChart(chart.candles||[]);
 }
@@ -405,7 +405,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData){
  el.innerHTML='<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div></div>'+
  '<div class="quote-line"><strong>&#36;'+priceText+'</strong><span class="'+(change>=0?'up':'down')+'">'+changeText+'</span><span>'+escHtml(q?.source||'')+'</span></div>'+
  '<div class="mini-analysis">'+
-   '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO QUICK ANALYSIS</span><b>🧠 التحليل الفني المختصر</b></div></div>'+
+   '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO QUICK ANALYSIS</span><b>⏳ التحليل الفني المختصر</b></div></div>'+
    '<div class="mini-analysis-grid">'+
    '<div><small>📊 الاتجاه</small><b>'+escHtml(miniData?.mini_analysis?.direction||'غير واضح')+'</b></div>'+
    '<div><small>🚀 الزخم</small><b>'+escHtml(miniData?.mini_analysis?.momentum||'—')+'</b></div>'+
