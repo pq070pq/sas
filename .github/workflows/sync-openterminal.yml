@@ -1,8 +1,6 @@
 name: Sync OpenTerminal
 
 on:
-  push:
-    branches: ["main"]
   workflow_dispatch:
   schedule:
     - cron: "47 3 * * *"
