@@ -11,7 +11,7 @@ const digitObserver=new MutationObserver(()=>normalizeEnglishDigits(document.bod
 digitObserver.observe(document.body,{subtree:true,childList:true,characterData:true});
 const getInitData=()=>tg?.initData||new URLSearchParams(location.hash.slice(1)).get('tgWebAppData')||new URLSearchParams(location.search).get('tgWebAppData')||'';
 const headers=()=>{const d=getInitData();return {'X-Telegram-Init-Data':d,'Authorization':d?'tma '+d:''};};
-async function waitForTelegramInitData(maxWait=5000){
+async function waitForTelegramInitData(maxWait=10000){
  const started=Date.now();
  while(Date.now()-started<maxWait){
   refreshTelegramWebApp();
@@ -23,7 +23,7 @@ async function waitForTelegramInitData(maxWait=5000){
 }
 async function api(path,opt={}){
  const controller=new AbortController();
- const timeoutMs=Number(opt.timeoutMs||8000);
+ const timeoutMs=Number(opt.timeoutMs||15000);
  const {timeoutMs:_,...fetchOptions}=opt;
  const timeout=setTimeout(()=>controller.abort(),timeoutMs);
  try{
@@ -55,14 +55,14 @@ async function load(){
  const watchdog=setTimeout(()=>{
   if(!loadStarted)return;
   loadStarted=false;
-  document.body.innerHTML='<div class="fatal"><b>⚠️ تعذر فتح SAS PRO</b><br><small>الخادم لم يُرجع نتيجة التحقق خلال 8 ثوانٍ. المشكلة في اتصال Mini App بالخادم وليست في الاشتراك.</small><br><button onclick="location.reload()">إعادة المحاولة</button></div>';
- },8500);
+  document.body.innerHTML='<div class="fatal"><b>⚠️ تعذر فتح SAS PRO</b><br><small>الخادم لم يُرجع نتيجة التحقق خلال 25 ثانية. سنعيد المحاولة دون اعتبار المشكلة مشكلة اشتراك.</small><br><button onclick="location.reload()">إعادة المحاولة</button></div>';
+ },25000);
  try{
   refreshTelegramWebApp();
   if(!tg)throw new Error('تعذر الوصول إلى Telegram WebApp. افتح SAS PRO من داخل Telegram.');
-  const initData=await waitForTelegramInitData(5000);
+  const initData=await waitForTelegramInitData(10000);
   if(!initData)throw new Error('لم تصل بيانات Telegram الموثقة إلى التطبيق. أغلق Mini App وافتحه من زر SAS PRO داخل Telegram ثم أعد المحاولة.');
-  me=await api('/api/me');
+  me=await api('/api/me',{timeoutMs:15000});
   // Verification succeeded; stop the startup watchdog before loading the dashboard.
   clearTimeout(watchdog);
   if(me.admin){
