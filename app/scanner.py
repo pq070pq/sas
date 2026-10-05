@@ -838,14 +838,16 @@ async def discover_low_price_stocks():
 
 
 
-async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool = False):
+async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool = False, min_candles: int = 30):
     """Get daily OHLCV with caching and a strictly limited Twelve Data fallback."""
     global _twelve_data_quota_exhausted
     key = symbol.upper()
     now = time.monotonic()
     cached = _candle_cache.get(key)
     if cached and now - cached[0] < _CANDLE_CACHE_TTL:
-        return cached[1], cached[2]
+        cached_candles, cached_source = cached[1], cached[2]
+        if len(cached_candles) >= min_candles:
+            return cached_candles, cached_source
 
     base = settings.panwatch_base_url.rstrip("/")
     candles = []
@@ -864,7 +866,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
             payload = r.json()
             data = payload.get("data") or payload
             candles = _parse_candles(data.get("klines", []))
-            if len(candles) >= 30:
+            if len(candles) >= min_candles:
                 _candle_cache[key] = (now, candles, "PanWatch")
                 return candles, "PanWatch"
     except (asyncio.TimeoutError, httpx.HTTPError, Exception):
@@ -874,7 +876,8 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
     # This prevents 429 storms when 100+ symbols have no PanWatch candles.
     if (
         allow_twelve_fallback
-        and False  # Radar is keyless-first; Twelve Data is reserved for manual/explicit fallbacks.
+        and not _twelve_data_quota_exhausted
+        and bool(settings.twelve_data_api_key)
     ):
         try:
             async with asyncio.timeout(8):
@@ -894,7 +897,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
                 r.raise_for_status()
                 payload = r.json()
                 candles = _parse_candles(payload.get("values", []))
-                if len(candles) >= 30:
+                if len(candles) >= min_candles:
                     candles.reverse()
                     _candle_cache[key] = (now, candles, "Twelve Data")
                     return candles, "Twelve Data"
@@ -909,7 +912,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
     try:
         async with asyncio.timeout(12):
             candles = _parse_candles(await _stooq_ohlcv(key, 260))
-        if len(candles) >= 205:
+        if len(candles) >= min_candles:
             _candle_cache[key] = (now, candles, "Stooq")
             return candles, "Stooq"
     except Exception:
@@ -1258,7 +1261,7 @@ def _trading_profile(*, price, atr_pct, rvol, power_trend, accumulation, breakou
 
 async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fallback: bool = False):
     async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 30)) as client:
-        candles, data_source = await _get_analysis_candles(client, symbol, allow_twelve_fallback)
+        candles, data_source = await _get_analysis_candles(client, symbol, allow_twelve_fallback, min_candles=205)
 
     if len(candles) < 205:
         return {
