@@ -582,3 +582,20 @@ filter:blur(.2px);
   cursor:pointer;
 }
 .private-analysis-btn:active{transform:translateY(1px)}
+
+.admin-alerts-panel{margin:0 0 18px;border:1px solid rgba(255,255,255,.08);background:rgba(4,13,23,.78);border-radius:18px;padding:16px}
+.admin-alerts-summary{margin-top:10px}
+.admin-system-ok,.admin-system-bad{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 15px;border-radius:14px;border:1px solid rgba(91,211,255,.12)}
+.admin-system-ok{background:rgba(42,211,142,.07)}
+.admin-system-bad.critical{background:rgba(255,74,74,.09);border-color:rgba(255,74,74,.25)}
+.admin-system-bad.warning{background:rgba(255,177,66,.08);border-color:rgba(255,177,66,.22)}
+.admin-system-ok b{color:#5bf0b0}.admin-system-bad.critical b{color:#ff7070}.admin-system-bad.warning b{color:#ffc267}
+.admin-system-ok small,.admin-system-bad small{display:block;color:#9bb0bd}
+.admin-alerts-list{display:grid;gap:8px;margin-top:10px}
+.admin-health-row{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border-radius:12px}
+.admin-health-row.ok{background:rgba(42,211,142,.045)}
+.admin-health-row.warn{background:rgba(255,177,66,.07);border:1px solid rgba(255,177,66,.13)}
+.admin-health-row.error{background:rgba(255,74,74,.08);border:1px solid rgba(255,74,74,.16)}
+.admin-health-row>span{font-size:16px;line-height:1.3}
+.admin-health-row b,.admin-health-row small{display:block}
+.admin-health-row small{margin-top:3px;color:#a9bac5;line-height:1.5}
