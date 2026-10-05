@@ -182,30 +182,8 @@ async function refreshTerminal(){
  if(terminalState.tab==='watch') renderWatchlist();
 }
 function renderMarketStrip(s){
- const premarket=s.session==='premarket';
- const preopen=s.session==='overnight';
- const activeSession=Boolean(s.stock_radar_enabled)||premarket;
- const label=s.open
-  ? '🟢 السوق مفتوح'
-  : premarket
-   ? '🟡 قبل الافتتاح'
-   : preopen
-    ? '🟡 قبل الافتتاح القادم'
-    : (activeSession?'🟡 التداول الممتد':'🔴 السوق مغلق');
- const sessionLabel=s.label_ar||({
-  premarket:'🟡 قبل الافتتاح — الرادار يعمل',
-  regular:'السوق مفتوح الآن 🟢',
-  afterhours:'بعد الإغلاق 🟠',
-  night:'التداول الإلكتروني الليلي 🟣',
-  night_pending:'🟣 التداول الليلي يفتح قريبًا',
-  overnight:'🟡 قبل الافتتاح القادم — بانتظار بداية البري ماركت'
- }[s.session]||'—');
- const stateClass=s.open?'open':((premarket||preopen)?'premarket':(activeSession?'extended':'closed'));
- const radarLabel=activeSession?'يعمل الآن':(preopen?'جاهز للبري ماركت':'متوقف');
- document.getElementById('marketStrip').innerHTML=
-  '<div class="market-state '+stateClass+'"><b>'+label+'</b><span>'+escHtml(sessionLabel)+'</span></div>'+
-  '<div class="market-state '+(activeSession?'radar-on':'radar-off')+'"><b>📡 الرادار</b><span>'+radarLabel+'</span></div>'+
-  '<div class="market-state '+((premarket||preopen)?'premarket':'')+'"><b>🕒 الجلسة</b><span>'+escHtml(sessionLabel)+'</span></div>';
+ const el=document.getElementById('marketStrip');
+ if(el)el.remove();
 }
 function renderDashboard(d){
  const r=d.radar||{};
