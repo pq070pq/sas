@@ -892,9 +892,21 @@ async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends
     expired = 0
     trial = 0
     for u in users:
-        if u.free_access or (u.subscription_expires and aware(u.subscription_expires) > now and u.status == "active"):
+        trial_active = bool(u.status == "trial" and u.trial_expires and aware(u.trial_expires) > now)
+        paid_active = bool(
+            not u.free_access
+            and u.status == "active"
+            and u.subscription_expires
+            and aware(u.subscription_expires) > now
+        )
+        is_active_user = bool(u.free_access or trial_active or paid_active)
+        if is_active_user:
             active += 1
-        elif u.subscription_expires:
+        elif (
+            u.subscription_expires
+            or u.trial_expires
+            or u.status in {"revoked", "expired"}
+        ):
             expired += 1
         if u.trial_used_at:
             trial += 1
