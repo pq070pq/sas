@@ -244,59 +244,51 @@ async def build_private_analysis(symbol: str):
     sas_status = "🟢 اجتاز SAS Core" if sas_pass else "🟠 لم يثبت اجتياز SAS Core"
     sas_reason = classification.get("reason") if isinstance(classification, dict) else None
     news_count = len(news) if isinstance(news, list) else 0
+
+    # تقرير الخاص مختصر ومباشر: أهم ما يحتاجه المتداول فقط.
+    # التفاصيل الثقيلة (كل الأخبار/الأساسيات/الأحداث) تبقى في طبقات Mini App عند الحاجة.
+    risk_text = f"{risk_emoji} {html.escape(str(risk_level))}"
+    if risk_score is not None:
+        risk_text += f" ({int(risk_score)}/10)"
+    reasons_text = ""
+    if risk_reasons:
+        reasons_text = "⚠️ <b>المخاطر:</b> " + html.escape(" + ".join(str(x) for x in risk_reasons)) + "\\n"
+    news_text = ""
+    if isinstance(news, list) and news:
+        headlines = []
+        for item in news[:2]:
+            if isinstance(item, dict) and item.get("headline"):
+                headlines.append("• " + html.escape(str(item.get("headline"))))
+        if headlines:
+            news_text = "📰 <b>آخر الأخبار</b>\\n" + "\\n".join(headlines) + "\\n"
+
+    target1_text = _money(target1_n) if target1_n else "غير متوفر"
     report = (
-        f"🚀 <b>SAS PRO | التحليل الكامل: {html.escape(symbol)}</b>\\n"
+        f"🚀 <b>SAS PRO | {html.escape(symbol)}</b>\\n"
         "━━━━━━━━━━━━━━━━━━\\n"
-        "📋 <b>الملخص السريع</b>\\n"
-        f"💵 السعر: <b>{_money(price)}</b>   📈 التغير: <b>{_pct(change)}</b>\\n"
-        f"🧭 الحالة الفنية: <b>{html.escape(str(behavior))}</b>\\n"
-        f"🏷️ التصنيف الفني: <b>{html.escape(str(stock_type))}</b>\\n"
-        f"🎯 <b>نوع السهم:</b> {html.escape(str(trading_style))}\\n"
-        f"⚠️ <b>درجة الخطورة:</b> {risk_emoji} {html.escape(str(risk_level))}"
-        f"{f' ({int(risk_score)}/10)' if risk_score is not None else ''}\\n"
-        f"{f'⏱️ <b>الأفق:</b> {html.escape(str(holding_horizon))}\\n' if holding_horizon else ''}"
-        f"📡 مصدر السعر: <b>{html.escape(str(source))}</b>\\n"
-        "ℹ️ هذا القسم يوضح وضع السهم الآن قبل الدخول في التفاصيل.\\n"
+        f"💵 <b>السعر:</b> {_money(price)}   📈 <b>التغير:</b> {_pct(change)}\\n"
+        f"🧭 <b>الاتجاه:</b> {html.escape(str(behavior))}\\n"
+        f"📊 <b>الزخم / RVOL:</b> {_num(rvol, '×')}\\n"
+        f"⭐ <b>SAS Core:</b> {html.escape(sas_status.replace('🟢 ','').replace('🟠 ',''))}"
+        f" | <b>النتيجة:</b> {score if score is not None else '—'}\\n"
+        f"⚠️ <b>الخطورة:</b> {risk_text}\\n"
+        f"{reasons_text}"
         "━━━━━━━━━━━━━━━━━━\\n"
-        "📌 <b>حكم شروط SAS</b>\\n"
-        f"{'🟢' if sas_pass else '🟠'} <b>SAS Core:</b> {html.escape(sas_status.replace('🟢 ','').replace('🟠 ',''))}\\n"
-        f"⭐ <b>النتيجة:</b> {score if score is not None else 'غير متوفرة'}\\n"
-        f"📊 <b>RVOL:</b> {_num(rvol, '×')}\\n"
-        f"{'⚠️ <b>عوامل الخطورة:</b> ' + html.escape(' + '.join(str(x) for x in risk_reasons)) + chr(10) if risk_reasons else ''}"
-        f"{'🧾 <b>سبب الحالة:</b> ' + html.escape(str(sas_reason)) + chr(10) if sas_reason else ''}"
-        f"{'🟢' if target_pass else '🟠'} <b>الهدف السعري:</b> {'مؤكد من البيانات الفنية' if target_pass else 'غير مؤكد'}\\n"
-        f"{'🟢' if live_levels_pass else '🟠'} <b>المستويات:</b> {'الدخول والوقف والهدف صالحة' if live_levels_pass else 'تحتاج بيانات إضافية'}\\n"
-        "💡 <b>للمبتدئ:</b> اجتياز SAS Core يعني أن البوابة الفنية الأساسية تحققت؛ لا يعني ذلك ضمان صعود السهم.\\n"
-        "━━━━━━━━━━━━━━━━━━\\n"
-        "🎯 <b>خطة الرصد والمستويات</b>\\n"
-        f"🟦 <b>الدخول المرجعي:</b> {_money(entry)}\\n"
-        f"🛑 <b>الوقف / الدعم:</b> {_money(stop_n)}\\n"
-        f"{target_text}\\n"
-        f"📏 <b>ATR:</b> {_money(tech.get('atr'))}\\n"
-        "📖 <b>ببساطة للمبتدئ:</b> الدخول هو السعر الذي بُني عليه الرصد، والوقف لحماية رأس المال، والأهداف مستويات محتملة وليست ضمانًا.\\n"
-        "━━━━━━━━━━━━━━━━━━\\n"
-        f"{rr_block}\\n"
-        "━━━━━━━━━━━━━━━━━━\\n"
-        "💼 <b>لمحة مالية عن الشركة</b>\\n"
-        f"{fundamentals_text}\\n"
-        "━━━━━━━━━━━━━━━━━━\\n"
-        "🔄 <b>أحداث قد تؤثر على السهم</b>\\n"
-        f"{_format_corporate_actions(events)}\\n"
-        "━━━━━━━━━━━━━━━━━━\\n"
-        f"{_format_news(news)}\\n"
-        f"📚 <b>عدد الأخبار المعروضة:</b> {news_count}\\n"
-        "━━━━━━━━━━━━━━━━━━\\n"
-        f"{_format_ai(ai)}\\n"
-        "━━━━━━━━━━━━━━━━━━\\n"
-        "🧠 <b>كيف تقرأ التقرير؟</b>\\n"
-        "1️⃣ ابدأ بالسعر والتغير لمعرفة وضع السهم.\\n"
-        "2️⃣ راجع سبب ظهور السهم ولا تعتمد على الدرجة وحدها.\\n"
-        "3️⃣ راجع الدخول والوقف والهدف ثم قارن العائد المحتمل بالمخاطرة.\\n"
-        "4️⃣ راجع الأخبار والأحداث لمعرفة المحفزات والمخاطر.\\n"
-        "5️⃣ إذا لم تظهر معلومة فهذا يعني أن المصدر لم يقدم بيانات موثوقة؛ لم يتم التخمين.\\n"
-        "━━━━━━━━━━━━━━━━━━\\n"
-        "⚠️ <b>تنبيه:</b> التقرير معلوماتي وتعليمي فقط، وليس توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول."
+        "🎯 <b>المستويات</b>\\n"
+        f"🟦 الدخول: <b>{_money(entry)}</b>\\n"
+        f"🛑 الوقف: <b>{_money(stop_n)}</b>\\n"
+        f"🎯 الهدف 1: <b>{target1_text}</b>\\n"
+        f"⚖️ <b>R:R:</b> {risk_reward:.2f} إن كان محسوبًا" if risk_reward is not None else
+        "⚖️ <b>R:R:</b> غير محسوب"
     )
-    # بعض أجزاء التقرير تُبنى بفواصل أسطر مكتوبة كنص حرفي \\n.
-    # نحولها قبل الإرسال إلى Telegram إلى فواصل أسطر فعلية.
+    # استكمال التقرير بعد السلسلة الشرطية حتى لا تتغير صيغة Python.
+    report += (
+        "\\n"
+        f"{news_text}"
+        f"{('🧠 <b>الخلاصة:</b> ' + html.escape(str(ai.get('key_takeaway') or 'لا توجد خلاصة موثقة إضافية.')) + chr(10)) if isinstance(ai, dict) else ''}"
+        f"{('🧾 <b>سبب الحالة:</b> ' + html.escape(str(sas_reason)) + chr(10)) if sas_reason else ''}"
+        f"📅 <b>أحداث مؤسسية:</b> {news_count} خبر/مصدر متاح\\n"
+        "━━━━━━━━━━━━━━━━━━\\n"
+        "⚠️ <b>تنبيه:</b> معلومات تعليمية وليست توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول."
+    )
     return report.replace(chr(92) + "r" + chr(92) + "n", chr(10)).replace(chr(92) + "n", chr(10)).replace(chr(92) + "r", chr(13))
