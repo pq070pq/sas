@@ -1806,6 +1806,104 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
 
     return payload
 
+@app.get("/api/stocks/{symbol}/mini-analysis")
+async def stock_mini_analysis(symbol: str, _: dict = Depends(require_pro)):
+    """تحليل SAS PRO مختصر ومباشر للـMini App بدون AI أو طبقات خارجية بطيئة."""
+    symbol = symbol.upper().strip()
+    try:
+        q = await quote(symbol)
+    except Exception:
+        q = {"symbol": symbol, "price": None, "change_pct": None, "source": "unavailable"}
+
+    try:
+        from .scanner import classify_sas
+        cls = await asyncio.wait_for(
+            classify_sas(symbol, q, allow_twelve_fallback=True),
+            timeout=25.0,
+        )
+    except Exception as exc:
+        cls = {"pass": False, "behavior": "غير واضح", "error": str(exc)[:200]}
+
+    if not isinstance(cls, dict):
+        cls = {"pass": False, "behavior": "غير واضح"}
+
+    try:
+        targets = await asyncio.wait_for(technical_targets(symbol), timeout=15.0)
+    except Exception:
+        targets = {}
+
+    target_list = targets.get("targets") if isinstance(targets, dict) else []
+    target_list = target_list if isinstance(target_list, list) else []
+    entry = targets.get("price") or q.get("price")
+    stop = targets.get("exit") or targets.get("stop") or targets.get("support")
+    target = target_list[0] if target_list else targets.get("target1")
+
+    behavior = str(cls.get("behavior") or "غير واضح")
+    if cls.get("market_structure_bearish") or cls.get("bearish_head_shoulders"):
+        signal = "سلبية"
+    elif cls.get("breakout_confirmed"):
+        signal = "اختراق مؤكد"
+    elif cls.get("strategy_pass"):
+        signal = "إيجابية"
+    elif cls.get("accumulation"):
+        signal = "تجميع"
+    else:
+        signal = "محايدة"
+
+    breakdown = cls.get("score_breakdown") or {}
+    momentum_score = breakdown.get("momentum", 0)
+    volume_score = breakdown.get("volume", 0)
+    rvol = cls.get("rvol")
+    if momentum_score >= 20 and volume_score >= 15:
+        momentum = "قوي"
+    elif momentum_score >= 10 or volume_score >= 15:
+        momentum = "متوسط"
+    elif cls.get("rsi14") is not None or rvol is not None:
+        momentum = "ضعيف"
+    else:
+        momentum = "غير متاح"
+
+    try:
+        rvol_num = float(rvol) if rvol is not None else None
+    except (TypeError, ValueError):
+        rvol_num = None
+    liquidity = (
+        "مرتفعة" if rvol_num is not None and rvol_num >= 2
+        else "طبيعية" if rvol_num is not None and rvol_num >= 1.2
+        else "منخفضة" if rvol_num is not None
+        else "غير متاحة"
+    )
+
+    if signal == "اختراق مؤكد":
+        takeaway = "اختراق مؤكد وفق شروط SAS PRO."
+    elif signal == "إيجابية":
+        takeaway = "الإشارة اجتازت شروط SAS PRO الحالية."
+    elif signal == "تجميع":
+        takeaway = "السهم في حالة تجميع وفق شروط SAS PRO."
+    elif signal == "سلبية":
+        takeaway = "البنية الفنية الحالية سلبية وفق محرك SAS PRO."
+    else:
+        takeaway = "الإشارة محايدة وفق محرك SAS PRO."
+
+    return {
+        "ok": True,
+        "symbol": symbol,
+        "quote": q,
+        "mini_analysis": {
+            "direction": behavior,
+            "momentum": momentum,
+            "liquidity": liquidity,
+            "signal": signal,
+            "entry": entry,
+            "stop": stop,
+            "target": target,
+            "rvol": rvol_num,
+            "takeaway": takeaway,
+        },
+        "classification": cls,
+        "targets": targets,
+    }
+
 @app.get("/api/stocks/{symbol}/private-link")
 async def stock_private_link(symbol: str, _: dict = Depends(require_pro)):
     """رابط التحليل الكامل في الخاص مع تمرير رمز السهم تلقائيًا."""
