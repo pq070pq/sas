@@ -180,7 +180,7 @@ def market_status(now: datetime | None = None) -> dict:
 
     return {
         "open": False, "holiday": False, "session": "overnight",
-        "label_ar": "مغلق — بانتظار التداول الليلي 🔴", "short_ar": "بانتظار الجلسة الليلية",
+        "label_ar": "قبل الافتتاح 🟡", "short_ar": "قبل الافتتاح",
         "reason": "overnight", "date": d.isoformat(),
         "local_time": local.isoformat(), "next_premarket_et": "04:00",
     }
