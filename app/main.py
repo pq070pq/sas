@@ -454,9 +454,19 @@ async def set_channel_access(telegram_id: int, allow: bool, expires_at=None):
 def is_active(sub):
     return bool(sub and sub.active and aware(sub.expires_at) > utcnow())
 
-async def telegram_user(x_telegram_init_data: str = Header(default="")):
+async def telegram_user(
+    x_telegram_init_data: str = Header(default=""),
+    authorization: str = Header(default=""),
+):
+    # Telegram WebApp may deliver initData through the custom header or,
+    # depending on the Telegram client/WebView, through Authorization: tma <initData>.
+    # Both contain the same signed payload; accepting either avoids client-specific
+    # WebView header handling issues without weakening signature validation.
+    init_data = (x_telegram_init_data or "").strip()
+    if not init_data and authorization.lower().startswith("tma "):
+        init_data = authorization[4:].strip()
     try:
-        return validate_init_data(x_telegram_init_data)
+        return validate_init_data(init_data)
     except Exception as e:
         raise HTTPException(401, str(e))
 
