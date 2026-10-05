@@ -635,8 +635,12 @@ async def _discover_twelvedata(client):
         return []
     out = []
     for row in rows:
-        if not _is_allowed_exchange(row):
-            continue
+        exchange = _normalize_exchange(row.get("exchange") or row.get("mic_code"))
+        # Twelve Data movers may omit exchange; the endpoint is explicitly USA.
+        # Keep the row for the US radar and preserve the exchange as unknown
+        # instead of silently deleting an otherwise valid live mover.
+        if exchange not in ALLOWED_EXCHANGES:
+            exchange = "US"
         symbol = str(row.get("symbol") or "").upper().strip()
         price = _f(row.get("last"), -1)
         if symbol and MIN_PRICE <= price <= MAX_PRICE:
@@ -646,8 +650,8 @@ async def _discover_twelvedata(client):
                 "price": price,
                 "change_pct": _f(row.get("percent_change")),
                 "volume": _f(row.get("volume")),
-                "exchange": _normalize_exchange(row.get("exchange")),
-                "source": "Twelve Data",
+                "exchange": exchange,
+                "source": "Twelve Data Movers",
             })
     return out
 
@@ -666,12 +670,17 @@ async def _discover_panwatch(client):
 
     out = []
     for row in rows or []:
-        if not _is_allowed_exchange(row):
-            continue
         symbol = str(row.get("symbol") or "").upper().strip()
         price = _f(row.get("price"), -1)
-        if symbol and MIN_PRICE <= price <= MAX_PRICE:
-            out.append({**row, "exchange": _normalize_exchange(row.get("exchange")), "source": "PanWatch"})
+        if not symbol or not (MIN_PRICE <= price <= MAX_PRICE):
+            continue
+        exchange = _normalize_exchange(row.get("exchange") or row.get("mic_code"))
+        # PanWatch US discovery is explicitly scoped to the US market and its
+        # EastMoney adapter does not expose the exchange field. Do not discard
+        # valid US movers merely because that metadata is absent.
+        if exchange not in ALLOWED_EXCHANGES:
+            exchange = "US"
+        out.append({**row, "exchange": exchange, "source": "PanWatch"})
     return out
 
 
