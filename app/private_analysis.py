@@ -211,6 +211,7 @@ async def build_private_analysis(symbol: str):
         f"   🎯 الهدف {i}: <b>{_money(level)}</b>"
         for i, level in enumerate(targets[:5], 1)
     ) if targets else "   ⚠️ لا يوجد هدف سعري مؤكد من مقاومة مرصودة."
+    target1_text = _money(target1_n) if target1_n is not None else "غير متوفر"
 
     rr_text = f"1 : {risk_reward:.2f}" if risk_reward is not None else "غير محسوب"
 
