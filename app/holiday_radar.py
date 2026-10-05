@@ -221,6 +221,8 @@ async def publish_market_update(reason: str = "تحديث السوق عبر مص
         "📊 <b>مؤشرات السوق</b>",
     ]
     for label, q in rows:
+        if not _valid_price(q.get("price")):
+            continue
         lines.append(
             f"{label}: <b>{_fmt_price(q.get('price'))}</b> "
             f"({_fmt_pct(q.get('change_pct'))})"
@@ -289,39 +291,51 @@ async def publish_holiday_radar():
             "",
         ]
 
-        # المؤشرات والذهب: آخر إغلاق متاح خلال عطلة السوق.
-        lines += ["📊 <b>مؤشرات السوق — آخر إغلاق</b>", ""]
-        for label, q in rows:
-            if label == "₿ بيتكوين":
-                continue
-            price = _fmt_price(q.get("price"))
-            change = _fmt_pct(q.get("change_pct"))
-            source = str(q.get("source") or "")
-            suffix = " • إغلاق أخير" if "Last Close" in source else ""
+        # المؤشرات والذهب: نعرض فقط الأسعار الحقيقية المتاحة.
+        valid_non_btc = [
+            (label, q) for label, q in rows
+            if label != "₿ بيتكوين" and _valid_price(q.get("price"))
+        ]
+        if valid_non_btc:
+            lines += ["📊 <b>مؤشرات السوق — آخر إغلاق</b>", ""]
+            for label, q in valid_non_btc:
+                price = _fmt_price(q.get("price"))
+                change = _fmt_pct(q.get("change_pct"))
+                source = str(q.get("source") or "")
+                suffix = " • إغلاق أخير" if "Last Close" in source else ""
 
-            if label == "🥇 الذهب":
-                display_label = "🔸 <b>Gold</b>"
-                price_text = "$" + price if price != "—" else price
-            elif label == "📊 Dow Jones Industrial":
-                display_label = "📊 <b>Dow Jones</b>"
-                price_text = price
-            else:
-                display_label = label
-                price_text = price
+                if label == "🥇 الذهب":
+                    display_label = "🔸 <b>Gold</b>"
+                    price_text = "$" + price
+                elif label == "📊 Dow Jones Industrial":
+                    display_label = "📊 <b>Dow Jones</b>"
+                    price_text = price
+                else:
+                    display_label = label
+                    price_text = price
 
-            lines.append(f"{display_label}: {price_text} ({change}){suffix}")
+                lines.append(f"{display_label}: {price_text} ({change})")
 
         btc_change_6h = await _btc_6h_change()
         if btc_change_6h is None and btc_price is not None and _btc_previous_snapshot_price not in (None, 0):
             btc_change_6h = ((btc_price - _btc_previous_snapshot_price) / _btc_previous_snapshot_price) * 100
 
+        # لا نرسل تقريرًا بلا أي سعر حقيقي.
+        valid_prices = [q for _, q in rows if _valid_price(q.get("price"))]
+        if not valid_prices:
+            return {"sent": False, "reason": "no real market prices available"}
+
+        if btc_price is not None:
+            lines += [
+                "",
+                "🔷 ₿ <b>بيتكوين - BTC</b>",
+                "",
+                f"💵 <b>السعر الحالي:</b> $" + _fmt_price(btc_price),
+                f"📈 <b>التغير خلال 6 ساعات:</b> {_fmt_pct(btc_change_6h)}",
+                "⚡ <b>حركة قوية:</b> تعني أن تغير بيتكوين خلال 6 ساعات بلغ 3% أو أكثر.",
+            ]
+
         lines += [
-            "",
-            "🔷 ₿ <b>بيتكوين - BTC</b>",
-            "",
-            f"💵 <b>السعر الحالي:</b> $" + (_fmt_price(btc_price) if btc_price is not None else "—"),
-            f"📈 <b>التغير خلال 6 ساعات:</b> {_fmt_pct(btc_change_6h)}",
-            "⚡ <b>حركة قوية:</b> تعني أن تغير بيتكوين خلال 6 ساعات بلغ 3% أو أكثر.",
             "",
             "🔄 <b>التحديث التالي بعد 6 ساعات</b>",
             f"🕐 {datetime.now(RIYADH).strftime('%H:%M')} بتوقيت السعودية",
