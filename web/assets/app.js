@@ -231,16 +231,16 @@ function renderDashboard(d){
   : '';
  document.getElementById('radarStatusText').textContent=nightPending
   ? '🟣 التداول الليلي يفتح قريبًا'+nightCountdown+' — الرصد لا ينشر إشارة إلا بعد تحقق السعر والسيولة والزخم.'
-  : enabled
-  ? (extended
-    ? '🟡 الرصد الآلي يعمل في '+sessionLabel+' — لا تُنشر الإشارة إلا بعد تأكيد السعر والسيولة والزخم.'
-    : '🟢 الرصد الآلي يعمل — يبحث عن الأسهم التي تستوفي بوابة SAS PRO.')
-  : (historical ? '🟡 هذه آخر بيانات رصد محفوظة من الجلسة السابقة.'
-    : premarket
-     ? '🟡 السوق قبل الافتتاح — الرادار يعمل لرصد الفرص المبكرة وتأكيد السعر والسيولة والزخم.'
-     : preopen
-      ? '🟡 قبل الافتتاح القادم — الرادار جاهز وسيبدأ تلقائيًا مع جلسة البري ماركت.'
-      : '🔴 الرصد متوقف حاليًا خارج جلسات الرصد.');
+  : premarket
+   ? '🟡 السوق قبل الافتتاح — الرادار يعمل لرصد الفرص المبكرة وتأكيد السعر والسيولة والزخم.'
+   : preopen
+    ? '🟡 قبل الافتتاح — الرادار جاهز وسيبدأ تلقائيًا مع بداية البري ماركت.'
+    : enabled
+     ? (extended
+       ? '🟡 الرصد الآلي يعمل في '+sessionLabel+' — لا تُنشر الإشارة إلا بعد تأكيد السعر والسيولة والزخم.'
+       : '🟢 الرصد الآلي يعمل — يبحث عن الأسهم التي تستوفي بوابة SAS PRO.')
+     : (historical ? '🟡 هذه آخر بيانات رصد محفوظة من الجلسة السابقة.'
+       : '🔴 الرصد متوقف حاليًا خارج جلسات الرصد.');
  document.getElementById('dashboardMetrics').innerHTML=
   '<div><small>'+(historical?'آخر جلسة':'فرص اليوم')+'</small><strong>'+Number(r.opportunities||terminalState.radar.length||0)+'</strong></div>'+
   '<div><small>أعلى حركة</small><strong>'+pct(r.top_move_pct)+'</strong></div>'+
@@ -306,7 +306,7 @@ async function runRadar(show=true){
   const d=await api('/api/radar/scan');
   terminalState.radar=d.stocks||[];
   const diag=d.diagnostics||{};
-  const mode=d.historical?'🗂️ آخر رصد محفوظ — السوق مغلق':'🔴 فحص حي';
+  const mode=d.session==='overnight'?'🟡 قبل الافتتاح — بانتظار بداية البري ماركت':(d.historical?'🗂️ آخر رصد محفوظ':'🔴 فحص حي');
   document.getElementById('radarDiagnostics').innerHTML='<b class="radar-mode">'+mode+'</b><span>مرشحون '+Number(diag.candidates||0)+'</span><span>اجتازوا '+Number(diag.passed||0)+'</span><span>مستبعدون '+Number(diag.filtered||0)+'</span><span>أخطاء '+Number(diag.errors||0)+'</span>';
   const candidateEl=document.getElementById('radarCandidates');
   const candidates=Array.isArray(diag.filtered_examples)?diag.filtered_examples:[];
