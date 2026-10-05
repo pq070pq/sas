@@ -4,7 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from .config import settings
 
-engine = create_async_engine(settings.database_url, future=True)
+engine = create_async_engine(
+    settings.database_url,
+    future=True,
+    connect_args={"timeout": 10} if settings.database_url.startswith("sqlite") else {},
+)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 class Base(AsyncAttrs, DeclarativeBase):
@@ -161,6 +165,12 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         if engine.url.get_backend_name() == "sqlite":
+            # Mini App requests must not stall behind radar/subscription writes.
+            # WAL allows readers to continue while background jobs commit, and the
+            # busy timeout gives short-lived SQLite write contention time to clear.
+            await conn.execute(text("PRAGMA journal_mode=WAL"))
+            await conn.execute(text("PRAGMA synchronous=NORMAL"))
+            await conn.execute(text("PRAGMA busy_timeout=5000"))
             await _sqlite_add_columns(conn, "users", {
                 "last_name": "VARCHAR(128)",
                 "status": "VARCHAR(24) DEFAULT 'new'",
