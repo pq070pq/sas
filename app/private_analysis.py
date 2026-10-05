@@ -9,7 +9,8 @@ from .ai_radar import analyze_stock
 
 def _money(value):
     try:
-        return "$" + f"{float(value):,.4f}".rstrip("0").rstrip(".")
+        n = float(value)
+        return "$" + f"{n:,.2f}"
     except (TypeError, ValueError):
         return "غير متوفر"
 
@@ -245,46 +246,64 @@ async def build_private_analysis(symbol: str):
     sas_reason = classification.get("reason") if isinstance(classification, dict) else None
     news_count = len(news) if isinstance(news, list) else 0
 
-    # تقرير الخاص مختصر ومباشر: أهم ما يحتاجه المتداول فقط.
-    # التفاصيل الثقيلة (كل الأخبار/الأساسيات/الأحداث) تبقى في طبقات Mini App عند الحاجة.
+    # تقرير الخاص مختصر ومباشر وموحّد: لا نعرض مستوى تداول غير موثوق
+    # ولا نملأ الحقول الناقصة بتخمينات.
     risk_text = f"{risk_emoji} {html.escape(str(risk_level))}"
     if risk_score is not None:
-        risk_text += f" ({int(risk_score)}/10)"
+        risk_text += f" — {int(risk_score)}/10"
+
     reasons_text = ""
     if risk_reasons:
-        reasons_text = "⚠️ <b>المخاطر:</b> " + html.escape(" + ".join(str(x) for x in risk_reasons)) + "\\n"
-    news_text = ""
-    if isinstance(news, list) and news:
-        headlines = []
-        for item in news[:2]:
-            if isinstance(item, dict) and item.get("headline"):
-                headlines.append("• " + html.escape(str(item.get("headline"))))
-        if headlines:
-            news_text = "📰 <b>آخر الأخبار</b>\\n" + "\\n".join(headlines) + "\\n"
+        reasons_text = (
+            "⚠️ <b>ملاحظات المخاطر:</b> "
+            + html.escape(" + ".join(str(x) for x in risk_reasons))
+            + "\n"
+        )
 
-    target1_text = _money(target1_n) if target1_n else "غير متوفر"
-    rr_text = f"{risk_reward:.2f}" if risk_reward is not None else "غير محسوب"
+    displayed_headlines = []
+    if isinstance(news, list):
+        for item in news[:5]:
+            if isinstance(item, dict) and item.get("headline"):
+                displayed_headlines.append("• " + html.escape(str(item.get("headline"))))
+    news_count = len(displayed_headlines)
+    news_text = ""
+    if displayed_headlines:
+        news_text = (
+            "📰 <b>آخر الأخبار</b> "
+            f"({news_count})\n"
+            + "\n".join(displayed_headlines)
+            + "\n"
+        )
+
+    rvol_text = _num(rvol, "×") if rvol is not None else "غير متوفر"
+    rsi14 = classification.get("rsi14") if isinstance(classification, dict) else None
+    rsi_text = _num(rsi14) if rsi14 is not None else "غير متوفر"
+    score_text = f"{int(score)}/100" if score is not None else "غير متوفر"
+    source_text = html.escape(str(source))
+
     report = (
-        f"🚀 <b>SAS PRO | {html.escape(symbol)}</b>\\n"
-        "━━━━━━━━━━━━━━━━━━\\n"
-        f"💵 <b>السعر:</b> {_money(price)}   📈 <b>التغير:</b> {_pct(change)}\\n"
-        f"🧭 <b>الاتجاه:</b> {html.escape(str(behavior))}\\n"
-        f"📊 <b>الزخم / RVOL:</b> {_num(rvol, '×')}\\n"
-        f"⭐ <b>SAS Core:</b> {html.escape(sas_status.replace('🟢 ','').replace('🟠 ',''))}"
-        f" | <b>النتيجة:</b> {score if score is not None else '—'}\\n"
-        f"⚠️ <b>الخطورة:</b> {risk_text}\\n"
+        f"🚀 <b>SAS PRO | {html.escape(symbol)}</b>\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        f"💵 <b>السعر:</b> {_money(price)}   📈 <b>التغير:</b> {_pct(change)}\n"
+        f"🧭 <b>السلوك:</b> {html.escape(str(behavior))}\n"
+        f"📊 <b>RVOL:</b> {rvol_text}"
+        f"{(' — أقل من متوسط الحجم' if rvol is not None and float(rvol) < 1 else ' — فوق متوسط الحجم' if rvol is not None and float(rvol) > 1 else '')}\n"
+        f"📉 <b>RSI:</b> {rsi_text}\n"
+        f"⭐ <b>SAS Core:</b> {score_text}\n"
+        f"⚠️ <b>مستوى المخاطرة:</b> {risk_text}\n"
         f"{reasons_text}"
-        "━━━━━━━━━━━━━━━━━━\\n"
-        "🎯 <b>المستويات</b>\\n"
-        f"🟦 الدخول: <b>{_money(entry)}</b>\\n"
-        f"🛑 الوقف: <b>{_money(stop_n)}</b>\\n"
-        f"🎯 الهدف 1: <b>{target1_text}</b>\\n"
-        f"⚖️ <b>R:R:</b> {rr_text}\\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        "🎯 <b>المستويات</b>\n"
+        f"🔵 الدخول: <b>{_money(entry)}</b>\n"
+        f"🛑 الوقف: <b>{_money(stop_n)}</b>\n"
+        f"🎯 الهدف 1: <b>{target1_text}</b>\n"
+        f"⚖️ <b>R:R:</b> {rr_text}\n"
         f"{news_text}"
         f"{('🧠 <b>الخلاصة:</b> ' + html.escape(str(ai.get('key_takeaway') or 'لا توجد خلاصة موثقة إضافية.')) + chr(10)) if isinstance(ai, dict) else ''}"
         f"{('🧾 <b>سبب الحالة:</b> ' + html.escape(str(sas_reason)) + chr(10)) if sas_reason else ''}"
-        "━━━━━━━━━━━━━━━━━━\\n"
-        f"📚 <b>الأخبار المتاحة:</b> {news_count}\\n"
-        "⚠️ <b>تنبيه:</b> معلومات تعليمية وليست توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول."
+        "━━━━━━━━━━━━━━━━━━\n"
+        f"📚 <b>الأخبار المعروضة:</b> {news_count}\n"
+        f"🔗 <b>مصدر السعر:</b> {source_text}\n"
+        "⚠️ <b>تنبيه:</b> معلومات تعليمية وإخبارية فقط، وليست توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول."
     )
     return report.replace(chr(92) + "r" + chr(92) + "n", chr(10)).replace(chr(92) + "n", chr(10)).replace(chr(92) + "r", chr(13))
