@@ -219,6 +219,15 @@ async def analyze_stock(
         return {"enabled": False, "status": "disabled"}
 
     safe_news = _safe_news(news or [])
+    if not safe_news and tipranks:
+        safe_news = [{
+            "id": "N1",
+            "headline": "تحليل TipRanks للسهم",
+            "source": "TipRanks",
+            "url": str(tipranks.get("url") or ""),
+            "datetime": 0,
+            "summary": str(tipranks.get("page_text") or "")[:800],
+        }]
     if not safe_news and not tipranks:
         # لا توجد أدلة موثقة = لا يوجد تقرير AI.
         # هذا يمنع النموذج من اختراع خبر أو سبب للحركة.
