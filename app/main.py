@@ -172,10 +172,7 @@ async def telegram_polling_loop():
     except Exception as exc:
         logging.getLogger(__name__).exception("Telegram polling bot authentication failed: %s", exc)
         await asyncio.sleep(5)
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),
-        base_url="http://saspro.local",
-    ) as local_client:
+    async with httpx.AsyncClient(timeout=30) as local_client:
         while True:
             try:
                 payload = {
@@ -198,7 +195,7 @@ async def telegram_polling_loop():
                         if settings.telegram_webhook_secret:
                             headers["X-Telegram-Bot-Api-Secret-Token"] = settings.telegram_webhook_secret
                         response = await local_client.post(
-                            "/api/telegram/webhook",
+                            "http://127.0.0.1:8000/api/telegram/webhook",
                             headers=headers,
                             json=update_item,
                         )
