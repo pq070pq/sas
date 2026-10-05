@@ -127,7 +127,7 @@ async function refreshTerminal(){
  const clock=document.getElementById('terminalClock');
  if(clock){
   const now=new Date();
-  clock.textContent=now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+  clock.innerHTML='<span class="clock-time">'+now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'})+'</span><small>🇸🇦 الرياض</small><i aria-hidden="true"></i>';
   clock.title='آخر تحديث للواجهة: '+now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
  }
  const results=await Promise.allSettled([
