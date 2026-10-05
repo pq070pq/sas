@@ -212,32 +212,62 @@ def select_catalyst(news, max_age_hours: int = 48):
 
 
 async def corporate_events(symbol: str):
-    if _finnhub_pool.size == 0:
-        return {"earnings": [], "dividends": [], "splits": []}
-    results = {}
-    for name, endpoint in [
-            ("earnings", "calendar/earnings"),
-            ("dividends", "stock/dividend"),
-            ("splits", "stock/split"),
-            ("insider_transactions", "stock/insider-transactions"),
-            ("filings", "stock/filings"),
-        ]:
-            params = {"symbol": symbol.upper()}
-            if name == "earnings":
-                params.update({"from": date.today().isoformat(), "to": (date.today()+timedelta(days=90)).isoformat()})
-            elif name == "insider_transactions":
-                params.update({"from": (date.today()-timedelta(days=180)).isoformat(), "to": date.today().isoformat()})
-            elif name == "filings":
-                params.update({"from": (date.today()-timedelta(days=365)).isoformat(), "to": date.today().isoformat()})
-            else:
-                params.update({"from": (date.today()-timedelta(days=365)).isoformat(), "to": date.today().isoformat()})
-            try:
-                payload = await _finnhub_get(endpoint, params, timeout=20)
-                results[name] = payload if payload is not None else []
-            except Exception:
-                results[name] = []
-    return results
+    """Structured corporate events plus recent material-event headlines."""
+    results = {
+        "earnings": [], "dividends": [], "splits": [],
+        "material_events": [], "status": "partial",
+    }
+    if _finnhub_pool.size:
+        for name, endpoint in [
+                ("earnings", "calendar/earnings"),
+                ("dividends", "stock/dividend"),
+                ("splits", "stock/split"),
+            ]:
+                params = {"symbol": symbol.upper()}
+                if name == "earnings":
+                    params.update({"from": date.today().isoformat(), "to": (date.today()+timedelta(days=90)).isoformat()})
+                else:
+                    params.update({"from": (date.today()-timedelta(days=365)).isoformat(), "to": date.today().isoformat()})
+                try:
+                    payload = await _finnhub_get(endpoint, params, timeout=20)
+                    results[name] = payload if payload is not None else []
+                except Exception:
+                    results[name] = []
+        results["status"] = "ok"
 
+    # Headline evidence catches material events without dedicated endpoints.
+    try:
+        rows = await company_news(symbol, days=14)
+        keywords = {
+            "استحواذ/دمج": ("acquisition", "acquire", "acquired", "merger", "merges", "combination"),
+            "تمويل/طرح أسهم": ("offering", "public offering", "private placement", "registered direct"),
+            "ضمانات/وارنت": ("warrant", "exercise price", "warrants"),
+            "ناسداك/إدراج": ("nasdaq", "delist", "delisting", "listing", "compliance", "minimum bid"),
+            "عقد/شراكة": ("contract", "agreement", "partnership", "distribution", "exclusive rights"),
+            "نتائج/توجيهات": ("earnings", "revenue", "guidance", "financial results"),
+            "تقسيم/دمج أسهم": ("reverse stock split", "stock split", "share consolidation", "split"),
+            "توزيعات": ("dividend", "distribution"),
+        }
+        seen = set()
+        for item in rows or []:
+            headline = str(item.get("headline") or "").strip()
+            lower = headline.lower()
+            if not headline or headline in seen:
+                continue
+            categories = [label for label, terms in keywords.items() if any(term in lower for term in terms)]
+            if categories:
+                seen.add(headline)
+                stamp = _safe_timestamp(item.get("datetime"))
+                results["material_events"].append({
+                    "category": categories[:3], "headline": headline,
+                    "date": stamp.isoformat() if stamp else None,
+                    "url": item.get("url"), "source": item.get("source"),
+                })
+            if len(results["material_events"]) >= 12:
+                break
+    except Exception:
+        pass
+    return results
 
 async def earnings_calendar_window(days: int = 5):
     """Return upcoming US earnings events from today through today + days."""
