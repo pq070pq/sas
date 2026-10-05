@@ -2207,7 +2207,8 @@ async def scan_us_low_price_stocks():
                     "sas_core": bool(classification.get("pass")),
                     "liquidity": True,
                     "rvol": daily_rvol >= 1.0,
-                    "target": True,
+                    "target": bool(has_confirmed_target),
+                    "target_status": "مؤكد" if has_confirmed_target else "مراقبة — لا يوجد هدف مؤكد بعد",
                     "live_levels": True,
                     "no_distribution": not bool(classification.get("distribution_risk")),
                     "no_bearish_hs": not bool(classification.get("bearish_head_shoulders")),
@@ -2221,6 +2222,7 @@ async def scan_us_low_price_stocks():
                     "rsi_divergence": (classification.get("rsi_divergence") or {}).get("state"),
                     "risk_reward": round(_f(targets.get("risk_reward"), 0), 2) if isinstance(targets, dict) and targets.get("risk_reward") is not None else None,
                     "risk_reward_warning": bool(isinstance(targets, dict) and targets.get("risk_reward_warning")),
+                    "advanced_warning": bool(advanced_warning),
                 }
 
                 result_row = {
@@ -2249,6 +2251,7 @@ async def scan_us_low_price_stocks():
                     "live_change_pct": live_change,
                     "live_price_source": live_source,
                     "radar_checks": radar_checks,
+                    "radar_tier": "confirmed" if has_confirmed_target and not advanced_warning else "watch",
                 }
 
                 if live_price > 0:
