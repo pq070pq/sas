@@ -141,18 +141,23 @@ async def create_user_channel_invite(telegram_id: int, kind: str, expires_at=Non
     add a user to a private channel. The link is limited to one member and expires
     automatically so it cannot be reused by other users.
     """
-    if not settings.telegram_channel_id and not settings.telegram_channel_link:
+    channel_id = (
+        settings.trial_channel_id
+        if kind == "TRIAL" and settings.trial_channel_id
+        else settings.telegram_channel_id
+    )
+    if not channel_id and not settings.telegram_channel_link:
         raise RuntimeError("لم يتم إعداد قناة SAS PRO")
     expires_at = aware(expires_at) if expires_at else utcnow() + timedelta(hours=settings.invite_hours)
 
-    # إذا كان رابط القناة الثابت مضبوطًا، استخدمه مباشرة ولا تحاول إنشاء
-    # رابط دعوة جديد. هذا يمنع فشل Mini App عندما لا يملك البوت صلاحية
-    # can_invite_users في القناة.
+    # للتجربة استخدم رابط القناة الثابت إن كان مضبوطًا، وإلا أنشئ رابطًا
+    # للقناة الخاصة بالتجربة. سابقًا كان TRIAL_CHANNEL_ID موجودًا في الإعدادات
+    # لكنه لا يُستخدم، فيتجه الطلب خطأً إلى قناة الوصول الرئيسية.
     link = (settings.telegram_channel_link or "").strip()
     if not link:
         try:
             result = await bot_api("createChatInviteLink", {
-                "chat_id": settings.telegram_channel_id,
+                "chat_id": channel_id,
                 "name": f"SAS {kind} {int(telegram_id)}"[:32],
                 "expire_date": int(expires_at.timestamp()),
                 "member_limit": 1,
@@ -170,7 +175,7 @@ async def create_user_channel_invite(telegram_id: int, kind: str, expires_at=Non
         db.add(Invite(
             telegram_id=int(telegram_id),
             kind=kind,
-            channel_id=str(settings.telegram_channel_id),
+            channel_id=str(channel_id),
             invite_link=link,
             expires_at=expires_at,
             member_limit=1,
