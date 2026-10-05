@@ -67,4 +67,33 @@ jobs:
 
             docker compose exec -T saspro python -c "import asyncio; from app.telegram import bot_api; info=asyncio.run(bot_api('getWebhookInfo', {})); print('WEBHOOK_URL=', bool(info.get('url'))); print('WEBHOOK_PENDING=', info.get('pending_update_count', '?')); print('WEBHOOK_ERROR=', info.get('last_error_message') or 'none')"
 
+            docker compose exec -T saspro python - <<'PY'
+import asyncio
+import httpx
+from app.config import settings
+
+async def main():
+    url = settings.app_base_url.rstrip("/") + "/api/telegram/webhook"
+    headers = {"Content-Type": "application/json"}
+    if settings.telegram_webhook_secret:
+        headers["X-Telegram-Bot-Api-Secret-Token"] = settings.telegram_webhook_secret
+    payload = {
+        "update_id": 999999993,
+        "message": {
+            "message_id": 1,
+            "from": {"id": 0, "first_name": "WebhookTest"},
+            "chat": {"id": 0, "type": "private"},
+            "text": "/start",
+        },
+    }
+    async with httpx.AsyncClient(timeout=20, verify=False) as client:
+        response = await client.post(url, headers=headers, json=payload)
+    print("PUBLIC_WEBHOOK_STATUS=", response.status_code)
+    print("PUBLIC_WEBHOOK_BODY=", response.text[:500])
+    if response.status_code != 200:
+        raise SystemExit("Public Telegram webhook test failed")
+
+asyncio.run(main())
+PY
+
             echo "✅ OVH deployment smoke test passed."
