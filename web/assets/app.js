@@ -848,14 +848,67 @@ function renderAdminMonthlyReport(d){
   '<div class="report-top"><b>🔥 أكثر الأسهم ظهورًا في نتائج الرصد</b><div>'+top+'</div></div>'+
   '<div class="report-note">ℹ️ '+esc(d.note||'')+'</div>';
 }
+function adminStatCard(key,label,icon,value,clickable=true){
+ return '<button type="button" class="admin-stat-card '+(clickable?'is-clickable':'')+'" '+(clickable?'onclick="openSubscriberStatus(\\''+key+'\\')"':'')+'><small>'+label+'</small><strong>'+Number(value||0).toLocaleString('en-US')+'</strong><span>'+icon+(clickable?' عرض التفاصيل ↗':'')+'</span></button>';
+}
 async function loadAdminStats(){
  const d=await api('/api/admin/overview');
- document.getElementById('adminStats').innerHTML=[['active','🟢 النشطون'],['expired','🔴 المنتهية'],['trial_users','🎁 التجارب'],['new_users','👥 الجدد'],['payments','💳 المدفوعات'],['stars','⭐ Stars']].map(x=>'<div><small>'+x[1]+'</small><strong>'+d[x[0]]+'</strong></div>').join('');
+ document.getElementById('adminStats').innerHTML=
+  adminStatCard('active','🟢 المفعلين','👥',d.active,true)+
+  adminStatCard('expired','🔴 المنتهية','⏳',d.expired,true)+
+  '<div class="admin-stat-card"><small>🎁 التجارب</small><strong>'+Number(d.trial_users||0).toLocaleString('en-US')+'</strong><span>المستخدمون الذين بدأوا تجربة</span></div>'+
+  '<div class="admin-stat-card"><small>👥 الجدد</small><strong>'+Number(d.new_users||0).toLocaleString('en-US')+'</strong><span>آخر 30 يومًا</span></div>'+
+  '<div class="admin-stat-card"><small>💳 المدفوعات</small><strong>'+Number(d.payments||0).toLocaleString('en-US')+'</strong><span>عمليات مسجلة</span></div>'+
+  '<div class="admin-stat-card"><small>⭐ Stars</small><strong>'+Number(d.stars||0).toLocaleString('en-US')+'</strong><span>إجمالي مسجل</span></div>';
  const o=d.owner||{};
  const full=[o.first_name,o.last_name].filter(Boolean).join(' ')||'مالك SAS PRO';
  document.getElementById('ownerName').textContent=full;
  document.getElementById('ownerUsername').textContent=o.username?'@'+o.username:'بدون Username';
  document.getElementById('ownerId').textContent='Telegram ID: '+(o.telegram_id||'—');
+}
+async function openSubscriberStatus(state){
+ const panel=document.getElementById('subscriberStatusPanel');
+ const title=document.getElementById('subscriberStatusTitle');
+ const subtitle=document.getElementById('subscriberStatusSubtitle');
+ const summary=document.getElementById('subscriberStatusSummary');
+ const list=document.getElementById('subscriberStatusList');
+ if(!panel||!list)return;
+ const isActive=state==='active';
+ title.textContent=isActive?'👥 المشتركين المفعلين':'⏳ المشتركين المنتهية صلاحيتهم';
+ subtitle.textContent='بيانات حقيقية مباشرة من قاعدة بيانات SAS PRO';
+ summary.innerHTML='<span class="subscriber-loading">جاري قراءة البيانات…</span>';
+ list.innerHTML='<div class="loading">جاري تحميل القائمة...</div>';
+ panel.hidden=false;
+ panel.scrollIntoView({behavior:'smooth',block:'start'});
+ try{
+  const d=await api('/api/admin/subscribers?state='+encodeURIComponent(state));
+  const rows=Array.isArray(d.users)?d.users:[];
+  summary.innerHTML='<b>'+Number(d.count||rows.length).toLocaleString('en-US')+'</b><span>'+(isActive?'مستخدم لديه وصول فعال الآن':'مستخدم غير فعال أو منتهي')+'</span>';
+  list.innerHTML=rows.length?rows.map(renderSubscriberRow).join(''):'<div class="empty-state">'+(isActive?'لا يوجد مشتركون مفعلون حاليًا.':'لا توجد اشتراكات منتهية حاليًا.')+'</div>';
+ }catch(e){
+  list.innerHTML='<div class="fatal">تعذر تحميل بيانات المشتركين: '+esc(e.message)+'</div>';
+ }
+}
+function renderSubscriberRow(u){
+ const name=[u.first_name,u.last_name].filter(Boolean).join(' ')||'بدون اسم';
+ const username=u.username?'@'+u.username:'بدون Username';
+ const expires=u.expires_at?new Date(u.expires_at).toLocaleString('ar-SA'):'بدون انتهاء';
+ const plan=u.plan||'—';
+ return '<article class="subscriber-real-row">'+
+  '<div class="subscriber-real-avatar">'+(u.source==='subscription'?'💎':u.source==='trial'?'🎁':u.source==='free'?'♾️':'⏳')+'</div>'+
+  '<div class="subscriber-real-main"><b>'+esc(name)+'</b><small>'+esc(username)+' • Telegram ID: '+esc(u.telegram_id)+'</small><span>'+esc(u.status_label)+' • الباقة: '+esc(plan)+'</span><small>الانتهاء: '+esc(expires)+'</small></div>'+
+  '<button class="subscriber-real-action" onclick="openSubscriberActions('+Number(u.telegram_id)+')">إدارة</button>'+
+ '</article>';
+}
+function closeSubscriberStatus(){
+ const panel=document.getElementById('subscriberStatusPanel');
+ if(panel)panel.hidden=true;
+}
+function openSubscriberActions(id){
+ const input=document.getElementById('adminSearch');
+ if(input){input.value=String(id);input.scrollIntoView({behavior:'smooth',block:'center'});}
+ closeSubscriberStatus();
+ setTimeout(()=>adminSearch(),250);
 }
 async function adminSearch(){try{const q=document.getElementById('adminSearch').value.trim();const rows=await api('/api/admin/users'+(q?'?q='+encodeURIComponent(q):''));document.getElementById('adminUsers').innerHTML=rows.map(u=>{
  const status=u.free_access?'♾️ دائم':(u.subscription_expires&&new Date(u.subscription_expires)>new Date()?'🟢 فعال':'🔴 منتهي');
