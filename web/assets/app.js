@@ -6,7 +6,7 @@ function refreshTelegramWebApp(){
 }
 refreshTelegramWebApp();
 const getInitData=()=>tg?.initData||new URLSearchParams(location.hash.slice(1)).get('tgWebAppData')||new URLSearchParams(location.search).get('tgWebAppData')||'';
-const headers=()=>({'X-Telegram-Init-Data':getInitData()});
+const headers=()=>{const d=getInitData();return {'X-Telegram-Init-Data':d,'Authorization':d?'tma '+d:''};};
 async function waitForTelegramInitData(maxWait=5000){
  const started=Date.now();
  while(Date.now()-started<maxWait){
