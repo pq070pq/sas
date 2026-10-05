@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 scheduler_task = None
 holiday_radar_task = None
 telegram_polling_task = None
+private_analysis_task = None
 
 # ذاكرة SAS PRO للتحليل: تمنع إعادة التحليل الفني/الأخبار/AI لكل فتح للسهم.
 # السعر الحي يبقى منفصلًا ويُحدّث بسرعة.
@@ -150,7 +151,7 @@ async def startup():
                     logger.exception("Telegram deleteWebhook failed: %s", exc)
         except Exception as exc:
             logger.exception("Telegram command configuration failed: %s", exc)
-    global scheduler_task, holiday_radar_task, telegram_polling_task
+    global scheduler_task, holiday_radar_task, telegram_polling_task, private_analysis_task
     scheduler_task = asyncio.create_task(scheduler(), name="saspro-scheduler")
     holiday_radar_task = asyncio.create_task(holiday_radar_scheduler(), name="saspro-holiday-radar")
     telegram_polling_task = asyncio.create_task(telegram_polling_loop(), name="saspro-telegram-polling")
@@ -2527,42 +2528,41 @@ async def process_telegram_update(data: dict):
 
         # Return from the webhook immediately; Telegram must not wait for
         # external APIs, database work, or the private-analysis pipeline.
-        asyncio.create_task(
-            _safe_send(
-                f"🔎 <b>تم استلام {html.escape(symbol)}</b>\nجارٍ تحليل السهم وإرسال النتيجة هنا..."
-            ),
-            name=f"saspro-private-ack-{symbol}",
+        await _safe_send(
+            f"🔎 <b>تم استلام {html.escape(symbol)}</b>\nجارٍ تجهيز التحليل الكامل وإرساله هنا..."
         )
 
         async def _run_private_analysis():
             from .private_analysis import build_private_analysis
             last_exc = None
-            for attempt in range(2):
+            for attempt in range(3):
                 try:
-                    report = await build_private_analysis(symbol)
+                    logger.warning("Private analysis started: symbol=%s attempt=%s", symbol, attempt + 1)
+                    report = await asyncio.wait_for(build_private_analysis(symbol), timeout=75)
                     await _safe_send(report)
+                    logger.warning("Private analysis completed: symbol=%s attempt=%s", symbol, attempt + 1)
                     return
+                except asyncio.TimeoutError as exc:
+                    last_exc = exc
+                    logger.error("Private stock analysis timeout: symbol=%s attempt=%s", symbol, attempt + 1)
                 except Exception as exc:
                     last_exc = exc
-                    logger.exception(
-                        "Private stock analysis failed: symbol=%s attempt=%s error=%s",
-                        symbol, attempt + 1, exc
-                    )
-                    if attempt == 0:
-                        await asyncio.sleep(2)
+                    logger.exception("Private stock analysis failed: symbol=%s attempt=%s error=%s", symbol, attempt + 1, exc)
+                if attempt < 2:
+                    await asyncio.sleep(2 * (attempt + 1))
             try:
                 raise last_exc
             except Exception:
-                try:
-                    await send_message(
-                        chat_id,
-                        "❌ تعذر إكمال التحليل حاليًا بعد محاولتين.\n"
-                        "قد يكون أحد مصادر البيانات غير متاح مؤقتًا؛ حاول مرة أخرى بعد قليل."
-                    )
-                except Exception:
-                    logger.exception("Failed to send private analysis error for %s", symbol)
+                await _safe_send(
+                    "❌ تعذر إكمال التحليل الكامل حاليًا بعد 3 محاولات.\n"
+                    "تم تسجيل الخطأ تلقائيًا؛ أرسل رمز السهم مرة أخرى بعد قليل."
+                )
 
-        asyncio.create_task(_run_private_analysis(), name=f"saspro-private-analysis-{symbol}")
+        global private_analysis_task
+        private_analysis_task = asyncio.create_task(
+            _run_private_analysis(),
+            name=f"saspro-private-analysis-{symbol}",
+        )
         return {"ok": True}
 
     async with SessionLocal() as db:
