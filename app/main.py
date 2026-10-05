@@ -128,10 +128,28 @@ async def startup():
                 # The OVH reverse-proxy path has been unreliable for inbound Telegram
                 # updates. Use Telegram long polling instead so private analysis and
                 # payment updates do not depend on an inbound HTTPS POST.
-                await bot_api("deleteWebhook", {"drop_pending_updates": False})
-                logger.warning("Telegram webhook disabled; SAS PRO polling receiver will be started.")
-        except Exception:
-            pass
+                try:
+                    webhook_info = await bot_api("getWebhookInfo", {})
+                    logger.warning(
+                        "Telegram receiver before polling: webhook_url=%r pending=%s last_error=%r",
+                        webhook_info.get("url"),
+                        webhook_info.get("pending_update_count"),
+                        webhook_info.get("last_error_message"),
+                    )
+                except Exception as exc:
+                    logger.exception("Telegram getWebhookInfo failed: %s", exc)
+                try:
+                    await bot_api("deleteWebhook", {"drop_pending_updates": False})
+                    webhook_info = await bot_api("getWebhookInfo", {})
+                    logger.warning(
+                        "Telegram webhook disabled: webhook_url=%r pending=%s",
+                        webhook_info.get("url"),
+                        webhook_info.get("pending_update_count"),
+                    )
+                except Exception as exc:
+                    logger.exception("Telegram deleteWebhook failed: %s", exc)
+        except Exception as exc:
+            logger.exception("Telegram command configuration failed: %s", exc)
     global scheduler_task, holiday_radar_task, telegram_polling_task
     scheduler_task = asyncio.create_task(scheduler(), name="saspro-scheduler")
     holiday_radar_task = asyncio.create_task(holiday_radar_scheduler(), name="saspro-holiday-radar")
