@@ -499,10 +499,11 @@ function renderStatus(x){
  const active=!!x.pro;
  const source=x.access?.source||null;
  const expiry=x.expires_at||null;
+ const start=x.trial_start||x.subscription_start||null;
  document.getElementById('subStatus').textContent=active?'🟢 فعال':'🔒 غير مشترك';
  document.getElementById('subStatus').className=active?'ok':'bad';
- document.getElementById('subPlan').textContent=active?(x.user?.plan||'اشتراك'):'—';
- document.getElementById('subStart').textContent='—';
+ document.getElementById('subPlan').textContent=source==='trial'?'🎁 تجربة مجانية':(active?(x.plan||x.user?.plan||'اشتراك'):'—');
+ document.getElementById('subStart').textContent=start?fmtDate(start):'—';
  document.getElementById('subEnd').textContent=expiry?fmtDate(expiry):(source==='free'?'غير محدد':'—');
  document.getElementById('subDays').textContent=expiry?fmtDays(new Date(),expiry):(source==='free'?'غير محدد':'—');
  if(source==='trial'&&expiry){
@@ -513,9 +514,9 @@ function renderStatus(x){
   document.getElementById('trialState').textContent=x.trial_available?'متاحة مرة واحدة':(x.trial_expires?'منتهية/مستخدمة':'غير متاحة');
  }
  document.getElementById('channelBtn').hidden=!active;
- if(!x.trial_available)document.getElementById('trialBtn').disabled=true;
+ document.getElementById('trialBtn').disabled=!x.trial_available;
 }
-
+ 
 function renderPlans(p){
  const names={monthly:'شهري','3month':'3 أشهر','6month':'6 أشهر',yearly:'سنة'};
  const icons={monthly:'🟢','3month':'🔷','6month':'💎',yearly:'👑'};
