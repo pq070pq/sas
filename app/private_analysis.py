@@ -3,7 +3,7 @@ import html
 
 from .market import quote
 from .panwatch import technical_targets
-from .news import company_news, corporate_events, company_fundamentals
+from .news import company_news, corporate_events, company_fundamentals, tipranks_analysis
 from .ai_radar import analyze_stock
 
 
@@ -43,6 +43,8 @@ def _format_corporate_actions(events):
     splits = events.get("splits") if isinstance(events, dict) else []
     earnings = events.get("earnings") if isinstance(events, dict) else []
     dividends = events.get("dividends") if isinstance(events, dict) else []
+    insiders = events.get("insider_transactions") if isinstance(events, dict) else []
+    filings = events.get("filings") if isinstance(events, dict) else []
 
     if splits:
         lines.append("🔄 <b>تقسيم/دمج أسهم</b>")
@@ -78,6 +80,25 @@ def _format_corporate_actions(events):
                 continue
             amount = item.get("amount")
             lines.append(f"• {_event_date(item)} — {amount if amount is not None else 'بيانات التوزيع متاحة'}")
+
+    if insiders:
+        lines.append("👤 <b>معاملات المطلعين</b>")
+        for item in insiders[:5]:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name") or item.get("insider") or "مطلع"
+            trans = item.get("transaction") or item.get("transactionType") or item.get("change") or "معاملة مسجلة"
+            lines.append(f"• {html.escape(str(name))} — {html.escape(str(trans))} — {_event_date(item)}")
+
+    if filings:
+        lines.append("📑 <b>إفصاحات الشركة</b>")
+        for item in filings[:5]:
+            if not isinstance(item, dict):
+                continue
+            form = item.get("form") or item.get("formType") or "إفصاح"
+            filed = item.get("fileDate") or item.get("filedDate") or _event_date(item)
+            desc = item.get("description") or item.get("accessNumber") or ""
+            lines.append(f"• {html.escape(str(form))} — {html.escape(str(filed))}" + (f" — {html.escape(str(desc)[:180])}" if desc else ""))
 
     return "\n".join(lines)
 
@@ -163,12 +184,13 @@ def _evidence_summary(behavior, rvol, rsi, score, stop, target1):
 
 async def build_private_analysis(symbol: str):
     symbol = symbol.upper().strip()
-    quote_data, tech, events, news, fundamentals = await asyncio.gather(
+    quote_data, tech, events, news, fundamentals, tipranks = await asyncio.gather(
         quote(symbol),
         technical_targets(symbol),
         corporate_events(symbol),
         company_news(symbol, days=3),
         company_fundamentals(symbol),
+        tipranks_analysis(symbol),
         return_exceptions=True,
     )
 
@@ -180,6 +202,7 @@ async def build_private_analysis(symbol: str):
     events = value(events, {"splits": [], "earnings": [], "dividends": []})
     news = value(news, [])
     fundamentals = value(fundamentals, {})
+    tipranks = value(tipranks, {})
     # Normalize provider results so a transient/empty response cannot abort
     # the whole private report.
     if not isinstance(quote_data, dict):
@@ -192,6 +215,8 @@ async def build_private_analysis(symbol: str):
         news = []
     if not isinstance(fundamentals, dict):
         fundamentals = {}
+    if not isinstance(tipranks, dict):
+        tipranks = {}
 
     news = _filter_relevant_news(news, symbol, fundamentals.get("name"))[:10]
 
@@ -210,6 +235,8 @@ async def build_private_analysis(symbol: str):
             news=news,
             fundamentals=fundamentals,
             market={"change_pct": quote_data.get("change_pct"), "classification": classification},
+            tipranks=tipranks,
+            events=events,
         )
     except Exception:
         ai = {"enabled": False}
@@ -309,8 +336,14 @@ async def build_private_analysis(symbol: str):
     sas_status = "🟢 اجتاز SAS Core" if sas_pass else "🟠 لم يثبت اجتياز SAS Core"
     sas_reason = classification.get("reason") if isinstance(classification, dict) else None
     news_count = len(news) if isinstance(news, list) else 0
+    corporate_text = _format_corporate_actions(events)
+    tipranks_summary = str(ai.get("tipranks_summary") or "").strip()
+    company_status = str(ai.get("company_status") or "غير واضح").strip()
+    dilution_risk = str(ai.get("dilution_risk") or "غير واضح").strip()
+    events_summary = str(ai.get("corporate_events_summary") or "").strip()
 
-    # تقرير الخاص مختصر ومباشر وموحّد: لا نعرض مستوى تداول غير موثوق
+    # تقرير الخاص منظم على شكل ملف حالة متكامل للسهم.
+ ومباشر وموحّد: لا نعرض مستوى تداول غير موثوق
     # ولا نملأ الحقول الناقصة بتخمينات.
     risk_text = f"{risk_emoji} {html.escape(str(risk_level))}"
     try:
@@ -380,7 +413,18 @@ async def build_private_analysis(symbol: str):
         f"🎯 الهدف 1: <b>{target1_text}</b>\n"
         f"⚖️ <b>R:R:</b> {rr_text}\n"
         f"{news_text}"
-        f"🧠 <b>الخلاصة:</b> {html.escape(_evidence_summary(behavior_display, rvol_n, rsi14, score, stop_n, target1_n))}\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        "📰 <b>الأخبار والأحداث</b>\n"
+        f"{corporate_text}\n"
+        + (f"🧠 <b>قراءة AI للأحداث:</b> {html.escape(events_summary)}\n" if events_summary else "")
+        + "━━━━━━━━━━━━━━━━━━\n"
+        "🌐 <b>TipRanks — ترجمة AI</b>\n"
+        + (f"• <b>الخلاصة:</b> {html.escape(tipranks_summary)}\n" if tipranks_summary else "• لا تتوفر قراءة TipRanks حالياً.\n")
+        + f"• <b>وضع الشركة:</b> {html.escape(company_status)}\n"
+        + f"• <b>خطر التخفيف/التمويل:</b> {html.escape(dilution_risk)}\n"
+        + "ℹ️ معلومات خارجية للتفسير فقط؛ لا تغيّر مستويات SAS PRO.\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        f"🧠 <b>الخلاصة الفنية:</b> {html.escape(_evidence_summary(behavior_display, rvol_n, rsi14, score, stop_n, target1_n))}\n"
         f"{('🧾 <b>سبب الحالة:</b> ' + html.escape(str(sas_reason)) + chr(10)) if sas_reason else ''}"
         "━━━━━━━━━━━━━━━━━━\n"
         "⚠️ <b>تنبيه:</b> معلومات تعليمية وإخبارية فقط، وليست توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول."
