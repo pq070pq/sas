@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
-from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, AccessRequest, Setting, Invite, get_session, init_db
+from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, AccessRequest, Setting, Invite, AdminRole, get_session, init_db
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
@@ -869,9 +869,19 @@ async def accept_terms(user=Depends(telegram_user), db: AsyncSession = Depends(g
 
 @app.get("/api/me")
 async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
-    existing = (await db.execute(select(User).where(User.telegram_id == user["id"]))).scalars().first()
+    # مسار تحقق خفيف: استخدم جلسة قاعدة البيانات نفسها لكل القراءات.
+    # لا نحتاج للاستعلام عن Subscription هنا لأن حالة الوصول تُحسم من User.
+    existing = (await db.execute(
+        select(User).where(User.telegram_id == user["id"])
+    )).scalars().first()
+
     if not existing:
-        existing = User(telegram_id=user["id"], username=user.get("username"), first_name=user.get("first_name"), last_name=user.get("last_name"))
+        existing = User(
+            telegram_id=user["id"],
+            username=user.get("username"),
+            first_name=user.get("first_name"),
+            last_name=user.get("last_name"),
+        )
         db.add(existing)
         await db.commit()
         await db.refresh(existing)
@@ -888,14 +898,25 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
             existing.updated_at = utcnow()
             await db.commit()
 
-    sub = (await db.execute(
-        select(Subscription).where(Subscription.telegram_id == user["id"], Subscription.active == True)
-        .order_by(Subscription.expires_at.desc())
-    )).scalars().first()
-    if sub:
-        await sync_user_subscription(db, existing, sub) if False else None
-    admin_info = await get_admin(int(user["id"]))
-    admin = bool(admin_info)
+    admin = False
+    admin_role = None
+    admin_permissions = []
+    if int(user["id"]) == int(settings.owner_telegram_id):
+        admin = True
+        admin_role = "owner"
+        admin_permissions = list(PERMISSIONS)
+    else:
+        admin_row = (await db.execute(
+            select(AdminRole).where(AdminRole.telegram_id == int(user["id"]))
+        )).scalars().first()
+        if admin_row and admin_row.enabled:
+            admin = True
+            admin_role = admin_row.role
+            try:
+                admin_permissions = json.loads(admin_row.permissions or "[]")
+            except Exception:
+                admin_permissions = []
+
     now = utcnow()
     trial_active = bool(
         existing.status == "trial"
@@ -911,18 +932,16 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
     pro = admin or existing.free_access or subscription_active or trial_active
     expires = None
     if not admin:
-        # مصدر تاريخ الانتهاء يجب أن يطابق مصدر الوصول الفعلي:
-        # التجربة ← trial_expires، الاشتراك المدفوع ← subscription_expires.
-        # free_access لا يملك تاريخ انتهاء مصطنع.
         if trial_active:
             expires = aware(existing.trial_expires).isoformat()
         elif subscription_active:
             expires = aware(existing.subscription_expires).isoformat()
+
     return {
         "user": user,
         "admin": admin,
-        "admin_role": admin_info.get("role") if admin_info else None,
-        "admin_permissions": admin_info.get("permissions", []) if admin_info else [],
+        "admin_role": admin_role,
+        "admin_permissions": admin_permissions,
         "pro": pro,
         "access": {
             "enabled": pro,
