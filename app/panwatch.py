@@ -54,9 +54,11 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
             data = payload.get("data") or payload
             rows = data.get("klines", []) if isinstance(data, dict) else []
         except Exception:
-            if settings.twelve_data_api_key:
-                try:
-                    r = await twelve_call(client.get, "https://api.twelvedata.com/time_series",
+            pass
+
+        if len(rows) < 20 and settings.twelve_data_api_key:
+            try:
+                r = await twelve_call(client.get, "https://api.twelvedata.com/time_series",
                         params={
                             "symbol": symbol.upper(),
                             "interval": interval,
@@ -66,10 +68,10 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
                     )
                     r.raise_for_status()
                     rows = list(reversed((r.json()).get("values") or []))
-                except Exception:
-                    rows = []
-            if not rows:
-                rows = await _stooq_ohlcv(symbol, days)
+            except Exception:
+                pass
+        if len(rows) < 20:
+            rows = await _stooq_ohlcv(symbol, days)
     candles = []
     for row in rows:
         try:
@@ -99,10 +101,12 @@ async def technical_targets(symbol: str):
             data = payload.get("data") or payload
             rows = data.get("klines", []) if isinstance(data, dict) else []
         except Exception:
-            # Radar-safe fallback: never spend Twelve Data credits for target building.
-            # PanWatch is primary; Stooq is the keyless historical fallback.
-            if not rows:
-                rows = await _stooq_ohlcv(symbol, 90)
+            pass
+
+        # If PanWatch responded but returned no/insufficient candles, still use
+        # the observed Stooq history; otherwise the Mini App shows empty targets.
+        if len(rows) < 20:
+            rows = await _stooq_ohlcv(symbol, 90)
 
     candles = []
     for row in rows:
