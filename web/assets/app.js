@@ -352,7 +352,7 @@ async function analyzeSymbol(){
        '<span>🛑 الوقف <b>&#36;'+money(mini.stop)+'</b></span>'+
      '</div>'+
      '<p class="mini-takeaway">'+escHtml(mini.takeaway||summary)+'</p>'+
-     '<button type="button" class="private-analysis-btn" data-private-analysis="'+escHtml(symbol)+'">📩 التحليل الكامل في الخاص</button>'+
+     '<div class="private-analysis-note">📩 <b>لتحليل كامل للسهم</b><br><span>أرسل اسم السهم في الخاص، مثل: <b>'+escHtml(symbol)+'</b></span></div>'+
    '</section>';
  el.innerHTML=
    '<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div><button onclick="toggleWatch(\''+escHtml(symbol)+'\')">'+(terminalState.watch.includes(symbol)?'★ محفوظ':'☆ حفظ')+'</button></div>'+
@@ -414,7 +414,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData){
    '</div>'+
    '<div class="mini-levels"><span>🎯 الهدف <b>&#36;'+money(miniData?.mini_analysis?.target)+'</b></span><span>🛑 الوقف <b>&#36;'+money(miniData?.mini_analysis?.stop)+'</b></span></div>'+
    '<p class="mini-takeaway">'+escHtml(miniData?.mini_analysis?.takeaway||'تعذر تحميل تحليل SAS المختصر حاليًا.')+'</p>'+
-   '<button type="button" class="private-analysis-btn" data-private-analysis="'+escHtml(symbol)+'">📩 الانتقال للتحليل في الخاص</button>'+
+   '<div class="private-analysis-note">📩 <b>لتحليل كامل للسهم</b><br><span>أرسل اسم السهم في الخاص، مثل: <b>'+escHtml(symbol)+'</b></span></div>'+
  '</div>'+
  '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
  '<div class="news-list">'+(news.length?news.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'')+'</div>';
