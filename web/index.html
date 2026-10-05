@@ -57,6 +57,7 @@
       <div class="hero-caption">
         <div class="hero-brand-row"><time id="terminalClock" aria-label="الوقت الحالي"><span class="clock-time">—</span><small>🇸🇦 الرياض</small><i aria-hidden="true"></i></time><span>SAS PRO</span></div>
         <small>US MARKET • SMART RADAR</small>
+        <button id="adminBackBtn" class="secondary-btn admin-user-back" hidden onclick="returnToAdminView()">🛠️ العودة إلى الإدارة</button>
       </div>
     </section>
     <section class="market-ticker-wrap" aria-label="أسعار الأسواق">
@@ -95,6 +96,7 @@
       </div>
       <div class="admin-header-actions">
         <span class="admin-live"><i></i> النظام يعمل</span>
+        <button class="admin-refresh" onclick="openAdminUserView()">👤 صفحة المستخدم</button>
         <button class="admin-refresh" onclick="adminRefresh()">↻ تحديث</button>
       </div>
     </header>
