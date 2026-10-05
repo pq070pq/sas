@@ -686,19 +686,26 @@ async def discover_low_price_stocks():
       4) high-dollar-volume names.
     Detailed OHLCV confirmation happens after staging.
     """
+    source_names = ("nasdaq", "openterminal", "twelvedata", "panwatch")
+    source_counts = {name: 0 for name in source_names}
+    source_errors = {}
+
     async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
         sources = await asyncio.gather(
             _discover_us_exchanges(client),
             _discover_openterminal(client),
+            _discover_twelvedata(client),
             _discover_panwatch(client),
             return_exceptions=True,
         )
 
     merged = {}
-    for source_rows in sources:
+    for source_name, source_rows in zip(source_names, sources):
         if isinstance(source_rows, Exception):
+            source_errors[source_name] = type(source_rows).__name__
             continue
-        for row in source_rows:
+        source_counts[source_name] = len(source_rows or [])
+        for row in source_rows or []:
             if not isinstance(row, dict) or not _is_allowed_exchange(row):
                 continue
             symbol = str(row.get("symbol") or "").upper().strip()
@@ -715,7 +722,10 @@ async def discover_low_price_stocks():
 
     universe = list(merged.values())
     if not universe:
+        logger.warning("RADAR_DISCOVERY_EMPTY sources=%s errors=%s", source_counts, source_errors)
         return []
+
+    logger.info("RADAR_DISCOVERY sources=%s merged=%d", source_counts, len(universe))
 
     # Stage a diverse set rather than only gainers.
     by_dollar = sorted(universe, key=lambda x: _f(x.get("price")) * _f(x.get("volume")), reverse=True)
@@ -2283,8 +2293,15 @@ async def scan_us_low_price_stocks():
         ),
         reverse=True,
     )
-    small = [x for x in results if x.get("momentum_section") == "small"][:MAX_SECTION_RESULTS]
-    large = [x for x in results if x.get("momentum_section") == "large"][:MAX_SECTION_RESULTS]
+    # momentum_section describes behavior; market_cap determines small/large.
+    small = [
+        x for x in results
+        if _f(x.get("market_cap"), 0) < MOMENTUM_LARGE_MIN_MARKET_CAP
+    ][:MAX_SECTION_RESULTS]
+    large = [
+        x for x in results
+        if _f(x.get("market_cap"), 0) >= MOMENTUM_LARGE_MIN_MARKET_CAP
+    ][:MAX_SECTION_RESULTS]
     results = small + large
     filtered = [x for x in diagnostics if x.get("status") == "filtered"]
     errors = [x for x in diagnostics if x.get("status") == "error"]
@@ -2321,8 +2338,10 @@ async def scan_us_low_price_stocks():
                 reverse=True,
             ),
             "filter_counts": filter_counts,
-            "price_source": "Yahoo Finance Day Gainers + PanWatch + OpenTerminal/Nasdaq fallbacks",
-        "momentum_source": "Yahoo Finance Day Gainers",
+            "price_source": "Nasdaq + OpenTerminal + Twelve Data Movers + PanWatch",
+            "discovery_sources": source_counts,
+            "discovery_source_errors": source_errors,
+            "momentum_source": "Multi-source US movers + OHLCV staging",
         "momentum_rules": {
             "small": {"price": "0.5-20", "change_pct": ">10", "volume": ">500000"},
             "large": {"market_cap": ">1B", "change_pct": ">3"},
