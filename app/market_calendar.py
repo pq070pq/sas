@@ -164,9 +164,23 @@ def market_status(now: datetime | None = None) -> dict:
             "minutes_to_afterhours_close": _minutes_between(local, after_end),
         }
 
+    # 20:00–21:00 ET is the transition/maintenance window before the
+    # planned NYSE Arca overnight session. Never label it as active trading.
+    if d >= NIGHT_SESSION_LAUNCH and local.weekday() <= 4 and local.hour == 20:
+        night_open = _dt_at(local, 21, 0)
+        return {
+            "open": False, "holiday": False, "session": "night_pending",
+            "label_ar": "🟣 التداول الليلي يفتح قريبًا",
+            "short_ar": "يفتح قريبًا",
+            "reason": "night session pending",
+            "date": d.isoformat(), "local_time": local.isoformat(),
+            "minutes_to_night": _minutes_between(local, night_open),
+            "night_open_time_et": "21:00",
+        }
+
     return {
         "open": False, "holiday": False, "session": "overnight",
-        "label_ar": "مغلق — لا تداول ليلي 🔴", "short_ar": "لا تداول ليلي",
+        "label_ar": "مغلق — بانتظار التداول الليلي 🔴", "short_ar": "بانتظار الجلسة الليلية",
         "reason": "overnight", "date": d.isoformat(),
         "local_time": local.isoformat(), "next_premarket_et": "04:00",
     }
