@@ -39,5 +39,8 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             docker compose build saspro
+            # Remove any stale container left behind by a previous compose project.
+            # This prevents the fixed service name from blocking recreation.
+            docker rm -f saspro-saspro-1 2>/dev/null || true
             docker compose up -d --no-deps saspro
             docker compose ps saspro
