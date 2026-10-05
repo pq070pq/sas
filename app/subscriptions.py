@@ -68,6 +68,16 @@ async def ensure_subscription_settings():
         for key, value in defaults.items():
             if await db.get(Setting, key) is None:
                 await setting_set(db, key, value)
+
+        # ترقية لمرة واحدة: النسخ القديمة كانت تبدأ التجربة بـ30 يومًا.
+        # لا نعيد ضبط اختيار الإدارة بعد تنفيذ الترقية.
+        migration_key = "trial_days_3d_migrated"
+        if await db.get(Setting, migration_key) is None:
+            current_trial_days = await setting_get(db, "trial_days", settings.trial_days)
+            if str(current_trial_days).strip() == "30":
+                await setting_set(db, "trial_days", 3)
+            await setting_set(db, migration_key, "1")
+
         await db.commit()
 
 async def get_subscription_config():
