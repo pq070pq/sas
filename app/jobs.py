@@ -868,7 +868,13 @@ async def scheduler():
         # نستخدم Cache وترشيحًا مرحليًا حتى لا تتحول زيادة التكرار إلى
         # استهلاك مضاعف للـ API. Twelve Data يبقى للتأكيد النهائي فقط.
         configured_interval = max(1, int(settings.radar_interval_minutes))
-        sleep_seconds = max(600, configured_interval * 60)
+        current_session = str((market_status() or {}).get("session") or "")
+        # أثناء البري ماركت والجلسة الرئيسية: كل 10 دقائق.
+        # بعد الإغلاق/الجلسة الممتدة: كل ساعة لتقليل استهلاك API.
+        if current_session in {"afterhours", "night"}:
+            sleep_seconds = 3600
+        else:
+            sleep_seconds = max(600, configured_interval * 60)
         try:
             next_status = market_status()
             if next_status.get("session") == "premarket":
