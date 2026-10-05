@@ -5,6 +5,8 @@ function refreshTelegramWebApp(){
  return tg;
 }
 refreshTelegramWebApp();
+const digitObserver=new MutationObserver(()=>normalizeEnglishDigits(document.body));
+digitObserver.observe(document.body,{subtree:true,childList:true,characterData:true});
 const getInitData=()=>tg?.initData||new URLSearchParams(location.hash.slice(1)).get('tgWebAppData')||new URLSearchParams(location.search).get('tgWebAppData')||'';
 const headers=()=>{const d=getInitData();return {'X-Telegram-Init-Data':d,'Authorization':d?'tma '+d:''};};
 async function waitForTelegramInitData(maxWait=5000){
@@ -38,7 +40,9 @@ async function api(path,opt={}){
   throw e;
  }finally{clearTimeout(timeout);}
 }
-const fmtDate=v=>v?new Date(v).toLocaleDateString('ar-SA'):'—';
+const enDigits=v=>String(v??'').replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-0x0660));
+const normalizeEnglishDigits=root=>{if(!root)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);const nodes=[];while(w.nextNode())nodes.push(w.currentNode);nodes.forEach(n=>{const x=enDigits(n.nodeValue);if(x!==n.nodeValue)n.nodeValue=x;});};
+const fmtDate=v=>v?enDigits(new Date(v).toLocaleDateString('ar-SA')):'—';
 const fmtDays=(a,b)=>{if(!a||!b)return'—';const n=Math.ceil((new Date(b)-new Date(a))/86400000);return n>0?n+' يوم':'منتهي';};
 let me=null,plans=null,termAction=null;
 let loadStarted=false;
@@ -147,8 +151,8 @@ async function refreshTerminal(){
  const clock=document.getElementById('terminalClock');
  if(clock){
   const now=new Date();
-  clock.innerHTML='<span class="clock-time">'+now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'})+'</span><small>🇸🇦 الرياض</small><i aria-hidden="true"></i>';
-  clock.title='آخر تحديث للواجهة: '+now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  clock.innerHTML='<span class="clock-time">'+enDigits(now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}))+'</span><small>🇸🇦 الرياض</small><i aria-hidden="true"></i>';
+  clock.title='آخر تحديث للواجهة: '+enDigits(now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'}));
  }
  const results=await Promise.allSettled([
   api('/api/market/radar-status'),
