@@ -345,6 +345,7 @@ filter:blur(.2px);
 /* SAS PRO terminal v7 — clock in the open left space */
 .hero-brand-row{
   display:flex;
+  direction:ltr;
   align-items:center;
   justify-content:space-between;
   gap:12px;
