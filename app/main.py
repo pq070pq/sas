@@ -184,6 +184,10 @@ async def telegram_polling_loop():
                 }
                 if offset is not None:
                     payload["offset"] = offset
+                logger.info(
+                    "Telegram polling requesting updates: offset=%s timeout=%s",
+                    offset, timeout
+                )
                 result = await bot_api("getUpdates", payload)
                 updates = result or []
                 logger.info("Telegram polling getUpdates returned %d update(s).", len(updates))
@@ -2344,6 +2348,18 @@ async def telegram_webhook(request: Request):
     if expected and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != expected:
         raise HTTPException(403, "Invalid Telegram webhook secret")
     data = await request.json()
+    message_probe = data.get("message") or {}
+    probe_text = str(message_probe.get("text") or "").strip()
+    probe_sender = message_probe.get("from") or {}
+    probe_chat = message_probe.get("chat") or {}
+    logger.warning(
+        "Telegram update received: update_id=%s chat_id=%s chat_type=%s user_id=%s text=%r",
+        data.get("update_id"),
+        probe_chat.get("id"),
+        probe_chat.get("type"),
+        probe_sender.get("id"),
+        probe_text[:80],
+    )
 
     if "chat_member" in data:
         cm = data.get("chat_member") or {}
