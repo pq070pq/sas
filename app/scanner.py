@@ -742,7 +742,16 @@ async def discover_low_price_stocks():
     # Stage a diverse set rather than only gainers.
     by_dollar = sorted(universe, key=lambda x: _f(x.get("price")) * _f(x.get("volume")), reverse=True)
     by_volume = sorted(universe, key=lambda x: _f(x.get("volume")), reverse=True)
-    by_move = sorted(universe, key=lambda x: abs(_f(x.get("change_pct"))), reverse=True)
+    gainers = sorted(
+        [x for x in universe if _f(x.get("change_pct")) > 0],
+        key=lambda x: (
+            _f(x.get("price")) * _f(x.get("volume")),
+            _f(x.get("volume")),
+            _f(x.get("change_pct")),
+        ),
+        reverse=True,
+    )
+    by_move = sorted(universe, key=lambda x: _f(x.get("change_pct")), reverse=True)
     # Quiet names are useful for accumulation; keep liquid names with small daily moves.
     quiet = sorted(
         [x for x in universe if abs(_f(x.get("change_pct"))) <= 4.0],
@@ -751,7 +760,7 @@ async def discover_low_price_stocks():
     )
 
     staged = {}
-    for rows, limit in ((by_dollar, 250), (by_volume, 200), (by_move, 200), (quiet, 200)):
+    for rows, limit in ((gainers, 320), (by_dollar, 250), (by_volume, 200), (by_move, 180), (quiet, 120)):
         for row in rows[:limit]:
             staged[row["symbol"]] = row
 
@@ -2303,12 +2312,33 @@ async def scan_us_low_price_stocks():
         else:
             item["classification"]["intraday_confirmation"] = False
 
+    def _opening_opportunity_score(item):
+        cls = item.get("classification") or {}
+        price = _f(item.get("live_price") or item.get("price"), 0)
+        volume = _f(item.get("volume"), 0)
+        change = _f(item.get("live_change_pct") if item.get("live_change_pct") is not None else item.get("change_pct"), 0)
+        rvol = _f(cls.get("rvol"), 0)
+        dollar_volume = price * volume
+        fib_score = _f((cls.get("fibonacci") or {}).get("score"), 0)
+        structure_score = _f(cls.get("advanced_confirmation_score"), 0)
+        intraday_bonus = 20 if bool(cls.get("intraday_confirmation")) else 0
+        liquidity_points = min(25, max(0, dollar_volume / 2_000_000 * 5))
+        volume_points = min(25, max(0, (rvol - 0.8) * 12))
+        move_points = min(20, max(0, change * 1.5))
+        fib_points = min(10, max(0, fib_score))
+        structure_points = min(10, max(0, structure_score / 10))
+        price_points = 5 if 0.50 <= price <= 10 else 2
+        return intraday_bonus + liquidity_points + volume_points + move_points + fib_points + structure_points + price_points
+
+    for item in results:
+        item["opening_opportunity_score"] = round(_opening_opportunity_score(item), 1)
+
     results.sort(
         key=lambda x: (
+            _f(x.get("opening_opportunity_score"), 0),
             1 if (x.get("classification") or {}).get("intraday_confirmation") else 0,
-            float(x.get("momentum_rvol_10d") or 0),
-            int((x.get("classification") or {}).get("score") or 0),
-            float(x.get("change_pct") or 0),
+            _f(x.get("live_change_pct") if x.get("live_change_pct") is not None else x.get("change_pct"), 0),
+            _f((x.get("classification") or {}).get("rvol"), 0),
         ),
         reverse=True,
     )
