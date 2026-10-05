@@ -198,7 +198,7 @@ function renderDashboard(d){
  const session=String(market.session||'');
  const extended=['premarket','afterhours','night'].includes(session);
  const premarket=session==='premarket';
- const preopen=session==='overnight';
+ const preopen=['overnight','weekend','holiday'].includes(session);
  const sessionLabel=market.label_ar||({
   premarket:'قبل الافتتاح 🟡',
   regular:'السوق مفتوح الآن 🟢',
@@ -211,13 +211,23 @@ function renderDashboard(d){
  const nightCountdown=nightPending && Number.isFinite(nightMinutes)
   ? ' — يفتح بعد '+Math.max(0,Math.ceil(nightMinutes))+' دقيقة'
   : '';
+ const nextPremarket=market.next_premarket_riyadh||'11:00';
+ const regularOpen=market.regular_open_riyadh||'16:30';
+ const regularClose=market.regular_close_riyadh||'23:00';
+ const afterClose=market.afterhours_close_riyadh||'03:00';
  document.getElementById('radarStatusText').textContent=nightPending
   ? '🟣 التداول الليلي يفتح قريبًا'+nightCountdown+' — الرصد لا ينشر إشارة إلا بعد تحقق السعر والسيولة والزخم.'
   : premarket
-   ? '🟡 السوق قبل الافتتاح — الرادار يعمل لرصد الفرص المبكرة وتأكيد السعر والسيولة والزخم.'
-   : preopen
-    ? '🟡 قبل الافتتاح — الرادار جاهز وسيبدأ تلقائيًا مع بداية البري ماركت.'
-    : enabled
+   ? '🟡 Pre-Market — الرصد المبكر يعمل حتى '+regularOpen+' بتوقيت الرياض، مع تأكيد السعر والسيولة والزخم.'
+   : session==='regular'
+    ? '🟢 السوق الأمريكي مفتوح — الجلسة الرسمية حتى '+regularClose+' بتوقيت الرياض.'
+    : session==='afterhours'
+     ? '🟠 After-Hours — التداول الممتد حتى '+afterClose+' بتوقيت الرياض.'
+     : session==='night'
+      ? '🟣 التداول الإلكتروني الليلي — الرصد يعمل ضمن الجلسة الليلية.'
+      : preopen
+       ? '🌙 السوق مغلق — يبدأ Pre-Market الساعة '+nextPremarket+' بتوقيت الرياض.'
+       : enabled
      ? (extended
        ? '🟡 الرصد الآلي يعمل في '+sessionLabel+' — لا تُنشر الإشارة إلا بعد تأكيد السعر والسيولة والزخم.'
        : '🟢 الرصد الآلي يعمل — يبحث عن الأسهم التي تستوفي بوابة SAS PRO.')
@@ -288,7 +298,20 @@ async function runRadar(show=true){
   const d=await api('/api/radar/scan');
   terminalState.radar=d.stocks||[];
   const diag=d.diagnostics||{};
-  const mode=d.session==='overnight'?'🟡 قبل الافتتاح — بانتظار بداية البري ماركت':(d.historical?'🗂️ آخر رصد محفوظ':'🔴 فحص حي');
+  const nextPremarket=d.next_premarket_riyadh||'11:00';
+  const mode=d.historical
+   ? '🗂️ آخر رصد محفوظ'
+   : d.session==='premarket'
+    ? '🟡 فحص حي — Pre-Market'
+    : d.session==='regular'
+     ? '🟢 فحص حي — السوق الرسمي'
+     : d.session==='afterhours'
+      ? '🟠 فحص حي — After-Hours'
+      : d.session==='night'
+       ? '🟣 فحص حي — التداول الليلي'
+       : d.session==='night_pending'
+        ? '🟣 التداول الليلي يفتح قريبًا'
+        : '🌙 السوق مغلق — يبدأ Pre-Market الساعة '+nextPremarket+' بتوقيت الرياض';
   const scanAt=d.scan_at?formatDateTime(d.scan_at):null;
   const sessionDate=d.session_date?formatSessionDate(d.session_date):null;
   const scanLabel=d.historical
