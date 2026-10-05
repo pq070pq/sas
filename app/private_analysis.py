@@ -263,6 +263,7 @@ async def build_private_analysis(symbol: str):
             news_text = "📰 <b>آخر الأخبار</b>\\n" + "\\n".join(headlines) + "\\n"
 
     target1_text = _money(target1_n) if target1_n else "غير متوفر"
+    rr_text = f"{risk_reward:.2f}" if risk_reward is not None else "غير محسوب"
     report = (
         f"🚀 <b>SAS PRO | {html.escape(symbol)}</b>\\n"
         "━━━━━━━━━━━━━━━━━━\\n"
@@ -278,17 +279,12 @@ async def build_private_analysis(symbol: str):
         f"🟦 الدخول: <b>{_money(entry)}</b>\\n"
         f"🛑 الوقف: <b>{_money(stop_n)}</b>\\n"
         f"🎯 الهدف 1: <b>{target1_text}</b>\\n"
-        f"⚖️ <b>R:R:</b> {risk_reward:.2f} إن كان محسوبًا" if risk_reward is not None else
-        "⚖️ <b>R:R:</b> غير محسوب"
-    )
-    # استكمال التقرير بعد السلسلة الشرطية حتى لا تتغير صيغة Python.
-    report += (
-        "\\n"
+        f"⚖️ <b>R:R:</b> {rr_text}\\n"
         f"{news_text}"
         f"{('🧠 <b>الخلاصة:</b> ' + html.escape(str(ai.get('key_takeaway') or 'لا توجد خلاصة موثقة إضافية.')) + chr(10)) if isinstance(ai, dict) else ''}"
         f"{('🧾 <b>سبب الحالة:</b> ' + html.escape(str(sas_reason)) + chr(10)) if sas_reason else ''}"
-        f"📅 <b>أحداث مؤسسية:</b> {news_count} خبر/مصدر متاح\\n"
         "━━━━━━━━━━━━━━━━━━\\n"
+        f"📚 <b>الأخبار المتاحة:</b> {news_count}\\n"
         "⚠️ <b>تنبيه:</b> معلومات تعليمية وليست توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول."
     )
     return report.replace(chr(92) + "r" + chr(92) + "n", chr(10)).replace(chr(92) + "n", chr(10)).replace(chr(92) + "r", chr(13))
