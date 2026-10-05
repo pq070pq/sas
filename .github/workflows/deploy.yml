@@ -43,7 +43,7 @@ jobs:
             docker compose up -d --no-deps saspro
             docker compose ps saspro
 
-      - name: Smoke test Holiday Radar data
+      - name: Smoke test SAS PRO container
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.OVH_HOST }}
@@ -53,37 +53,17 @@ jobs:
           script: |
             set -e
             cd /opt/saspro
+
+            # Deployment validation must not depend on external market-data
+            # providers. Those providers can timeout or be temporarily
+            # unavailable without meaning the application deployment failed.
+            docker compose ps saspro
+
+            test "$(docker inspect -f '{{.State.Running}}' saspro-saspro-1 2>/dev/null || true)" = "true"
+
             docker compose exec -T saspro python - <<'PY'
-            import asyncio
-            from app.holiday_radar import holiday_snapshot
-
-            async def main():
-                rows = await holiday_snapshot()
-                print("🌙 HOLIDAY RADAR TEST")
-
-                valid = 0
-                for label, item in rows:
-                    price = item.get("price")
-                    source = item.get("source") or "—"
-                    print(f"{label} => {price if price is not None else '—'} | {source}")
-                    try:
-                        if price is not None and float(price) > 0:
-                            valid += 1
-                    except (TypeError, ValueError):
-                        pass
-
-                print(f"VALID REAL ASSETS: {valid}/{len(rows)}")
-
-                # External market-data providers can temporarily time out or
-                # return no data. That must NOT block deployment.
-                # holiday_snapshot() already prevents publishing a report when
-                # no real prices are available.
-                if valid == 0:
-                    print("⚠️ No real market prices available right now.")
-                    print("⚠️ Deployment continues; Holiday Radar will remain silent until real data is available.")
-                else:
-                    print("✅ Real market data is available.")
-                    print("✅ Holiday Radar can publish only validated real prices.")
-
-            asyncio.run(main())
+            from app.main import app
+            print(f"✅ SAS PRO application imported successfully: version={app.version}")
             PY
+
+            echo "✅ OVH deployment smoke test passed."
