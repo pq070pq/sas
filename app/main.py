@@ -8,7 +8,7 @@ import hashlib
 import hmac
 import html
 import httpx
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -21,7 +21,7 @@ from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
 from .news import company_news, corporate_events
 from .jobs import scheduler
-from .market_calendar import market_status
+from .market_calendar import market_status, us_market_holidays
 from .holiday_radar import stock_radar_enabled
 from .holiday_radar import holiday_radar_scheduler
 from .timeutil import utcnow, aware
@@ -1615,8 +1615,12 @@ async def radar_scan(_: dict = Depends(require_pro)):
             )).scalars().all()
         stocks = []
         seen = set()
+        valid_historical_rows = []
         for row in rows:
             try:
+                session_day = date.fromisoformat(str(row.session_date)[:10])
+                if session_day.weekday() < 5 and session_day not in us_market_holidays(session_day.year):
+                    valid_historical_rows.append(row)
                 payload = json.loads(row.payload or "{}")
                 payload.setdefault("symbol", row.symbol)
                 if row.symbol not in seen:
@@ -1624,13 +1628,16 @@ async def radar_scan(_: dict = Depends(require_pro)):
                     seen.add(row.symbol)
             except Exception:
                 continue
-        latest_scan_at = rows[0].created_at.isoformat() if rows and rows[0].created_at else None
+        latest_valid = valid_historical_rows[0] if valid_historical_rows else None
+        latest_scan_at = latest_valid.created_at.isoformat() if latest_valid and latest_valid.created_at else None
+        latest_session_date = latest_valid.session_date if latest_valid else None
         return {
             "enabled": False,
             "historical": True,
             "reason": status["label_ar"],
             "session": status["session"],
             "scan_at": latest_scan_at,
+            "session_date": latest_session_date,
             "stocks": stocks[:20],
             "diagnostics": {"candidates": 0, "passed": len(stocks[:20]), "filtered": 0, "errors": 0},
         }
