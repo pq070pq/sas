@@ -219,10 +219,16 @@ async def corporate_events(symbol: str):
             ("earnings", "calendar/earnings"),
             ("dividends", "stock/dividend"),
             ("splits", "stock/split"),
+            ("insider_transactions", "stock/insider-transactions"),
+            ("filings", "stock/filings"),
         ]:
             params = {"symbol": symbol.upper()}
             if name == "earnings":
                 params.update({"from": date.today().isoformat(), "to": (date.today()+timedelta(days=90)).isoformat()})
+            elif name == "insider_transactions":
+                params.update({"from": (date.today()-timedelta(days=180)).isoformat(), "to": date.today().isoformat()})
+            elif name == "filings":
+                params.update({"from": (date.today()-timedelta(days=365)).isoformat(), "to": date.today().isoformat()})
             else:
                 params.update({"from": (date.today()-timedelta(days=365)).isoformat(), "to": date.today().isoformat()})
             try:
