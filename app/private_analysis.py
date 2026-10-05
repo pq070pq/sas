@@ -5,6 +5,7 @@ from .market import quote
 from .panwatch import technical_targets
 from .news import company_news, corporate_events, company_fundamentals, tipranks_analysis
 from .ai_radar import analyze_stock
+from .smart_memory import dedupe_records
 
 
 def _money(value):
@@ -228,7 +229,7 @@ async def build_private_analysis(symbol: str):
     quote_data = value(quote_data, {"symbol": symbol})
     tech = value(tech, {"status": "error", "targets": []})
     events = value(events, {"splits": [], "earnings": [], "dividends": []})
-    news = value(news, [])
+    news = dedupe_records(value(news, []), ("headline", "url", "datetime"))
     fundamentals = value(fundamentals, {})
     tipranks = value(tipranks, {})
     # Normalize provider results so a transient/empty response cannot abort
