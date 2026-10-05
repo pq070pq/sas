@@ -660,6 +660,10 @@ async def stock_radar_cycle():
                 if ai_used < ai_budget:
                     try:
                         fundamentals = await company_fundamentals(symbol)
+                        # TipRanks دليل تحليلي إضافي للذكاء الاصطناعي فقط.
+                        # لا يدخل في بوابة الرادار ولا ينشئ سعراً/هدفاً/وقفاً.
+                        from .news import tipranks_analysis
+                        tipranks_data = await tipranks_analysis(symbol)
                         ai_analysis = await analyze_stock(
                             symbol,
                             company={
@@ -668,6 +672,7 @@ async def stock_radar_cycle():
                             },
                             news=row.get("news_items") or [],
                             fundamentals=fundamentals,
+                            tipranks=tipranks_data,
                             market={
                                 "momentum_section": row.get("momentum_section"),
                                 "daily_change_pct": row.get("change_pct"),
@@ -692,6 +697,7 @@ async def stock_radar_cycle():
                             "ai_analysis": ai_analysis,
                             "fundamentals": fundamentals,
                             "news_items": row.get("news_items") or [],
+                            "tipranks_analysis": tipranks_data,
                         }
                         if ai_analysis.get("enabled"):
                             logger.info(
