@@ -305,7 +305,12 @@ async function analyzeSymbol(){
    api('/api/stocks/'+encodeURIComponent(symbol)+'/analyze',{method:'POST',timeoutMs:30000}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/mini-analysis',{timeoutMs:30000})
  ]);
- const q=qR.status==='fulfilled'?qR.value:{symbol,price:null,change_pct:null,source:'غير متاح'};
+ const qRaw=qR.status==='fulfilled'?qR.value:{symbol,price:null,change_pct:null,source:'غير متاح'};
+ const miniPayload=miniR.status==='fulfilled'&&miniR.value&&typeof miniR.value==='object'?miniR.value:null;
+ const miniQuote=miniPayload?.quote&&typeof miniPayload.quote==='object'?miniPayload.quote:{};
+ const q=(Number(qRaw?.price)>0||Number.isFinite(Number(qRaw?.change_pct)))
+   ? qRaw
+   : Object.assign({symbol},miniQuote,{source:miniQuote.source||'SAS PRO OHLCV'});
  const chart=chartR.status==='fulfilled'?chartR.value:{candles:[]};
  const news=newsR.status==='fulfilled'&&Array.isArray(newsR.value)?newsR.value:[];
  const analysis=analysisR.status==='fulfilled'?analysisR.value:null;
@@ -347,7 +352,7 @@ async function analyzeSymbol(){
        '<span>🛑 الوقف <b>&#36;'+money(mini.stop)+'</b></span>'+
      '</div>'+
      '<p class="mini-takeaway">'+escHtml(mini.takeaway||summary)+'</p>'+
-     '<button class="private-analysis-btn" onclick="openPrivateAnalysis(\''+escHtml(symbol)+'\')">📩 التحليل الكامل في الخاص</button>'+
+     '<button type="button" class="private-analysis-btn" data-private-analysis="'+escHtml(symbol)+'">📩 التحليل الكامل في الخاص</button>'+
    '</section>';
  el.innerHTML=
    '<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div><button onclick="toggleWatch(\''+escHtml(symbol)+'\')">'+(terminalState.watch.includes(symbol)?'★ محفوظ':'☆ حفظ')+'</button></div>'+
@@ -361,10 +366,12 @@ async function analyzeSymbol(){
    '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>'; drawChart(chart.candles||[]);
 }
 async function openPrivateAnalysis(symbol){
+ symbol=String(symbol||'').trim().toUpperCase();
+ if(!symbol)return;
  try{
-   const d=await api('/api/stocks/'+encodeURIComponent(symbol)+'/private-link');
-   const url=d?.url;
-   if(!url)throw new Error('لم يتم تجهيز رابط التحليل الخاص.');
+   const d=await api('/api/stocks/'+encodeURIComponent(symbol)+'/private-link',{timeoutMs:10000});
+   const url=String(d?.url||'');
+   if(!/^https:\/\/t\.me\//i.test(url))throw new Error('رابط التحليل الخاص غير صالح.');
    refreshTelegramWebApp();
    if(tg?.openTelegramLink){
      try{ tg.openTelegramLink(url); return; }catch(e){}
@@ -372,14 +379,27 @@ async function openPrivateAnalysis(symbol){
    if(tg?.openLink){
      try{ tg.openLink(url,{try_instant_view:false}); return; }catch(e){}
    }
-   window.location.href=url;
+   const w=window.open(url,'_blank','noopener,noreferrer');
+   if(!w)window.location.href=url;
  }catch(e){
-   alert(e?.message||'تعذر فتح التحليل الخاص.');
+   alert(e?.message||'تعذر فتح التحليل الخاص. تحقق من صلاحية SAS PRO ثم أعد المحاولة.');
  }
 }
+if(!window.__sasPrivateAnalysisBound){
+ window.__sasPrivateAnalysisBound=true;
+ document.addEventListener('click',function(ev){
+   const btn=ev.target&&ev.target.closest?ev.target.closest('[data-private-analysis]'):null;
+   if(!btn)return;
+   ev.preventDefault();
+   ev.stopPropagation();
+   openPrivateAnalysis(btn.getAttribute('data-private-analysis')||'');
+ });
+}
 function renderPartialAnalysis(el,symbol,q,chart,news,miniData){
- const price=Number(q?.price);
- const change=Number(q?.change_pct);
+ const fallbackQuote=miniData?.quote&&typeof miniData.quote==='object'?miniData.quote:{};
+ const displayQuote=(Number(q?.price)>0||Number.isFinite(Number(q?.change_pct)))?q:fallbackQuote;
+ const price=Number(displayQuote?.price);
+ const change=Number(displayQuote?.change_pct);
  const priceText=Number.isFinite(price)&&price>0?money(price):'—';
  const changeText=Number.isFinite(change)?pct(change):'—';
  el.innerHTML='<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div></div>'+
@@ -394,7 +414,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData){
    '</div>'+
    '<div class="mini-levels"><span>🎯 الهدف <b>&#36;'+money(miniData?.mini_analysis?.target)+'</b></span><span>🛑 الوقف <b>&#36;'+money(miniData?.mini_analysis?.stop)+'</b></span></div>'+
    '<p class="mini-takeaway">'+escHtml(miniData?.mini_analysis?.takeaway||'تعذر تحميل تحليل SAS المختصر حاليًا.')+'</p>'+
-   '<button class="private-analysis-btn" onclick="openPrivateAnalysis(\''+escHtml(symbol)+'\')">📩 الانتقال للتحليل في الخاص</button>'+
+   '<button type="button" class="private-analysis-btn" data-private-analysis="'+escHtml(symbol)+'">📩 الانتقال للتحليل في الخاص</button>'+
  '</div>'+
  '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
  '<div class="news-list">'+(news.length?news.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'')+'</div>';
