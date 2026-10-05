@@ -2465,7 +2465,6 @@ async def process_telegram_update(data: dict):
     # تحليل الأسهم الخاص: أرسل رمزًا واضحًا مثل AAPL في الخاص فقط.
     # لا نعترض الأوامر أو الرسائل العامة أو الرموز غير الصالحة.
     chat_type = str((message.get("chat") or {}).get("type") or "")
-    import re
     symbol_match = re.fullmatch(r"\$?([A-Za-z]{1,5}(?:\.[A-Za-z])?)", text)
     if chat_type == "private" and symbol_match and not text.startswith("/"):
         symbol = symbol_match.group(1).upper()
