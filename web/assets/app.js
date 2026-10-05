@@ -1,7 +1,22 @@
-const tg=window.Telegram&&window.Telegram.WebApp;
-if(tg){try{tg.ready();tg.expand();tg.setHeaderColor('#020912');tg.setBackgroundColor('#020912');}catch(e){}}
+let tg=window.Telegram&&window.Telegram.WebApp;
+function refreshTelegramWebApp(){
+ tg=window.Telegram&&window.Telegram.WebApp||tg;
+ if(tg){try{tg.ready();tg.expand();tg.setHeaderColor('#020912');tg.setBackgroundColor('#020912');}catch(e){}}
+ return tg;
+}
+refreshTelegramWebApp();
 const getInitData=()=>tg?.initData||new URLSearchParams(location.hash.slice(1)).get('tgWebAppData')||new URLSearchParams(location.search).get('tgWebAppData')||'';
 const headers=()=>({'X-Telegram-Init-Data':getInitData()});
+async function waitForTelegramInitData(maxWait=5000){
+ const started=Date.now();
+ while(Date.now()-started<maxWait){
+  refreshTelegramWebApp();
+  const data=getInitData();
+  if(data)return data;
+  await new Promise(resolve=>setTimeout(resolve,100));
+ }
+ return '';
+}
 async function api(path,opt={}){
  const controller=new AbortController();
  const timeout=setTimeout(()=>controller.abort(),8000);
@@ -35,9 +50,10 @@ async function load(){
   document.body.innerHTML='<div class="fatal"><b>⚠️ تعذر فتح SAS PRO</b><br><small>الخادم لم يُرجع نتيجة التحقق خلال 8 ثوانٍ. المشكلة في اتصال Mini App بالخادم وليست في الاشتراك.</small><br><button onclick="location.reload()">إعادة المحاولة</button></div>';
  },8500);
  try{
+  refreshTelegramWebApp();
   if(!tg)throw new Error('تعذر الوصول إلى Telegram WebApp. افتح SAS PRO من داخل Telegram.');
-  const initData=getInitData();
-  if(!initData)throw new Error('لم تصل بيانات Telegram إلى التطبيق. أغلق Mini App وافتحه من زر SAS PRO داخل Telegram.');
+  const initData=await waitForTelegramInitData(5000);
+  if(!initData)throw new Error('لم تصل بيانات Telegram الموثقة إلى التطبيق. أغلق Mini App وافتحه من زر SAS PRO داخل Telegram ثم أعد المحاولة.');
   me=await api('/api/me');
   // Verification succeeded; stop the startup watchdog before loading the dashboard.
   clearTimeout(watchdog);
