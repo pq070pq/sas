@@ -124,6 +124,9 @@ async def startup():
                     ],
                 })
             if settings.telegram_webhook_auto_configure and settings.app_base_url:
+                # Reset the webhook connection while preserving pending updates.
+                # This clears Telegram's previous failed-delivery backoff after a deploy.
+                await bot_api("deleteWebhook", {"drop_pending_updates": False})
                 webhook_payload = {
                     "url": settings.app_base_url.rstrip("/") + "/api/telegram/webhook",
                     "allowed_updates": ["message", "chat_join_request", "chat_member", "pre_checkout_query"],
