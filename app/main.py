@@ -352,8 +352,6 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         summary_lines.append(f"⚠️ <b>درجة الخطورة:</b> {risk_text}")
     if holding_horizon:
         summary_lines.append(f"⏱️ <b>مدة الرصد المتوقعة:</b> {_esc(holding_horizon)}")
-    if q.get("source"):
-        summary_lines.append(f"📡 مصدر السعر: <b>{_esc(q.get('source'))}</b>")
     add_section(report, "📋 <b>ملخص سريع للمبتدئ</b>", summary_lines)
 
     if momentum_label or classification_label:
@@ -470,7 +468,6 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         for idx, item in enumerate(valid_news[:8], 1):
             news_lines += [
                 f"<b>{idx}️⃣</b> {_esc(item.get('headline'))}",
-                f"<b>المصدر:</b> {_esc(item.get('source') or 'مصدر غير محدد')}",
                 ""
             ]
         while news_lines and news_lines[-1] == "":
