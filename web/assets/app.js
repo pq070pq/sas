@@ -368,16 +368,41 @@ async function openPrivateAnalysis(symbol){
  }
 }
 function renderPartialAnalysis(el,symbol,q,chart,news){
+ const candles=Array.isArray(chart?.candles)?chart.candles:[];
+ const closes=candles.map(x=>Number(x.close)).filter(Number.isFinite);
+ let direction='غير واضح',momentum='غير متاح',signal='محايدة';
+ if(closes.length>=2){
+   const first=closes[0],last=closes[closes.length-1];
+   const change=((last-first)/first)*100;
+   direction=change>1?'صاعد':change<-1?'هابط':'جانبي';
+   const recent=closes.slice(-Math.min(5,closes.length));
+   if(recent.length>=2){
+     const r=((recent[recent.length-1]-recent[0])/recent[0])*100;
+     momentum=r>1?'إيجابي':r<-1?'سلبي':'متوازن';
+   }
+   signal=direction==='صاعد'&&momentum==='إيجابي'?'إيجابية':direction==='هابط'&&momentum==='سلبي'?'سلبية':'محايدة';
+ }
+ const changeText=Number.isFinite(Number(q?.change_pct))?pct(q.change_pct):'—';
+ const technicalTakeaway=
+   direction==='صاعد'&&momentum==='إيجابي' ? 'الاتجاه والزخم يدعمان الحركة الإيجابية، ويُفضّل انتظار تأكيد سعري قبل القرار.' :
+   direction==='هابط'&&momentum==='سلبي' ? 'الاتجاه والزخم سلبيان حاليًا؛ الحذر مطلوب قبل أي قرار.' :
+   'الحركة الحالية متوازنة وتحتاج تأكيدًا سعريًا أوضح قبل القرار.';
  el.innerHTML='<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div></div>'+
- '<div class="quote-line"><strong>&#36;'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
+ '<div class="quote-line"><strong>&#36;'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+changeText+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
  '<div class="mini-analysis">'+
-   '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO QUICK ANALYSIS</span><b>🧠 التحليل المختصر</b></div></div>'+
-   '<p class="mini-takeaway">🟡 البيانات الفنية غير مكتملة حاليًا؛ لم يتم تخمين أي مستوى.</p>'+
-   '<button class="private-analysis-btn" onclick="openPrivateAnalysis(\''+escHtml(symbol)+'\')">📩 التحليل الكامل في الخاص</button>'+
+   '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO QUICK ANALYSIS</span><b>🧠 التحليل الفني المختصر</b></div></div>'+
+   '<div class="mini-analysis-grid">'+
+     '<div><small>📊 الاتجاه</small><b>'+escHtml(direction)+'</b></div>'+
+     '<div><small>🚀 الزخم</small><b>'+escHtml(momentum)+'</b></div>'+
+     '<div><small>💧 السيولة</small><b>حسب حركة السعر</b></div>'+
+     '<div><small>📈 الإشارة</small><b>'+escHtml(signal)+'</b></div>'+
+   '</div>'+
+   '<p class="mini-takeaway">'+escHtml(technicalTakeaway)+'</p>'+
+   '<button class="private-analysis-btn" onclick="openPrivateAnalysis(\''+escHtml(symbol)+'\')">📊 عرض التحليل الكامل</button>'+
  '</div>'+
  '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
  '<div class="news-list">'+(news.length?news.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'')+'</div>';
- drawChart(chart.candles||[]);
+ drawChart(candles);
 }
 function drawChart(candles){
  const canvas=document.getElementById('stockCanvas'); if(!canvas)return;
