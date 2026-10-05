@@ -580,7 +580,7 @@ function renderPlans(p){
 function openTerms(action){termAction=action;document.getElementById('termsAgree').checked=false;document.getElementById('termsContinue').disabled=action==='view';document.getElementById('termsText').textContent='جاري تحميل الشروط...';document.getElementById('termsModal').hidden=false;api('/api/subscription/plans').then(d=>{document.getElementById('termsText').textContent=d.terms_text||'';}).catch(e=>{document.getElementById('termsText').textContent=e.message;});}
 function toggleTermsButton(){if(termAction!=='view')document.getElementById('termsContinue').disabled=!document.getElementById('termsAgree').checked;}
 function closeTerms(){document.getElementById('termsModal').hidden=true;termAction=null;}
-async function continueTerms(){
+async async function continueTerms(){
  const agree=document.getElementById('termsAgree');
  const button=document.getElementById('termsContinue');
  if(!agree.checked||button.disabled)return;
