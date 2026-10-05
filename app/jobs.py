@@ -327,6 +327,79 @@ RADAR_STATUS = """📡 SAS PRO RADAR ⏳
 الدقة أولًا • بدون مطاردة • بدون إشارات وهمية"""
 
 
+def _radar_channel_gate(status, row, quote_data):
+    """Final Telegram gate: broad scanner finds candidates, this gate decides what reaches the channel.
+    
+    Extended-hours prices can move on thin liquidity, so a price jump alone is never
+    enough. We keep scanning broadly (so opportunities remain visible to the app/logs),
+    but Telegram only receives an extended-hours signal after live-price, liquidity,
+    momentum and independent technical confirmation agree.
+    """
+    session = str((status or {}).get("session") or "")
+    extended = session in {"premarket", "afterhours", "night"}
+
+    classification = row.get("classification") or {}
+    targets = row.get("targets") or {}
+    price = _money_float = None
+    try:
+        price = float((quote_data or {}).get("price") or row.get("live_price") or row.get("price") or 0)
+    except (TypeError, ValueError):
+        price = 0.0
+
+    change = (quote_data or {}).get("change_pct")
+    if change is None:
+        change = row.get("live_change_pct")
+    if change is None:
+        change = row.get("change_pct")
+    try:
+        change = float(change or 0)
+    except (TypeError, ValueError):
+        change = 0.0
+
+    try:
+        volume = float(row.get("volume") or 0)
+    except (TypeError, ValueError):
+        volume = 0.0
+    dollar_volume = price * volume
+
+    # Universal anti-fake safeguards.
+    if price <= 0 or volume <= 0:
+        return False, "سعر/حجم حي غير صالح"
+    if classification.get("distribution_risk") or classification.get("bearish_head_shoulders"):
+        return False, "تناقض هابط قوي"
+    if classification.get("chase_risk"):
+        return False, "مطاردة سعرية"
+    if not isinstance(targets.get("targets"), list) or not targets.get("targets"):
+        return False, "لا يوجد هدف سعري مؤكد"
+
+    if not extended:
+        return True, "جلسة رئيسية — بوابة SAS الأساسية"
+
+    # Extended hours: reject price-only spikes. Nasdaq/SEC note that these
+    # sessions generally have lower liquidity and higher volatility.
+    if change < 3.0:
+        return False, "ارتفاع ممتد دون حركة سعرية كافية"
+    if dollar_volume < 1_500_000:
+        return False, "سيولة نقدية ممتدة غير كافية"
+
+    rvol = float(classification.get("rvol") or 0)
+    intraday_confirmation = bool(classification.get("intraday_confirmation"))
+    breakout_confirmed = bool(classification.get("breakout_confirmed"))
+    advanced_confirmation = bool(classification.get("advanced_confirmation_pass"))
+    catalyst = bool(row.get("catalyst") or row.get("news_count"))
+
+    independent_confirmation = (
+        intraday_confirmation
+        or (breakout_confirmed and rvol >= 1.5)
+        or (advanced_confirmation and rvol >= 1.5)
+        or (catalyst and rvol >= 2.0 and change >= 5.0)
+    )
+    if not independent_confirmation:
+        return False, "ارتفاع سعري بلا تأكيد حجم/بنية مستقل"
+
+    return True, "تأكيد ممتد: سعر + سيولة + حجم + بنية/خبر"
+
+
 async def stock_radar_cycle():
     global _radar_open_announced
 
@@ -336,9 +409,9 @@ async def stock_radar_cycle():
 
     status = market_status()
 
-    # الأسهم تُرصد طوال أيام السوق على مدار اليوم:
-    # قبل الافتتاح + الجلسة الرئيسية + بعد الإغلاق + خارج الجلسة.
-    # في عطلة السوق ونهاية الأسبوع يتحول النظام إلى رادار بيتكوين.
+    # الرادار يعمل على جلسات الأسهم المتاحة: قبل الافتتاح، الرئيسية،
+    # بعد الإغلاق، والليل عند تفعيل جلسة Nasdaq الجديدة.
+    # في العطلة ونهاية الأسبوع يتحول النظام إلى رادار بيتكوين.
     if status["holiday"] or status["session"] == "weekend":
         _radar_open_announced = False
         logger.info("Stock radar skipped: market holiday/weekend (session=%s).", status.get("session"))
@@ -443,7 +516,27 @@ async def stock_radar_cycle():
                             "source": row.get("live_price_source") or row.get("source") or "scan data",
                         }
                 classification = row.get("classification") or {}
-                tech = {**(row.get("targets") or {}), "radar_checks": row.get("radar_checks") or {}}
+                tech = {
+                    **(row.get("targets") or {}),
+                    "radar_checks": row.get("radar_checks") or {},
+                    "market_session": status.get("label_ar"),
+                    "market_session_code": status.get("session"),
+                }
+
+                channel_ok, channel_reason = _radar_channel_gate(status, row, q)
+                if not channel_ok:
+                    cycle_stats["skipped"] += 1
+                    logger.info(
+                        "Radar channel gate skipped: %s | session=%s | reason=%s",
+                        symbol, status.get("session"), channel_reason,
+                    )
+                    continue
+
+                row["channel_gate"] = {
+                    "passed": True,
+                    "session": status.get("session"),
+                    "reason": channel_reason,
+                }
 
                 # AI enrichment runs only after the technical radar has already
                 # selected the candidate. It cannot create a signal, target,
