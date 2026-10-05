@@ -137,11 +137,25 @@ async def build_private_analysis(symbol: str):
     events = value(events, {"splits": [], "earnings": [], "dividends": []})
     news = value(news, [])
     fundamentals = value(fundamentals, {})
+    # Normalize provider results so a transient/empty response cannot abort
+    # the whole private report.
+    if not isinstance(quote_data, dict):
+        quote_data = {"symbol": symbol}
+    if not isinstance(tech, dict):
+        tech = {"status": "error", "targets": []}
+    if not isinstance(events, dict):
+        events = {"splits": [], "earnings": [], "dividends": []}
+    if not isinstance(news, list):
+        news = []
+    if not isinstance(fundamentals, dict):
+        fundamentals = {}
 
     try:
         from .scanner import classify_sas
         classification = await classify_sas(symbol, quote_data, allow_twelve_fallback=True)
     except Exception:
+        classification = {}
+    if not isinstance(classification, dict):
         classification = {}
 
     try:
@@ -153,6 +167,8 @@ async def build_private_analysis(symbol: str):
             market={"change_pct": quote_data.get("change_pct"), "classification": classification},
         )
     except Exception:
+        ai = {"enabled": False}
+    if not isinstance(ai, dict):
         ai = {"enabled": False}
 
     price = quote_data.get("price")
