@@ -179,8 +179,8 @@ async def telegram_polling_loop():
         logger.error("Telegram polling disabled: TELEGRAM_BOT_TOKEN is not configured.")
         return
     offset = None
-    timeout = 20
-    logging.getLogger(__name__).warning("Telegram polling receiver started.")
+    timeout = 5
+    logging.getLogger(__name__).warning("Telegram polling receiver started; short-poll diagnostics enabled.")
     try:
         me = await bot_api("getMe", {})
         logging.getLogger(__name__).warning(
@@ -204,7 +204,7 @@ async def telegram_polling_loop():
             )
             result = await bot_api("getUpdates", payload)
             updates = result or []
-            logger.info("Telegram polling getUpdates returned %d update(s).", len(updates))
+            logger.warning("Telegram polling getUpdates returned %d update(s).", len(updates))
             for update_item in updates:
                 update_id = int(update_item.get("update_id") or 0)
                 try:
