@@ -413,8 +413,30 @@ def _radar_channel_gate(status, row, quote_data):
         return False, "تناقض هابط قوي"
     if classification.get("chase_risk"):
         return False, "مطاردة سعرية"
+    # A technically incomplete/zero-score analysis is never a Telegram signal.
+    # It remains a watch candidate until enough real OHLCV is available.
+    if float(classification.get("score") or 0) <= 0:
+        return False, "التحليل الفني غير مكتمل"
+    if str(classification.get("behavior") or "").strip() == "غير واضح":
+        return False, "السلوك السعري غير واضح"
+    rvol_gate = float(classification.get("rvol") or 0)
+    if rvol_gate < 0.80:
+        return False, "RVOL منخفض جدًا"
+    if change < 0:
+        return False, "الحركة اليومية سلبية"
     if not isinstance(targets.get("targets"), list) or not targets.get("targets"):
         return False, "لا يوجد هدف سعري مؤكد"
+
+    # Prevent misleading R:R created by an unrealistically tight stop.
+    # The stop must leave a minimum 0.75% breathing room from the live entry.
+    try:
+        stop_level = float(targets.get("exit") or targets.get("stop") or 0)
+    except (TypeError, ValueError):
+        stop_level = 0
+    if stop_level > 0 and price > 0:
+        stop_distance_pct = ((price - stop_level) / price) * 100
+        if stop_distance_pct < 0.75:
+            return False, "وقف ضيق بشكل غير واقعي"
 
     if not extended:
         return True, "جلسة رئيسية — بوابة SAS الأساسية"
