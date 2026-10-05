@@ -121,7 +121,16 @@
       <div id="adminAlertsList" class="admin-alerts-list"></div>
     </section>
     <section class="admin-stats" id="adminStats"></section>
-      <section class="admin-panel monthly-report-panel">
+      <section class="admin-panel subscriber-status-panel" id="subscriberStatusPanel" hidden>
+      <div class="section-head">
+        <div><b id="subscriberStatusTitle">👥 المشتركين المفعلين</b><small id="subscriberStatusSubtitle">بيانات مباشرة من قاعدة SAS PRO</small></div>
+        <button class="admin-close-list" onclick="closeSubscriberStatus()">إغلاق</button>
+      </div>
+      <div id="subscriberStatusSummary" class="subscriber-status-summary"></div>
+      <div id="subscriberStatusList" class="subscriber-status-list"><div class="loading">جاري تحميل المشتركين...</div></div>
+    </section>
+
+        <section class="admin-panel monthly-report-panel">
       <div id="monthlyReport"><div class="loading">جاري تحميل التقرير الشهري...</div></div>
     </section>
 
