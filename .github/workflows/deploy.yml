@@ -60,6 +60,9 @@ jobs:
             docker compose ps saspro
 
             docker compose exec -T saspro python -c "from app.main import app; print('SAS_PRO_VERSION=', app.version)"
+            # Give the Telegram polling task enough time to perform at least one
+            # getUpdates call so deployment logs capture the receiver state.
+            sleep 8
             echo "===== SAS PRO recent logs ====="
             docker compose logs --tail=120 saspro || true
             echo "===== END SAS PRO recent logs ====="
