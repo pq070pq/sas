@@ -249,8 +249,11 @@ async def build_private_analysis(symbol: str):
     # تقرير الخاص مختصر ومباشر وموحّد: لا نعرض مستوى تداول غير موثوق
     # ولا نملأ الحقول الناقصة بتخمينات.
     risk_text = f"{risk_emoji} {html.escape(str(risk_level))}"
-    if risk_score is not None:
-        risk_text += f" — {int(risk_score)}/10"
+    try:
+        if risk_score is not None:
+            risk_text += f" — {float(risk_score):.0f}/10"
+    except (TypeError, ValueError):
+        pass
 
     reasons_text = ""
     if risk_reasons:
@@ -276,9 +279,20 @@ async def build_private_analysis(symbol: str):
         )
 
     rvol_text = _num(rvol, "×") if rvol is not None else "غير متوفر"
+    rvol_note = ""
+    try:
+        if rvol is not None and float(rvol) < 1:
+            rvol_note = " — أقل من متوسط الحجم"
+        elif rvol is not None and float(rvol) > 1:
+            rvol_note = " — فوق متوسط الحجم"
+    except (TypeError, ValueError):
+        pass
     rsi14 = classification.get("rsi14") if isinstance(classification, dict) else None
     rsi_text = _num(rsi14) if rsi14 is not None else "غير متوفر"
-    score_text = f"{int(score)}/100" if score is not None else "غير متوفر"
+    try:
+        score_text = f"{float(score):.0f}/100" if score is not None else "غير متوفر"
+    except (TypeError, ValueError):
+        score_text = "غير متوفر"
     source_text = html.escape(str(source))
 
     report = (
@@ -286,8 +300,7 @@ async def build_private_analysis(symbol: str):
         "━━━━━━━━━━━━━━━━━━\n"
         f"💵 <b>السعر:</b> {_money(price)}   📈 <b>التغير:</b> {_pct(change)}\n"
         f"🧭 <b>السلوك:</b> {html.escape(str(behavior))}\n"
-        f"📊 <b>RVOL:</b> {rvol_text}"
-        f"{(' — أقل من متوسط الحجم' if rvol is not None and float(rvol) < 1 else ' — فوق متوسط الحجم' if rvol is not None and float(rvol) > 1 else '')}\n"
+        f"📊 <b>RVOL:</b> {rvol_text}{rvol_note}\n"
         f"📉 <b>RSI:</b> {rsi_text}\n"
         f"⭐ <b>SAS Core:</b> {score_text}\n"
         f"⚠️ <b>مستوى المخاطرة:</b> {risk_text}\n"
