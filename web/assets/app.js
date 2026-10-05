@@ -124,7 +124,12 @@ async function fetchPublicGoldFallback(){
 }
 
 async function refreshTerminal(){
- document.getElementById('terminalClock').textContent=new Date().toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+ const clock=document.getElementById('terminalClock');
+ if(clock){
+  const now=new Date();
+  clock.textContent=now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});
+  clock.title='آخر تحديث للواجهة: '+now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+ }
  const results=await Promise.allSettled([
   api('/api/market/radar-status'),
   api('/api/dashboard/home'),
