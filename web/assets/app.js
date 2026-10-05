@@ -629,23 +629,25 @@ async function continueTerms(){
  try{
   const accepted=await api('/api/terms/accept',{method:'POST'});
 
-  // للمستخدم العادي يجب أن تبدأ التجربة ويُعاد رابط القناة. أما المالك/المشرف
-  // فقد لا تُمنح له تجربة، لذلك لا نحول موافقة الشروط الصحيحة إلى خطأ.
+  // بعد قبول الشروط لا نعيد تحميل Mini App ولا نغلق WebView.
+  // إعادة التحميل كانت تسبب شاشة انتهاء مهلة الاتصال مباشرة بعد نجاح القبول.
+  // ننتقل إلى المحطة داخل نفس الجلسة، ويستطيع المستخدم فتح رابط القناة
+  // من زر القناة بعد استقرار الواجهة.
   if(action==='trial'){
-   if(accepted.trial_started&&accepted.trial?.channel_link){
-    closeTerms();
-    if(tg?.openTelegramLink)tg.openTelegramLink(accepted.trial.channel_link);
-    else if(tg?.openLink)tg.openLink(accepted.trial.channel_link);
-    else window.open(accepted.trial.channel_link,'_blank');
-    setTimeout(()=>{loadStarted=false;load();},900);
-    return;
-   }
-   if(accepted.ok){
-    closeTerms();
-    setTimeout(()=>{loadStarted=false;load();},300);
-    return;
-   }
-   throw new Error('تعذر تفعيل التجربة أو إنشاء رابط القناة. حاول مرة أخرى.');
+   if(!accepted.ok)throw new Error('تعذر تسجيل الموافقة على الشروط. حاول مرة أخرى.');
+   me=Object.assign(me||{},{
+    terms_accepted:true,
+    terms_version:accepted.version,
+    pro:true,
+    status:accepted.trial_started?'trial':(me?.status||'new'),
+    trial_expires:accepted.trial?.trial_expires||me?.trial_expires||null
+   });
+   closeTerms();
+   document.getElementById('subscriptionPage').hidden=true;
+   document.getElementById('terminalPage').hidden=false;
+   loadStarted=true;
+   await initTerminal();
+   return;
   }
 
   if(action?.startsWith('buy:')){
