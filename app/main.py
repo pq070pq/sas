@@ -28,6 +28,7 @@ from .timeutil import utcnow, aware
 from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, get_subscription_config, setting_set, setting_get, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings, create_user_channel_invite
 from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
 from .fcc_reviewer import review_stock
+from .smart_memory import SmartMemory
 
 logger = logging.getLogger(__name__)
 
@@ -36,26 +37,18 @@ holiday_radar_task = None
 telegram_polling_task = None
 private_analysis_task = None
 
-# ذاكرة SAS PRO للتحليل: تمنع إعادة التحليل الفني/الأخبار/AI لكل فتح للسهم.
-# السعر الحي يبقى منفصلًا ويُحدّث بسرعة.
+# ذاكرة SAS PRO الذكية: TTL + حد أقصى + إزالة تلقائية للقديم.
 _ANALYSIS_CACHE_TTL = 900
 _QUICK_SCAN_CACHE_TTL = 300
-_analysis_cache = {}
-_quick_scan_cache = {}
+_analysis_memory = SmartMemory(_ANALYSIS_CACHE_TTL, max_items=128)
+_quick_scan_memory = SmartMemory(_QUICK_SCAN_CACHE_TTL, max_items=256)
 _analysis_locks = {}
 
 def _cache_get(cache, symbol, ttl):
-    item = cache.get(symbol.upper())
-    if not item:
-        return None
-    created, payload = item
-    if (datetime.now(timezone.utc) - created).total_seconds() > ttl:
-        cache.pop(symbol.upper(), None)
-        return None
-    return copy.deepcopy(payload)
+    return cache.get(symbol)
 
 def _cache_put(cache, symbol, payload):
-    cache[symbol.upper()] = (datetime.now(timezone.utc), copy.deepcopy(payload))
+    cache.put(symbol, payload)
 
 def _analysis_lock(symbol):
     key = symbol.upper()
@@ -64,6 +57,13 @@ def _analysis_lock(symbol):
         lock = asyncio.Lock()
         _analysis_locks[key] = lock
     return lock
+
+def _cleanup_analysis_locks():
+    if len(_analysis_locks) > 256:
+        for key in list(_analysis_locks)[:-128]:
+            lock = _analysis_locks.get(key)
+            if lock is not None and not lock.locked():
+                _analysis_locks.pop(key, None)
 
 
 app = FastAPI(title="SAS PRO", version="2.1.0")
@@ -1853,7 +1853,7 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     """تحليل Mini App متعدد الطبقات: البيانات الفنية لا تتوقف بسبب غياب AI أو خبر."""
     symbol = symbol.upper().strip()
 
-    cached = _cache_get(_analysis_cache, symbol, _ANALYSIS_CACHE_TTL)
+    cached = _cache_get(_analysis_memory, symbol, _ANALYSIS_CACHE_TTL)
     if cached is not None:
         try:
             live_quote = await quote(symbol)
@@ -2124,8 +2124,8 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     except Exception:
         await db.rollback()
 
-    _cache_put(_analysis_cache, symbol, payload)
-    _cache_put(_quick_scan_cache, symbol, {
+    _cache_put(_analysis_memory, symbol, payload)
+    _cache_put(_quick_scan_memory, symbol, {
         "quote": payload.get("quote") or {},
         "mini_analysis": payload.get("mini_analysis") or {},
     })
@@ -2135,7 +2135,7 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
 async def stock_mini_analysis(symbol: str, _: dict = Depends(require_pro)):
     """تحليل SAS PRO مختصر سريع مع ذاكرة مؤقتة لمنع إعادة التحليل المتكرر."""
     symbol = symbol.upper().strip()
-    cached = _cache_get(_quick_scan_cache, symbol, _QUICK_SCAN_CACHE_TTL)
+    cached = _cache_get(_quick_scan_memory, symbol, _QUICK_SCAN_CACHE_TTL)
     if cached is not None:
         try:
             q_live = await quote(symbol)
@@ -2149,7 +2149,7 @@ async def stock_mini_analysis(symbol: str, _: dict = Depends(require_pro)):
             "cached": True,
         }
 
-    full_cached = _cache_get(_analysis_cache, symbol, _ANALYSIS_CACHE_TTL)
+    full_cached = _cache_get(_analysis_memory, symbol, _ANALYSIS_CACHE_TTL)
     if full_cached is not None:
         mini = full_cached.get("mini_analysis") or {}
         return {
@@ -2255,7 +2255,7 @@ async def stock_mini_analysis(symbol: str, _: dict = Depends(require_pro)):
         "targets": targets,
         "cached": False,
     }
-    _cache_put(_quick_scan_cache, symbol, response)
+    _cache_put(_quick_scan_memory, symbol, response)
     return response
 
 @app.get("/api/stocks/{symbol}/private-link")
