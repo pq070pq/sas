@@ -66,7 +66,10 @@ def _normalize_exchange(value):
 
 def _is_allowed_exchange(row):
     exchange = _normalize_exchange(row.get("exchange") or row.get("mic_code"))
-    return exchange in ALLOWED_EXCHANGES
+    # Some US-wide movers feeds (PanWatch/Twelve Data) omit the venue.
+    # Their endpoint is already scoped to US equities, so retain the row as
+    # "US" rather than silently eliminating the candidate before staging.
+    return exchange in ALLOWED_EXCHANGES or exchange == "US"
 
 
 def _parse_candles(rows):
