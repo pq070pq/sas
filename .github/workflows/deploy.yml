@@ -71,6 +71,10 @@ jobs:
             print(f"App base URL configured: {bool(settings.app_base_url)}")
             PY
 
+            echo "===== SAS PRO recent logs ====="
+            docker compose logs --tail=250 saspro || true
+            echo "===== END SAS PRO recent logs ====="
+
             # Verify Telegram webhook configuration without exposing the bot token.
             docker compose exec -T saspro python - <<'PY'
             import asyncio
