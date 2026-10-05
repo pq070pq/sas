@@ -84,6 +84,11 @@ async function load(){
   renderTrialCard(cfg.trial_days);
   document.getElementById('paidPlansSection').hidden=!cfg.paid_plans_visible;
   renderPlans(plans.plans||{});
+  // لا يدخل المستخدم الرادار قبل الموافقة على النسخة الحالية من الشروط.
+  if(!me.terms_accepted){
+   openTerms('trial');
+   return;
+  }
  }catch(e){
   clearTimeout(watchdog);
   loadStarted=false;
@@ -335,7 +340,14 @@ async function runRadar(show=true){
   }
   renderRadar();
   renderDashboard({radar:{enabled:d.enabled,opportunities:terminalState.radar.length,top_move_pct:Math.max(...terminalState.radar.map(x=>Number(x.change_pct)||-Infinity)),top_volume:Math.max(...terminalState.radar.map(x=>Number(x.volume)||-Infinity))}});
- }catch(e){document.getElementById('radarGrid').innerHTML='<div class="fatal">'+escHtml(e.message)+'</div>';}
+ }catch(e){
+   const msg=String(e?.message||'');
+   if(msg.includes('الموافقة على الشروط')){
+    openTerms('trial');
+    return;
+   }
+   document.getElementById('radarGrid').innerHTML='<div class="fatal">'+escHtml(msg)+'</div>';
+ }
 }
 function renderRadar(){renderCards(document.getElementById('radarGrid'),terminalState.radar);}
 function renderCards(el,rows){
@@ -467,7 +479,12 @@ async function openPrivateAnalysis(symbol){
    const w=window.open(url,'_blank','noopener,noreferrer');
    if(!w)window.location.href=url;
  }catch(e){
-   alert(e?.message||'تعذر فتح التحليل الخاص. تحقق من صلاحية SAS PRO ثم أعد المحاولة.');
+   const msg=String(e?.message||'');
+   if(msg.includes('الموافقة على الشروط')){
+    openTerms('trial');
+    return;
+   }
+   alert(msg||'تعذر فتح التحليل الخاص. تحقق من صلاحية SAS PRO ثم أعد المحاولة.');
  }
 }
 if(!window.__sasPrivateAnalysisBound){
