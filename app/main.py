@@ -1597,12 +1597,7 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
             pass
         return cached
 
-    async with _analysis_lock(symbol):
-        cached = _cache_get(_analysis_cache, symbol, _ANALYSIS_CACHE_TTL)
-        if cached is not None:
-            return cached
-
-        # PanWatch's optional agent can take longer than the Mini App request window.
+    # PanWatch's optional agent can take longer than the Mini App request window.
     # Keep the SAS/targets/quote path independent: a slow external agent must never
     # turn a valid technical analysis into a timeout.
     async def _optional_agent_analysis():
