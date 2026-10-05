@@ -31,7 +31,7 @@ def _fmt_price(value):
         return "—"
     try:
         n = float(value)
-        return f"{n:,.4f}" if n < 1000 else f"{n:,.2f}"
+        return f"{n:,.2f}"
     except Exception:
         return str(value)
 
@@ -64,18 +64,30 @@ async def _public_holiday_fallback(symbol: str):
         # الذهب: XAUS مصدر عام مخصص للـ XAU/USD، بلا مفتاح API.
         if symbol == "XAU/USD":
             async with httpx.AsyncClient(timeout=10, follow_redirects=True, headers=headers) as client:
-                r = await client.get("https://xaus.com/api/v1/spot?compact=1")
+                # كسر كاش الوسيط حتى لا نعرض سعر ذهب قديمًا.
+                fresh = int(datetime.now(timezone.utc).timestamp())
+                r = await client.get(
+                    f"https://xaus.com/api/v1/spot?compact=1&fresh={fresh}"
+                )
                 if r.status_code < 400:
                     d = r.json()
                     price = d.get("spot_usd_oz")
-                    if _valid_price(price):
+                    state = d.get("data_state") or {}
+                    price_as_of = d.get("price_as_of") or d.get("updated_at")
+                    # لا نعرض سعرًا قديمًا على أنه سعر لحظي.
+                    stale_age = state.get("age_seconds")
+                    if (
+                        _valid_price(price)
+                        and state.get("status") in (None, "fresh")
+                        and (stale_age is None or float(stale_age) <= 900)
+                    ):
                         return {
                             "symbol": symbol,
-                            "price": float(price),
+                            "price": round(float(price), 2),
                             "change_pct": None,
                             "source": "XAUS Public",
                             "is_extended_hours": False,
-                            "datetime": d.get("price_as_of") or d.get("updated_at"),
+                            "datetime": price_as_of,
                         }
 
         # مؤشرات الأسهم: Stooq مستقل عن حصص مزودي API المدفوعة.
