@@ -909,3 +909,60 @@ filter:blur(.2px);
   .admin-brand b em{display:none}
   .admin-brand span{display:none}
 }
+
+
+/* ===== SAS PRO — PREMARKET STATUS & RADAR BUTTON POLISH ===== */
+.market-strip{
+  gap:10px;
+}
+.market-state{
+  position:relative;
+  overflow:hidden;
+  min-height:72px;
+  border-radius:17px;
+  border:1px solid rgba(45,244,255,.13);
+  background:linear-gradient(145deg,rgba(4,22,31,.92),rgba(2,10,17,.96));
+}
+.market-state.premarket{
+  border-color:rgba(255,205,80,.34);
+  background:linear-gradient(145deg,rgba(65,48,8,.25),rgba(5,20,27,.96));
+}
+.market-state.premarket:before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(120deg,transparent 20%,rgba(255,210,80,.06),transparent 70%);
+}
+.market-state.radar-on{
+  border-color:rgba(25,239,139,.24);
+}
+.market-state.radar-on b{
+  color:#dfffee;
+}
+.market-state.radar-on span{
+  color:#5bf0b0;
+  font-weight:900;
+}
+.market-state.radar-off span{
+  color:#8a9ca3;
+}
+.market-state.premarket b{
+  color:#ffe39a;
+}
+.market-state.premarket span{
+  color:#d7c38a;
+}
+#tab-dashboard .primary-btn{
+  min-width:142px;
+  padding:11px 15px;
+  border-radius:13px;
+  letter-spacing:.1px;
+}
+@media(max-width:560px){
+  #tab-dashboard .primary-btn{
+    min-width:126px;
+    font-size:10px;
+    padding:10px 11px;
+  }
+}
