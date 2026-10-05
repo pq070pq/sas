@@ -287,7 +287,9 @@ async function runRadar(show=true){
   const mode=d.session==='overnight'?'🟡 قبل الافتتاح — بانتظار بداية البري ماركت':(d.historical?'🗂️ آخر رصد محفوظ':'🔴 فحص حي');
   const scanAt=d.scan_at?formatDateTime(d.scan_at):null;
   const sessionDate=d.session_date?formatSessionDate(d.session_date):null;
-  const scanLabel=scanAt?scanAt+' بتوقيت الرياض':(sessionDate?sessionDate+' — جلسة الرصد الفعلية':'غير متوفر');
+  const scanLabel=d.historical
+   ? (sessionDate ? 'جلسة '+sessionDate+(scanAt?' — آخر تحديث '+scanAt:'') : 'غير متوفر')
+   : (scanAt ? scanAt+' بتوقيت الرياض' : 'غير متوفر');
   document.getElementById('radarDiagnostics').innerHTML='<b class="radar-mode">'+mode+'</b><span>🕒 وقت الرصد: '+escHtml(scanLabel)+'</span><span>مرشحون '+Number(diag.candidates||0)+'</span><span>اجتازوا '+Number(diag.passed||0)+'</span><span>مستبعدون '+Number(diag.filtered||0)+'</span><span>أخطاء '+Number(diag.errors||0)+'</span>';
   const candidateEl=document.getElementById('radarCandidates');
   const candidates=Array.isArray(diag.filtered_examples)?diag.filtered_examples:[];
