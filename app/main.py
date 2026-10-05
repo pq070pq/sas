@@ -1117,6 +1117,36 @@ async def admin_subscribers(state: str = "active", user=Depends(telegram_user), 
     return {"state": state, "count": len(rows), "users": rows}
 
 
+@app.get("/api/admin/terms-status")
+async def admin_terms_status(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    await require_admin_permission(user, "users")
+    users = (await db.execute(select(User).order_by(User.created_at.desc()))).scalars().all()
+    current = TERMS_VERSION
+    rows = []
+    accepted = 0
+    for u in users:
+        ok = bool(u.terms_accepted_at and u.terms_version == current)
+        if ok:
+            accepted += 1
+        rows.append({
+            "telegram_id": u.telegram_id,
+            "username": u.username,
+            "first_name": u.first_name,
+            "last_name": u.last_name,
+            "accepted": ok,
+            "accepted_at": aware(u.terms_accepted_at).isoformat() if u.terms_accepted_at else None,
+            "terms_version": u.terms_version,
+        })
+    return {
+        "ok": True,
+        "terms_version": current,
+        "total": len(rows),
+        "accepted": accepted,
+        "pending": len(rows) - accepted,
+        "users": rows,
+    }
+
+
 @app.get("/api/admin/monthly-report")
 async def admin_monthly_report(month: str = "", user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     await require_admin_permission(user, "users")
