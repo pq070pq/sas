@@ -362,7 +362,6 @@ async def build_private_analysis(symbol: str):
         score_text = f"{float(score):.0f}/100" if score is not None else "غير متوفر"
     except (TypeError, ValueError):
         score_text = "غير متوفر"
-    source_text = html.escape(str(source))
 
     report = (
         f"🚀 <b>SAS PRO | {html.escape(symbol)}</b>\n"
@@ -384,8 +383,6 @@ async def build_private_analysis(symbol: str):
         f"🧠 <b>الخلاصة:</b> {html.escape(_evidence_summary(behavior_display, rvol_n, rsi14, score, stop_n, target1_n))}\n"
         f"{('🧾 <b>سبب الحالة:</b> ' + html.escape(str(sas_reason)) + chr(10)) if sas_reason else ''}"
         "━━━━━━━━━━━━━━━━━━\n"
-        f"📚 <b>الأخبار المعروضة:</b> {news_count}\n"
-        f"🔗 <b>مصدر السعر:</b> {source_text}\n"
         "⚠️ <b>تنبيه:</b> معلومات تعليمية وإخبارية فقط، وليست توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول."
     )
     return report.replace(chr(92) + "r" + chr(92) + "n", chr(10)).replace(chr(92) + "n", chr(10)).replace(chr(92) + "r", chr(13))
