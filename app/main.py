@@ -1994,6 +1994,11 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         analysis_payload["fallback_type"] = "technical"
     analysis_payload["ai_available"] = bool(ai_result.get("enabled")) if isinstance(ai_result, dict) else False
     analysis_payload["fcc_review"] = fcc_review
+    if isinstance(tipranks_data, dict) and tipranks_data:
+        tipranks_data["summary"] = analysis_payload.get("tipranks_summary") or "غير متوفر"
+        tipranks_data["signal"] = analysis_payload.get("tipranks_signal") or "غير واضح"
+        targets["tipranks_analysis"] = tipranks_data
+    targets["ai_analysis"] = analysis_payload
 
     try:
         report = build_report(symbol, q, targets, classification)
