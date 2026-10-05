@@ -918,6 +918,66 @@ async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends
         "owner": owner_data,
     }
 
+@app.get("/api/admin/subscribers")
+async def admin_subscribers(state: str = "active", user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    await require_admin_permission(user, "users")
+    state = (state or "active").strip().lower()
+    if state not in {"active", "expired"}:
+        raise HTTPException(400, "الحالة يجب أن تكون active أو expired")
+    now = utcnow()
+    users = (await db.execute(select(User).order_by(User.created_at.desc()))).scalars().all()
+    rows = []
+    for u in users:
+        trial_active = bool(u.status == "trial" and u.trial_expires and aware(u.trial_expires) > now)
+        paid_active = bool(
+            not u.free_access
+            and u.status == "active"
+            and u.subscription_expires
+            and aware(u.subscription_expires) > now
+        )
+        is_active_user = bool(u.free_access or trial_active or paid_active)
+        if state == "active" and not is_active_user:
+            continue
+        if state == "expired" and is_active_user:
+            continue
+        if u.free_access:
+            source = "free"
+            status_label = "♾️ وصول مجاني"
+            expires = None
+        elif trial_active:
+            source = "trial"
+            status_label = "🎁 تجربة فعالة"
+            expires = aware(u.trial_expires)
+        elif paid_active:
+            source = "subscription"
+            status_label = "🟢 اشتراك فعال"
+            expires = aware(u.subscription_expires)
+        elif u.status == "revoked":
+            source = "revoked"
+            status_label = "⛔ ملغى"
+            expires = aware(u.subscription_expires) if u.subscription_expires else None
+        elif u.trial_expires and aware(u.trial_expires) <= now and not u.subscription_expires:
+            source = "trial_expired"
+            status_label = "🔴 التجربة منتهية"
+            expires = aware(u.trial_expires)
+        else:
+            source = "expired"
+            status_label = "🔴 الاشتراك منتهي"
+            expires = aware(u.subscription_expires) if u.subscription_expires else None
+        rows.append({
+            "telegram_id": u.telegram_id,
+            "username": u.username,
+            "first_name": u.first_name,
+            "last_name": u.last_name,
+            "plan": u.plan,
+            "source": source,
+            "status_label": status_label,
+            "expires_at": expires.isoformat() if expires else None,
+            "created_at": aware(u.created_at).isoformat() if u.created_at else None,
+        })
+    return {"state": state, "count": len(rows), "users": rows}
+
+
 @app.get("/api/admin/monthly-report")
 async def admin_monthly_report(month: str = "", user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     await require_admin_permission(user, "users")
