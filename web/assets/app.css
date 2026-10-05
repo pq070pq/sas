@@ -667,3 +667,245 @@ filter:blur(.2px);
  .admin-stat-card{min-height:82px}
  .subscriber-real-row{align-items:flex-start;flex-wrap:wrap}.subscriber-real-action{margin-right:50px}
 }
+
+
+/* ===== SAS PRO ADMIN — HEADER & LAYOUT POLISH ===== */
+.admin-page{
+  position:relative;
+  isolation:isolate;
+}
+.admin-page:before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 82% 0,rgba(45,244,255,.10),transparent 24%),
+    radial-gradient(circle at 8% 18%,rgba(0,145,170,.08),transparent 25%),
+    linear-gradient(180deg,rgba(1,8,14,.18),rgba(1,6,10,.58) 55%,rgba(1,5,9,.92));
+}
+.admin-header{
+  min-height:76px;
+  padding:11px 13px;
+  border-radius:22px;
+  border:1px solid rgba(45,244,255,.20);
+  background:
+    linear-gradient(135deg,rgba(5,31,43,.94),rgba(2,12,19,.97)),
+    radial-gradient(circle at 80% 0,rgba(45,244,255,.10),transparent 35%);
+  box-shadow:0 18px 50px rgba(0,0,0,.42),inset 0 1px rgba(255,255,255,.035),0 0 30px rgba(45,244,255,.035);
+}
+.admin-header:after{
+  content:"";
+  position:absolute;
+  left:12%;
+  right:12%;
+  bottom:-1px;
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(45,244,255,.55),transparent);
+}
+.admin-brand{gap:12px}
+.admin-brand-mark{
+  width:48px;
+  height:48px;
+  border-radius:15px;
+  background:linear-gradient(145deg,#3af6ff 0%,#08aec3 58%,#07576b 100%);
+  box-shadow:0 0 25px rgba(45,244,255,.22),inset 0 1px rgba(255,255,255,.45);
+  font-size:23px;
+}
+.admin-brand b{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-size:17px;
+  letter-spacing:1.4px;
+}
+.admin-brand b em{
+  margin:0;
+  padding:4px 7px;
+  border:1px solid rgba(45,244,255,.24);
+  border-radius:999px;
+  background:rgba(45,244,255,.07);
+  font-size:8px;
+  letter-spacing:1.2px;
+}
+.admin-brand span{
+  margin-top:5px;
+  color:#83a5ae;
+  font-size:9px;
+}
+.admin-header-actions{
+  gap:7px;
+}
+.admin-live{
+  padding:8px 10px;
+  border-radius:999px;
+  background:rgba(25,239,139,.055);
+  border-color:rgba(25,239,139,.18);
+}
+.admin-refresh{
+  min-height:38px;
+  padding:8px 12px!important;
+  border-radius:11px!important;
+  font-size:10px!important;
+  font-weight:900;
+  white-space:nowrap;
+}
+.admin-header-actions .admin-refresh:first-of-type{
+  border-color:rgba(45,244,255,.42)!important;
+  background:linear-gradient(135deg,rgba(45,244,255,.17),rgba(5,65,79,.32))!important;
+  box-shadow:0 0 18px rgba(45,244,255,.07);
+}
+.admin-header-actions .admin-refresh:first-of-type:hover{
+  transform:translateY(-1px);
+  border-color:rgba(45,244,255,.72)!important;
+}
+.admin-nav{
+  margin:11px 0 13px;
+  padding:5px;
+  border-radius:18px;
+  background:rgba(2,11,18,.92);
+  border-color:rgba(45,244,255,.16);
+}
+.admin-nav button{
+  min-height:40px;
+  border-radius:12px;
+  font-size:10px;
+  transition:.2s ease;
+}
+.admin-nav button:hover{
+  color:#dffcff;
+  background:rgba(45,244,255,.06);
+}
+.admin-nav button.active{
+  background:linear-gradient(135deg,rgba(45,244,255,.19),rgba(45,244,255,.055));
+  color:#f1ffff;
+  box-shadow:inset 0 0 0 1px rgba(45,244,255,.17),0 5px 16px rgba(0,0,0,.16);
+}
+.admin-welcome{
+  margin:0 0 12px;
+  padding:21px;
+  min-height:118px;
+  border-radius:21px;
+  background:
+    radial-gradient(circle at 85% 20%,rgba(45,244,255,.10),transparent 25%),
+    radial-gradient(circle at 10% 0,rgba(45,244,255,.09),transparent 30%),
+    linear-gradient(145deg,rgba(6,29,40,.92),rgba(2,10,17,.97));
+}
+.admin-welcome h1{
+  font-size:23px;
+  letter-spacing:.2px;
+}
+.admin-welcome p{
+  max-width:650px;
+  font-size:10px;
+}
+.admin-security{
+  min-width:175px;
+  border-color:rgba(45,244,255,.20);
+  background:linear-gradient(145deg,rgba(45,244,255,.08),rgba(0,0,0,.16));
+  box-shadow:inset 0 1px rgba(255,255,255,.03);
+}
+.admin-panel,.owner-card{
+  border-color:rgba(45,244,255,.15);
+  background:linear-gradient(145deg,rgba(5,23,32,.92),rgba(2,10,17,.97));
+}
+.admin-panel:hover{
+  border-color:rgba(45,244,255,.20);
+}
+.admin-stats{
+  gap:9px;
+}
+.admin-stat-card{
+  transition:.2s ease;
+}
+.admin-stat-card:not(.is-clickable):hover{
+  transform:translateY(-1px);
+}
+.admin-page .section-head b{
+  font-size:14px;
+}
+.admin-page .section-head span,
+.admin-page .section-head small{
+  font-size:9px;
+}
+.admin-page .search-row input{
+  min-height:42px;
+}
+.admin-page .search-row button{
+  min-width:92px;
+  min-height:42px;
+}
+.admin-page .user-row{
+  border-top-color:rgba(45,244,255,.07);
+}
+.admin-page .user-row > div:first-child{
+  padding:2px 0;
+}
+.owner-card{
+  border-radius:18px;
+}
+@media(max-width:700px){
+  .admin-header{
+    min-height:66px;
+    padding:9px 10px;
+    border-radius:18px;
+  }
+  .admin-brand{gap:8px}
+  .admin-brand-mark{
+    width:40px;
+    height:40px;
+    border-radius:12px;
+    font-size:19px;
+  }
+  .admin-brand b{
+    font-size:13px;
+    letter-spacing:.9px;
+    gap:5px;
+  }
+  .admin-brand b em{
+    padding:3px 6px;
+    font-size:7px;
+  }
+  .admin-brand span{font-size:7px;margin-top:3px}
+  .admin-header-actions{gap:5px}
+  .admin-header-actions .admin-refresh{
+    min-height:34px;
+    padding:7px 8px!important;
+    font-size:9px!important;
+  }
+  .admin-nav{
+    margin-top:8px;
+    margin-bottom:10px;
+    padding:4px;
+    border-radius:15px;
+  }
+  .admin-nav button{
+    min-height:38px;
+    padding:7px 8px;
+  }
+  .admin-welcome{
+    min-height:0;
+    padding:16px;
+    border-radius:18px;
+  }
+  .admin-welcome h1{font-size:19px}
+  .admin-security{margin-top:12px}
+}
+@media(max-width:430px){
+  .admin-header-actions .admin-refresh{
+    font-size:0!important;
+    min-width:38px;
+    padding:7px!important;
+  }
+  .admin-header-actions .admin-refresh:first-of-type:before{
+    content:"👤";
+    font-size:15px;
+  }
+  .admin-header-actions .admin-refresh:last-of-type:before{
+    content:"↻";
+    font-size:17px;
+  }
+  .admin-brand b em{display:none}
+  .admin-brand span{display:none}
+}
