@@ -5,7 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 from .config import settings
-from .panwatch import technical_targets
+from .panwatch import technical_targets, _stooq_ohlcv
 from .news import company_news, select_catalyst, earnings_calendar_window
 from .market import quote
 from .twelve_guard import call as twelve_call
@@ -900,6 +900,20 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
                     return candles, "Twelve Data"
         except (asyncio.TimeoutError, httpx.HTTPError, Exception):
             pass
+
+    # Final keyless fallback for manual/explicit SAS analysis.
+    # PanWatch may be unavailable while the quote still works (for example via
+    # Finnhub fallback). In that case SAS must use observed daily OHLCV rather
+    # than returning an empty classification. Stooq is historical OHLCV only;
+    # it does not invent prices or signals.
+    try:
+        async with asyncio.timeout(12):
+            candles = _parse_candles(await _stooq_ohlcv(key, 260))
+        if len(candles) >= 205:
+            _candle_cache[key] = (now, candles, "Stooq")
+            return candles, "Stooq"
+    except Exception:
+        pass
 
     # Cache the failure briefly too, so the same unavailable symbol is not hammered
     # again on every 30-minute cycle.
