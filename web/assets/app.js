@@ -519,6 +519,84 @@ function adminSection(id,btn){
  if(btn)btn.classList.add('active');
  el.scrollIntoView({behavior:'smooth',block:'start'});
 }
+let adminHealthTimer=null;
+let adminHealthBusy=false;
+let adminHealthLastSignature='';
+
+function renderAdminHealth(items){
+ const list=document.getElementById('adminAlertsList');
+ const summary=document.getElementById('adminAlertsSummary');
+ const updated=document.getElementById('adminAlertsUpdated');
+ if(!list||!summary)return;
+ const bad=items.filter(x=>x.level==='error').length;
+ const warn=items.filter(x=>x.level==='warn').length;
+ updated.textContent='آخر فحص: '+new Date().toLocaleTimeString('ar-SA');
+ if(!bad&&!warn){
+  summary.innerHTML='<div class="admin-system-ok"><b>🟢 لا توجد مشاكل</b><small>الرادار والخدمات الأساسية تعمل بشكل طبيعي.</small></div>';
+  list.innerHTML='<div class="admin-health-row ok"><span>✓</span><div><b>الحالة العامة سليمة</b><small>سيتم إعادة الفحص تلقائيًا كل دقيقة.</small></div></div>';
+  return;
+ }
+ summary.innerHTML='<div class="admin-system-bad '+(bad?'critical':'warning')+'"><b>'+(bad?'🔴 يوجد عطل يحتاج انتباهك':'🟠 يوجد تنبيه يحتاج المراجعة')+'</b><small>'+bad+' عطل • '+warn+' تنبيه</small></div>';
+ list.innerHTML=items.map(x=>{
+   const cls=x.level==='error'?'error':'warn';
+   return '<div class="admin-health-row '+cls+'"><span>'+(x.level==='error'?'🔴':'🟠')+'</span><div><b>'+esc(x.title)+'</b><small>'+esc(x.message)+'</small></div></div>';
+ }).join('');
+}
+
+async function checkAdminHealth(){
+ if(adminHealthBusy)return;
+ adminHealthBusy=true;
+ const items=[];
+ try{
+  const results=await Promise.allSettled([
+   api('/health'),
+   api('/api/market/radar-status'),
+   api('/api/dashboard/home'),
+   api('/api/market/ticker'),
+   api('/api/admin/deploy-status')
+  ]);
+  const health=results[0], market=results[1], home=results[2], ticker=results[3], deploy=results[4];
+  if(health.status!=='fulfilled' || !health.value?.ok)
+   items.push({level:'error',title:'خادم SAS PRO',message:'الخادم لا يستجيب بشكل سليم.'});
+  if(market.status!=='fulfilled')
+   items.push({level:'error',title:'حالة السوق والرادار',message:'تعذر قراءة حالة السوق والرادار.'});
+  else{
+   const m=market.value||{};
+   if(m.open && m.stock_radar_enabled===false)
+    items.push({level:'error',title:'الرادار متوقف أثناء السوق',message:'السوق مفتوح لكن الرادار غير مفعّل.'});
+  }
+  if(home.status!=='fulfilled')
+   items.push({level:'error',title:'لوحة الرادار',message:'تعذر تحميل بيانات لوحة الرادار.'});
+  else{
+   const r=home.value?.radar||{};
+   if(r.error || r.status==='error')
+    items.push({level:'error',title:'خطأ في بيانات الرادار',message:String(r.error||'الخدمة أعادت حالة خطأ.')});
+   if(market.status==='fulfilled' && market.value?.open && r.enabled===false)
+    items.push({level:'error',title:'الرصد الآلي غير نشط',message:'السوق مفتوح ولكن لوحة الرادار تشير إلى أنه غير نشط.'});
+  }
+  if(ticker.status!=='fulfilled')
+   items.push({level:'warn',title:'أسعار السوق',message:'تعذر تحديث شريط أسعار السوق حاليًا.'});
+  else if(Array.isArray(ticker.value) && !ticker.value.some(x=>Number(x?.price)>0))
+   items.push({level:'warn',title:'أسعار السوق',message:'مصادر الأسعار لم تُرجع أسعارًا صالحة حاليًا.'});
+  if(deploy.status==='fulfilled'){
+   const d=deploy.value||{};
+   if(d.conclusion==='failure')
+    items.push({level:'error',title:'آخر نشر إلى OVH',message:'آخر عملية نشر فشلت. راجع قسم النشر لمعرفة رقم التشغيل والـ Commit.'});
+  }
+  renderAdminHealth(items);
+ }catch(e){
+  renderAdminHealth([{level:'error',title:'مراقبة النظام',message:e?.message||'تعذر تنفيذ فحص الحالة.'}]);
+ }finally{
+  adminHealthBusy=false;
+ }
+}
+
+function startAdminHealthMonitor(){
+ if(adminHealthTimer)clearInterval(adminHealthTimer);
+ checkAdminHealth();
+ adminHealthTimer=setInterval(checkAdminHealth,60000);
+}
+
 async function adminRefresh(){
  const p=me?.admin_permissions||[];
  const tasks=[];
