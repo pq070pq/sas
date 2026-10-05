@@ -467,9 +467,41 @@ async def macro_quote(symbol: str):
         "is_extended_hours": False,
     }
 
-async def quote(symbol: str):
-    # Prefer Finnhub for live quote polling so Twelve Data credits are reserved
-    # for the limited candle/intraday analysis budget.
+async def quote(symbol: str, prefer_extended: bool = False):
+    # During pre/after-hours, prefer a provider response that explicitly marks
+    # the quote as extended. A regular-session close must never masquerade as
+    # live extended-hours activity.
+    if prefer_extended and settings.twelve_data_api_key:
+        try:
+            async with httpx.AsyncClient(timeout=12) as c:
+                params = {
+                    "symbol": symbol,
+                    "apikey": settings.twelve_data_api_key,
+                    "prepost": "true",
+                }
+                r = await twelve_call(c.get, "https://api.twelvedata.com/quote", params=params)
+                if r.status_code != 429:
+                    r.raise_for_status()
+                    d = r.json()
+                    extended_price = d.get("extended_price")
+                    if _valid_price(extended_price):
+                        change_pct = (
+                            d.get("extended_percent_change")
+                            if d.get("extended_percent_change") is not None
+                            else d.get("percent_change")
+                        )
+                        return {
+                            "symbol": symbol,
+                            "price": float(extended_price),
+                            "change_pct": change_pct,
+                            "source": "Twelve Data Extended Hours",
+                            "is_extended_hours": True,
+                            "datetime": d.get("datetime"),
+                        }
+        except Exception as exc:
+            logger.info("EXTENDED_QUOTE_PRIMARY_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+
+    # Normal quote path: Finnhub is preferred to preserve Twelve Data credits.
     fallback = await _finnhub_quote(symbol)
     if fallback:
         return fallback
