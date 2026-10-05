@@ -122,7 +122,16 @@
       <div id="adminAlertsList" class="admin-alerts-list"></div>
     </section>
     <section class="admin-stats" id="adminStats"></section>
-      <section class="admin-panel subscriber-status-panel" id="subscriberStatusPanel" hidden>
+      <section class="admin-panel terms-admin-panel" id="termsAdminPanel">
+      <div class="section-head">
+        <div><b>📋 موافقات الشروط</b><small>عرض حالة موافقة المستخدمين على شروط SAS PRO ونسخة الشروط وتاريخ الموافقة.</small></div>
+        <button class="admin-close-list" onclick="loadAdminTerms()">↻ تحديث</button>
+      </div>
+      <div id="termsAdminSummary" class="subscriber-status-summary"><span class="subscriber-loading">جاري تحميل موافقات الشروط...</span></div>
+      <div id="termsAdminList" class="subscriber-status-list"></div>
+    </section>
+
+        <section class="admin-panel subscriber-status-panel" id="subscriberStatusPanel" hidden>
       <div class="section-head">
         <div><b id="subscriberStatusTitle">👥 المشتركين المفعلين</b><small id="subscriberStatusSubtitle">بيانات مباشرة من قاعدة SAS PRO</small></div>
         <button class="admin-close-list" onclick="closeSubscriberStatus()">إغلاق</button>
@@ -231,7 +240,7 @@
   <div class="modal-card">
     <div class="modal-head"><b>📋 شروط استخدام SAS PRO</b><button onclick="closeTerms()">×</button></div>
     <div id="termsText" class="terms-text"></div>
-    <label class="terms-check"><input id="termsAgree" type="checkbox" onchange="toggleTermsButton()"> <span>أقر بقراءة الشروط وفهم مخاطر التداول والموافقة عليها.</span></label>
+    <label class="terms-check" id="termsAgreeRow"><input id="termsAgree" type="checkbox" onchange="toggleTermsButton()"> <span><b>أوافق على شروط استخدام SAS PRO</b><small>أقر بأنني قرأت الشروط وفهمتها وأوافق عليها قبل بدء التجربة أو الشراء.</small></span></label>
     <div class="modal-actions">
       <button onclick="closeTerms()">إلغاء</button>
       <button id="termsContinue" disabled onclick="continueTerms()">أوافق وأتابع</button>
@@ -239,6 +248,6 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261005-44"></script>
+<script src="/assets/app.js?v=20261005-48"></script>
 </body>
 </html>
