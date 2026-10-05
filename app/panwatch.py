@@ -58,16 +58,18 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
 
         if len(rows) < 20 and settings.twelve_data_api_key:
             try:
-                r = await twelve_call(client.get, "https://api.twelvedata.com/time_series",
-                        params={
-                            "symbol": symbol.upper(),
-                            "interval": interval,
-                            "outputsize": max(20, min(int(days), 365)),
-                            "apikey": settings.twelve_data_api_key,
-                        },
-                    )
-                    r.raise_for_status()
-                    rows = list(reversed((r.json()).get("values") or []))
+                r = await twelve_call(
+                    client.get,
+                    "https://api.twelvedata.com/time_series",
+                    params={
+                        "symbol": symbol.upper(),
+                        "interval": interval,
+                        "outputsize": max(20, min(int(days), 365)),
+                        "apikey": settings.twelve_data_api_key,
+                    },
+                )
+                r.raise_for_status()
+                rows = list(reversed((r.json()).get("values") or []))
             except Exception:
                 pass
         if len(rows) < 20:
