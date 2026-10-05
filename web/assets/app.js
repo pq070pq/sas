@@ -589,17 +589,23 @@ async function continueTerms(){
  try{
   const accepted=await api('/api/terms/accept',{method:'POST'});
 
-  // موافقة الشروط وحدها لا تعني نجاح التجربة؛ يجب أن يعيد الخادم trial_started=true.
+  // للمستخدم العادي يجب أن تبدأ التجربة ويُعاد رابط القناة. أما المالك/المشرف
+  // فقد لا تُمنح له تجربة، لذلك لا نحول موافقة الشروط الصحيحة إلى خطأ.
   if(action==='trial'){
-   if(!accepted.trial_started||!accepted.trial?.channel_link){
-    throw new Error('تم حفظ موافقتك على الشروط، لكن تعذر تفعيل التجربة أو إنشاء رابط القناة. حاول مرة أخرى.');
+   if(accepted.trial_started&&accepted.trial?.channel_link){
+    closeTerms();
+    if(tg?.openTelegramLink)tg.openTelegramLink(accepted.trial.channel_link);
+    else if(tg?.openLink)tg.openLink(accepted.trial.channel_link);
+    else window.open(accepted.trial.channel_link,'_blank');
+    setTimeout(()=>{loadStarted=false;load();},900);
+    return;
    }
-   closeTerms();
-   if(tg?.openTelegramLink)tg.openTelegramLink(accepted.trial.channel_link);
-   else if(tg?.openLink)tg.openLink(accepted.trial.channel_link);
-   else window.open(accepted.trial.channel_link,'_blank');
-   setTimeout(()=>{loadStarted=false;load();},900);
-   return;
+   if(accepted.ok){
+    closeTerms();
+    setTimeout(()=>{loadStarted=false;load();},300);
+    return;
+   }
+   throw new Error('تعذر تفعيل التجربة أو إنشاء رابط القناة. حاول مرة أخرى.');
   }
 
   if(action?.startsWith('buy:')){
