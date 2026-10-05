@@ -3,7 +3,7 @@ import html
 
 from .market import quote
 from .panwatch import technical_targets
-from .news import company_news, corporate_events, company_fundamentals, tipranks_analysis
+from .news import company_news, corporate_events, company_fundamentals, tipranks_analysis, tipranks_analysis
 from .ai_radar import analyze_stock
 
 
@@ -100,6 +100,17 @@ def _format_corporate_actions(events):
             desc = item.get("description") or item.get("accessNumber") or ""
             lines.append(f"• {html.escape(str(form))} — {html.escape(str(filed))}" + (f" — {html.escape(str(desc)[:180])}" if desc else ""))
 
+    material = events.get("material_events") if isinstance(events, dict) else []
+    if material:
+        lines.append("⚠️ <b>أحداث جوهرية أخرى</b>")
+        for item in material[:8]:
+            if not isinstance(item, dict):
+                continue
+            cats = " + ".join(str(x) for x in (item.get("category") or [])[:2])
+            headline = html.escape(str(item.get("headline") or "").strip())
+            if headline:
+                lines.append(f"• <b>{html.escape(cats or 'حدث جوهري')}</b> — {headline}")
+
     return "\n".join(lines)
 
 
@@ -121,6 +132,18 @@ def _format_news(news):
             lines.append(f"• {headline} — {source or 'المصدر'}")
     return "\n".join(lines)
 
+
+def _format_tipranks(tipranks, ai):
+    summary = (ai or {}).get("tipranks_summary") or (tipranks or {}).get("summary")
+    signal = (ai or {}).get("tipranks_signal") or (tipranks or {}).get("signal")
+    if not summary and not signal:
+        return ""
+    return (
+        "🌐 <b>TipRanks — ترجمة الذكاء الاصطناعي</b>\n"
+        f"• <b>الخلاصة:</b> {html.escape(str(summary or 'غير واضح'))}\n"
+        f"• <b>الإشارة:</b> {html.escape(str(signal or 'غير واضح'))}\n"
+        "ℹ️ معلومة خارجية تفسيرية فقط؛ لا تحدد الدخول أو الوقف أو الأهداف."
+    )
 
 def _format_ai(ai):
     if not ai or not ai.get("enabled"):
@@ -396,37 +419,47 @@ async def build_private_analysis(symbol: str):
     except (TypeError, ValueError):
         score_text = "غير متوفر"
 
+    corporate_text = _format_corporate_actions(events)
+    tipranks_text = _format_tipranks(tipranks, ai)
+    ai_text = _format_ai(ai)
+
+    news_lines = []
+    for item in news[:8]:
+        if not isinstance(item, dict) or not item.get("headline"):
+            continue
+        headline = html.escape(str(item.get("headline")))
+        url = html.escape(str(item.get("url") or ""), quote=True)
+        news_lines.append(f'<a href="{url}">• {headline}</a>' if url else f"• {headline}")
+    news_text = "\n".join(news_lines) if news_lines else "• لا توجد أخبار موثقة حديثة."
+
     report = (
-        f"🚀 <b>SAS PRO | {html.escape(symbol)}</b>\n"
+        f"🚀 <b>SAS PRO | التحليل الخاص — {html.escape(symbol)}</b>\n"
         "━━━━━━━━━━━━━━━━━━\n"
-        f"💵 <b>السعر:</b> {_money(price)}   📈 <b>التغير:</b> {_pct(change)}\n"
-        f"🧭 <b>السلوك:</b> {html.escape(behavior_display)}\n"
-        f"📊 <b>RVOL:</b> {rvol_text}{rvol_note}\n"
-        f"📉 <b>RSI:</b> {rsi_text}\n"
-        f"⭐ <b>SAS Core:</b> {score_text}\n"
-        f"⚠️ <b>مستوى المخاطرة:</b> {risk_text}\n"
-        f"{reasons_text}"
+        "📌 <b>الحالة الحالية</b>\n"
+        f"💵 السعر: <b>{_money(price)}</b>   📈 التغير: <b>{_pct(change)}</b>\n"
+        f"🧭 السلوك: <b>{html.escape(behavior_display)}</b>\n"
+        f"📊 RVOL: <b>{rvol_text}{rvol_note}</b>   📉 RSI: <b>{rsi_text}</b>\n"
+        f"⭐ SAS Core: <b>{score_text}</b>   ⚠️ المخاطرة: <b>{risk_text}</b>\n"
         "━━━━━━━━━━━━━━━━━━\n"
-        "🎯 <b>المستويات</b>\n"
-        f"🔵 الدخول: <b>{_money(entry)}</b>\n"
+        "🎯 <b>الرصد الفني</b>\n"
+        f"🔵 الدخول المرصود: <b>{_money(entry)}</b>\n"
         f"🛑 الوقف: <b>{_money(stop_n)}</b>\n"
-        f"🎯 الهدف 1: <b>{target1_text}</b>\n"
-        f"⚖️ <b>R:R:</b> {rr_text}\n"
-        f"{news_text}"
+        f"{target_text}\n"
+        f"{rr_block}\n"
         "━━━━━━━━━━━━━━━━━━\n"
-        "📰 <b>الأخبار والأحداث</b>\n"
-        f"{corporate_text}\n"
-        + (f"🧠 <b>قراءة AI للأحداث:</b> {html.escape(events_summary)}\n" if events_summary else "")
-        + "━━━━━━━━━━━━━━━━━━\n"
-        "🌐 <b>TipRanks — ترجمة AI</b>\n"
-        + (f"• <b>الخلاصة:</b> {html.escape(tipranks_summary)}\n" if tipranks_summary else "• لا تتوفر قراءة TipRanks حالياً.\n")
-        + f"• <b>وضع الشركة:</b> {html.escape(company_status)}\n"
-        + f"• <b>خطر التخفيف/التمويل:</b> {html.escape(dilution_risk)}\n"
-        + "ℹ️ معلومات خارجية للتفسير فقط؛ لا تغيّر مستويات SAS PRO.\n"
+        "📰 <b>أخبار السهم</b>\n"
+        f"{news_text}\n"
         "━━━━━━━━━━━━━━━━━━\n"
-        f"🧠 <b>الخلاصة الفنية:</b> {html.escape(_evidence_summary(behavior_display, rvol_n, rsi14, score, stop_n, target1_n))}\n"
+        "🏛️ <b>أحداث وإجراءات الشركة</b>\n"
+        f"{corporate_text or 'لا توجد أحداث موثقة إضافية.'}\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        "📊 <b>الوضع المالي المختصر</b>\n"
+        f"{fundamentals_text}\n"
+        + (f"━━━━━━━━━━━━━━━━━━\n{tipranks_text}\n" if tipranks_text else "")
+        + f"━━━━━━━━━━━━━━━━━━\n{ai_text}\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        f"🧠 <b>الخلاصة:</b> {html.escape(_evidence_summary(behavior_display, rvol_n, rsi14, score, stop_n, target1_n))}\n"
         f"{('🧾 <b>سبب الحالة:</b> ' + html.escape(str(sas_reason)) + chr(10)) if sas_reason else ''}"
-        "━━━━━━━━━━━━━━━━━━\n"
         "⚠️ <b>تنبيه:</b> معلومات تعليمية وإخبارية فقط، وليست توصية شراء أو بيع. قرار التداول وإدارة المخاطر مسؤولية المتداول."
     )
     return report.replace(chr(92) + "r" + chr(92) + "n", chr(10)).replace(chr(92) + "n", chr(10)).replace(chr(92) + "r", chr(13))
