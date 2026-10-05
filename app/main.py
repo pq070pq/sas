@@ -2396,16 +2396,27 @@ async def telegram_webhook(request: Request):
             return {"ok": True}
         # لا ننفذ التحليل الثقيل داخل طلب Telegram نفسه؛ يجب أن نعيد 200 بسرعة
         # حتى لا يعيد Telegram إرسال نفس الرسالة بسبب تأخر مزودي البيانات.
-        await send_message(
-            chat_id,
-            f"🔎 <b>تم استلام {html.escape(symbol)}</b>\nجارٍ تحليل السهم وإرسال النتيجة هنا..."
+        async def _safe_send(text_to_send: str):
+            try:
+                await send_message(chat_id, text_to_send)
+                logger.info("Telegram private response sent: chat_id=%s symbol=%s", chat_id, symbol)
+            except Exception as exc:
+                logger.exception("Telegram sendMessage failed: chat_id=%s symbol=%s error=%s", chat_id, symbol, exc)
+
+        # Return from the webhook immediately; Telegram must not wait for
+        # external APIs, database work, or the private-analysis pipeline.
+        asyncio.create_task(
+            _safe_send(
+                f"🔎 <b>تم استلام {html.escape(symbol)}</b>\nجارٍ تحليل السهم وإرسال النتيجة هنا..."
+            ),
+            name=f"saspro-private-ack-{symbol}",
         )
 
         async def _run_private_analysis():
             try:
                 from .private_analysis import build_private_analysis
                 report = await build_private_analysis(symbol)
-                await send_message(chat_id, report)
+                await _safe_send(report)
             except Exception as exc:
                 logger.exception("Private stock analysis failed for %s: %s", symbol, exc)
                 try:
