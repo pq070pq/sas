@@ -771,4 +771,24 @@ async def scheduler():
             logger.info("Scheduler cycle completed in %.1fs.", (utcnow() - cycle_started).total_seconds())
         except Exception:
             logger.exception("Scheduler cycle failed.")
-        await asyncio.sleep(max(1800, int(settings.radar_interval_minutes) * 60))
+
+        # لا نسمح لدورة ما قبل الافتتاح أن تنام 30 دقيقة وتتجاوز
+        # لحظة افتتاح السوق الرئيسية. عند الانتقال من premarket إلى
+        # regular يجب أن تبدأ دورة Stock Radar مباشرة تقريبًا.
+        sleep_seconds = max(1800, int(settings.radar_interval_minutes) * 60)
+        try:
+            next_status = market_status()
+            if next_status.get("session") == "premarket":
+                from datetime import datetime
+                from zoneinfo import ZoneInfo
+                et = ZoneInfo("America/New_York")
+                now_et = datetime.now(et)
+                open_et = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
+                until_open = (open_et - now_et).total_seconds()
+                if until_open > 0:
+                    sleep_seconds = min(sleep_seconds, max(1, int(until_open)))
+        except Exception:
+            logger.exception("Scheduler transition timing check failed.")
+
+        logger.info("Scheduler sleeping for %.0fs before next cycle.", sleep_seconds)
+        await asyncio.sleep(sleep_seconds)
