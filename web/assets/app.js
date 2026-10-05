@@ -183,24 +183,29 @@ async function refreshTerminal(){
 }
 function renderMarketStrip(s){
  const premarket=s.session==='premarket';
+ const preopen=s.session==='overnight';
  const activeSession=Boolean(s.stock_radar_enabled)||premarket;
  const label=s.open
   ? '🟢 السوق مفتوح'
   : premarket
-   ? '🟡 قبل افتتاح السوق'
-   : (activeSession?'🟡 التداول الممتد':'🔴 السوق مغلق');
+   ? '🟡 قبل الافتتاح'
+   : preopen
+    ? '🟡 قبل الافتتاح القادم'
+    : (activeSession?'🟡 التداول الممتد':'🔴 السوق مغلق');
  const sessionLabel=s.label_ar||({
   premarket:'🟡 قبل الافتتاح — الرادار يعمل',
   regular:'السوق مفتوح الآن 🟢',
   afterhours:'بعد الإغلاق 🟠',
   night:'التداول الإلكتروني الليلي 🟣',
   night_pending:'🟣 التداول الليلي يفتح قريبًا',
-  overnight:'بانتظار الجلسة الليلية 🔴'
+  overnight:'🟡 قبل الافتتاح القادم — بانتظار بداية البري ماركت'
  }[s.session]||'—');
+ const stateClass=s.open?'open':((premarket||preopen)?'premarket':(activeSession?'extended':'closed'));
+ const radarLabel=activeSession?'يعمل الآن':(preopen?'جاهز للبري ماركت':'متوقف');
  document.getElementById('marketStrip').innerHTML=
-  '<div class="market-state '+(s.open?'open':(premarket?'premarket':(activeSession?'extended':'closed')))+'"><b>'+label+'</b><span>'+escHtml(sessionLabel)+'</span></div>'+
-  '<div class="market-state '+(activeSession?'radar-on':'radar-off')+'"><b>📡 الرادار</b><span>'+(activeSession?'يعمل الآن':'متوقف')+'</span></div>'+
-  '<div class="market-state"><b>🕒 الجلسة</b><span>'+escHtml(sessionLabel)+'</span></div>';
+  '<div class="market-state '+stateClass+'"><b>'+label+'</b><span>'+escHtml(sessionLabel)+'</span></div>'+
+  '<div class="market-state '+(activeSession?'radar-on':'radar-off')+'"><b>📡 الرادار</b><span>'+radarLabel+'</span></div>'+
+  '<div class="market-state '+((premarket||preopen)?'premarket':'')+'"><b>🕒 الجلسة</b><span>'+escHtml(sessionLabel)+'</span></div>';
 }
 function renderDashboard(d){
  const r=d.radar||{};
@@ -211,6 +216,7 @@ function renderDashboard(d){
  const session=String(market.session||'');
  const extended=['premarket','afterhours','night'].includes(session);
  const premarket=session==='premarket';
+ const preopen=session==='overnight';
  const sessionLabel=market.label_ar||({
   premarket:'قبل الافتتاح 🟡',
   regular:'السوق مفتوح الآن 🟢',
@@ -229,9 +235,12 @@ function renderDashboard(d){
   ? (extended
     ? '🟡 الرصد الآلي يعمل في '+sessionLabel+' — لا تُنشر الإشارة إلا بعد تأكيد السعر والسيولة والزخم.'
     : '🟢 الرصد الآلي يعمل — يبحث عن الأسهم التي تستوفي بوابة SAS PRO.')
-  : (historical ? '🟡 السوق مغلق — هذه آخر بيانات رصد محفوظة من الجلسة السابقة.' : premarket
-    ? '🟡 السوق قبل الافتتاح — الرادار يعمل لرصد الفرص المبكرة وتأكيد السعر والسيولة والزخم.'
-    : '🔴 الرصد متوقف حاليًا خارج جلسات الرصد.');
+  : (historical ? '🟡 هذه آخر بيانات رصد محفوظة من الجلسة السابقة.'
+    : premarket
+     ? '🟡 السوق قبل الافتتاح — الرادار يعمل لرصد الفرص المبكرة وتأكيد السعر والسيولة والزخم.'
+     : preopen
+      ? '🟡 قبل الافتتاح القادم — الرادار جاهز وسيبدأ تلقائيًا مع جلسة البري ماركت.'
+      : '🔴 الرصد متوقف حاليًا خارج جلسات الرصد.');
  document.getElementById('dashboardMetrics').innerHTML=
   '<div><small>'+(historical?'آخر جلسة':'فرص اليوم')+'</small><strong>'+Number(r.opportunities||terminalState.radar.length||0)+'</strong></div>'+
   '<div><small>أعلى حركة</small><strong>'+pct(r.top_move_pct)+'</strong></div>'+
