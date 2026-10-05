@@ -136,21 +136,38 @@
       <div class="owner-lock"><b>صلاحيات كاملة</b><small>لا يخضع للاشتراك</small></div>
     </section>
 
-    <section class="admin-panel" id="staffPanel" hidden>
-      <div class="section-head"><b>🛡️ المشرفون والصلاحيات</b><span>إدارة الوصول الإداري</span></div>
-      <div class="search-row">
-        <input id="staffId" inputmode="numeric" placeholder="Telegram ID للمشرف">
-        <select id="staffRole">
-          <option value="admin">Admin</option>
-          <option value="moderator">Moderator</option>
-          <option value="radar_manager">Radar Manager</option>
-          <option value="subscription_manager">Subscription Manager</option>
-          <option value="viewer">Viewer</option>
-        </select>
-        <button onclick="addStaff()">إضافة/تحديث</button>
+    <section class="admin-panel staff-simple-panel" id="staffPanel" hidden>
+      <div class="section-head">
+        <div><b>🛡️ المشرفون والصلاحيات</b><small>أضف المشرف واختر دوره فقط — الصلاحيات تُضبط تلقائيًا.</small></div>
+        <span class="staff-count" id="staffCount">—</span>
       </div>
-      <div id="staffPermissions" class="staff-permissions"></div>
-      <div id="staffList"></div>
+
+      <div class="staff-add-box">
+        <div class="staff-add-title"><b>➕ إضافة مشرف</b><span>لا تحتاج لاختيار الصلاحيات واحدة واحدة</span></div>
+        <div class="staff-add-row">
+          <input id="staffId" inputmode="numeric" placeholder="Telegram ID">
+          <select id="staffRole" aria-label="دور المشرف">
+            <option value="moderator">مشرف عام</option>
+            <option value="radar_manager">مشرف الرادار</option>
+            <option value="subscription_manager">مشرف الاشتراكات</option>
+            <option value="admin">مدير كامل</option>
+            <option value="viewer">مشاهد فقط</option>
+          </select>
+          <button class="staff-save-btn" onclick="addStaff()">حفظ المشرف</button>
+        </div>
+        <div id="staffRoleHint" class="staff-role-hint">المشرف العام: إدارة المستخدمين والقناة.</div>
+      </div>
+
+      <div class="staff-permission-guide">
+        <span><b>مدير كامل</b> كل الصلاحيات</span>
+        <span><b>مشرف عام</b> المستخدمون + القناة</span>
+        <span><b>مشرف الرادار</b> الرادار</span>
+        <span><b>مشرف الاشتراكات</b> الاشتراكات + المدفوعات</span>
+        <span><b>مشاهد فقط</b> بدون تعديل</span>
+      </div>
+
+      <div class="staff-list-title"><b>المشرفون الحاليون</b><span>اضغط تعطيل أو حذف عند الحاجة</span></div>
+      <div id="staffList" class="staff-list-simple"></div>
     </section>
 
     <section class="admin-panel" id="deployPanel" hidden>
