@@ -13,6 +13,7 @@ from .timeutil import utcnow, aware
 from zoneinfo import ZoneInfo
 from .market_calendar import market_status
 from .market_brief import publish_market_brief
+from .radar_learning import learn_radar_profile, get_radar_profile
 from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
@@ -358,7 +359,7 @@ RADAR_STATUS = """📡 SAS PRO RADAR ⏳
 الدقة أولًا • بدون مطاردة • بدون إشارات وهمية"""
 
 
-def _radar_channel_gate(status, row, quote_data):
+def _radar_channel_gate(status, row, quote_data, learning=None):
     """Final Telegram gate: broad scanner finds candidates, this gate decides what reaches the channel.
     
     Extended-hours prices can move on thin liquidity, so a price jump alone is never
@@ -419,6 +420,9 @@ def _radar_channel_gate(status, row, quote_data):
         return False, "التحليل الفني غير مكتمل"
     if str(classification.get("behavior") or "").strip() == "غير واضح":
         return False, "السلوك السعري غير واضح"
+    learning = learning or {"rvol_floor": 0.50, "change_floor": 0.0, "samples": 0}
+    rvol_floor = min(0.75, max(0.45, float(learning.get("rvol_floor") or 0.50)))
+    change_floor = min(1.0, max(0.0, float(learning.get("change_floor") or 0.0)))
     rvol_gate = float(classification.get("rvol") or 0)
     intraday_confirmation = bool(classification.get("intraday_confirmation"))
     breakout_confirmed = bool(classification.get("breakout_confirmed"))
@@ -428,9 +432,9 @@ def _radar_channel_gate(status, row, quote_data):
     # Opening-market gate is deliberately permissive: discovery stays broad and
     # a real positive move can be published before the daily RVOL fully develops.
     # RVOL/volume still matters, but it is not allowed to hide an early mover.
-    if rvol_gate < 0.50 and not intraday_confirmation:
+    if rvol_gate < rvol_floor and not intraday_confirmation:
         return False, "حجم أولي ضعيف جدًا"
-    if change <= 0 and not (breakout_confirmed or accumulation):
+    if change <= change_floor and not (breakout_confirmed or accumulation):
         return False, "لا توجد حركة صاعدة أو انعكاس فني مؤكد"
 
     # A target is optional. If no real resistance is available, publish the
@@ -501,6 +505,10 @@ async def stock_radar_cycle():
         return
 
     status = market_status()
+    try:
+        learning_profile = await get_radar_profile()
+    except Exception:
+        learning_profile = {"rvol_floor": 0.50, "change_floor": 0.0, "samples": 0}
 
     # الرادار يعمل فقط داخل جلسات الرصد الفعلية: البري ماركت، الرئيسية،
     # بعد الإغلاق، والليل بعد إطلاق جلسة Nasdaq الجديدة.
@@ -618,7 +626,7 @@ async def stock_radar_cycle():
                     "market_session_code": status.get("session"),
                 }
 
-                channel_ok, channel_reason = _radar_channel_gate(status, row, q)
+                channel_ok, channel_reason = _radar_channel_gate(status, row, q, learning_profile)
                 if not channel_ok:
                     cycle_stats["skipped"] += 1
                     row["channel_gate"] = {
@@ -840,6 +848,17 @@ async def scheduler():
             await expiry_cycle()
             logger.info("Scheduler: expiry cycle completed.")
             await evaluate_radar_outcomes()
+            try:
+                learning_profile = await learn_radar_profile()
+                logger.info(
+                    "Radar self-learning: samples=%s win_rate=%.1f%% rvol_floor=%.2f change_floor=%.2f",
+                    learning_profile.get("samples", 0),
+                    float(learning_profile.get("win_rate", 0.0)) * 100,
+                    float(learning_profile.get("rvol_floor", 0.50)),
+                    float(learning_profile.get("change_floor", 0.0)),
+                )
+            except Exception:
+                logger.exception("Radar self-learning cycle failed; keeping safe defaults.")
             logger.info("Scheduler: radar outcome evaluation completed.")
             await weekly_radar_report()
             await publish_market_brief()
