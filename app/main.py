@@ -172,50 +172,42 @@ async def telegram_polling_loop():
     except Exception as exc:
         logging.getLogger(__name__).exception("Telegram polling bot authentication failed: %s", exc)
         await asyncio.sleep(5)
-    async with httpx.AsyncClient(timeout=30) as local_client:
-        while True:
-            try:
-                payload = {
-                    "timeout": timeout,
-                    "allowed_updates": ["message", "chat_join_request", "chat_member", "pre_checkout_query"],
-                }
-                if offset is not None:
-                    payload["offset"] = offset
-                logger.info(
-                    "Telegram polling requesting updates: offset=%s timeout=%s",
-                    offset, timeout
-                )
-                result = await bot_api("getUpdates", payload)
-                updates = result or []
-                logger.info("Telegram polling getUpdates returned %d update(s).", len(updates))
-                for update_item in updates:
-                    update_id = int(update_item.get("update_id") or 0)
-                    try:
-                        headers = {"Content-Type": "application/json"}
-                        if settings.telegram_webhook_secret:
-                            headers["X-Telegram-Bot-Api-Secret-Token"] = settings.telegram_webhook_secret
-                        response = await local_client.post(
-                            "http://127.0.0.1:8000/api/telegram/webhook",
-                            headers=headers,
-                            json=update_item,
-                        )
-                        logger.info(
-                            "Telegram polling update=%s local_webhook_status=%s",
-                            update_id, response.status_code
-                        )
-                        if response.status_code != 200:
-                            raise RuntimeError(
-                                f"local webhook returned HTTP {response.status_code}: {response.text[:500]}"
-                            )
-                        if update_id:
-                            offset = update_id + 1
-                    except Exception as exc:
-                        logger.exception(
-                            "Telegram update processing failed: update_id=%s error=%s",
-                            update_id, exc
-                        )
-                        # Do not advance offset; Telegram will retry this update.
-                        break
+    while True:
+        try:
+            payload = {
+                "timeout": timeout,
+                "allowed_updates": ["message", "chat_join_request", "chat_member", "pre_checkout_query"],
+            }
+            if offset is not None:
+                payload["offset"] = offset
+            logger.info(
+                "Telegram polling requesting updates: offset=%s timeout=%s",
+                offset, timeout
+            )
+            result = await bot_api("getUpdates", payload)
+            updates = result or []
+            logger.info("Telegram polling getUpdates returned %d update(s).", len(updates))
+            for update_item in updates:
+                update_id = int(update_item.get("update_id") or 0)
+                try:
+                    logger.warning(
+                        "Telegram polling processing update=%s keys=%s",
+                        update_id, list(update_item.keys())
+                    )
+                    result = await process_telegram_update(update_item)
+                    logger.warning(
+                        "Telegram polling processed update=%s result=%r",
+                        update_id, result
+                    )
+                    if update_id:
+                        offset = update_id + 1
+                except Exception as exc:
+                    logger.exception(
+                        "Telegram update processing failed: update_id=%s error=%s",
+                        update_id, exc
+                    )
+                    # Do not advance offset; Telegram will retry this update.
+                    break
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -2339,12 +2331,8 @@ async def revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncSession
 async def start_trial():
     raise HTTPException(410, "التجربة التلقائية غير مستخدمة. اطلب إذن الدخول وتنتظر قرار الإدارة.")
 
-@app.post("/api/telegram/webhook")
-async def telegram_webhook(request: Request):
-    expected = settings.telegram_webhook_secret
-    if expected and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != expected:
-        raise HTTPException(403, "Invalid Telegram webhook secret")
-    data = await request.json()
+async def process_telegram_update(data: dict):
+    """Process one Telegram update from either webhook or long polling."""
     message_probe = data.get("message") or {}
     probe_text = str(message_probe.get("text") or "").strip()
     probe_sender = message_probe.get("from") or {}
@@ -2749,6 +2737,15 @@ async def telegram_webhook(request: Request):
             {"inline_keyboard": [[{"text": "🚀 دخول إلى SAS PRO", "web_app": {"url": webapp_url()}}]]},
         )
         return {"ok": True}
+
+@app.post("/api/telegram/webhook")
+async def telegram_webhook(request: Request):
+    expected = settings.telegram_webhook_secret
+    if expected and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != expected:
+        raise HTTPException(403, "Invalid Telegram webhook secret")
+    data = await request.json()
+    return await process_telegram_update(data)
+
 
 @app.post("/api/telegram/precheckout")
 async def precheckout(request: Request):
