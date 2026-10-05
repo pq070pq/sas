@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>SAS PRO — Market Terminal</title>
-<link rel="stylesheet" href="/assets/app.css?v=20261005-18">
+<link rel="stylesheet" href="/assets/app.css?v=20261005-33">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 </head>
 <body>
@@ -51,12 +51,18 @@
   </section>
 
   <section id="terminalPage" class="terminal-page" hidden>
-    <section class="terminal-hero-banner" aria-label="SAS PRO">
-      <img src="/assets/sas-pro-home.webp?v=20261004-hero" alt="SAS PRO سوق الأسهم" loading="eager">
-      <div class="hero-shade"></div>
-      <div class="hero-caption">
-        <div class="hero-brand-row"><time id="terminalClock" aria-label="الوقت الحالي"><span class="clock-time">—</span><small>🇸🇦 الرياض</small><i aria-hidden="true"></i></time><span>SAS PRO</span></div>
-        <small>US MARKET • SMART RADAR</small>
+    <section class="terminal-top-layout" aria-label="SAS PRO">
+      <div class="terminal-art-card">
+        <img src="/assets/sas-pro-home.webp?v=20261005-ui" alt="SAS PRO سوق الأسهم" loading="eager">
+      </div>
+      <div class="terminal-live-card">
+        <div class="terminal-live-head">
+          <time id="terminalClock" aria-label="الوقت الحالي"><span class="clock-time">—</span><small>🇸🇦 الرياض</small><i aria-hidden="true"></i></time>
+          <span class="live-dot">●</span>
+        </div>
+        <div class="terminal-brand">SAS <em>PRO</em></div>
+        <small>US STOCK RADAR</small>
+        <div class="terminal-night-pill" id="terminalSessionPill">جاري التحقق من جلسة السوق…</div>
       </div>
     </section>
     <section class="market-ticker-wrap" aria-label="أسعار الأسواق">
@@ -72,11 +78,25 @@
     </nav>
     <main class="terminal-main">
       <section id="tab-dashboard" class="terminal-tab active">
-        <div class="terminal-hero"><div><span class="eyebrow">SAS PRO RADAR</span><h1 id="terminalGreeting">محطة الرصد الذكية</h1><p id="radarStatusText">جاري التحقق من حالة السوق والرصد...</p></div><button class="primary-btn" onclick="runRadar()">📡 بيانات الرادار</button></div>
+        <div class="terminal-radar-banner">
+          <div><span class="eyebrow">SAS PRO RADAR</span><h1 id="terminalGreeting">رصد الفرص الأمريكية بدقة واحتراف</h1><p id="radarStatusText">جاري التحقق من حالة السوق والرصد...</p></div>
+          <button class="primary-btn" onclick="runRadar()">📡 عرض فرص الرصد الآن</button>
+        </div>
         <div class="metric-grid" id="dashboardMetrics"></div>
+        <div class="dashboard-sections-head"><b>الأقسام</b><button onclick="switchTerminalTab('search')">عرض الكل ›</button></div>
+        <div class="dashboard-category-grid">
+          <button onclick="switchTerminalTab('radar')"><span>🎯</span><b>الرادار اليومي</b><small>فرص مؤكدة</small></button>
+          <button onclick="switchTerminalTab('dashboard')"><span>📊</span><b>السوق الآن</b><small>مؤشرات وأسعار</small></button>
+          <button onclick="switchTerminalTab('search')"><span>📑</span><b>التحليل</b><small>تحليل تفصيلي</small></button>
+          <button onclick="switchTerminalTab('watch')"><span>⭐</span><b>المفضلة</b><small>أسهمك المختارة</small></button>
+          <button onclick="switchTerminalTab('search')"><span>🔎</span><b>البحث</b><small>البحث عن سهم</small></button>
+          <button onclick="switchTerminalTab('account')"><span>👑</span><b>الاشتراكات</b><small>الباقات والمزايا</small></button>
+          <button onclick="switchTerminalTab('dashboard')"><span>📰</span><b>الأخبار</b><small>أهم الأخبار</small></button>
+          <button onclick="switchTerminalTab('dashboard')"><span>📅</span><b>التقارير الأسبوعية</b><small>نتائج ومتابعة</small></button>
+        </div>
         <div class="section-title"><b>🔥 أحدث الفرص / آخر رصد محفوظ</b><button onclick="switchTerminalTab('radar')">عرض كل الرصد</button></div>
         <div id="dashboardRadar" class="stock-grid"><div class="loading">جاري التحميل...</div></div>
-        <div class="section-title"><b>📈 السوق</b><span>بيانات لحظية</span></div>
+        <div class="section-title"><b>🌍 المؤشرات العالمية</b><span>بيانات لحظية</span></div>
         <div id="macroGrid" class="macro-grid"></div>
       </section>
       <section id="tab-radar" class="terminal-tab"><div class="terminal-panel-head"><div><span class="eyebrow">SAS PRO RADAR</span><h2>بيانات الأسهم المرصودة</h2><small>السعر • الحركة • الحجم • RVOL • الدخول • الوقف • الهدف • R:R</small></div><button class="primary-btn" onclick="runRadar()">↻ تحديث البيانات</button></div><div id="radarDiagnostics" class="diagnostics"></div><div id="radarCandidates" class="radar-candidates" hidden></div><div id="radarGrid" class="stock-grid"></div></section>
