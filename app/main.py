@@ -169,21 +169,21 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     else:
         status_text = "الرصد نشط"
 
-    report = ["🔎 <b>SAS PRO | تحليل السهم</b>"]
+    report = ["🚀 <b>SAS PRO RADAR | فرصة رصد</b>"]
 
-    summary_lines = [f"📈 السهم: <b>{_esc(symbol.upper())}</b>"]
+    summary_lines = [f"📈 <b>السهم:</b> {_esc(symbol.upper())}"]
     if price is not None:
-        summary_lines.append(f"💵 السعر الحالي: <b>{_money(price)}</b>")
+        summary_lines.append(f"💵 <b>السعر:</b> {_money(price)}")
     if change is not None:
         icon = "🟢" if change > 0 else ("🔴" if change < 0 else "⚪")
-        summary_lines.append(f"{icon} التغير: <b>{change:+.2f}%</b>")
+        summary_lines.append(f"{icon} <b>التغير:</b> {change:+.2f}%")
     if momentum_label:
-        summary_lines.append(f"🧭 الحالة الفنية: <b>{_esc(momentum_label)}</b>")
+        summary_lines.append(f"🧭 <b>الاتجاه والحالة:</b> {_esc(momentum_label)}")
     classification_label = first_value(classification.get("label"), classification.get("name"), classification.get("status"))
     if classification_label:
-        summary_lines.append(f"🏷️ التصنيف: <b>{_esc(classification_label)}</b>")
+        summary_lines.append(f"🏷️ <b>التصنيف:</b> {_esc(classification_label)}")
     elif momentum_label:
-        summary_lines.append(f"🏷️ التصنيف: <b>{_esc(momentum_label)}</b>")
+        summary_lines.append(f"🏷️ <b>التصنيف:</b> {_esc(momentum_label)}")
 
     trading_style = classification.get("trading_style")
     risk_level = classification.get("risk_level")
@@ -191,17 +191,17 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     risk_emoji = classification.get("risk_emoji") or "⚠️"
     holding_horizon = classification.get("holding_horizon")
     if trading_style:
-        summary_lines.append(f"🎯 نوع السهم: <b>{_esc(trading_style)}</b>")
+        summary_lines.append(f"🎯 <b>نوع السهم:</b> {_esc(trading_style)}")
     if risk_level:
         risk_text = f"{risk_emoji} <b>{_esc(risk_level)}</b>"
         if risk_score is not None:
             risk_text += f" ({int(risk_score)}/10)"
-        summary_lines.append(f"⚠️ درجة الخطورة: {risk_text}")
+        summary_lines.append(f"⚠️ <b>درجة الخطورة:</b> {risk_text}")
     if holding_horizon:
-        summary_lines.append(f"⏱️ الأفق المناسب للرصد: <b>{_esc(holding_horizon)}</b>")
+        summary_lines.append(f"⏱️ <b>مدة الرصد المتوقعة:</b> {_esc(holding_horizon)}")
     if q.get("source"):
         summary_lines.append(f"📡 مصدر السعر: <b>{_esc(q.get('source'))}</b>")
-    add_section(report, "📋 <b>ملخص السهم</b>", summary_lines)
+    add_section(report, "📋 <b>ملخص سريع للمبتدئ</b>", summary_lines)
 
     if momentum_label or classification_label:
         add_section(report, "💡 <b>ماذا يعني ذلك؟</b>", [
@@ -228,7 +228,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         sas_lines += ["", "🎯 الهدف السعري: <b>مؤكد فنيًا</b>" if bool(target_ok) else "🎯 الهدف السعري: <b>غير مؤكد</b>"]
     if live_levels is not None:
         sas_lines.append(f"📍 المستويات: <b>{'متوفرة للرصد' if bool(live_levels) else 'غير مكتملة'}</b>")
-    add_section(report, "📌 <b>SAS PRO</b>", sas_lines)
+    add_section(report, "📌 <b>لماذا ظهر السهم؟</b>", sas_lines)
 
     if sas_core is True:
         add_section(report, "💡 <b>للمبتدئ</b>", [
@@ -250,11 +250,11 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     if atr is not None:
         level_lines += ["📏 <b>ATR</b>", _money(atr)]
     if level_lines:
-        add_section(report, "🎯 <b>المستويات الفنية</b>", level_lines)
-        add_section(report, "📖 <b>كيف تقرأ المستويات؟</b>", [
-            "السعر المرجعي هو السعر الذي بُني عليه الرصد.",
-            "الوقف هو المستوى الذي عنده يعتبر السيناريو الفني غير صالح.",
-            "الأهداف هي مستويات محتملة للصعود وليست أسعارًا مضمونة."
+        add_section(report, "🎯 <b>خطة الرصد</b>", level_lines)
+        add_section(report, "📖 <b>شرح بسيط للمستويات</b>", [
+            "💵 السعر المرجعي: السعر الذي بدأ منه الرصد.",
+            "🛑 الوقف: إذا وصل إليه السهم فسيناريو الرصد لم يعد صالحًا.",
+            "🎯 الأهداف: مستويات قد يصل إليها السهم، وليست أسعارًا مضمونة."
         ])
 
     rr_lines = []
@@ -263,13 +263,13 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             "📊 R:R",
             f"<b>1 : {rr:.2f}</b>",
             "🟢 <b>التقييم: مقبول</b>" if rr >= 1.5 else "🟠 <b>التقييم: منخفض</b>",
-            "📌 مرجع SAS: <b>1 : 1.5</b>",
-            "📖 <b>للمبتدئ:</b>",
+            "📌 مرجع SAS: <b>1 : 1.5</b> — كل 1$ مخاطرة يقابلها 1.5$ عائد محتمل على الأقل.",
+            "📖 <b>ببساطة:</b>",
             f"هذا يعني أن كل وحدة مخاطرة تقابلها حوالي <b>{rr:.2f}</b> وحدة عائد محتمل حتى الهدف الأول.",
         ]
         if rr < 1.5:
             rr_lines.append("⚠️ النسبة منخفضة، لذلك يجب الانتباه للمخاطرة.")
-    add_section(report, "⚖️ <b>المخاطرة مقابل العائد</b>", rr_lines)
+    add_section(report, "⚖️ <b>هل العائد المحتمل يستحق المخاطرة؟</b>", rr_lines)
 
     company = first_value(tech.get("company_name"), tech.get("company"), q.get("company"))
     sector = first_value(tech.get("sector"), q.get("sector"))
@@ -292,7 +292,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     if roe is not None:
         financial_lines += ["📊 ROE", f"<b>{roe:+.2f}%</b>"]
     if financial_lines:
-        add_section(report, "💼 <b>البيانات المالية</b>", financial_lines)
+        add_section(report, "💼 <b>لمحة مالية عن الشركة</b>", financial_lines)
         if ai.get("financial_summary"):
             add_section(report, "📖 <b>بشكل مبسط</b>", [_esc(ai.get("financial_summary"))])
 
@@ -324,7 +324,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             news_lines.pop()
         count = len(news_items) if isinstance(news_items, list) else len(valid_news)
         news_lines += ["", f"📚 عدد الأخبار المتاحة: <b>{count}</b>"]
-        add_section(report, "📰 <b>أحدث الأخبار</b>", news_lines)
+        add_section(report, "📰 <b>أهم الأخبار الأخيرة</b>", news_lines)
 
         ai_lines = []
         if ai.get("headline_summary"):
@@ -349,7 +349,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
                 "📌 <b>ملاحظة:</b>",
                 "تحليل AI يفسر الأخبار الموثقة فقط، ولا يغيّر مستويات الرصد أو قرار SAS PRO."
             ]
-            add_section(report, "🧠 <b>زبدة الأخبار</b>", ai_lines)
+            add_section(report, "🧠 <b>شرح الأخبار ببساطة</b>", ai_lines)
 
     fcc = tech.get("fcc_review") or {}
     if fcc.get("available"):
@@ -366,7 +366,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             "",
             "🛡️ <b>دور FCC:</b> مراجعة الأدلة فقط؛ لا يغيّر السعر أو الوقف أو الأهداف أو RVOL أو قرار SAS PRO."
         ]
-        add_section(report, "🧠 <b>SAS PRO AI Review</b>", fcc_lines)
+        add_section(report, "🧠 <b>مراجعة SAS PRO AI</b>", fcc_lines)
 
     conclusion = []
     if momentum_label:
@@ -383,7 +383,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             conclusion.append(f"📈 <b>الأهداف الأعلى:</b>\nحتى <b>{_money(targets[-1])}</b> وفق المستويات المرصودة.")
     if conclusion:
         conclusion.append("⚠️ <b>الخلاصة:</b>\nالسهم لديه إشارات فنية وإخبارية إيجابية، لكن استمرار الحركة غير مضمون، لذلك يبقى تحت المراقبة.")
-        add_section(report, "🧠 <b>الخلاصة للمبتدئ</b>", conclusion)
+        add_section(report, "🧠 <b>الخلاصة</b>", conclusion)
 
     report += [
         "",
