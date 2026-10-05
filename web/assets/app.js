@@ -1,4 +1,5 @@
 /* SAS PRO deployment trigger */
+/* SAS PRO final deploy trigger */
 let tg=window.Telegram&&window.Telegram.WebApp;
 function refreshTelegramWebApp(){
  tg=window.Telegram&&window.Telegram.WebApp||tg;
