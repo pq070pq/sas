@@ -144,10 +144,15 @@ async def startup():
 async def telegram_polling_loop():
     """Receive Telegram updates without relying on the public webhook proxy."""
     if not settings.telegram_bot_token:
+        logger.error("Telegram polling disabled: TELEGRAM_BOT_TOKEN is not configured.")
         return
     offset = None
     timeout = 20
-    async with httpx.AsyncClient(timeout=30) as client:
+    logger.info("Telegram polling receiver started.")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://saspro.local",
+    ) as local_client:
         while True:
             try:
                 payload = {
@@ -157,14 +162,16 @@ async def telegram_polling_loop():
                 if offset is not None:
                     payload["offset"] = offset
                 result = await bot_api("getUpdates", payload)
-                for update_item in result or []:
+                updates = result or []
+                logger.info("Telegram polling getUpdates returned %d update(s).", len(updates))
+                for update_item in updates:
                     update_id = int(update_item.get("update_id") or 0)
                     try:
                         headers = {"Content-Type": "application/json"}
                         if settings.telegram_webhook_secret:
                             headers["X-Telegram-Bot-Api-Secret-Token"] = settings.telegram_webhook_secret
-                        response = await client.post(
-                            "http://127.0.0.1:8000/api/telegram/webhook",
+                        response = await local_client.post(
+                            "/api/telegram/webhook",
                             headers=headers,
                             json=update_item,
                         )
@@ -173,11 +180,16 @@ async def telegram_polling_loop():
                             update_id, response.status_code
                         )
                         if response.status_code != 200:
-                            raise RuntimeError(f"local webhook returned HTTP {response.status_code}")
+                            raise RuntimeError(
+                                f"local webhook returned HTTP {response.status_code}: {response.text[:500]}"
+                            )
                         if update_id:
                             offset = update_id + 1
                     except Exception as exc:
-                        logger.exception("Telegram update processing failed: update_id=%s error=%s", update_id, exc)
+                        logger.exception(
+                            "Telegram update processing failed: update_id=%s error=%s",
+                            update_id, exc
+                        )
                         # Do not advance offset; Telegram will retry this update.
                         break
             except asyncio.CancelledError:
