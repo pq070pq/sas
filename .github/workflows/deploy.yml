@@ -63,7 +63,29 @@ jobs:
 
             docker compose exec -T saspro python - <<'PY'
             from app.main import app
+            from app.config import settings
             print(f"✅ SAS PRO application imported successfully: version={app.version}")
+            print(f"Telegram token configured: {bool(settings.telegram_bot_token)}")
+            print(f"Telegram webhook auto-configure: {settings.telegram_webhook_auto_configure}")
+            print(f"Telegram webhook secret configured: {bool(settings.telegram_webhook_secret)}")
+            print(f"App base URL configured: {bool(settings.app_base_url)}")
+            PY
+
+            # Verify Telegram webhook configuration without exposing the bot token.
+            docker compose exec -T saspro python - <<'PY'
+            import asyncio
+            from app.telegram import bot_api
+            async def main():
+                info = await bot_api("getWebhookInfo", {})
+                print("Telegram webhook URL configured:", bool(info.get("url")))
+                print("Telegram webhook pending updates:", info.get("pending_update_count", "?"))
+                print("Telegram webhook last error:", info.get("last_error_message") or "none")
+                print("Telegram webhook last error date:", info.get("last_error_date") or "none")
+                if not info.get("url"):
+                    raise SystemExit("❌ Telegram webhook is not configured.")
+                if info.get("last_error_message"):
+                    raise SystemExit("❌ Telegram webhook reports an error.")
+            asyncio.run(main())
             PY
 
             echo "✅ OVH deployment smoke test passed."
