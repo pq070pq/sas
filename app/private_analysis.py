@@ -196,6 +196,8 @@ async def build_private_analysis(symbol: str):
         for i, level in enumerate(targets[:5], 1)
     ) if targets else "   ⚠️ لا يوجد هدف سعري مؤكد من مقاومة مرصودة."
 
+    rr_text = f"1 : {risk_reward:.2f}" if risk_reward is not None else "غير محسوب"
+
     if risk_reward is not None:
         rr_eval = "🟢 مناسب" if risk_reward >= 1.5 else "🟠 منخفض — تحذير فقط"
         rr_block = (
