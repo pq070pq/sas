@@ -35,9 +35,9 @@ def _providers():
     return providers
 
 
-def _cache_key(symbol: str, news: list[dict], fundamentals: dict) -> str:
+def _cache_key(symbol: str, news: list[dict], fundamentals: dict, tipranks: dict | None = None) -> str:
     payload = json.dumps(
-        {"symbol": symbol, "news": news[:5], "fundamentals": fundamentals},
+        {"symbol": symbol, "news": news[:5], "fundamentals": fundamentals, "tipranks": tipranks or {}},
         ensure_ascii=False,
         sort_keys=True,
         default=str,
@@ -103,12 +103,13 @@ def _contains_market_price_claim(value: Any) -> bool:
     ))
 
 
-def _prompt(symbol: str, news: list[dict], fundamentals: dict, market: dict | None = None) -> str:
+def _prompt(symbol: str, news: list[dict], fundamentals: dict, market: dict | None = None, tipranks: dict | None = None) -> str:
     evidence = {
         "symbol": symbol,
         "verified_news_sources": news,
         "verified_financial_data": fundamentals,
         "verified_momentum_data": market or {},
+        "tipranks_analysis": tipranks or {},
     }
     return f"""
 أنت طبقة تحليل أخبار داخل SAS PRO، ولست مصدر بيانات أسعار.
@@ -126,6 +127,7 @@ def _prompt(symbol: str, news: list[dict], fundamentals: dict, market: dict | No
 - لا تقل إن خبرًا سبب الارتفاع بشكل مؤكد إلا إذا كان محتوى الخبر وتوقيته يدعمان ذلك؛ استخدم «مرتبط بالخبر» أو «ارتباط محتمل» أو «غير واضح».
 - أي رقم مالي تذكره يجب أن يكون موجودًا حرفيًا في verified_financial_data.
 - أي خبر تذكره يجب أن يكون مأخوذًا من verified_news_sources.
+- معلومات TipRanks مصدر تحليلي مستقل: ترجمها واشرحها بالعربية، لكن لا تعتبرها سعرًا أو هدفًا أو إشارة SAS PRO.
 - لا تقدم توصية شراء أو بيع.
 - يمكنك تصنيف قوة الزخم فقط من verified_momentum_data، دون اختراع أي رقم أو تغيير قرار الفلترة الفني.
 - الذكاء الاصطناعي مساعد للفرز والتفسير وليس بوابة قبول مستقلة.
@@ -207,13 +209,14 @@ async def analyze_stock(
     news: list[dict] | None = None,
     fundamentals: dict | None = None,
     market: dict | None = None,
+    tipranks: dict | None = None,
 ) -> dict:
     if not settings.ai_radar_enabled:
         return {"enabled": False, "status": "disabled"}
 
     safe_news = _safe_news(news or [])
-    if not safe_news:
-        # لا يوجد مصدر خبري موثق = لا يوجد تقرير AI.
+    if not safe_news and not tipranks:
+        # لا توجد أدلة موثقة = لا يوجد تقرير AI.
         # هذا يمنع النموذج من اختراع خبر أو سبب للحركة.
         return {
             "enabled": False,
@@ -234,7 +237,7 @@ async def analyze_stock(
             "key_takeaway": "تحليل الذكاء الاصطناعي غير مفعّل — أضف مفتاح مزود LLM في .env.",
         }
 
-    key = _cache_key(symbol, safe_news, safe_fundamentals)
+    key = _cache_key(symbol, safe_news, safe_fundamentals, tipranks)
     cached = _cache.get(key)
     now = time.monotonic()
     if cached and now - cached[0] < _CACHE_TTL:
@@ -246,7 +249,7 @@ async def analyze_stock(
         _semaphore = asyncio.Semaphore(max(1, settings.ai_radar_concurrency))
 
     async with _semaphore:
-        prompt = _prompt(symbol, safe_news, safe_fundamentals, market)
+        prompt = _prompt(symbol, safe_news, safe_fundamentals, market, tipranks)
         last_error = None
         async with httpx.AsyncClient(timeout=settings.ai_radar_timeout_seconds) as client:
             for provider in providers:
