@@ -343,7 +343,16 @@ async def publish_holiday_radar():
             except Exception:
                 btc_price = None
 
-        # صباح الاثنين بتوقيت الرياض قد يكون الأحد ليلًا بتوقيت نيويورك،\n        # لذلك يظهر التقرير كـ "قبل الافتتاح" بدل "نهاية الأسبوع".\n        riyadh_now = datetime.now(RIYADH)\n        if status["holiday"]:\n            period = "عطلة السوق"\n        elif riyadh_now.weekday() == 0:\n            period = "قبل الافتتاح"\n        else:\n            period = "نهاية الأسبوع"\n        lines = [
+        # صباح الاثنين بتوقيت الرياض قد يكون الأحد ليلًا بتوقيت نيويورك،
+        # لذلك يظهر التقرير كـ "قبل الافتتاح" بدل "نهاية الأسبوع".
+        riyadh_now = datetime.now(RIYADH)
+        if status["holiday"]:
+            period = "عطلة السوق"
+        elif riyadh_now.weekday() == 0:
+            period = "قبل الافتتاح"
+        else:
+            period = "نهاية الأسبوع"
+        lines = [
             "🌙 <b>SAS PRO HOLIDAY RADAR</b>",
             "",
             f"🇺🇸 <b>الوضع : </b>{period}",
