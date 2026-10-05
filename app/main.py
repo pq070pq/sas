@@ -2505,17 +2505,29 @@ async def process_telegram_update(data: dict):
         )
 
         async def _run_private_analysis():
+            from .private_analysis import build_private_analysis
+            last_exc = None
+            for attempt in range(2):
+                try:
+                    report = await build_private_analysis(symbol)
+                    await _safe_send(report)
+                    return
+                except Exception as exc:
+                    last_exc = exc
+                    logger.exception(
+                        "Private stock analysis failed: symbol=%s attempt=%s error=%s",
+                        symbol, attempt + 1, exc
+                    )
+                    if attempt == 0:
+                        await asyncio.sleep(2)
             try:
-                from .private_analysis import build_private_analysis
-                report = await build_private_analysis(symbol)
-                await _safe_send(report)
-            except Exception as exc:
-                logger.exception("Private stock analysis failed for %s: %s", symbol, exc)
+                raise last_exc
+            except Exception:
                 try:
                     await send_message(
                         chat_id,
-                        "❌ تعذر إكمال التحليل حاليًا.\n"
-                        "تحقق من رمز السهم وحاول مرة أخرى بعد قليل."
+                        "❌ تعذر إكمال التحليل حاليًا بعد محاولتين.\n"
+                        "قد يكون أحد مصادر البيانات غير متاح مؤقتًا؛ حاول مرة أخرى بعد قليل."
                     )
                 except Exception:
                     logger.exception("Failed to send private analysis error for %s", symbol)
