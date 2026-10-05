@@ -340,7 +340,7 @@ def _radar_channel_gate(status, row, quote_data):
 
     classification = row.get("classification") or {}
     targets = row.get("targets") or {}
-    price = _money_float = None
+    price = None
     try:
         price = float((quote_data or {}).get("price") or row.get("live_price") or row.get("price") or 0)
     except (TypeError, ValueError):
@@ -374,6 +374,12 @@ def _radar_channel_gate(status, row, quote_data):
 
     if not extended:
         return True, "جلسة رئيسية — بوابة SAS الأساسية"
+
+    # Extended-hours channel messages require an explicitly extended quote.
+    # If the provider cannot verify that the price is from the active extended
+    # session, keep the candidate in the radar/app but do not publish it.
+    if not bool((quote_data or {}).get("is_extended_hours")):
+        return False, "السعر الحالي غير موثق كبيانات ممتدة"
 
     # Extended hours: reject price-only spikes. Nasdaq/SEC note that these
     # sessions generally have lower liquidity and higher volatility.
@@ -499,7 +505,7 @@ async def stock_radar_cycle():
                     )
 
                 try:
-                    q = await quote(symbol)
+                    q = await quote(symbol, prefer_extended=status.get("session") in {"premarket", "afterhours", "night"})
                 except Exception:
                     logger.exception("Quote provider failed for %s; using scan data.", symbol)
                     q = {"symbol": symbol}
