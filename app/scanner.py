@@ -1325,9 +1325,11 @@ def _trading_profile(*, price, atr_pct, rvol, power_trend, accumulation, breakou
 
 async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fallback: bool = False):
     async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 30)) as client:
-        candles, data_source = await _get_analysis_candles(client, symbol, allow_twelve_fallback, min_candles=205)
+        candles, data_source = await _get_analysis_candles(client, symbol, allow_twelve_fallback, min_candles=60)
 
-    if len(candles) < 205:
+    # لا نجعل توفر 205 شمعة شرطًا لإسقاط فرصة حديثة؛ نستخدم الحد الأدنى
+    # اللازم لـ RSI/البنية/الدعم والمقاومة، وتبقى EMA200 اختيارية عند نقص التاريخ.
+    if len(candles) < 60:
         return {
             "behavior": "غير واضح",
             "type": "غير واضح",
