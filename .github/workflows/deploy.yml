@@ -38,10 +38,11 @@ jobs:
             cd /opt/saspro
             git fetch origin main
             git reset --hard origin/main
-            docker compose build saspro
+            docker compose build saspro panwatch
             docker rm -f saspro-saspro-1 2>/dev/null || true
-            docker compose up -d --no-deps saspro
-            docker compose ps saspro
+            docker rm -f saspro-panwatch-1 2>/dev/null || true
+            docker compose up -d --no-deps saspro panwatch
+            docker compose ps saspro panwatch
 
       - name: Smoke test SAS PRO container
         uses: appleboy/ssh-action@v1.2.2
