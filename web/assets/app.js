@@ -490,9 +490,9 @@ function renderAccount(){
 }
 
 function renderTrialCard(days){
- const d=Number(days||30);
+ const d=Number(days||3);
  document.querySelector("#trialCard p").textContent=d+" يومًا للمستخدم الجديد • تبدأ تلقائيًا بعد الموافقة على الشروط، ثم يفتح رابط القناة مباشرة.";
- document.getElementById("trialBtn").textContent=d===30?"قراءة الشروط وبدء الشهر المجاني":"قراءة الشروط وبدء التجربة";
+ document.getElementById("trialBtn").textContent=d===30?"قراءة الشروط وبدء التجربة المجانية":"قراءة الشروط وبدء التجربة";
 }
 
 function renderStatus(x){
@@ -849,7 +849,8 @@ function renderAdminMonthlyReport(d){
   '<div class="report-note">ℹ️ '+esc(d.note||'')+'</div>';
 }
 function adminStatCard(key,label,icon,value,clickable=true){
- return '<button type="button" class="admin-stat-card '+(clickable?'is-clickable':'')+'" '+(clickable?'onclick="openSubscriberStatus(\\''+key+'\\')"':'')+'><small>'+label+'</small><strong>'+Number(value||0).toLocaleString('en-US')+'</strong><span>'+icon+(clickable?' عرض التفاصيل ↗':'')+'</span></button>';
+ const action=clickable ? ' onclick='+String.fromCharCode(39)+'openSubscriberStatus("'+key+'")'+String.fromCharCode(39) : '';
+ return `<button type="button" class="admin-stat-card ${clickable?'is-clickable':''}"${action}><small>${label}</small><strong>${Number(value||0).toLocaleString('en-US')}</strong><span>${icon}${clickable?' عرض التفاصيل ↗':''}</span></button>`;
 }
 async function loadAdminStats(){
  const d=await api('/api/admin/overview');
