@@ -142,7 +142,9 @@ def _prompt(symbol: str, news: list[dict], fundamentals: dict, market: dict | No
   "financial_summary": "تحليل مالي مبسط من verified_financial_data فقط، أو нет",
   "risk_flags": ["مخاطر موجودة صراحة في الأدلة فقط"],
   "momentum_assessment": "قوي | متوسط | ضعيف | غير واضح",
-  "key_takeaway": "خلاصة قصيرة مبنية على الأدلة فقط"
+  "key_takeaway": "خلاصة قصيرة مبنية على الأدلة فقط",
+  "tipranks_summary": "ترجمة مختصرة لأهم ما ذكره TipRanks، أو غير متوفر",
+  "tipranks_signal": "إيجابي | محايد | سلبي | غير واضح"
 }}
 
 الأدلة الموثقة:
@@ -173,6 +175,8 @@ def _validate(parsed: dict, news: list[dict], fundamentals: dict) -> dict:
         "financial_summary": _normalise(parsed.get("financial_summary"), "غير متوفر"),
         "momentum_assessment": _normalise(parsed.get("momentum_assessment"), "غير واضح"),
         "key_takeaway": _normalise(parsed.get("key_takeaway"), "غير واضح"),
+        "tipranks_summary": _normalise(parsed.get("tipranks_summary"), "غير متوفر"),
+        "tipranks_signal": _normalise(parsed.get("tipranks_signal"), "غير واضح"),
     }
     # Never publish an AI response that contains a market-price claim.
     for key, value in fields.items():
