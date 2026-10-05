@@ -468,10 +468,12 @@ def _radar_channel_gate(status, row, quote_data):
 
     # Extended hours: reject price-only spikes. Nasdaq/SEC note that these
     # sessions generally have lower liquidity and higher volatility.
-    if change < 3.0:
-        return False, "ارتفاع ممتد دون حركة سعرية كافية"
-    if dollar_volume < 1_500_000:
-        return False, "سيولة نقدية ممتدة غير كافية"
+    if change < 1.0:
+        return False, "حركة ممتدة ضعيفة"
+    # بعد الإغلاق نرصد الحركة الحقيقية حتى لو كانت السيولة أقل من جلسة التداول
+    # الرئيسية، لكن لا نسمح بارتفاع سعري وحيد دون تأكيد.
+    if dollar_volume < 500_000:
+        return False, "سيولة ممتدة غير كافية"
 
     rvol = float(classification.get("rvol") or 0)
     intraday_confirmation = bool(classification.get("intraday_confirmation"))
