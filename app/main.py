@@ -1564,9 +1564,12 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     )
     result, targets, q = results
 
-    if isinstance(targets, Exception):
-        targets = {"status": "error", "targets": [], "error": f"{type(targets).__name__}: {targets}"}
-    if isinstance(q, Exception):
+    if isinstance(targets, Exception) or not isinstance(targets, dict):
+        targets = {"status": "error", "targets": [], "error": (
+            f"{type(targets).__name__}: {targets}" if isinstance(targets, Exception)
+            else "technical_targets returned an invalid payload"
+        )}
+    if isinstance(q, Exception) or not isinstance(q, dict):
         q = {"symbol": symbol, "price": None, "change_pct": None, "source": "unavailable",
              "error": f"{type(q).__name__}: {q}"}
 
@@ -1706,29 +1709,49 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         rvol_num = None
 
     behavior_value = str(cls.get("behavior") or "غير واضح")
-    if cls.get("market_structure_bearish"):
+    # هذه القيم تُشتق من نفس classify_sas المستخدم في الرادار، وليست حسابًا
+    # منفصلًا من واجهة Mini App.
+    if cls.get("market_structure_bearish") or cls.get("bearish_head_shoulders"):
         signal_value = "سلبية"
-    elif cls.get("strategy_pass") or cls.get("breakout_confirmed") or cls.get("accumulation"):
+    elif cls.get("breakout_confirmed"):
+        signal_value = "اختراق مؤكد"
+    elif cls.get("strategy_pass"):
         signal_value = "إيجابية"
+    elif cls.get("accumulation"):
+        signal_value = "تجميع"
     else:
         signal_value = "محايدة"
 
-    if rvol_num is not None and rvol_num >= 2:
+    momentum_score = (cls.get("score_breakdown") or {}).get("momentum", 0)
+    volume_score = (cls.get("score_breakdown") or {}).get("volume", 0)
+    if momentum_score >= 20 and volume_score >= 15:
         momentum_value = "قوي"
+    elif momentum_score >= 10 or volume_score >= 15:
+        momentum_value = "متوسط"
+    elif cls.get("rsi14") is not None or rvol_num is not None:
+        momentum_value = "ضعيف"
+    else:
+        momentum_value = "غير متاح"
+
+    if rvol_num is not None and rvol_num >= 2:
         liquidity_value = "مرتفعة"
     elif rvol_num is not None and rvol_num >= 1.2:
-        momentum_value = "متوسط"
         liquidity_value = "طبيعية"
+    elif rvol_num is not None:
+        liquidity_value = "منخفضة"
     else:
-        momentum_value = "ضعيف"
-        liquidity_value = "ضعيفة"
+        liquidity_value = "غير متاحة"
 
-    if signal_value == "إيجابية" and target_value:
-        mini_takeaway = f"الزخم {momentum_value} مع إشارة {signal_value}؛ راقب تأكيد المستوى قبل القرار."
+    if signal_value == "اختراق مؤكد":
+        mini_takeaway = "اختراق مؤكد وفق شروط SAS PRO: إغلاق + حجم + استمرار، مع عدم وجود إشارة اختراق وهمي."
+    elif signal_value == "إيجابية":
+        mini_takeaway = "الإشارة اجتازت شروط SAS PRO الحالية؛ المستويات المعروضة مأخوذة من محرك الرادار فقط."
+    elif signal_value == "تجميع":
+        mini_takeaway = "السهم في حالة تجميع وفق شروط SAS PRO؛ لا يوجد مستوى مختلق."
     elif signal_value == "سلبية":
-        mini_takeaway = "البنية الحالية تحتاج حذرًا إضافيًا قبل أي قرار."
+        mini_takeaway = "البنية الفنية الحالية سلبية وفق محرك SAS PRO؛ لا يتم اختراع مستويات دخول."
     else:
-        mini_takeaway = "الصورة الحالية محايدة وتحتاج تأكيدًا سعريًا إضافيًا."
+        mini_takeaway = "الإشارة محايدة وفق محرك SAS PRO؛ لا يتم اختراع دخول أو وقف أو هدف."
 
     mini_analysis = {
         "direction": behavior_value,
