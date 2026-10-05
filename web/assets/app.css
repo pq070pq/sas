@@ -367,7 +367,7 @@ filter:blur(.2px);
   box-shadow:0 5px 16px rgba(0,0,0,.25);
 }
 .hero-brand-row time:before{
-  content:"◷";
+  content:"⏳";
   margin-left:5px;
   color:var(--cyan);
   font-size:12px;
