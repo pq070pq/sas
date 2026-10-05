@@ -298,20 +298,22 @@ async function analyzeSymbol(){
  if(!symbol)return;
  const el=document.getElementById('symbolResult');
  el.innerHTML='<div class="loading">🧠 يجري تحليل '+escHtml(symbol)+'...</div>';
- const [qR,chartR,newsR,analysisR]=await Promise.allSettled([
+ const [qR,chartR,newsR,analysisR,miniR]=await Promise.allSettled([
    api('/api/stocks/'+encodeURIComponent(symbol)+'/quote'),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/chart'),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/news'),
-   api('/api/stocks/'+encodeURIComponent(symbol)+'/analyze',{method:'POST',timeoutMs:30000})
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/analyze',{method:'POST',timeoutMs:30000}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/mini-analysis',{timeoutMs:30000})
  ]);
  const q=qR.status==='fulfilled'?qR.value:{symbol,price:null,change_pct:null,source:'غير متاح'};
  const chart=chartR.status==='fulfilled'?chartR.value:{candles:[]};
  const news=newsR.status==='fulfilled'&&Array.isArray(newsR.value)?newsR.value:[];
  const analysis=analysisR.status==='fulfilled'?analysisR.value:null;
+ const miniR=arguments.length;
  if(!analysis){
    const errors=[qR,chartR,newsR,analysisR].filter(x=>x.status==='rejected').map(x=>x.reason?.message).filter(Boolean);
    el.innerHTML='<div class="fatal">⚠️ تعذر إكمال التحليل الكامل<br><small>لكن تم إبقاء البيانات التي نجح تحميلها.</small>'+(errors.length?'<br><small>'+escHtml(errors[0])+'</small>':'')+'</div>';
-   if(Number(q.price)>0||news.length||chart.candles?.length) renderPartialAnalysis(el,symbol,q,chart,news);
+   if(Number(q.price)>0||news.length||chart.candles?.length) renderPartialAnalysis(el,symbol,q,chart,news,miniR.status==='fulfilled'?miniR.value:null);
    return;
  }
  const tech=analysis.sas_pro?.targets||{};
@@ -376,7 +378,7 @@ async function openPrivateAnalysis(symbol){
    alert(e?.message||'تعذر فتح التحليل الخاص.');
  }
 }
-function renderPartialAnalysis(el,symbol,q,chart,news){
+function renderPartialAnalysis(el,symbol,q,chart,news,miniData){
  const price=Number(q?.price);
  const change=Number(q?.change_pct);
  const priceText=Number.isFinite(price)&&price>0?money(price):'—';
@@ -385,7 +387,14 @@ function renderPartialAnalysis(el,symbol,q,chart,news){
  '<div class="quote-line"><strong>&#36;'+priceText+'</strong><span class="'+(change>=0?'up':'down')+'">'+changeText+'</span><span>'+escHtml(q?.source||'')+'</span></div>'+
  '<div class="mini-analysis">'+
    '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO QUICK ANALYSIS</span><b>🧠 التحليل الفني المختصر</b></div></div>'+
-   '<p class="mini-takeaway">🟡 التحليل المختصر لم يكتمل خلال المهلة الحالية. لم يتم تخمين الاتجاه أو الزخم أو أي مستوى سعري.</p>'+
+   '<div class="mini-analysis-grid">'+
+   '<div><small>📊 الاتجاه</small><b>'+escHtml(miniData?.mini_analysis?.direction||'غير واضح')+'</b></div>'+
+   '<div><small>🚀 الزخم</small><b>'+escHtml(miniData?.mini_analysis?.momentum||'—')+'</b></div>'+
+   '<div><small>💧 السيولة</small><b>'+escHtml(miniData?.mini_analysis?.liquidity||'—')+'</b></div>'+
+   '<div><small>📈 الإشارة</small><b>'+escHtml(miniData?.mini_analysis?.signal||'محايدة')+'</b></div>'+
+   '</div>'+
+   '<div class="mini-levels"><span>🎯 الهدف <b>&#36;'+money(miniData?.mini_analysis?.target)+'</b></span><span>🛑 الوقف <b>&#36;'+money(miniData?.mini_analysis?.stop)+'</b></span></div>'+
+   '<p class="mini-takeaway">'+escHtml(miniData?.mini_analysis?.takeaway||'تعذر تحميل تحليل SAS المختصر حاليًا.')+'</p>'+
    '<button class="private-analysis-btn" onclick="openPrivateAnalysis(\''+escHtml(symbol)+'\')">📩 الانتقال للتحليل في الخاص</button>'+
  '</div>'+
  '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
