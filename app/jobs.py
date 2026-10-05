@@ -393,9 +393,22 @@ def _radar_channel_gate(status, row, quote_data):
         volume = 0.0
     dollar_volume = price * volume
 
-    # Universal anti-fake safeguards.
-    if price <= 0 or volume <= 0:
-        return False, "سعر/حجم حي غير صالح"
+    # Universal anti-fake safeguards: channel messages must be backed by
+    # an actual live quote. Never substitute a discovery snapshot or historical
+    # Stooq close when the US market is actively being scanned.
+    quote_source = str((quote_data or {}).get("source") or "").strip().lower()
+    quote_price = (quote_data or {}).get("price")
+    if price <= 0 or volume <= 0 or quote_price is None:
+        return False, "بيانات السعر/الحجم الحي غير متاحة"
+    if bool((quote_data or {}).get("stale")):
+        return False, "السعر موسوم كبيانات قديمة"
+    if not extended and (
+        "stooq" in quote_source
+        or "last close" in quote_source
+        or "snapshot" in quote_source
+        or quote_source in {"", "unavailable"}
+    ):
+        return False, "لا يوجد سعر لحظي موثوق للجلسة الحالية"
     if classification.get("distribution_risk") or classification.get("bearish_head_shoulders"):
         return False, "تناقض هابط قوي"
     if classification.get("chase_risk"):
@@ -544,20 +557,16 @@ async def stock_radar_cycle():
                 try:
                     q = await quote(symbol, prefer_extended=status.get("session") in {"premarket", "afterhours", "night"})
                 except Exception:
-                    logger.exception("Quote provider failed for %s; using scan data.", symbol)
-                    q = {"symbol": symbol}
-                # Keep the radar price populated from the scan row when the
-                # live quote provider is temporarily unavailable.
+                    logger.exception("Quote provider failed for %s; live quote unavailable.", symbol)
+                    q = {"symbol": symbol, "price": None, "source": "unavailable"}
+                # IMPORTANT: never fall back to the discovery snapshot for
+                # Telegram publication. Discovery is a candidate source, not
+                # proof that the price is still current at publication time.
                 if q.get("price") is None:
-                    fallback_price = row.get("live_price") or row.get("price")
-                    fallback_change = row.get("live_change_pct")
-                    if fallback_price is not None:
-                        q = {
-                            "symbol": symbol,
-                            "price": fallback_price,
-                            "change_pct": fallback_change if fallback_change is not None else row.get("change_pct"),
-                            "source": row.get("live_price_source") or row.get("source") or "scan data",
-                        }
+                    logger.warning(
+                        "Radar live quote unavailable; keeping candidate in watchlist: %s source=%s",
+                        symbol, q.get("source")
+                    )
                 classification = row.get("classification") or {}
                 tech = {
                     **(row.get("targets") or {}),
