@@ -75,8 +75,24 @@ jobs:
             docker compose logs --tail=250 saspro || true
             echo "===== END SAS PRO recent logs ====="
 
+            # Exercise the public webhook endpoint locally through HTTPS.
+            # This reproduces Telegram's POST path without exposing credentials.
+            webhook_url="$(docker compose exec -T saspro python -c 'from app.config import settings; print(settings.app_base_url.rstrip(\"/\") + \"/api/telegram/webhook\")' | tail -n 1)"
+            webhook_secret="$(grep -E '^TELEGRAM_WEBHOOK_SECRET=' .env | cut -d= -f2-)"
+            webhook_status="$(curl -k -sS -o /tmp/sas_webhook_body -w '%{http_code}' \
+              -X POST "$webhook_url" \
+              -H "Content-Type: application/json" \
+              -H "X-Telegram-Bot-Api-Secret-Token: $webhook_secret" \
+              --data '{"update_id":999999991,"message":{"message_id":1,"from":{"id":0},"chat":{"id":0,"type":"private"},"text":""}}')"
+            echo "Public Telegram webhook HTTP status: $webhook_status"
+            if [ "$webhook_status" != "200" ]; then
+              echo "Webhook response body:"
+              cat /tmp/sas_webhook_body || true
+              exit 1
+            fi
+
             # Verify Telegram webhook configuration without exposing the bot token.
-            docker compose exec -T saspro python - <<'PY'
+            docker compose exec -T saspro python - <<'PY
             import asyncio
             from app.telegram import bot_api
             async def main():
