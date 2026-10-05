@@ -85,6 +85,20 @@ def _dt_at(local: datetime, hour: int, minute: int) -> datetime:
     return local.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
 
+def _riyadh_hm(value: datetime) -> str:
+    return value.astimezone(DISPLAY_TZ).strftime("%H:%M")
+
+
+def _next_premarket(local: datetime) -> datetime:
+    """Return the next 04:00 ET pre-market start, skipping weekends/holidays."""
+    candidate = _dt_at(local, PREMARKET_START[0], PREMARKET_START[1])
+    if local >= candidate:
+        candidate += timedelta(days=1)
+    while candidate.weekday() >= 5 or candidate.date() in us_market_holidays(candidate.year):
+        candidate += timedelta(days=1)
+    return candidate
+
+
 def _minutes_between(a: datetime, b: datetime) -> int:
     return max(0, int((b - a).total_seconds() // 60))
 
@@ -105,10 +119,13 @@ def market_status(now: datetime | None = None) -> dict:
     # Night Session resumes the electronic stock radar before the Monday day session.
     if d >= NIGHT_SESSION_LAUNCH:
         t = (local.hour, local.minute)
+        # 23/5 schedule: Sunday 21:00 ET through Friday 20:00 ET,
+        # with the night session active Sun 21:00–Mon 04:00 and
+        # Mon 21:00–Fri 04:00. Saturday is never an active night session.
         night_active = (
             (local.weekday() == 6 and t >= (21, 0)) or
-            (local.weekday() <= 3 and t >= (21, 0)) or
-            (local.weekday() <= 4 and t < (4, 0))
+            (local.weekday() in (0, 1, 2, 3) and (t >= (21, 0) or t < (4, 0))) or
+            (local.weekday() == 4 and t < (4, 0))
         )
         if night_active:
             return {
@@ -126,6 +143,7 @@ def market_status(now: datetime | None = None) -> dict:
             "label_ar": "مغلق — لا يوجد تداول", "short_ar": "لا تداول",
             "reason": "weekend", "date": d.isoformat(),
             "local_time": local.isoformat(),
+            "next_premarket_riyadh": _riyadh_hm(_next_premarket(local)),
         }
 
     regular_end_h, regular_end_m = early_close_time(d)
@@ -143,6 +161,7 @@ def market_status(now: datetime | None = None) -> dict:
             "minutes_to_open": _minutes_between(local, regular_start),
             "open_time_et": "09:30",
             "close_time_et": f"{regular_end_h:02d}:{regular_end_m:02d}",
+            "regular_open_riyadh": _riyadh_hm(regular_start),
         }
 
     if regular_start <= local < regular_end:
@@ -153,6 +172,7 @@ def market_status(now: datetime | None = None) -> dict:
             "date": d.isoformat(), "local_time": local.isoformat(),
             "close_time_et": f"{regular_end_h:02d}:{regular_end_m:02d}",
             "minutes_to_close": _minutes_between(local, regular_end),
+            "regular_close_riyadh": _riyadh_hm(regular_end),
         }
 
     if regular_end <= local < after_end:
@@ -162,6 +182,7 @@ def market_status(now: datetime | None = None) -> dict:
             "reason": "after hours", "date": d.isoformat(),
             "local_time": local.isoformat(),
             "minutes_to_afterhours_close": _minutes_between(local, after_end),
+            "afterhours_close_riyadh": _riyadh_hm(after_end),
         }
 
     # 20:00–21:00 ET is the transition/maintenance window before the
@@ -176,11 +197,12 @@ def market_status(now: datetime | None = None) -> dict:
             "date": d.isoformat(), "local_time": local.isoformat(),
             "minutes_to_night": _minutes_between(local, night_open),
             "night_open_time_et": "21:00",
+            "night_open_riyadh": _riyadh_hm(night_open),
         }
 
     return {
         "open": False, "holiday": False, "session": "overnight",
-        "label_ar": "قبل الافتتاح 🟡", "short_ar": "قبل الافتتاح",
+        "label_ar": "مغلق — انتظار البري ماركت 🌙", "short_ar": "مغلق",
         "reason": "overnight", "date": d.isoformat(),
         "local_time": local.isoformat(), "next_premarket_et": "04:00",
     }
