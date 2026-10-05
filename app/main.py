@@ -2065,7 +2065,9 @@ async def telegram_webhook(request: Request):
                 "افتح Mini App لتفعيل التجربة أو الاشتراك، ثم أرسل رمز السهم مثل <code>AAPL</code> هنا.")
             return {"ok": True}
         try:
-            await send_message(chat_id, f"🔎 <b>بدأ تحليل {symbol}</b>\n\n⏳ أجمع السعر والبيانات الفنية والأخبار والأحداث المؤسسية...")
+            # عند فتح رابط التحليل من Mini App يرسل البوت نفس الرمز أولًا،
+            # ثم يبدأ التحليل مباشرة بدون طلب أي إدخال إضافي من المستخدم.
+            await send_message(chat_id, f"<code>{symbol}</code>")
             from .private_analysis import build_private_analysis
             report = await build_private_analysis(symbol)
             await send_message(chat_id, report)
