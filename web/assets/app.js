@@ -98,6 +98,8 @@ function switchTerminalTab(tab){
  if(tab==='watch')renderWatchlist();
 }
 async function initTerminal(){
+ const backBtn=document.getElementById('adminBackBtn');
+ if(backBtn)backBtn.hidden=!Boolean(me?.admin);
  document.getElementById('terminalGreeting').textContent='مرحبًا '+(me.user?.first_name||me.user?.username||'في SAS PRO');
  document.getElementById('accountName').textContent=me.user?.first_name||me.user?.username||'مستخدم SAS PRO';
  document.getElementById('accountPlan').textContent=(me.user?.plan||'SAS PRO')+' • وصول فعّال';
@@ -121,6 +123,24 @@ async function fetchPublicGoldFallback(){
   console.warn('SAS PRO direct gold fallback failed:',e?.message||e);
   return null;
  }
+}
+
+async function openAdminUserView(){
+ if(!me?.admin)return;
+ document.getElementById('adminPage').hidden=true;
+ document.getElementById('terminalPage').hidden=false;
+ const backBtn=document.getElementById('adminBackBtn');
+ if(backBtn)backBtn.hidden=false;
+ await initTerminal();
+}
+
+function returnToAdminView(){
+ if(!me?.admin)return;
+ if(terminalState.timer){clearInterval(terminalState.timer);terminalState.timer=null;}
+ document.getElementById('terminalPage').hidden=true;
+ document.getElementById('adminPage').hidden=false;
+ adminRefresh();
+ window.scrollTo({top:0,behavior:'smooth'});
 }
 
 async function refreshTerminal(){
