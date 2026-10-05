@@ -126,6 +126,66 @@ async def _public_holiday_fallback(symbol: str):
     return None
 
 
+async def _nasdaq_index_fallback(symbol: str):
+    """Official Nasdaq public web API fallback for US benchmark indices.
+
+    This is used for the holiday/weekend radar when configured market-data
+    providers or Stooq/FRED are unavailable. It does not use Yahoo Finance.
+    """
+    mapped = {
+        "IXIC": "COMP",
+        "SPX": "SPX",
+        "DJI": "INDU",
+    }.get(symbol)
+    if not mapped:
+        return None
+
+    headers = {
+        "Accept": "application/json, text/plain, */*",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/138 Safari/537.36 SAS-PRO/2.1",
+        "Referer": "https://www.nasdaq.com/",
+        "Origin": "https://www.nasdaq.com",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=8, follow_redirects=True, headers=headers) as client:
+            r = await client.get(
+                f"https://api.nasdaq.com/api/quote/{mapped}/info",
+                params={"assetclass": "index"},
+            )
+            if r.status_code >= 400:
+                return None
+            payload = r.json()
+            data = payload.get("data") if isinstance(payload, dict) else None
+            primary = data.get("primaryData") if isinstance(data, dict) else None
+            if not isinstance(primary, dict):
+                return None
+
+            raw_price = primary.get("lastSalePrice") or primary.get("lastSale")
+            if isinstance(raw_price, str):
+                raw_price = raw_price.replace("$", "").replace(",", "").strip()
+            if not _valid_price(raw_price):
+                return None
+
+            change_pct = primary.get("percentageChange")
+            if isinstance(change_pct, str):
+                change_pct = change_pct.replace("%", "").replace(",", "").strip()
+                try:
+                    change_pct = float(change_pct)
+                except ValueError:
+                    change_pct = None
+
+            return {
+                "symbol": symbol,
+                "price": float(raw_price),
+                "change_pct": change_pct,
+                "source": "Nasdaq Public",
+                "is_extended_hours": False,
+                "datetime": data.get("lastTradeTimestamp") or primary.get("lastTradeTimestamp"),
+            }
+    except Exception:
+        return None
+
+
 async def _btc_6h_change():
     """حساب تغير بيتكوين الفعلي خلال آخر 6 ساعات عبر Binance العام."""
     try:
@@ -170,9 +230,11 @@ async def holiday_snapshot():
     rows = []
     for symbol, label in MACRO:
         try:
-            # للمؤشرات والذهب نجرب المصدر المستقل أولاً، ثم طبقة السوق
+            # للمؤشرات والذهب نجرب المصادر العامة المستقلة أولاً، ثم طبقة السوق
             # الحالية التي تحتوي Finnhub/FMP/Twelve Data وغيرها.
             q = await _public_holiday_fallback(symbol)
+            if not q or not _valid_price(q.get("price")):
+                q = await _nasdaq_index_fallback(symbol)
             if not q or not _valid_price(q.get("price")):
                 q = await macro_quote(symbol)
 
