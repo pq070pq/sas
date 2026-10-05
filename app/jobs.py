@@ -415,10 +415,10 @@ async def stock_radar_cycle():
 
     status = market_status()
 
-    # الرادار يعمل على جلسات الأسهم المتاحة: قبل الافتتاح، الرئيسية،
-    # بعد الإغلاق، والليل عند تفعيل جلسة Nasdaq الجديدة.
-    # في العطلة ونهاية الأسبوع يتحول النظام إلى رادار بيتكوين.
-    if status["holiday"] or status["session"] == "weekend":
+    # الرادار يعمل فقط داخل جلسات الرصد الفعلية: البري ماركت، الرئيسية،
+    # بعد الإغلاق، والليل بعد إطلاق جلسة Nasdaq الجديدة.
+    # الفترة السابقة للبري ماركت ليست جلسة رصد؛ ننتظر 04:00 ET.
+    if status["holiday"] or status["session"] in {"weekend", "overnight", "night_pending"}:
         _radar_open_announced = False
         logger.info("Stock radar skipped: market holiday/weekend (session=%s).", status.get("session"))
         return
