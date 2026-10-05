@@ -169,7 +169,8 @@ function renderMarketStrip(s){
   regular:'السوق مفتوح الآن 🟢',
   afterhours:'بعد الإغلاق 🟠',
   night:'التداول الإلكتروني الليلي 🟣',
-  overnight:'خارج جلسة التداول 🔴'
+  night_pending:'🟣 التداول الليلي يفتح قريبًا',
+  overnight:'بانتظار الجلسة الليلية 🔴'
  }[s.session]||'—');
  document.getElementById('marketStrip').innerHTML=
   '<div class="market-state '+(s.open?'open':(activeSession?'extended':'closed'))+'"><b>'+label+'</b><span>'+escHtml(sessionLabel)+'</span></div>'+
@@ -188,9 +189,17 @@ function renderDashboard(d){
   premarket:'قبل الافتتاح 🟡',
   regular:'السوق مفتوح الآن 🟢',
   afterhours:'بعد الإغلاق 🟠',
-  night:'التداول الإلكتروني الليلي 🟣'
+  night:'التداول الإلكتروني الليلي 🟣',
+  night_pending:'🟣 التداول الليلي يفتح قريبًا'
  }[session]||'');
- document.getElementById('radarStatusText').textContent=enabled
+ const nightPending=session==='night_pending';
+ const nightMinutes=Number(market.minutes_to_night);
+ const nightCountdown=nightPending && Number.isFinite(nightMinutes)
+  ? ' — يفتح بعد '+Math.max(0,Math.ceil(nightMinutes))+' دقيقة'
+  : '';
+ document.getElementById('radarStatusText').textContent=nightPending
+  ? '🟣 التداول الليلي يفتح قريبًا'+nightCountdown+' — الرصد لا ينشر إشارة إلا بعد تحقق السعر والسيولة والزخم.'
+  : enabled
   ? (extended
     ? '🟡 الرصد الآلي يعمل في '+sessionLabel+' — لا تُنشر الإشارة إلا بعد تأكيد السعر والسيولة والزخم.'
     : '🟢 الرصد الآلي يعمل — يبحث عن الأسهم التي تستوفي بوابة SAS PRO.')
