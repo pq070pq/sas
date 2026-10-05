@@ -208,11 +208,11 @@ async def telegram_polling_loop():
                     )
                     # Do not advance offset; Telegram will retry this update.
                     break
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                logger.exception("Telegram polling failed: %s", exc)
-                await asyncio.sleep(3)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.exception("Telegram polling failed: %s", exc)
+            await asyncio.sleep(3)
 
 def build_report(symbol: str, q: dict, tech: dict, classification: dict | None = None, outcome=None) -> str:
     """Build the standard SAS PRO beginner-friendly stock report."""
