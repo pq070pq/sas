@@ -3,7 +3,7 @@ import html
 
 from .market import quote
 from .panwatch import technical_targets
-from .news import company_news, corporate_events, company_fundamentals, tipranks_analysis, tipranks_analysis
+from .news import company_news, corporate_events, company_fundamentals, tipranks_analysis
 from .ai_radar import analyze_stock
 
 
@@ -207,14 +207,19 @@ def _evidence_summary(behavior, rvol, rsi, score, stop, target1):
 
 async def build_private_analysis(symbol: str):
     symbol = symbol.upper().strip()
+    async def bounded(coro, timeout, fallback):
+        try:
+            return await asyncio.wait_for(coro, timeout=timeout)
+        except Exception:
+            return fallback
+
     quote_data, tech, events, news, fundamentals, tipranks = await asyncio.gather(
-        quote(symbol),
-        technical_targets(symbol),
-        corporate_events(symbol),
-        company_news(symbol, days=3),
-        company_fundamentals(symbol),
-        tipranks_analysis(symbol),
-        return_exceptions=True,
+        bounded(quote(symbol), 8, {"symbol": symbol}),
+        bounded(technical_targets(symbol), 10, {"status": "watch", "targets": []}),
+        bounded(corporate_events(symbol), 10, {"splits": [], "earnings": [], "dividends": [], "material_events": []}),
+        bounded(company_news(symbol, days=14), 8, []),
+        bounded(company_fundamentals(symbol), 8, {}),
+        bounded(tipranks_analysis(symbol), 10, {}),
     )
 
     def value(result, fallback):
@@ -245,7 +250,10 @@ async def build_private_analysis(symbol: str):
 
     try:
         from .scanner import classify_sas
-        classification = await classify_sas(symbol, quote_data, allow_twelve_fallback=True)
+        classification = await asyncio.wait_for(
+            classify_sas(symbol, quote_data, allow_twelve_fallback=True),
+            timeout=12,
+        )
     except Exception:
         classification = {}
     if not isinstance(classification, dict):
@@ -260,7 +268,7 @@ async def build_private_analysis(symbol: str):
             market={"change_pct": quote_data.get("change_pct"), "classification": classification},
             tipranks=tipranks,
             events=events,
-        )
+        ), timeout=15)
     except Exception:
         ai = {"enabled": False}
     if not isinstance(ai, dict):
