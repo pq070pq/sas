@@ -864,7 +864,11 @@ async def scheduler():
         # لا نسمح لدورة ما قبل الافتتاح أن تنام 30 دقيقة وتتجاوز
         # لحظة افتتاح السوق الرئيسية. عند الانتقال من premarket إلى
         # regular يجب أن تبدأ دورة Stock Radar مباشرة تقريبًا.
-        sleep_seconds = max(1800, int(settings.radar_interval_minutes) * 60)
+        # الرادار كل 10 دقائق كحد أقصى أثناء جلسات السوق.
+        # نستخدم Cache وترشيحًا مرحليًا حتى لا تتحول زيادة التكرار إلى
+        # استهلاك مضاعف للـ API. Twelve Data يبقى للتأكيد النهائي فقط.
+        configured_interval = max(1, int(settings.radar_interval_minutes))
+        sleep_seconds = max(600, configured_interval * 60)
         try:
             next_status = market_status()
             if next_status.get("session") == "premarket":
