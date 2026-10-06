@@ -62,17 +62,35 @@ jobs:
             set -e
             cd /opt/saspro
 
-            # Deployment validation must not depend on external market-data
-            # providers. Those providers can timeout or be temporarily
-            # unavailable without meaning the application deployment failed.
+            # لا نشغل Python داخل الحاوية أثناء الاختبار؛ إذا كانت الذاكرة
+            # منخفضة قد يقتل النظام عملية docker exec نفسها ويظهر الخطأ 137
+            # رغم أن سبب المشكلة الحقيقي هو حالة الحاوية.
+            set +e
+            echo "===== SAS PRO container state ====="
             docker compose ps saspro
-
-            docker compose exec -T saspro python -c "from app.main import app; print('SAS_PRO_VERSION=', app.version)"
-            # Give the Telegram polling task enough time to perform at least one
-            # getUpdates call so deployment logs capture the receiver state.
-            sleep 8
+            docker inspect -f 'status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} started={{.State.StartedAt}} finished={{.State.FinishedAt}}' saspro-saspro-1 2>/dev/null || true
+            echo "===== OVH memory ====="
+            free -h 2>/dev/null || true
+            echo "===== SAS PRO stats ====="
+            docker stats --no-stream saspro-saspro-1 2>/dev/null || true
             echo "===== SAS PRO recent logs ====="
-            docker compose logs --tail=120 saspro || true
+            docker compose logs --tail=160 saspro 2>/dev/null || true
             echo "===== END SAS PRO recent logs ====="
+
+            status=$(docker inspect -f '{{.State.Status}}' saspro-saspro-1 2>/dev/null || echo "missing")
+            if [ "$status" != "running" ]; then
+              echo "❌ SAS PRO container is not running."
+              exit 1
+            fi
+
+            echo "===== SAS PRO health ====="
+            curl -fsS --max-time 8 http://127.0.0.1:8000/health
+            health_rc=$?
+            echo
+            if [ "$health_rc" -ne 0 ]; then
+              echo "❌ SAS PRO health endpoint failed."
+              docker compose logs --tail=160 saspro 2>/dev/null || true
+              exit "$health_rc"
+            fi
 
             echo "✅ OVH deployment smoke test passed."
