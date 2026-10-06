@@ -553,16 +553,15 @@ async def stock_radar_cycle():
             # جهّز الإشارات الحالية دفعة واحدة بدل SELECT لكل سهم.
             symbols = [str(r.get("symbol") or "").upper() for r in rows if r.get("symbol")]
             existing_map = {}
-            async with SessionLocal() as db:
-                cycle_stats = {"rows": len(rows), "skipped": 0, "reanalyzed": 0, "sent": 0, "failed": 0}
-                if symbols:
-                    existing_rows = (await db.execute(
-                        select(RadarSignal).where(
-                            RadarSignal.session_date == session_date,
-                            RadarSignal.symbol.in_(symbols),
-                        )
-                    )).scalars().all()
-                    existing_map = {str(x.symbol).upper(): x for x in existing_rows}
+            cycle_stats = {"rows": len(rows), "skipped": 0, "reanalyzed": 0, "sent": 0, "failed": 0}
+            if symbols:
+                existing_rows = (await db.execute(
+                    select(RadarSignal).where(
+                        RadarSignal.session_date == session_date,
+                        RadarSignal.symbol.in_(symbols),
+                    )
+                )).scalars().all()
+                existing_map = {str(x.symbol).upper(): x for x in existing_rows}
 
             # اجلب الأسعار الحية دفعةً واحدة بالتوازي. السعر الحي شرط نشر، لكنه
             # لا ينبغي أن يجعل 20-100 سهم ينتظرون بعضهم بالتسلسل.
