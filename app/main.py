@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 scheduler_task = None
 holiday_radar_task = None
 telegram_polling_task = None
+telegram_config_task = None
 private_analysis_task = None
 
 # ذاكرة SAS PRO الذكية: TTL + حد أقصى + إزالة تلقائية للقديم.
@@ -104,19 +105,22 @@ DISCLAIMER = "لا يعد توصية شراء أو بيع ويبقى قرار ا
 PLANS = {}
 PLAN_LABELS = {}
 
-@app.on_event("startup")
-async def startup():
-    await init_db()
-    await ensure_subscription_settings()
-    if settings.telegram_bot_token:
-        try:
-            await bot_api("setMyCommands", {"commands": [
+async def _configure_telegram():
+    """Configure Telegram without blocking FastAPI readiness."""
+    if not settings.telegram_bot_token:
+        return
+    try:
+        await asyncio.wait_for(
+            bot_api("setMyCommands", {"commands": [
                 {"command":"start","description":"فتح SAS PRO"},
                 {"command":"terms","description":"شروط الاستخدام"},
                 {"command":"paysupport","description":"دعم المدفوعات"},
-            ]})
-            if settings.owner_telegram_id:
-                await bot_api("setMyCommands", {
+            ]}),
+            timeout=8,
+        )
+        if settings.owner_telegram_id:
+            await asyncio.wait_for(
+                bot_api("setMyCommands", {
                     "scope": {"type":"chat","chat_id":settings.owner_telegram_id},
                     "commands": [
                         {"command":"start","description":"فتح SAS PRO"},
@@ -124,34 +128,40 @@ async def startup():
                         {"command":"grant","description":"منح اشتراك"},
                         {"command":"revoke","description":"إلغاء اشتراك"},
                     ],
-                })
-            if settings.telegram_webhook_auto_configure:
-                # The OVH reverse-proxy path has been unreliable for inbound Telegram
-                # updates. Use Telegram long polling instead so private analysis and
-                # payment updates do not depend on an inbound HTTPS POST.
-                try:
-                    webhook_info = await bot_api("getWebhookInfo", {})
-                    logger.warning(
-                        "Telegram receiver before polling: webhook_url=%r pending=%s last_error=%r",
-                        webhook_info.get("url"),
-                        webhook_info.get("pending_update_count"),
-                        webhook_info.get("last_error_message"),
-                    )
-                except Exception as exc:
-                    logger.exception("Telegram getWebhookInfo failed: %s", exc)
-                try:
-                    await bot_api("deleteWebhook", {"drop_pending_updates": False})
-                    webhook_info = await bot_api("getWebhookInfo", {})
-                    logger.warning(
-                        "Telegram webhook disabled: webhook_url=%r pending=%s",
-                        webhook_info.get("url"),
-                        webhook_info.get("pending_update_count"),
-                    )
-                except Exception as exc:
-                    logger.exception("Telegram deleteWebhook failed: %s", exc)
-        except Exception as exc:
-            logger.exception("Telegram command configuration failed: %s", exc)
-    global scheduler_task, holiday_radar_task, telegram_polling_task, private_analysis_task
+                }),
+                timeout=8,
+            )
+        if settings.telegram_webhook_auto_configure:
+            try:
+                webhook_info = await asyncio.wait_for(bot_api("getWebhookInfo", {}), timeout=8)
+                logger.warning(
+                    "Telegram receiver before polling: webhook_url=%r pending=%s last_error=%r",
+                    webhook_info.get("url"),
+                    webhook_info.get("pending_update_count"),
+                    webhook_info.get("last_error_message"),
+                )
+            except Exception as exc:
+                logger.warning("Telegram getWebhookInfo deferred/failed: %s", exc)
+            try:
+                await asyncio.wait_for(bot_api("deleteWebhook", {"drop_pending_updates": False}), timeout=8)
+                webhook_info = await asyncio.wait_for(bot_api("getWebhookInfo", {}), timeout=8)
+                logger.warning(
+                    "Telegram webhook disabled: webhook_url=%r pending=%s",
+                    webhook_info.get("url"),
+                    webhook_info.get("pending_update_count"),
+                )
+            except Exception as exc:
+                logger.warning("Telegram deleteWebhook deferred/failed: %s", exc)
+    except Exception as exc:
+        logger.exception("Telegram background configuration failed: %s", exc)
+
+
+@app.on_event("startup")
+async def startup():
+    await init_db()
+    await ensure_subscription_settings()
+    global scheduler_task, holiday_radar_task, telegram_polling_task, telegram_config_task, private_analysis_task
+    telegram_config_task = asyncio.create_task(_configure_telegram(), name="saspro-telegram-config")
     scheduler_task = asyncio.create_task(scheduler(), name="saspro-scheduler")
     holiday_radar_task = asyncio.create_task(holiday_radar_scheduler(), name="saspro-holiday-radar")
     telegram_polling_task = asyncio.create_task(telegram_polling_loop(), name="saspro-telegram-polling")
