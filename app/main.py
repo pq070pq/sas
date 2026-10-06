@@ -40,8 +40,8 @@ private_analysis_task = None
 # ذاكرة SAS PRO الذكية: TTL + حد أقصى + إزالة تلقائية للقديم.
 _ANALYSIS_CACHE_TTL = 900
 _QUICK_SCAN_CACHE_TTL = 300
-_analysis_memory = SmartMemory(_ANALYSIS_CACHE_TTL, max_items=128)
-_quick_scan_memory = SmartMemory(_QUICK_SCAN_CACHE_TTL, max_items=256)
+_analysis_memory = SmartMemory(_ANALYSIS_CACHE_TTL, max_items=64)
+_quick_scan_memory = SmartMemory(_QUICK_SCAN_CACHE_TTL, max_items=128)
 _analysis_locks = {}
 
 def _cache_get(cache, symbol, ttl):
@@ -59,8 +59,8 @@ def _analysis_lock(symbol):
     return lock
 
 def _cleanup_analysis_locks():
-    if len(_analysis_locks) > 256:
-        for key in list(_analysis_locks)[:-128]:
+    if len(_analysis_locks) > 128:
+        for key in list(_analysis_locks)[:-64]:
             lock = _analysis_locks.get(key)
             if lock is not None and not lock.locked():
                 _analysis_locks.pop(key, None)
