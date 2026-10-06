@@ -261,14 +261,15 @@ async def build_private_analysis(symbol: str):
         classification = {}
 
     try:
-        ai = await analyze_stock(
-            symbol,
-            company=fundamentals,
-            news=news,
-            fundamentals=fundamentals,
-            market={"change_pct": quote_data.get("change_pct"), "classification": classification},
-            tipranks=tipranks,
-            events=events,
+        ai = await asyncio.wait_for(
+            analyze_stock(
+                symbol,
+                company=fundamentals,
+                news=news,
+                fundamentals=fundamentals,
+                market={"change_pct": quote_data.get("change_pct"), "classification": classification},
+                tipranks=tipranks,
+                events=events,
             ),
             timeout=15,
         )
