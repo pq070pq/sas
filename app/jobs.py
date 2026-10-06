@@ -565,7 +565,7 @@ async def stock_radar_cycle():
 
             # اجلب الأسعار الحية دفعةً واحدة بالتوازي. السعر الحي شرط نشر، لكنه
             # لا ينبغي أن يجعل 20-100 سهم ينتظرون بعضهم بالتسلسل.
-            quote_sem = asyncio.Semaphore(20)
+            quote_sem = asyncio.Semaphore(10)
             async def _live_quote(row):
                 symbol = str(row.get("symbol") or "").upper()
                 async with quote_sem:
