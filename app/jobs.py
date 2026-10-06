@@ -549,76 +549,73 @@ async def stock_radar_cycle():
         # كل سهم اجتاز فلاتر الرادار يُرسل كتقرير مستقل.
         # لا نرسل جدول Daily Momentum مجمعًا؛ تفاصيل السهم وشروط اجتيازه
         # تظهر داخل تقريره الفردي عبر build_report().
+        # جهّز الإشارات الحالية دفعة واحدة بدل SELECT لكل سهم.
+        symbols = [str(r.get("symbol") or "").upper() for r in rows if r.get("symbol")]
+        existing_map = {}
         async with SessionLocal() as db:
             cycle_stats = {"rows": len(rows), "skipped": 0, "reanalyzed": 0, "sent": 0, "failed": 0}
-            ai_used = 0
-            ai_budget = max(0, int(settings.ai_max_calls_per_cycle))
-            for row in rows:
-                symbol = str(row.get("symbol") or "").upper()
-                if not symbol:
-                    continue
-
-                existing = (
-                    await db.execute(
-                        select(RadarSignal).where(
-                            RadarSignal.symbol == symbol,
-                            RadarSignal.session_date == session_date,
-                        )
+            if symbols:
+                existing_rows = (await db.execute(
+                    select(RadarSignal).where(
+                        RadarSignal.session_date == session_date,
+                        RadarSignal.symbol.in_(symbols),
                     )
-                ).scalars().first()
+                )).scalars().all()
+                existing_map = {str(x.symbol).upper(): x for x in existing_rows}
 
-                # لا نكرر نفس السهم بلا سبب.
-                # نعيد التحليل فقط إذا ظهرت قفزة موثوقة في التداول مقارنة بآخر رصد محفوظ.
-                if existing and existing.telegram_message_id:
-                    try:
-                        previous = json.loads(existing.payload or "{}")
-                    except Exception:
-                        previous = {}
-                    previous_volume = float(previous.get("volume") or 0)
-                    current_volume = float(row.get("volume") or 0)
-                    previous_change = float(previous.get("change_pct") or 0)
-                    current_change = float(row.get("change_pct") or 0)
-                    volume_jump = (
-                        previous_volume > 0
-                        and current_volume >= previous_volume * 2.0
-                    )
-                    price_jump = abs(current_change - previous_change) >= 5.0
-                    if not (volume_jump or price_jump):
-                        cycle_stats["skipped"] += 1
-                        _radar_seen.add(symbol)
-                        logger.info(
-                            "Radar duplicate skipped: %s | reason=existing_signal_same_session "
-                            "volume_jump=%s price_jump=%s",
-                            symbol, volume_jump, price_jump,
-                        )
-                        continue
-
-                    cycle_stats["reanalyzed"] += 1
-                    logger.info(
-                        "Radar reanalysis triggered: %s | volume_jump=%s price_jump=%s",
-                        symbol, volume_jump, price_jump,
-                    )
-                elif existing:
-                    # A candidate previously found but not published is a live
-                    # watch candidate. Re-check it every cycle so a real breakout
-                    # can reach the channel later without being lost to dedupe.
-                    cycle_stats["reanalyzed"] += 1
-                    logger.info("Radar pending candidate rechecked: %s", symbol)
-
+        # اجلب الأسعار الحية دفعةً واحدة بالتوازي. السعر الحي شرط نشر، لكنه
+        # لا ينبغي أن يجعل 20-100 سهم ينتظرون بعضهم بالتسلسل.
+        quote_sem = asyncio.Semaphore(20)
+        async def _live_quote(row):
+            symbol = str(row.get("symbol") or "").upper()
+            async with quote_sem:
                 try:
                     q = await quote(symbol, prefer_extended=status.get("session") in {"premarket", "afterhours", "night"})
+                    return symbol, q
                 except Exception:
                     logger.exception("Quote provider failed for %s; live quote unavailable.", symbol)
-                    q = {"symbol": symbol, "price": None, "source": "unavailable"}
-                # IMPORTANT: never fall back to the discovery snapshot for
-                # Telegram publication. Discovery is a candidate source, not
-                # proof that the price is still current at publication time.
-                if q.get("price") is None:
-                    logger.warning(
-                        "Radar live quote unavailable; keeping candidate in watchlist: %s source=%s",
-                        symbol, q.get("source")
-                    )
-                classification = row.get("classification") or {}
+                    return symbol, {"symbol": symbol, "price": None, "source": "unavailable"}
+
+        quote_pairs = await asyncio.gather(*(_live_quote(row) for row in rows), return_exceptions=False)
+        live_quotes = dict(quote_pairs)
+
+        # كل سهم اجتاز فلاتر الرادار يُرسل كتقرير مستقل.
+        # لا نرسل جدول Daily Momentum مجمعًا؛ تفاصيل السهم وشروط اجتيازه
+        # تظهر داخل تقريره الفردي عبر build_report().
+        for row in rows:
+            symbol = str(row.get("symbol") or "").upper()
+            if not symbol:
+                continue
+
+            existing = existing_map.get(symbol)
+            # لا نكرر نفس السهم بلا سبب.
+            if existing and existing.telegram_message_id:
+                try:
+                    previous = json.loads(existing.payload or "{}")
+                except Exception:
+                    previous = {}
+                previous_volume = float(previous.get("volume") or 0)
+                current_volume = float(row.get("volume") or 0)
+                previous_change = float(previous.get("change_pct") or 0)
+                current_change = float(row.get("change_pct") or 0)
+                volume_jump = previous_volume > 0 and current_volume >= previous_volume * 2.0
+                price_jump = abs(current_change - previous_change) >= 5.0
+                if not (volume_jump or price_jump):
+                    cycle_stats["skipped"] += 1
+                    _radar_seen.add(symbol)
+                    logger.info("Radar duplicate skipped: %s | reason=existing_signal_same_session volume_jump=%s price_jump=%s", symbol, volume_jump, price_jump)
+                    continue
+                cycle_stats["reanalyzed"] += 1
+                logger.info("Radar reanalysis triggered: %s | volume_jump=%s price_jump=%s", symbol, volume_jump, price_jump)
+            elif existing:
+                cycle_stats["reanalyzed"] += 1
+                logger.info("Radar pending candidate rechecked: %s", symbol)
+
+            q = live_quotes.get(symbol) or {"symbol": symbol, "price": None, "source": "unavailable"}
+            # لا نستخدم لقطة الاكتشاف كبديل للسعر الحي عند النشر.
+            if q.get("price") is None:
+                logger.warning("Radar live quote unavailable; keeping candidate in watchlist: %s source=%s", symbol, q.get("source"))
+                            classification = row.get("classification") or {}
                 tech = {
                     **(row.get("targets") or {}),
                     "radar_checks": row.get("radar_checks") or {},
