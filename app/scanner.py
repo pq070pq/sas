@@ -2068,20 +2068,46 @@ async def scan_us_low_price_stocks():
                 daily_volume = _f(row.get("volume"), 0)
                 dollar_volume = entry_price * daily_volume
                 daily_rvol = _f(classification.get("rvol"), 0)
+                # لا نسقط الفرصة المبكرة بسبب RVOL أقل من 0.80 وحده.
+                # نستخدم بوابة متدرجة: السيولة النقدية + حركة السعر + تأكيد مستقل.
+                # هذا يحافظ على الحماية من الأسهم الوهمية ويمنع فقدان الانطلاقة المبكرة.
+                change_pct = _f(row.get("change_pct"), 0)
+                intraday_confirmation = bool(classification.get("intraday_confirmation"))
+                breakout_confirmed = bool(classification.get("breakout_confirmed"))
+                accumulation = bool(row.get("accumulation_signal") or classification.get("accumulation"))
+                fib_zone = bool((classification.get("fibonacci") or {}).get("zone"))
+                strong_early_move = (
+                    change_pct >= 1.0
+                    and dollar_volume >= 2_000_000
+                    and daily_rvol >= 0.50
+                )
+                independent_confirmation = sum([
+                    intraday_confirmation,
+                    breakout_confirmed,
+                    accumulation,
+                    fib_zone,
+                    daily_rvol >= 1.0,
+                ]) >= 2
                 if (
                     entry_price <= 0
                     or daily_volume <= 0
                     or dollar_volume < MIN_DAILY_DOLLAR_VOLUME
                     or (
+                        daily_rvol < 0.50
+                        and not independent_confirmation
+                    )
+                    or (
                         daily_rvol < 0.80
-                        and not bool(row.get("accumulation_signal"))
+                        and not strong_early_move
+                        and not independent_confirmation
+                        and not accumulation
                     )
                 ):
                     return None, {
                         "symbol": symbol,
                         "exchange": row.get("exchange"),
                         "status": "filtered",
-                        "reason": "سيولة يومية غير كافية أو غير مؤكدة",
+                        "reason": "سيولة/RVOL غير كافية لتأكيد الفرصة",
                         "data_source": classification.get("data_source"),
                     }
 
