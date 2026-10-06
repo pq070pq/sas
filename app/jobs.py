@@ -546,95 +546,191 @@ async def stock_radar_cycle():
         logger.info("Stock radar scan completed: %d result(s); diagnostics=%s", len(rows), diagnostics)
         session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
-        # كل سهم اجتاز فلاتر الرادار يُرسل كتقرير مستقل.
-        # لا نرسل جدول Daily Momentum مجمعًا؛ تفاصيل السهم وشروط اجتيازه
-        # تظهر داخل تقريره الفردي عبر build_report().
-        # جهّز الإشارات الحالية دفعة واحدة بدل SELECT لكل سهم.
-        symbols = [str(r.get("symbol") or "").upper() for r in rows if r.get("symbol")]
-        existing_map = {}
         async with SessionLocal() as db:
-            cycle_stats = {"rows": len(rows), "skipped": 0, "reanalyzed": 0, "sent": 0, "failed": 0}
-            if symbols:
-                existing_rows = (await db.execute(
-                    select(RadarSignal).where(
-                        RadarSignal.session_date == session_date,
-                        RadarSignal.symbol.in_(symbols),
-                    )
-                )).scalars().all()
-                existing_map = {str(x.symbol).upper(): x for x in existing_rows}
+            # كل سهم اجتاز فلاتر الرادار يُرسل كتقرير مستقل.
+            # لا نرسل جدول Daily Momentum مجمعًا؛ تفاصيل السهم وشروط اجتيازه
+            # تظهر داخل تقريره الفردي عبر build_report().
+            # جهّز الإشارات الحالية دفعة واحدة بدل SELECT لكل سهم.
+            symbols = [str(r.get("symbol") or "").upper() for r in rows if r.get("symbol")]
+            existing_map = {}
+            async with SessionLocal() as db:
+                cycle_stats = {"rows": len(rows), "skipped": 0, "reanalyzed": 0, "sent": 0, "failed": 0}
+                if symbols:
+                    existing_rows = (await db.execute(
+                        select(RadarSignal).where(
+                            RadarSignal.session_date == session_date,
+                            RadarSignal.symbol.in_(symbols),
+                        )
+                    )).scalars().all()
+                    existing_map = {str(x.symbol).upper(): x for x in existing_rows}
 
-        # اجلب الأسعار الحية دفعةً واحدة بالتوازي. السعر الحي شرط نشر، لكنه
-        # لا ينبغي أن يجعل 20-100 سهم ينتظرون بعضهم بالتسلسل.
-        quote_sem = asyncio.Semaphore(20)
-        async def _live_quote(row):
-            symbol = str(row.get("symbol") or "").upper()
-            async with quote_sem:
-                try:
-                    q = await quote(symbol, prefer_extended=status.get("session") in {"premarket", "afterhours", "night"})
-                    return symbol, q
-                except Exception:
-                    logger.exception("Quote provider failed for %s; live quote unavailable.", symbol)
-                    return symbol, {"symbol": symbol, "price": None, "source": "unavailable"}
+            # اجلب الأسعار الحية دفعةً واحدة بالتوازي. السعر الحي شرط نشر، لكنه
+            # لا ينبغي أن يجعل 20-100 سهم ينتظرون بعضهم بالتسلسل.
+            quote_sem = asyncio.Semaphore(20)
+            async def _live_quote(row):
+                symbol = str(row.get("symbol") or "").upper()
+                async with quote_sem:
+                    try:
+                        q = await quote(symbol, prefer_extended=status.get("session") in {"premarket", "afterhours", "night"})
+                        return symbol, q
+                    except Exception:
+                        logger.exception("Quote provider failed for %s; live quote unavailable.", symbol)
+                        return symbol, {"symbol": symbol, "price": None, "source": "unavailable"}
 
-        quote_pairs = await asyncio.gather(*(_live_quote(row) for row in rows), return_exceptions=False)
-        live_quotes = dict(quote_pairs)
+            quote_pairs = await asyncio.gather(*(_live_quote(row) for row in rows), return_exceptions=False)
+            live_quotes = dict(quote_pairs)
 
-        # كل سهم اجتاز فلاتر الرادار يُرسل كتقرير مستقل.
-        # لا نرسل جدول Daily Momentum مجمعًا؛ تفاصيل السهم وشروط اجتيازه
-        # تظهر داخل تقريره الفردي عبر build_report().
-        for row in rows:
-            symbol = str(row.get("symbol") or "").upper()
-            if not symbol:
-                continue
-
-            existing = existing_map.get(symbol)
-            # لا نكرر نفس السهم بلا سبب.
-            if existing and existing.telegram_message_id:
-                try:
-                    previous = json.loads(existing.payload or "{}")
-                except Exception:
-                    previous = {}
-                previous_volume = float(previous.get("volume") or 0)
-                current_volume = float(row.get("volume") or 0)
-                previous_change = float(previous.get("change_pct") or 0)
-                current_change = float(row.get("change_pct") or 0)
-                volume_jump = previous_volume > 0 and current_volume >= previous_volume * 2.0
-                price_jump = abs(current_change - previous_change) >= 5.0
-                if not (volume_jump or price_jump):
-                    cycle_stats["skipped"] += 1
-                    _radar_seen.add(symbol)
-                    logger.info("Radar duplicate skipped: %s | reason=existing_signal_same_session volume_jump=%s price_jump=%s", symbol, volume_jump, price_jump)
+            # كل سهم اجتاز فلاتر الرادار يُرسل كتقرير مستقل.
+            # لا نرسل جدول Daily Momentum مجمعًا؛ تفاصيل السهم وشروط اجتيازه
+            # تظهر داخل تقريره الفردي عبر build_report().
+            for row in rows:
+                symbol = str(row.get("symbol") or "").upper()
+                if not symbol:
                     continue
-                cycle_stats["reanalyzed"] += 1
-                logger.info("Radar reanalysis triggered: %s | volume_jump=%s price_jump=%s", symbol, volume_jump, price_jump)
-            elif existing:
-                cycle_stats["reanalyzed"] += 1
-                logger.info("Radar pending candidate rechecked: %s", symbol)
 
-            q = live_quotes.get(symbol) or {"symbol": symbol, "price": None, "source": "unavailable"}
-            # لا نستخدم لقطة الاكتشاف كبديل للسعر الحي عند النشر.
-            if q.get("price") is None:
-                logger.warning("Radar live quote unavailable; keeping candidate in watchlist: %s source=%s", symbol, q.get("source"))
-                            classification = row.get("classification") or {}
-                tech = {
-                    **(row.get("targets") or {}),
-                    "radar_checks": row.get("radar_checks") or {},
-                    "market_session": status.get("label_ar"),
-                    "market_session_code": status.get("session"),
-                }
+                existing = existing_map.get(symbol)
+                # لا نكرر نفس السهم بلا سبب.
+                if existing and existing.telegram_message_id:
+                    try:
+                        previous = json.loads(existing.payload or "{}")
+                    except Exception:
+                        previous = {}
+                    previous_volume = float(previous.get("volume") or 0)
+                    current_volume = float(row.get("volume") or 0)
+                    previous_change = float(previous.get("change_pct") or 0)
+                    current_change = float(row.get("change_pct") or 0)
+                    volume_jump = previous_volume > 0 and current_volume >= previous_volume * 2.0
+                    price_jump = abs(current_change - previous_change) >= 5.0
+                    if not (volume_jump or price_jump):
+                        cycle_stats["skipped"] += 1
+                        _radar_seen.add(symbol)
+                        logger.info("Radar duplicate skipped: %s | reason=existing_signal_same_session volume_jump=%s price_jump=%s", symbol, volume_jump, price_jump)
+                        continue
+                    cycle_stats["reanalyzed"] += 1
+                    logger.info("Radar reanalysis triggered: %s | volume_jump=%s price_jump=%s", symbol, volume_jump, price_jump)
+                elif existing:
+                    cycle_stats["reanalyzed"] += 1
+                    logger.info("Radar pending candidate rechecked: %s", symbol)
 
-                channel_ok, channel_reason = _radar_channel_gate(status, row, q, learning_profile)
-                if not channel_ok:
-                    cycle_stats["skipped"] += 1
+                q = live_quotes.get(symbol) or {"symbol": symbol, "price": None, "source": "unavailable"}
+                # لا نستخدم لقطة الاكتشاف كبديل للسعر الحي عند النشر.
+                if q.get("price") is None:
+                    logger.warning("Radar live quote unavailable; keeping candidate in watchlist: %s source=%s", symbol, q.get("source"))
+                classification = row.get("classification") or {}
+                    tech = {
+                        **(row.get("targets") or {}),
+                        "radar_checks": row.get("radar_checks") or {},
+                        "market_session": status.get("label_ar"),
+                        "market_session_code": status.get("session"),
+                    }
+
+                    channel_ok, channel_reason = _radar_channel_gate(status, row, q, learning_profile)
+                    if not channel_ok:
+                        cycle_stats["skipped"] += 1
+                        row["channel_gate"] = {
+                            "passed": False,
+                            "session": status.get("session"),
+                            "reason": channel_reason,
+                        }
+                        # Keep rejected-but-promising candidates as watch records.
+                        # They do not generate Telegram messages, but they are
+                        # rechecked on the next cycle so a real confirmation is not lost.
+                        try:
+                            if existing:
+                                existing.payload = json.dumps(row, ensure_ascii=False)
+                                existing.created_at = utcnow()
+                            else:
+                                existing = RadarSignal(
+                                    symbol=symbol,
+                                    session_date=session_date,
+                                    payload=json.dumps(row, ensure_ascii=False),
+                                )
+                                db.add(existing)
+                            await db.commit()
+                        except Exception:
+                            await db.rollback()
+                            logger.exception("Radar watch candidate persistence failed: %s", symbol)
+                        logger.info(
+                            "Radar channel gate skipped: %s | session=%s | reason=%s",
+                            symbol, status.get("session"), channel_reason,
+                        )
+                        continue
+
                     row["channel_gate"] = {
-                        "passed": False,
+                        "passed": True,
                         "session": status.get("session"),
                         "reason": channel_reason,
                     }
-                    # Keep rejected-but-promising candidates as watch records.
-                    # They do not generate Telegram messages, but they are
-                    # rechecked on the next cycle so a real confirmation is not lost.
+
+                    # AI enrichment runs only after the technical radar has already
+                    # selected the candidate. It cannot create a signal, target,
+                    # stop, or price level; it only explains supplied evidence.
+                    if ai_used < ai_budget:
+                        try:
+                            fundamentals = await company_fundamentals(symbol)
+                            # TipRanks دليل تحليلي إضافي للذكاء الاصطناعي فقط.
+                            # لا يدخل في بوابة الرادار ولا ينشئ سعراً/هدفاً/وقفاً.
+                            from .news import tipranks_analysis
+                            tipranks_data = await tipranks_analysis(symbol)
+                            ai_analysis = await analyze_stock(
+                                symbol,
+                                company={
+                                    "name": row.get("name") or symbol,
+                                    "exchange": row.get("exchange"),
+                                },
+                                news=row.get("news_items") or [],
+                                fundamentals=fundamentals,
+                                tipranks=tipranks_data,
+                                market={
+                                    "momentum_section": row.get("momentum_section"),
+                                    "daily_change_pct": row.get("change_pct"),
+                                    "relative_volume_10d": row.get("momentum_rvol_10d"),
+                                    "relative_volume_threshold": row.get("momentum_rvol_threshold"),
+                                    "session_verified": row.get("momentum_session_verified"),
+                                    "earnings_within_5_days": row.get("earnings_within_5_days"),
+                                    "radar_gate": {
+                                        "momentum": bool((row.get("radar_checks") or {}).get("momentum")),
+                                        "sas_core": bool((row.get("radar_checks") or {}).get("sas_core")),
+                                        "liquidity": bool((row.get("radar_checks") or {}).get("liquidity")),
+                                        "target": bool((row.get("radar_checks") or {}).get("target")),
+                                        "live_levels": bool((row.get("radar_checks") or {}).get("live_levels")),
+                                        "risk_reward_warning": bool((row.get("radar_checks") or {}).get("risk_reward_warning")),
+                                    },
+                                },
+                            )
+                            row["ai_analysis"] = ai_analysis
+                            ai_used += 1
+                            tech = {
+                                **tech,
+                                "ai_analysis": ai_analysis,
+                                "fundamentals": fundamentals,
+                                "news_items": row.get("news_items") or [],
+                                "tipranks_analysis": tipranks_data,
+                            }
+                            if ai_analysis.get("enabled"):
+                                logger.info(
+                                    "AI radar analysis ready: %s | provider=%s",
+                                    symbol, ai_analysis.get("provider"),
+                                )
+                        except Exception:
+                            ai_used += 1
+                            logger.exception("AI radar enrichment failed: %s", symbol)
+                    else:
+                        tech = {
+                            **tech,
+                            "ai_analysis": {
+                                "enabled": False,
+                                "status": "cycle_budget",
+                                "key_takeaway": "تم تجاوز حد استدعاءات الذكاء الاصطناعي لهذه الدورة لحماية الحصة."
+                            },
+                            "news_items": row.get("news_items") or [],
+                        }
+
+                    report = build_report(symbol, q, tech, classification)
+
                     try:
+                        # احفظ نتيجة الرادار أولاً حتى تبقى بيانات السهم ظاهرة في
+                        # Mini App حتى لو تعذر إرسال رسالة Telegram مؤقتًا.
                         if existing:
                             existing.payload = json.dumps(row, ensure_ascii=False)
                             existing.created_at = utcnow()
@@ -646,135 +742,40 @@ async def stock_radar_cycle():
                             )
                             db.add(existing)
                         await db.commit()
-                    except Exception:
-                        await db.rollback()
-                        logger.exception("Radar watch candidate persistence failed: %s", symbol)
-                    logger.info(
-                        "Radar channel gate skipped: %s | session=%s | reason=%s",
-                        symbol, status.get("session"), channel_reason,
-                    )
-                    continue
 
-                row["channel_gate"] = {
-                    "passed": True,
-                    "session": status.get("session"),
-                    "reason": channel_reason,
-                }
+                        message_id = None
+                        try:
+                            result = await send_message(settings.telegram_channel_id, report)
+                            message_id = result.get("message_id") if isinstance(result, dict) else None
+                        except Exception:
+                            cycle_stats["failed"] += 1
+                            logger.exception("Radar Telegram delivery failed but signal was persisted: %s", symbol)
 
-                # AI enrichment runs only after the technical radar has already
-                # selected the candidate. It cannot create a signal, target,
-                # stop, or price level; it only explains supplied evidence.
-                if ai_used < ai_budget:
-                    try:
-                        fundamentals = await company_fundamentals(symbol)
-                        # TipRanks دليل تحليلي إضافي للذكاء الاصطناعي فقط.
-                        # لا يدخل في بوابة الرادار ولا ينشئ سعراً/هدفاً/وقفاً.
-                        from .news import tipranks_analysis
-                        tipranks_data = await tipranks_analysis(symbol)
-                        ai_analysis = await analyze_stock(
-                            symbol,
-                            company={
-                                "name": row.get("name") or symbol,
-                                "exchange": row.get("exchange"),
-                            },
-                            news=row.get("news_items") or [],
-                            fundamentals=fundamentals,
-                            tipranks=tipranks_data,
-                            market={
-                                "momentum_section": row.get("momentum_section"),
-                                "daily_change_pct": row.get("change_pct"),
-                                "relative_volume_10d": row.get("momentum_rvol_10d"),
-                                "relative_volume_threshold": row.get("momentum_rvol_threshold"),
-                                "session_verified": row.get("momentum_session_verified"),
-                                "earnings_within_5_days": row.get("earnings_within_5_days"),
-                                "radar_gate": {
-                                    "momentum": bool((row.get("radar_checks") or {}).get("momentum")),
-                                    "sas_core": bool((row.get("radar_checks") or {}).get("sas_core")),
-                                    "liquidity": bool((row.get("radar_checks") or {}).get("liquidity")),
-                                    "target": bool((row.get("radar_checks") or {}).get("target")),
-                                    "live_levels": bool((row.get("radar_checks") or {}).get("live_levels")),
-                                    "risk_reward_warning": bool((row.get("radar_checks") or {}).get("risk_reward_warning")),
-                                },
-                            },
+                        if message_id:
+                            existing.telegram_message_id = int(message_id)
+                            await db.commit()
+
+                        if message_id:
+                            cycle_stats["sent"] += 1
+                        _radar_seen.add(symbol)
+                        logger.info(
+                            "Radar signal persisted: %s | telegram_message_id=%s",
+                            symbol, message_id,
                         )
-                        row["ai_analysis"] = ai_analysis
-                        ai_used += 1
-                        tech = {
-                            **tech,
-                            "ai_analysis": ai_analysis,
-                            "fundamentals": fundamentals,
-                            "news_items": row.get("news_items") or [],
-                            "tipranks_analysis": tipranks_data,
-                        }
-                        if ai_analysis.get("enabled"):
-                            logger.info(
-                                "AI radar analysis ready: %s | provider=%s",
-                                symbol, ai_analysis.get("provider"),
-                            )
-                    except Exception:
-                        ai_used += 1
-                        logger.exception("AI radar enrichment failed: %s", symbol)
-                else:
-                    tech = {
-                        **tech,
-                        "ai_analysis": {
-                            "enabled": False,
-                            "status": "cycle_budget",
-                            "key_takeaway": "تم تجاوز حد استدعاءات الذكاء الاصطناعي لهذه الدورة لحماية الحصة."
-                        },
-                        "news_items": row.get("news_items") or [],
-                    }
-
-                report = build_report(symbol, q, tech, classification)
-
-                try:
-                    # احفظ نتيجة الرادار أولاً حتى تبقى بيانات السهم ظاهرة في
-                    # Mini App حتى لو تعذر إرسال رسالة Telegram مؤقتًا.
-                    if existing:
-                        existing.payload = json.dumps(row, ensure_ascii=False)
-                        existing.created_at = utcnow()
-                    else:
-                        existing = RadarSignal(
-                            symbol=symbol,
-                            session_date=session_date,
-                            payload=json.dumps(row, ensure_ascii=False),
-                        )
-                        db.add(existing)
-                    await db.commit()
-
-                    message_id = None
-                    try:
-                        result = await send_message(settings.telegram_channel_id, report)
-                        message_id = result.get("message_id") if isinstance(result, dict) else None
                     except Exception:
                         cycle_stats["failed"] += 1
-                        logger.exception("Radar Telegram delivery failed but signal was persisted: %s", symbol)
+                        await db.rollback()
+                        logger.exception("Radar persistence failed: %s", symbol)
+                        continue
 
-                    if message_id:
-                        existing.telegram_message_id = int(message_id)
-                        await db.commit()
-
-                    if message_id:
-                        cycle_stats["sent"] += 1
-                    _radar_seen.add(symbol)
-                    logger.info(
-                        "Radar signal persisted: %s | telegram_message_id=%s",
-                        symbol, message_id,
-                    )
-                except Exception:
-                    cycle_stats["failed"] += 1
-                    await db.rollback()
-                    logger.exception("Radar persistence failed: %s", symbol)
-                    continue
-
-            logger.info(
-                "Stock radar delivery summary: rows=%d skipped=%d reanalyzed=%d sent=%d failed=%d",
-                cycle_stats["rows"],
-                cycle_stats["skipped"],
-                cycle_stats["reanalyzed"],
-                cycle_stats["sent"],
-                cycle_stats["failed"],
-            )
+                logger.info(
+                    "Stock radar delivery summary: rows=%d skipped=%d reanalyzed=%d sent=%d failed=%d",
+                    cycle_stats["rows"],
+                    cycle_stats["skipped"],
+                    cycle_stats["reanalyzed"],
+                    cycle_stats["sent"],
+                    cycle_stats["failed"],
+                )
     except Exception:
         logger.exception("Stock radar cycle failed.")
         return
