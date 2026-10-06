@@ -543,7 +543,20 @@ async def stock_radar_cycle():
                 "Twelve Data quota exhausted; continuing radar with PanWatch/primary data."
             )
         rows = scan_result.get("stocks", [])
-        logger.info("Stock radar scan completed: %d result(s); diagnostics=%s", len(rows), diagnostics)
+        # القناة: نرتب جميع الفرص أولاً ثم نسمح بأفضل 5 إشارات فقط.
+        # التطبيق يستقبل القائمة الكاملة دون هذا القيد.
+        rows = sorted(
+            rows,
+            key=lambda r: (
+                float(r.get("opening_opportunity_score") or 0),
+                float(r.get("intraday_confirmation_score") or 0),
+                float(r.get("change_pct") or 0),
+                float(r.get("momentum_rvol_10d") or 0),
+                float(r.get("price") or 0) * float(r.get("volume") or 0),
+            ),
+            reverse=True,
+        )
+        logger.info("Stock radar scan completed: %d result(s); channel_limit=5; diagnostics=%s", len(rows), diagnostics)
         session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
         async with SessionLocal() as db:
@@ -578,8 +591,9 @@ async def stock_radar_cycle():
 
             quote_pairs = await asyncio.gather(*(_live_quote(row) for row in rows), return_exceptions=False)
             live_quotes = dict(quote_pairs)
+            channel_published = 0
 
-            # كل سهم اجتاز فلاتر الرادار يُرسل كتقرير مستقل.
+            # كل سهم اجتاز فلاتر الرادار يظهر في التطبيق؛ القناة لها سقف 5 فقط.
             # لا نرسل جدول Daily Momentum مجمعًا؛ تفاصيل السهم وشروط اجتيازه
             # تظهر داخل تقريره الفردي عبر build_report().
             for row in rows:
@@ -659,6 +673,37 @@ async def stock_radar_cycle():
                         "passed": True,
                         "session": status.get("session"),
                         "reason": channel_reason,
+                    }
+
+                    # لا نرسل أكثر من أفضل 5 إشارات في القناة.
+                    # المرشح يبقى محفوظًا/ظاهرًا في التطبيق ولا يُفقد من الرصد.
+                    if channel_published >= 5:
+                        row["channel_delivery"] = {
+                            "published": False,
+                            "reason": "تم الوصول إلى حد أفضل 5 إشارات للقناة",
+                        }
+                        try:
+                            if existing:
+                                existing.payload = json.dumps(row, ensure_ascii=False)
+                                existing.created_at = utcnow()
+                            else:
+                                existing = RadarSignal(
+                                    symbol=symbol,
+                                    session_date=session_date,
+                                    payload=json.dumps(row, ensure_ascii=False),
+                                )
+                                db.add(existing)
+                            await db.commit()
+                        except Exception:
+                            await db.rollback()
+                            logger.exception("Radar app-only candidate persistence failed: %s", symbol)
+                        _radar_seen.add(symbol)
+                        continue
+
+                    row["channel_delivery"] = {
+                        "published": True,
+                        "rank": channel_published + 1,
+                        "limit": 5,
                     }
 
                     # AI enrichment runs only after the technical radar has already
@@ -756,6 +801,7 @@ async def stock_radar_cycle():
 
                         if message_id:
                             cycle_stats["sent"] += 1
+                            channel_published += 1
                         _radar_seen.add(symbol)
                         logger.info(
                             "Radar signal persisted: %s | telegram_message_id=%s",
