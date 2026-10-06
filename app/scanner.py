@@ -1,4 +1,5 @@
 import asyncio
+import asyncio
 import httpx
 import time
 import logging
@@ -9,6 +10,7 @@ from .panwatch import technical_targets, _stooq_ohlcv
 from .news import company_news, select_catalyst, earnings_calendar_window
 from .market import quote
 from .twelve_guard import call as twelve_call
+from .smart_memory import SmartMemory
 
 # رادار SAS PRO:
 # - السوق: NASDAQ / NYSE / AMEX
@@ -39,8 +41,8 @@ MOMENTUM_RVOL_THRESHOLDS = {
 
 # Daily candles change slowly, so cache them between radar cycles.
 _CANDLE_CACHE_TTL = 5400
-_candle_cache = {}
-_panwatch_semaphore = asyncio.Semaphore(8)
+_candle_cache = SmartMemory(_CANDLE_CACHE_TTL, max_items=96)
+_panwatch_semaphore = asyncio.Semaphore(6)
 _twelvedata_fallback_semaphore = asyncio.Semaphore(1)
 _twelve_data_quota_exhausted = False
 
@@ -773,7 +775,7 @@ async def discover_low_price_stocks():
         ),
         reverse=True,
     )[:settings.radar_staging_limit]
-    semaphore = asyncio.Semaphore(16)
+    semaphore = asyncio.Semaphore(8)
 
     async def stage(row):
         symbol = str(row.get("symbol") or "").upper()
@@ -908,8 +910,9 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
     key = symbol.upper()
     now = time.monotonic()
     cached = _candle_cache.get(key)
-    if cached and now - cached[0] < _CANDLE_CACHE_TTL:
-        cached_candles, cached_source = cached[1], cached[2]
+    if cached:
+        cached_candles = cached.get("candles") or []
+        cached_source = cached.get("source") or "unavailable"
         if len(cached_candles) >= min_candles:
             return cached_candles, cached_source
 
@@ -931,7 +934,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
             data = payload.get("data") or payload
             candles = _parse_candles(data.get("klines", []))
             if len(candles) >= min_candles:
-                _candle_cache[key] = (now, candles, "PanWatch")
+                _candle_cache.put(key, {"candles": candles, "source": "PanWatch"})
                 return candles, "PanWatch"
     except (asyncio.TimeoutError, httpx.HTTPError, Exception):
         candles = []
@@ -963,7 +966,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
                 candles = _parse_candles(payload.get("values", []))
                 if len(candles) >= min_candles:
                     candles.reverse()
-                    _candle_cache[key] = (now, candles, "Twelve Data")
+                    _candle_cache.put(key, {"candles": candles, "source": "Twelve Data"})
                     return candles, "Twelve Data"
         except (asyncio.TimeoutError, httpx.HTTPError, Exception):
             pass
@@ -977,19 +980,19 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
         async with asyncio.timeout(12):
             candles = _parse_candles(await _stooq_ohlcv(key, 260))
         if len(candles) >= min_candles:
-            _candle_cache[key] = (now, candles, "Stooq")
+            _candle_cache.put(key, {"candles": candles, "source": "Stooq"})
             return candles, "Stooq"
     except Exception:
         pass
 
     # Cache the failure briefly too, so the same unavailable symbol is not hammered
     # again on every 30-minute cycle.
-    _candle_cache[key] = (now, [], "unavailable")
+    _candle_cache.put(key, {"candles": [], "source": "unavailable"})
     return [], "unavailable"
 
 
 
-_benchmark_cache = {}
+_benchmark_cache = SmartMemory(_CANDLE_CACHE_TTL, max_items=8)
 
 def _ema(values, period):
     if len(values) < period:
@@ -1213,7 +1216,7 @@ async def _benchmark_return(symbol="QQQ", lookback=20):
             candles, source = await _get_analysis_candles(client, key, allow_twelve_fallback=False)
         if not candles:
             return None, None
-        _benchmark_cache[key] = (now, candles)
+        _benchmark_cache.put(key, {"candles": candles})
     closes = [x["close"] for x in candles]
     if len(closes) <= lookback:
         return None, None
@@ -1769,7 +1772,7 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
 
 
 _INTRADAY_CACHE_TTL = 3600
-_intraday_cache = {}
+_intraday_cache = SmartMemory(_INTRADAY_CACHE_TTL, max_items=96)
 
 def _calc_intraday_liquidity(candles):
     rows = _parse_candles(candles)
@@ -1857,7 +1860,7 @@ async def _get_intraday_liquidity(symbols):
             metrics = _calc_intraday_liquidity(values)
         else:
             metrics = None
-        _intraday_cache[symbol] = (now, metrics)
+        _intraday_cache.put(symbol, metrics)
         out[symbol] = metrics
     return out
 
