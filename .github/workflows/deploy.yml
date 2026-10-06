@@ -38,11 +38,18 @@ jobs:
             cd /opt/saspro
             git fetch origin main
             git reset --hard origin/main
-            docker compose build saspro panwatch
+            # لا نعيد بناء PanWatch مع كل تحديث لـ SAS PRO؛ هذا كان يطيل النشر
+            # ويضغط الذاكرة على OVH رغم أن أغلب التغييرات تخص تطبيق SAS فقط.
+            docker compose build --pull=false saspro
             docker rm -f saspro-saspro-1 2>/dev/null || true
-            docker rm -f saspro-panwatch-1 2>/dev/null || true
-            docker compose up -d --no-deps saspro panwatch
-            docker compose ps saspro panwatch
+            docker compose up -d --no-deps saspro
+            docker compose ps saspro
+            # انتظر حتى تستقر الحاوية قبل بدء اختبار الإقلاع.
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              status=$(docker inspect -f '{{.State.Status}}' saspro-saspro-1 2>/dev/null || true)
+              if [ "$status" = "running" ]; then break; fi
+              sleep 2
+            done
 
       - name: Smoke test SAS PRO container
         uses: appleboy/ssh-action@v1.2.2
