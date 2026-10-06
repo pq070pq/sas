@@ -269,7 +269,9 @@ async def build_private_analysis(symbol: str):
             market={"change_pct": quote_data.get("change_pct"), "classification": classification},
             tipranks=tipranks,
             events=events,
-        ), timeout=15)
+            ),
+            timeout=15,
+        )
     except Exception:
         ai = {"enabled": False}
     if not isinstance(ai, dict):
