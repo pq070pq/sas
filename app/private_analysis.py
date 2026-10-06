@@ -377,9 +377,8 @@ async def build_private_analysis(symbol: str):
     dilution_risk = str(ai.get("dilution_risk") or "غير واضح").strip()
     events_summary = str(ai.get("corporate_events_summary") or "").strip()
 
-    # تقرير الخاص منظم على شكل ملف حالة متكامل للسهم.
- ومباشر وموحّد: لا نعرض مستوى تداول غير موثوق
-    # ولا نملأ الحقول الناقصة بتخمينات.
+    # تقرير الخاص منظم على شكل ملف حالة متكامل للسهم، مباشر وموحّد.
+    # لا نعرض مستوى تداول غير موثوق ولا نملأ الحقول الناقصة بتخمينات.
     risk_text = f"{risk_emoji} {html.escape(str(risk_level))}"
     try:
         if risk_score is not None:
