@@ -507,7 +507,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     if volume is not None and volume > 0:
         market_lines.append(f"📦 <b>حجم التداول:</b> {volume:,.0f} سهم")
     if dollar_volume is not None and dollar_volume > 0:
-        market_lines.append(f"💵 <b>قيمة التداول التقريبية:</b> \${dollar_volume:,.0f}")
+        market_lines.append(f"💵 <b>قيمة التداول التقريبية:</b> ${dollar_volume:,.0f}")
     if rvol is not None:
         market_lines.append(f"📊 <b>الحجم النسبي RVOL:</b> {rvol:.2f}×")
     if shares_outstanding is not None and shares_outstanding > 0:
