@@ -24,6 +24,7 @@ from .jobs import scheduler
 from .market_calendar import market_status, us_market_holidays
 from .holiday_radar import stock_radar_enabled
 from .holiday_radar import holiday_radar_scheduler
+from .radar_health import radar_health_monitor
 from .timeutil import utcnow, aware
 from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, get_subscription_config, setting_set, setting_get, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings, create_user_channel_invite
 from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
@@ -37,6 +38,7 @@ holiday_radar_task = None
 telegram_polling_task = None
 telegram_config_task = None
 private_analysis_task = None
+radar_health_task = None
 
 # ذاكرة SAS PRO الذكية: TTL + حد أقصى + إزالة تلقائية للقديم.
 _ANALYSIS_CACHE_TTL = 900
@@ -168,10 +170,11 @@ async def _configure_telegram():
 async def startup():
     await init_db()
     await ensure_subscription_settings()
-    global scheduler_task, holiday_radar_task, telegram_polling_task, telegram_config_task, private_analysis_task
+    global scheduler_task, holiday_radar_task, telegram_polling_task, telegram_config_task, private_analysis_task, radar_health_task
     telegram_config_task = asyncio.create_task(_configure_telegram(), name="saspro-telegram-config")
     scheduler_task = asyncio.create_task(scheduler(), name="saspro-scheduler")
     holiday_radar_task = asyncio.create_task(holiday_radar_scheduler(), name="saspro-holiday-radar")
+    radar_health_task = asyncio.create_task(radar_health_monitor(), name="saspro-radar-health")
     telegram_polling_task = asyncio.create_task(telegram_polling_loop(), name="saspro-telegram-polling")
     def _telegram_polling_done(task):
         try:
