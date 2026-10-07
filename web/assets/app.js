@@ -474,8 +474,10 @@ async function analyzeSymbol(){
    ? '<div class="partial-note">🟡 بيانات السعر أو المستويات غير مكتملة من المصدر. لم يتم تخمين أي قيمة.</div>'
    : (!aiAvailable ? '<div class="partial-note">ℹ️ تحليل AI غير متاح حاليًا؛ تم عرض الخلاصة الفنية من بيانات السهم.</div>' : '');
  const rr=computedRR!=null?computedRR.toFixed(2):(tech.risk_reward!=null?Number(tech.risk_reward).toFixed(2):'—');
+ const recommendation=(Number(rr)<1||Boolean(tech.risk_reward_warning)) ? '⛔ لا دخول حاليًا — نسبة العائد للمخاطرة ضعيفة.' : (Number(q.change_pct)>10 ? '🟡 مراقبة وعدم مطاردة الارتفاع؛ الدخول مشروط بثبات السعر وتأكيد السيولة.' : (Number(tech.score||0)>=70 ? '🟢 دخول مشروط بعد تأكيد الاختراق والسيولة.' : '🟡 مراقبة؛ الدخول فقط بعد تأكيد الحركة والسيولة.'));
  const summary=ai.key_takeaway||ai.headline_summary||'لا توجد خلاصة موثقة متاحة حاليًا.';
  const mini=analysis.mini_analysis||{};
+ const recommendationHtml='<section class="recommendation-box"><b>📌 القراءة الفنية</b><strong>'+escHtml(recommendation)+'</strong><small>قراءة آلية وليست توصية شراء أو بيع.</small></section>';
  const shSources=Array.isArray(sh.sources)?sh.sources:[];
  const shHtml='<section class="shariah-box '+(sh.status==='halal'||sh.status==='compliant'?'sh-ok':(sh.status==='haram'||sh.status==='non_compliant'?'sh-bad':'sh-unknown'))+'"><div><b>🕌 نافذة التحقق الشرعي</b><strong>'+escHtml(sh.status_ar||'غير واضح / يحتاج تحقق')+'</strong></div><p>'+escHtml(sh.message||'لم تتوفر نتيجة موثقة؛ لم يتم التأليف.')+'</p>'+shSources.slice(0,4).map(s=>'<small>• '+escHtml(s.source||'مصدر')+': '+escHtml(s.status_ar||'مرجع/غير واضح')+'</small>').join('')+(sh.ai?.summary?'<p>🧠 '+escHtml(sh.ai.summary)+'</p>':'')+'<em>⛔ الشرعية مسؤوليتك — التحقق آلي وليس فتوى.</em></section>';
  const miniAnalysisHtml=
@@ -497,6 +499,7 @@ async function analyzeSymbol(){
  el.innerHTML=
    '<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div><button onclick="toggleWatch(\''+escHtml(symbol)+'\')">'+(terminalState.watch.includes(symbol)?'★ محفوظ':'☆ حفظ')+'</button></div>'+
    shHtml+
+   recommendationHtml+
    '<div class="quote-line"><strong>&#36;'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
    notice+
    miniAnalysisHtml+
