@@ -78,7 +78,7 @@ async def check_shariah(symbol):
                 pos = text.find("توافق الشريعة")
                 window = text[pos:pos+1600] if pos >= 0 else text[:2500]
                 # صفحة يقين تعرض الحكم مباشرة ضمن قسم التوافق الشرعي.
-                m = re.search(r"(غير\\s+شرعي|محل\\s+نظر|شرعي)", window)
+                m = re.search(r"(غير شرعي|محل نظر|شرعي)", window)
                 status = _normalize(m.group(1) if m else None)
                 date_m = re.search(r"تم التحديث بتاريخ\s*([0-9]{2}-[0-9]{2}-[0-9]{4})", text)
                 label = {"compliant":"شرعي","non_compliant":"غير شرعي","doubtful":"محل نظر"}.get(status,"غير واضح / يحتاج تحقق")
