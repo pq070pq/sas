@@ -420,22 +420,16 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
         return False, "التحليل الفني غير مكتمل"
     if str(classification.get("behavior") or "").strip() == "غير واضح":
         return False, "السلوك السعري غير واضح"
-    learning = learning or {"rvol_floor": 0.50, "change_floor": 0.0, "samples": 0}
-    rvol_floor = min(0.75, max(0.45, float(learning.get("rvol_floor") or 0.50)))
-    change_floor = min(1.0, max(0.0, float(learning.get("change_floor") or 0.0)))
+    # محرك الرادار هو صاحب قرار اكتشاف الفرصة. لا نعيد هنا تطبيق مرشح RVOL
+    # والحركة للمرة الثانية، لأن ذلك كان يجعل السهم يظهر في نتائج الرادار ثم
+    # يختفي قبل القناة. هذه البوابة مسؤولة عن سلامة النشر فقط:
+    # سعر لحظي حقيقي + بيانات حجم + عدم وجود تناقض هابط/مطاردة + وقف منطقي.
+    # قوة الفرصة وترتيب أفضل 5 تأتي من scanner.py.
     rvol_gate = float(classification.get("rvol") or 0)
     intraday_confirmation = bool(classification.get("intraday_confirmation"))
     breakout_confirmed = bool(classification.get("breakout_confirmed"))
     accumulation = bool(classification.get("accumulation"))
     fib_zone = bool((classification.get("fibonacci") or {}).get("zone"))
-    
-    # Opening-market gate is deliberately permissive: discovery stays broad and
-    # a real positive move can be published before the daily RVOL fully develops.
-    # RVOL/volume still matters, but it is not allowed to hide an early mover.
-    if rvol_gate < rvol_floor and not intraday_confirmation:
-        return False, "حجم أولي ضعيف جدًا"
-    if change <= change_floor and not (breakout_confirmed or accumulation):
-        return False, "لا توجد حركة صاعدة أو انعكاس فني مؤكد"
 
     # A target is optional. If no real resistance is available, publish the
     # opportunity without a fabricated target; the report must say that no
@@ -453,16 +447,12 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
             return False, "وقف ضيق بشكل غير واقعي"
 
     if not extended:
-        confirmations = sum([
-            intraday_confirmation,
-            breakout_confirmed,
-            accumulation,
-            fib_zone,
-            rvol_gate >= 1.0,
-        ])
-        if change > 0 and (dollar_volume >= 1_000_000 or confirmations >= 2):
-            return True, "جلسة رئيسية — حركة + سيولة + تأكيدات SAS"
-        return True, "جلسة رئيسية — فرصة مبكرة تحت المراقبة"
+        # لا نضع حدًا ثانيًا للحركة أو RVOL هنا. إذا وصل السهم إلى هذه
+        # المرحلة فهو مرشح من محرك SAS، ونحتاج فقط إلى بيانات لحظية حقيقية
+        # حتى لا يتحول فشل مزود الاقتباس إلى إشارة وهمية.
+        if price > 0 and volume > 0:
+            return True, "جلسة رئيسية — مرشح SAS مؤكد ببيانات لحظية"
+        return False, "بيانات السعر/الحجم الحي غير متاحة"
 
     # Extended-hours channel messages require an explicitly extended quote.
     # If the provider cannot verify that the price is from the active extended
