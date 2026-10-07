@@ -31,6 +31,7 @@ jobs:
           script: |
             set -e
             cd /opt/saspro
-            echo "===== SAS PRO LIVE RADAR ====="
+            echo "===== SAS PRO LIVE RADAR =====
+            echo "PASS2""
             timeout 300s docker compose exec -T saspro python -c 'import asyncio,json; from app.scanner import scan_us_low_price_stocks; r=asyncio.run(scan_us_low_price_stocks(force_refresh=True)); print(json.dumps({"stocks":[x.get("symbol") for x in r.get("stocks",[])],"count":len(r.get("stocks",[])),"diagnostics":r.get("diagnostics",{})},ensure_ascii=False))'
             echo "===== END SAS PRO LIVE RADAR ====="
