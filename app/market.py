@@ -673,12 +673,20 @@ async def quote(symbol: str, prefer_extended: bool = False):
                 r.raise_for_status()
                 d = r.json()
 
-                price = d.get("extended_price") if _valid_price(d.get("extended_price")) else d.get("close")
-                if not _valid_price(price):
+                # During the regular session, never promote an extended-hours
+                # quote to the live price. Extended price is only valid when the
+                # caller explicitly requested an extended-session quote.
+                if prefer_extended and _valid_price(d.get("extended_price")):
+                    price = d.get("extended_price")
+                    source = "Twelve Data Extended Hours"
+                    change_pct = d.get("extended_percent_change")
+                else:
                     price = d.get("price")
-
-                source = "Twelve Data Extended Hours" if _valid_price(d.get("extended_price")) else "Twelve Data"
-                change_pct = d.get("extended_percent_change")
+                    source = "Twelve Data"
+                    change_pct = d.get("percent_change")
+                    if not _valid_price(price):
+                        price = d.get("close")
+                        source = "Twelve Data Last Quote"
                 if change_pct is None:
                     change_pct = d.get("percent_change")
 
@@ -699,7 +707,7 @@ async def quote(symbol: str, prefer_extended: bool = False):
                         "price": float(price),
                         "change_pct": change_pct,
                         "source": source,
-                        "is_extended_hours": _valid_price(d.get("extended_price")),
+                        "is_extended_hours": bool(prefer_extended and _valid_price(d.get("extended_price"))),
                         "datetime": d.get("datetime"),
                     }
         except Exception as exc:
