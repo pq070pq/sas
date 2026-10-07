@@ -61,6 +61,44 @@ async def _zoya(symbol):
     except Exception as e:
         return {"source":"Zoya","status":None,"status_ar":"غير متاح","error":str(e)}
 
+def _parse_yaaqeen_html(html, symbol):
+    """Parse Yaqeen's published stock verdict without inventing a result."""
+    text = re.sub(r"<[^>]+>", " ", html or "")
+    text = re.sub(r"\\s+", " ", text).strip()
+    pos = text.find("توافق الشريعة")
+    window = text[pos:pos + 2000] if pos >= 0 else ""
+    # Order matters: "غير شرعي" contains the word "شرعي".
+    verdict = None
+    for pattern, status in (
+        (r"غير\\s+شرعي", "non_compliant"),
+        (r"محل\\s+نظر", "doubtful"),
+        (r"شرعي", "compliant"),
+    ):
+        if re.search(pattern, window):
+            verdict = status
+            break
+    date_m = re.search(r"تم التحديث بتاريخ\\s*([0-9]{2}-[0-9]{2}-[0-9]{4})", text)
+    label = {
+        "compliant": "شرعي",
+        "non_compliant": "غير شرعي",
+        "doubtful": "محل نظر",
+    }.get(verdict, "غير واضح / يحتاج تحقق")
+    return {
+        "source": "يقين",
+        "status": verdict,
+        "status_ar": label,
+        "verified": bool(verdict),
+        "updated_at": date_m.group(1) if date_m else None,
+        "reason": (
+            "نتيجة منشورة مباشرة من صفحة السهم في يقين."
+            if verdict else
+            "لم يتم العثور على حكم مباشر في قسم التوافق الشرعي."
+        ),
+        "methodology": "معايير شرعية منشورة وفق معايير الراجحي",
+        "url": YAAQEEN_URL.format(symbol=symbol),
+    }
+
+
 async def check_shariah(symbol):
     symbol = str(symbol or "").strip().upper()
     if not re.fullmatch(r"[A-Z]{1,5}(?:[.-][A-Z])?", symbol):
@@ -73,19 +111,7 @@ async def check_shariah(symbol):
                                          headers={"User-Agent":"SAS-PRO-Shariah/1.0"}) as client:
                 r = await client.get(YAAQEEN_URL.format(symbol=symbol))
                 r.raise_for_status()
-                text = re.sub(r"<[^>]+>", " ", r.text)
-                text = re.sub(r"\s+", " ", text)
-                pos = text.find("توافق الشريعة")
-                window = text[pos:pos+1600] if pos >= 0 else text[:2500]
-                # صفحة يقين تعرض الحكم مباشرة ضمن قسم التوافق الشرعي.
-                m = re.search(r"(غير شرعي|محل نظر|شرعي)", window)
-                status = _normalize(m.group(1) if m else None)
-                date_m = re.search(r"تم التحديث بتاريخ\s*([0-9]{2}-[0-9]{2}-[0-9]{4})", text)
-                label = {"compliant":"شرعي","non_compliant":"غير شرعي","doubtful":"محل نظر"}.get(status,"غير واضح / يحتاج تحقق")
-                return {"source":"يقين","status":status,"status_ar":label,
-                        "verified":bool(status),"updated_at":date_m.group(1) if date_m else None,
-                        "reason":("نتيجة منشورة مباشرة من صفحة السهم في يقين." if status else "لم يتم العثور على حكم مباشر في الصفحة."),
-                        "methodology":"معايير شرعية منشورة وفق معايير الراجحي","url":YAAQEEN_URL.format(symbol=symbol)}
+                return _parse_yaaqeen_html(r.text, symbol)
         except Exception as e:
             return {"source":"يقين","status":None,"status_ar":"غير متاح","verified":False,
                     "reason":"تعذر الوصول إلى صفحة يقين الآن؛ لم يتم تأليف أي نتيجة.","error":type(e).__name__,
