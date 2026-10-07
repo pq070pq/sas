@@ -833,7 +833,7 @@ async def discover_low_price_stocks():
     # بتزامن 8 كانت تجعل دورة الرادار تتجاوز 10 دقائق. نستخدم عميل HTTP
     # مشتركًا وتزامنًا أعلى مع مهلة مستقلة لكل سهم حتى لا يحتجز سهم واحد
     # الدورة كلها.
-    semaphore = asyncio.Semaphore(20)
+    semaphore = asyncio.Semaphore(4)
     analysis_timeout = 15
 
     async def stage(row):
