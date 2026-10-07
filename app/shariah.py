@@ -76,15 +76,16 @@ async def check_shariah(symbol):
                 text = re.sub(r"<[^>]+>", " ", r.text)
                 text = re.sub(r"\s+", " ", text)
                 pos = text.find("توافق الشريعة")
-                window = text[pos:pos+900] if pos >= 0 else text[:1500]
-                m = re.search(r"(غير شرعي|محل نظر|شرعي|متوافق مع الشريعة)", window)
+                window = text[pos:pos+1200] if pos >= 0 else text[:1800]
+                # صفحة يقين تعرض الحكم مباشرة ضمن قسم التوافق الشرعي.
+                m = re.search(r"(غير شرعي|محل نظر|شرعي)", window)
                 status = _normalize(m.group(1) if m else None)
                 date_m = re.search(r"تم التحديث بتاريخ\s*([0-9]{2}-[0-9]{2}-[0-9]{4})", text)
-                return {"source":"يقين","status":status,"status_ar":{"compliant":"شرعي","non_compliant":"غير شرعي","doubtful":"محل نظر"}.get(status,"غير واضح / يحتاج تحقق"),
+                label = {"compliant":"شرعي","non_compliant":"غير شرعي","doubtful":"محل نظر"}.get(status,"غير واضح / يحتاج تحقق")
+                return {"source":"يقين","status":status,"status_ar":label,
                         "verified":bool(status),"updated_at":date_m.group(1) if date_m else None,
-                        "methodology":"معايير منسوبة للراجحي","url":YAAQEEN_URL.format(symbol=symbol)}
-        except Exception as e:
-            return {"source":"يقين","status":None,"status_ar":"غير متاح","verified":False,"error":type(e).__name__}
+                        "reason":("نتيجة منشورة مباشرة من صفحة السهم في يقين." if status else "لم يتم العثور على حكم مباشر في الصفحة."),
+                        "methodology":"معايير شرعية منشورة وفق معايير الراجحي","url":YAAQEEN_URL.format(symbol=symbol)}
 
     async def fetch_filterna():
         try:
