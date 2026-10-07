@@ -1188,3 +1188,5 @@ filter:blur(.2px);
   .sas-action-icon{width:43px;height:43px;flex-basis:43px;border-radius:13px;font-size:21px}
   .sas-action-copy b{font-size:13px}
 }
+
+.chart-unavailable{min-height:190px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:9px;text-align:center;color:#a9c1cf;font-size:15px;line-height:1.7;padding:20px;box-sizing:border-box}.chart-unavailable small{max-width:460px;color:#718792;font-size:11px;line-height:1.7}
