@@ -69,7 +69,7 @@ async def check_shariah(symbol):
 
     async def fetch_yaaqeen():
         try:
-            async with httpx.AsyncClient(timeout=8, follow_redirects=True,
+            async with httpx.AsyncClient(timeout=5, follow_redirects=True,
                                          headers={"User-Agent":"SAS-PRO-Shariah/1.0"}) as client:
                 r = await client.get(YAAQEEN_URL.format(symbol=symbol))
                 r.raise_for_status()
@@ -132,7 +132,7 @@ async def check_shariah(symbol):
                   "إذا لم توجد نتيجة موثقة فقل غير واضح / يحتاج تحقق. إذا اختلفت المصادر اذكر التعارض. "
                   "أعد JSON بالمفاتيح summary,confidence,conflict.\\n"+json.dumps(evidence,ensure_ascii=False))
         try:
-            async with httpx.AsyncClient(timeout=settings.ai_radar_timeout_seconds) as client:
+            async with httpx.AsyncClient(timeout=min(float(settings.ai_radar_timeout_seconds), 2.5)) as client:
                 rr=await client.post(f"{base}/chat/completions",
                     headers={"Authorization":f"Bearer {key}","Content-Type":"application/json"},
                     json={"model":model,"temperature":0,"max_tokens":180,
