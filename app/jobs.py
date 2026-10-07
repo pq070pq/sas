@@ -601,7 +601,7 @@ async def stock_radar_cycle():
 
         # تحقق الشرعية لأفضل المرشحين بالتوازي؛ لا يغيّر ترتيب الرادار ولا بوابة السعر.
         shariah_map = {}
-        sh_rows = rows[:10]
+        sh_rows = rows[:5]
         sh_results = await asyncio.gather(
             *(asyncio.wait_for(check_shariah(str(x.get("symbol") or "").upper()), timeout=10.0) for x in sh_rows),
             return_exceptions=True,
