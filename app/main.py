@@ -1981,8 +1981,10 @@ async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
 
 @app.get("/api/stocks/{symbol}/chart")
 async def stock_chart(symbol: str, _: dict = Depends(require_pro)):
-    candles = await ohlcv(symbol.upper(), days=90, interval="1d")
-    return {"symbol": symbol.upper(), "candles": candles}
+    data = await ohlcv(symbol.upper(), days=90, interval="1d")
+    if isinstance(data, list):
+        return {"symbol": symbol.upper(), "candles": data, "available": len(data) >= 20, "source": "legacy"}
+    return {"symbol": symbol.upper(), **data}
 
 @app.get("/api/stocks/{symbol}/news")
 async def stock_news(symbol: str, _: dict = Depends(require_pro)):
