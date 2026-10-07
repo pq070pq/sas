@@ -409,7 +409,7 @@ function stockCard(x){
  const catalyst=Number(x.catalyst_score||0);
  const catalystLabel=catalyst>=75?'🔥 محفز قوي':catalyst>=55?'⚡ محفز متوسط':catalyst>0?'📰 محفز ضعيف':'📰 دون محفز حديث';
  const gate=(ok,label)=>'<i class="'+(ok?'gate-ok':'gate-warn')+'">'+(ok?'✓ ':'⚠️ ')+label+'</i>';
- const recommendation=(Number(rr)<1||warning) ? '⛔ لا دخول حاليًا — العائد المتوقع لا يبرر المخاطرة' : (Number(change)>10 ? '🟡 مراقبة وعدم مطاردة — الدخول مشروط بثبات السعر وتأكيد السيولة' : (Number(score)>=70 ? '🟢 دخول مشروط — بعد تأكيد الاختراق والسيولة' : '🟡 مراقبة — الدخول فقط بعد تأكيد الحركة والسيولة'));
+ const recommendation=(Number(rr)<1||warning) ? '🔴 لا تدخل الآن: الربح المتوقع لا يعوض المخاطرة.' : (Number(change)>10 ? '🟡 لا تطارد السهم: ارتفع بسرعة، انتظر هدوء الحركة وتأكيد جديد.' : (Number(score)>=70 ? '🟢 فرصة جيدة للمراقبة: انتظر تأكيد الاختراق والسيولة قبل الدخول.' : '🟡 مراقبة فقط: الإشارة غير قوية بما يكفي للدخول الآن.'));
  return '<article class="stock-card"><div class="stock-head"><div><b>'+s+'</b><small>'+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • '+formatTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+
  '<strong>$'+money(price)+'</strong>'+
  '<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
@@ -452,8 +452,13 @@ async function searchShariah(){
    if(!src||typeof src!=='object')return '';
    const name=escHtml(src.source||'مصدر');
    const statusText=escHtml(src.status_ar||'غير واضح / يحتاج تحقق');
-   const role=src.role==='مرجع منهجي'?' — مرجع منهجي':'';
-   return '<div class="shariah-source-row"><span>'+name+role+'</span><b>'+statusText+'</b></div>';
+   let meaning='';
+   if(src.source==='مصرف الراجحي') meaning='المعيار الشرعي المستخدم للتحقق، وليس حكمًا مباشرًا على السهم.';
+   else if(src.source==='بنك البلاد') meaning='مرجع شرعي منهجي، وليس حكمًا مباشرًا على السهم.';
+   else if(src.source==='يقين') meaning=src.verified?'نتيجة منشورة مباشرة للسهم.':'لم تظهر نتيجة مباشرة موثقة.';
+   else if(src.source==='فلترنا') meaning='مرجع فلترة؛ لا نعتمد حكمًا للسهم إذا لم تظهر نتيجة مباشرة.';
+   else meaning=src.verified?'نتيجة مباشرة موثقة.':'لا توجد نتيجة مباشرة موثقة.';
+   return '<div class="shariah-source-row"><span><b>'+name+'</b><small>'+escHtml(meaning)+'</small></span><b>'+statusText+'</b></div>';
   }).filter(Boolean).join(''):'<div class="shariah-source-row"><span>المصادر</span><b>لا توجد نتيجة موثقة كافية</b></div>';
   el.innerHTML='<div class="shariah-search-card '+cls+'">'+
    '<div class="shariah-search-head"><div><span>🕌 بحث الشرعية</span><h3>$'+escHtml(symbol)+'</h3></div><strong>'+icon+' '+escHtml(label)+'</strong></div>'+
@@ -514,13 +519,13 @@ async function analyzeSymbol(){
    ? '<div class="partial-note">🟡 بيانات السعر أو المستويات غير مكتملة من المصدر. لم يتم تخمين أي قيمة.</div>'
    : (!aiAvailable ? '<div class="partial-note">ℹ️ تحليل AI غير متاح حاليًا؛ تم عرض الخلاصة الفنية من بيانات السهم.</div>' : '');
  const rr=computedRR!=null?computedRR.toFixed(2):(tech.risk_reward!=null?Number(tech.risk_reward).toFixed(2):'—');
- const recommendation=(Number(rr)<1||Boolean(tech.risk_reward_warning)) ? '⛔ لا دخول حاليًا — نسبة العائد للمخاطرة ضعيفة.' : (Number(q.change_pct)>10 ? '🟡 مراقبة وعدم مطاردة الارتفاع؛ الدخول مشروط بثبات السعر وتأكيد السيولة.' : (Number(tech.score||0)>=70 ? '🟢 دخول مشروط بعد تأكيد الاختراق والسيولة.' : '🟡 مراقبة؛ الدخول فقط بعد تأكيد الحركة والسيولة.'));
+ const recommendation=(Number(rr)<1||Boolean(tech.risk_reward_warning)) ? '🔴 لا تدخل الآن: الربح المتوقع لا يعوض المخاطرة.' : (Number(q.change_pct)>10 ? '🟡 لا تطارد السهم: ارتفع بسرعة، انتظر هدوء الحركة وتأكيد جديد.' : (Number(tech.score||0)>=70 ? '🟢 فرصة جيدة للمراقبة: انتظر تأكيد الاختراق والسيولة قبل الدخول.' : '🟡 مراقبة فقط: الإشارة غير قوية بما يكفي للدخول الآن.'));
  const summary=ai.key_takeaway||ai.headline_summary||'لا توجد خلاصة موثقة متاحة حاليًا.';
  const mini=analysis.mini_analysis||{};
  const recommendationHtml='<section class="recommendation-box"><b>📌 القراءة الفنية</b><strong>'+escHtml(recommendation)+'</strong><small>قراءة آلية وليست توصية شراء أو بيع.</small></section>';
  const shSources=Array.isArray(sh.sources)?sh.sources:[];
- const shHtml='<section class="shariah-box '+(sh.status==='halal'||sh.status==='compliant'?'sh-ok':(sh.status==='haram'||sh.status==='non_compliant'?'sh-bad':'sh-unknown'))+'"><div><b>🕌 نافذة التحقق الشرعي</b><strong>'+escHtml(sh.status_ar||'غير واضح / يحتاج تحقق')+'</strong></div><p>'+escHtml(sh.message||'لم تتوفر نتيجة موثقة؛ لم يتم التأليف.')+'</p>'+shSources.slice(0,4).map(s=>'<small>• '+escHtml(s.source||'مصدر')+': '+escHtml(s.status_ar||'مرجع/غير واضح')+'</small>').join('')+(sh.ai?.summary?'<p>🧠 '+escHtml(sh.ai.summary)+'</p>':'')+'<em>⛔ الشرعية مسؤوليتك — التحقق آلي وليس فتوى.</em></section>';
- const miniAnalysisHtml=
+ const shHtml='<section class="shariah-box '+(sh.status==='halal'||sh.status==='compliant'?'sh-ok':(sh.status==='haram'||sh.status==='non_compliant'?'sh-bad':'sh-unknown'))+'"><div><b>🕌 التحقق الشرعي</b><strong>'+escHtml(sh.status_ar||'غير واضح / يحتاج تحقق')+'</strong></div><p>'+escHtml(sh.message||'لم تتوفر نتيجة موثقة؛ لم يتم التأليف.')+'</p><div class="shariah-help"><b>كيف تقرأ النتيجة؟</b><span>يقين = نتيجة السهم المنشورة مباشرة.</span><span>الراجحي وبنك البلاد = مراجع للمعايير الشرعية، وليس حكمًا مباشرًا على السهم.</span><span>فلترنا = مرجع فلترة؛ إذا لم تظهر نتيجة مباشرة فلا نعتمد حكمًا.</span></div>'+(sh.ai?.summary?'<p>🧠 '+escHtml(sh.ai.summary)+'</p>':'')+'<em>⛔ هذه معلومات للتحقق فقط وليست فتوى، وقرار الشرعية مسؤوليتك.</em></section>';
+const miniAnalysisHtml=
    '<section class="mini-analysis">'+
      '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO QUICK ANALYSIS</span><b>⏳ تحليل مختصر</b></div></div>'+
      '<div class="mini-analysis-grid">'+
