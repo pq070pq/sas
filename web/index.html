@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>SAS PRO — Market Terminal</title>
-<link rel="stylesheet" href="/assets/app.css?v=20261008-02">
+<link rel="stylesheet" href="/assets/app.css?v=20261008-03">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 </head>
 <body>
@@ -72,7 +72,26 @@
     </nav>
     <main class="terminal-main">
       <section id="tab-dashboard" class="terminal-tab active">
-        <div class="terminal-hero"><div><span class="eyebrow">SAS PRO RADAR</span><h1 id="terminalGreeting">محطة الرصد الذكية</h1><p id="radarStatusText">جاري التحقق من حالة السوق والرصد...</p></div><div class="dashboard-actions"><button class="primary-btn" onclick="runRadar()">📡 فتح بيانات الرادار</button><button class="channel-btn dashboard-channel-btn" onclick="openChannel()">📡 فتح قناة SAS PRO</button></div></div>
+        <div class="terminal-hero sas-dashboard-hero">
+  <div class="sas-dashboard-actions">
+    <button class="sas-action-card" onclick="runRadar()">
+      <span class="sas-action-icon radar-icon" aria-hidden="true">📡</span>
+      <span class="sas-action-copy"><b>فتح بيانات الرادار</b><small>فرص الأسهم • تحليلات • إشعارات</small></span>
+      <span class="sas-action-arrow" aria-hidden="true">‹</span>
+    </button>
+    <button class="sas-action-card" onclick="openChannel()">
+      <span class="sas-action-icon channel-icon" aria-hidden="true">✈</span>
+      <span class="sas-action-copy"><b>فتح قناة SAS PRO</b><small>أهم الفرص والتحديثات مباشرة</small></span>
+      <span class="sas-action-arrow" aria-hidden="true">‹</span>
+    </button>
+  </div>
+  <div class="sas-dashboard-copy">
+    <span class="eyebrow">SAS PRO RADAR</span>
+    <h1 id="terminalGreeting">مرحباً</h1>
+    <div class="sas-market-status"><span class="sas-status-dot"></span><span id="radarStatusText">جاري التحقق من حالة السوق والرصد...</span></div>
+    <small class="sas-time-note">بتوقيت الرياض</small>
+  </div>
+</div>
         <div class="metric-grid" id="dashboardMetrics"></div>
         <div class="section-title"><b>🔥 أحدث الفرص / آخر رصد محفوظ</b><button onclick="switchTerminalTab('radar')">عرض كل الرصد</button></div>
         <div id="dashboardRadar" class="stock-grid"><div class="loading">جاري التحميل...</div></div>
@@ -248,6 +267,6 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261008-02"></script>
+<script src="/assets/app.js?v=20261008-03"></script>
 </body>
 </html>
