@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from .config import settings
-from .db import SessionLocal, Subscription, RadarSignal, RadarOutcome, ScheduledReport, User, ScheduledReport
+from .db import SessionLocal, Subscription, RadarSignal, RadarOutcome, RadarRun, ScheduledReport, User, ScheduledReport
 from .telegram import send_message, edit_message, bot_api
 from .holiday_radar import publish_holiday_radar, publish_market_update
 from .timeutil import utcnow, aware
@@ -499,12 +499,58 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
 
 async def stock_radar_cycle():
     global _radar_open_announced
+    cycle_started = utcnow()
+    status = market_status()
+    session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    run = RadarRun(
+        session_date=session_date,
+        session=str(status.get("session") or "unknown"),
+        started_at=cycle_started,
+        status="running",
+    )
+    async with SessionLocal() as db:
+        db.add(run)
+        await db.commit()
+        await db.refresh(run)
+    logger.info("RADAR_CYCLE_STARTED id=%s session=%s session_date=%s", run.id, status.get("session"), session_date)
+
+    async def finish_cycle(final_status, diagnostics=None, *, gate_passed=0, sent=0, app_only=0, gate_rejections=None, top_opportunities=None, error=None):
+        finished = utcnow()
+        run.status = final_status
+        run.finished_at = finished
+        run.duration_seconds = round((finished - cycle_started).total_seconds(), 2)
+        diagnostics = diagnostics or {}
+        run.candidates = int(diagnostics.get("candidates") or 0)
+        run.shortlist = int(diagnostics.get("shortlist") or 0)
+        run.passed = int(diagnostics.get("passed") or 0)
+        run.filtered = int(diagnostics.get("filtered") or 0)
+        run.errors = int(diagnostics.get("errors") or 0)
+        run.channel_gate_passed = int(gate_passed or 0)
+        run.channel_sent = int(sent or 0)
+        run.channel_app_only = int(app_only or 0)
+        run.channel_gate_rejections = json.dumps(gate_rejections or {}, ensure_ascii=False)
+        run.top_opportunities = json.dumps(top_opportunities or [], ensure_ascii=False)
+        run.diagnostics = json.dumps(diagnostics, ensure_ascii=False)
+        if error:
+            run.error_type = type(error).__name__
+            run.error_message = str(error)[:4000]
+        async with SessionLocal() as db:
+            db.add(run)
+            await db.commit()
+        logger.info(
+            "RADAR_CYCLE_FINISHED id=%s status=%s duration=%.1fs candidates=%d shortlist=%d passed=%d filtered=%d errors=%d gate_passed=%d sent=%d app_only=%d",
+            run.id, final_status, run.duration_seconds or 0, run.candidates, run.shortlist,
+            run.passed, run.filtered, run.errors, run.channel_gate_passed,
+            run.channel_sent, run.channel_app_only,
+        )
 
     if not settings.telegram_channel_id or not settings.telegram_bot_token:
+        await finish_cycle("skipped", {"status": "telegram_not_configured"})
+        logger.warning("Stock radar skipped: Telegram channel/token is not configured.")
+        return
         logger.warning("Stock radar skipped: Telegram channel/token is not configured.")
         return
 
-    status = market_status()
     try:
         learning_profile = await get_radar_profile()
     except Exception:
@@ -515,6 +561,7 @@ async def stock_radar_cycle():
     # الفترة السابقة للبري ماركت ليست جلسة رصد؛ ننتظر 04:00 ET.
     if status["holiday"] or status["session"] in {"weekend", "overnight", "night_pending"}:
         _radar_open_announced = False
+        await finish_cycle("skipped", {"status": "market_closed", "session": status.get("session"), "holiday": bool(status.get("holiday"))})
         logger.info("Stock radar skipped: market holiday/weekend (session=%s).", status.get("session"))
         return
 
@@ -536,6 +583,11 @@ async def stock_radar_cycle():
 
         scan_result = await scan_us_low_price_stocks()
         diagnostics = scan_result.get("diagnostics") or {}
+        logger.info(
+            "RADAR_SCAN_DIAGNOSTICS id=%s candidates=%s shortlist=%s passed=%s filtered=%s errors=%s",
+            run.id, diagnostics.get("candidates", 0), diagnostics.get("shortlist", 0),
+            diagnostics.get("passed", 0), diagnostics.get("filtered", 0), diagnostics.get("errors", 0),
+        )
         if diagnostics.get("twelve_data_quota_exhausted"):
             # Twelve Data احتياطي فقط؛ لا نوقف الرادار ما دامت نتائج PanWatch
             # صالحة. نستمر بإرسال إشارات الأسهم ونكتفي بتسجيل حالة الحصة.
@@ -592,6 +644,9 @@ async def stock_radar_cycle():
             quote_pairs = await asyncio.gather(*(_live_quote(row) for row in rows), return_exceptions=False)
             live_quotes = dict(quote_pairs)
             channel_published = 0
+        channel_gate_passed = 0
+        channel_app_only = 0
+        gate_rejections = {}
 
             # كل سهم اجتاز فلاتر الرادار يظهر في التطبيق؛ القناة لها سقف 5 فقط.
             # لا نرسل جدول Daily Momentum مجمعًا؛ تفاصيل السهم وشروط اجتيازه
@@ -639,6 +694,7 @@ async def stock_radar_cycle():
 
                 channel_ok, channel_reason = _radar_channel_gate(status, row, q, learning_profile)
                 if not channel_ok:
+                    gate_rejections[channel_reason] = int(gate_rejections.get(channel_reason, 0)) + 1
                     cycle_stats["skipped"] += 1
                     row["channel_gate"] = {
                         "passed": False,
@@ -669,6 +725,7 @@ async def stock_radar_cycle():
                     )
                     continue
 
+                channel_gate_passed += 1
                 row["channel_gate"] = {
                     "passed": True,
                     "session": status.get("session"),
@@ -678,6 +735,7 @@ async def stock_radar_cycle():
                 # لا نرسل أكثر من أفضل 5 إشارات في القناة.
                 # المرشح يبقى محفوظًا/ظاهرًا في التطبيق ولا يُفقد من الرصد.
                 if channel_published >= 5:
+                    channel_app_only += 1
                     row["channel_delivery"] = {
                         "published": False,
                         "reason": "تم الوصول إلى حد أفضل 5 إشارات للقناة",
@@ -836,8 +894,30 @@ async def stock_radar_cycle():
                     cycle_stats["sent"],
                     cycle_stats["failed"],
                 )
-    except Exception:
+
+        top = [
+            {
+                "symbol": str(x.get("symbol") or ""),
+                "score": x.get("opening_opportunity_score"),
+                "change_pct": x.get("live_change_pct") if x.get("live_change_pct") is not None else x.get("change_pct"),
+                "rvol": (x.get("classification") or {}).get("rvol"),
+                "channel_gate": (x.get("channel_gate") or {}).get("passed"),
+                "delivery": (x.get("channel_delivery") or {}).get("published"),
+            }
+            for x in rows[:10]
+        ]
+        await finish_cycle(
+            "success",
+            diagnostics,
+            gate_passed=channel_gate_passed,
+            sent=cycle_stats["sent"],
+            app_only=channel_app_only,
+            gate_rejections=gate_rejections,
+            top_opportunities=top,
+        )
+    except Exception as exc:
         logger.exception("Stock radar cycle failed.")
+        await finish_cycle("failed", locals().get("diagnostics") or {}, error=exc)
         return
 
 
