@@ -10,9 +10,11 @@ logger = logging.getLogger(__name__)
 
 _health_alert_active = False
 _last_signature = None
+_last_restart_at = None
 
 CHECK_INTERVAL_SECONDS = 300
 RADAR_STUCK_SECONDS = 20 * 60
+RADAR_RESTART_COOLDOWN_SECONDS = 30 * 60
 
 
 def _task_snapshot(task):
@@ -56,6 +58,42 @@ async def _notify_admin(text):
         return False
 
 
+async def _restart_scheduler(reason):
+    """Restart the background scheduler when it has stopped or is stuck in radar."""
+    global _last_restart_at
+    now = datetime.now(timezone.utc)
+    if _last_restart_at is not None:
+        elapsed = (now - _last_restart_at).total_seconds()
+        if elapsed < RADAR_RESTART_COOLDOWN_SECONDS:
+            logger.warning(
+                "Radar scheduler restart suppressed by cooldown: %.0fs remaining.",
+                RADAR_RESTART_COOLDOWN_SECONDS - elapsed,
+            )
+            return False
+
+    try:
+        from . import main as main_module
+
+        old_task = getattr(main_module, "scheduler_task", None)
+        if old_task is not None and not old_task.done():
+            old_task.cancel()
+            try:
+                await asyncio.wait_for(old_task, timeout=5)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                pass
+
+        main_module.scheduler_task = asyncio.create_task(
+            main_module.scheduler(),
+            name="saspro-scheduler",
+        )
+        _last_restart_at = now
+        logger.warning("RADAR WATCHDOG: scheduler restarted | reason=%s", reason)
+        return True
+    except Exception:
+        logger.exception("RADAR WATCHDOG: scheduler restart failed | reason=%s", reason)
+        return False
+
+
 async def radar_health_monitor():
     global _health_alert_active, _last_signature
 
@@ -91,6 +129,9 @@ async def radar_health_monitor():
 
             if issue and signature != _last_signature:
                 logger.error("RADAR HEALTH ALERT: %s", issue)
+                restarted = False
+                if severity == "critical":
+                    restarted = await _restart_scheduler(issue)
                 sent = await _notify_admin(
                     "🚨 <b>SAS PRO | تنبيه صحة الرادار</b>\n\n"
                     f"❌ <b>الحالة:</b> {issue}\n"
