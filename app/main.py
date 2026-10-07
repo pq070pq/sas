@@ -29,6 +29,7 @@ from .timeutil import utcnow, aware
 from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, get_subscription_config, setting_set, setting_get, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings, create_user_channel_invite
 from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
 from .fcc_reviewer import review_stock
+from .shariah import check_shariah
 from .smart_memory import SmartMemory
 
 logger = logging.getLogger(__name__)
@@ -262,6 +263,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     intraday = tech.get("intraday") or {}
     radar_checks = tech.get("radar_checks") or {}
     ai = tech.get("ai_analysis") or {}
+    shariah = tech.get("shariah") or {}
     news_items = tech.get("news_items") or []
     tipranks = tech.get("tipranks_analysis") or {}
 
@@ -375,6 +377,26 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     if holding_horizon:
         summary_lines.append(f"⏱️ <b>مدة الرصد المتوقعة:</b> {_esc(holding_horizon)}")
     add_section(report, "📋 <b>ملخص سريع للمبتدئ</b>", summary_lines)
+
+    if shariah:
+        sh_lines = [
+            f"🕌 <b>الحكم الحالي:</b> {_esc(shariah.get('status_ar') or 'غير واضح / يحتاج تحقق')}",
+            f"📌 <b>الحالة:</b> {_esc(shariah.get('message') or 'لم تتوفر نتيجة موثقة كافية.')}",
+        ]
+        for src in (shariah.get("sources") or []):
+            if not isinstance(src, dict):
+                continue
+            name = src.get("source") or "مصدر"
+            status = src.get("status_ar") or "غير واضح / يحتاج تحقق"
+            if src.get("role") == "مرجع منهجي":
+                sh_lines.append(f"• {_esc(name)}: <b>مرجع منهجي</b>")
+            else:
+                sh_lines.append(f"• {_esc(name)}: <b>{_esc(status)}</b>" + (f" — {_esc(src.get('updated_at'))}" if src.get("updated_at") else ""))
+        ai_sh = shariah.get("ai") or {}
+        if ai_sh.get("summary"):
+            sh_lines += ["", f"🧠 <b>تفسير AI:</b> {_esc(ai_sh.get('summary'))}"]
+        sh_lines += ["", "⛔ <b>شرعية السهم مسؤوليتك — لا يتم اعتماد نتيجة غير موثقة.</b>"]
+        add_section(report, "🕌 <b>نافذة التحقق الشرعي</b>", sh_lines)
 
     if tipranks.get("summary") or ai.get("tipranks_summary"):
         tr_summary = tipranks.get("summary") or ai.get("tipranks_summary")
@@ -1958,6 +1980,16 @@ async def stock_events(symbol: str, _: dict = Depends(require_pro)):
 async def stock_quote(symbol: str, _: dict = Depends(require_pro)):
     return await quote(symbol.upper())
 
+@app.get("/api/stocks/{symbol}/shariah")
+async def stock_shariah(symbol: str, _: dict = Depends(require_pro)):
+    symbol = symbol.upper().strip()
+    try:
+        return await check_shariah(symbol)
+    except Exception as exc:
+        return {"symbol": symbol, "status": "unknown", "status_ar": "غير واضح / يحتاج تحقق",
+                "verified": False, "message": "تعذر التحقق الآن؛ لم يتم تأليف أي نتيجة.",
+                "sources": [], "error": type(exc).__name__}
+
 @app.post("/api/stocks/{symbol}/analyze")
 async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession = Depends(get_session)):
     """تحليل Mini App متعدد الطبقات: البيانات الفنية لا تتوقف بسبب غياب AI أو خبر."""
@@ -1971,7 +2003,23 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
                 cached["quote"] = live_quote
         except Exception:
             pass
+        if not cached.get("sas_pro", {}).get("targets", {}).get("shariah"):
+            try:
+                cached.setdefault("sas_pro", {}).setdefault("targets", {})["shariah"] = await asyncio.wait_for(check_shariah(symbol), timeout=8.0)
+            except Exception:
+                cached.setdefault("sas_pro", {}).setdefault("targets", {})["shariah"] = {
+                    "status": "unknown", "status_ar": "غير واضح / يحتاج تحقق",
+                    "verified": False, "message": "تعذر التحقق الآن؛ لم يتم تأليف أي نتيجة.", "sources": []
+                }
         return cached
+
+    # الشرعية طبقة مستقلة وسريعة؛ فشلها لا يعطل التحليل الفني.
+    try:
+        shariah_result = await asyncio.wait_for(check_shariah(symbol), timeout=10.0)
+    except Exception as exc:
+        shariah_result = {"symbol": symbol, "status": "unknown", "status_ar": "غير واضح / يحتاج تحقق",
+                          "verified": False, "message": "تعذر التحقق الآن؛ لم يتم تأليف أي نتيجة.",
+                          "sources": [], "error": type(exc).__name__}
 
     # PanWatch's optional agent can take longer than the Mini App request window.
     # Keep the SAS/targets/quote path independent: a slow external agent must never
@@ -2128,6 +2176,7 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         tipranks_data["signal"] = analysis_payload.get("tipranks_signal") or "غير واضح"
         targets["tipranks_analysis"] = tipranks_data
     targets["ai_analysis"] = analysis_payload
+    targets["shariah"] = shariah_result
 
     try:
         report = build_report(symbol, q, targets, classification)
