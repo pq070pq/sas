@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 from .market_calendar import market_status
 from .market_brief import publish_market_brief
 from .radar_learning import learn_radar_profile, get_radar_profile
+from .shariah import check_shariah
 from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
@@ -597,6 +598,21 @@ async def stock_radar_cycle():
             reverse=True,
         )
         logger.info("Stock radar scan completed: %d result(s); channel_limit=5; diagnostics=%s", len(rows), diagnostics)
+
+        # تحقق الشرعية لأفضل المرشحين بالتوازي؛ لا يغيّر ترتيب الرادار ولا بوابة السعر.
+        shariah_map = {}
+        sh_rows = rows[:10]
+        sh_results = await asyncio.gather(
+            *(asyncio.wait_for(check_shariah(str(x.get("symbol") or "").upper()), timeout=10.0) for x in sh_rows),
+            return_exceptions=True,
+        )
+        for x, result in zip(sh_rows, sh_results):
+            symbol = str(x.get("symbol") or "").upper()
+            shariah_map[symbol] = result if isinstance(result, dict) else {
+                "status": "unknown", "status_ar": "غير واضح / يحتاج تحقق", "verified": False,
+                "message": "تعذر التحقق الآن؛ لم يتم تأليف أي نتيجة.", "sources": []
+            }
+
         session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
         async with SessionLocal() as db:
@@ -819,6 +835,12 @@ async def stock_radar_cycle():
                 # ثبّت بيانات السوق الأساسية داخل التقرير لكل إشارة، حتى لو لم نستخدم AI.
                 # لا ننشئ float أو "أسهم متاحة" من التخمين؛ نعرض فقط الأسهم القائمة إذا وفرها المصدر.
                 tech.update({
+                    "shariah": shariah_map.get(symbol) or {
+                        "status": "unknown", "status_ar": "غير واضح / يحتاج تحقق",
+                        "verified": False,
+                        "message": "لم تتوفر نتيجة مباشرة؛ لم يتم تأليف حكم.",
+                        "sources": [],
+                    },
                     "volume": row.get("volume"),
                     "dollar_volume": (
                         float(q.get("price") or row.get("live_price") or row.get("price") or 0)
