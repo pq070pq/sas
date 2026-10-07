@@ -110,3 +110,15 @@ jobs:
             fi
 
             echo "✅ OVH deployment smoke test passed."
+
+            # تشخيص حي اختياري: يُفعّل فقط عندما يحتوي Commit على RADAR DIAGNOSTIC.
+            # لا يفشل النشر إذا تعذر الفحص؛ الهدف قراءة عدد المرشحين والفرص الفعلية.
+            if git log -1 --pretty=%s | grep -q "RADAR DIAGNOSTIC"; then
+              echo "===== SAS PRO LIVE RADAR DIAGNOSTIC ====="
+              set +e
+              timeout 180s docker compose exec -T saspro python -c 'import asyncio,json; from app.scanner import scan_us_low_price_stocks; r=asyncio.run(scan_us_low_price_stocks(force_refresh=True)); print(json.dumps({"stocks":[x.get("symbol") for x in r.get("stocks",[])],"diagnostics":r.get("diagnostics",{})},ensure_ascii=False))'
+              radar_rc=$?
+              echo "RADAR_DIAGNOSTIC_RC=$radar_rc"
+              echo "===== END SAS PRO LIVE RADAR DIAGNOSTIC ====="
+              set -e
+            fi
