@@ -1790,7 +1790,7 @@ async def dashboard_home(_: dict = Depends(require_pro)):
     }
 
 @app.get("/api/radar/scan")
-async def radar_scan(_: dict = Depends(require_pro)):
+async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
     from .scanner import scan_us_low_price_stocks
     status = market_status()
     if not stock_radar_enabled():
@@ -1828,7 +1828,7 @@ async def radar_scan(_: dict = Depends(require_pro)):
             "stocks": stocks[:20],
             "diagnostics": {"candidates": 0, "passed": len(stocks[:20]), "filtered": 0, "errors": 0},
         }
-    result = await scan_us_low_price_stocks()
+    result = await scan_us_low_price_stocks(force_refresh=bool(fresh))
     from datetime import datetime, timezone
     return {
         "enabled": True,
