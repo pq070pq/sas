@@ -15,6 +15,7 @@ from .market_calendar import market_status
 from .market_brief import publish_market_brief
 from .radar_learning import learn_radar_profile, get_radar_profile
 from .shariah import check_shariah
+from .maintenance import cleanup_old_data
 from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
@@ -990,10 +991,21 @@ async def scheduler():
     # Some startup cycles can take tens of seconds and must not race with /api/me.
     await asyncio.sleep(60)
     logger.info("SAS PRO initial scheduler grace period completed.")
+    last_cleanup_at = None
     while True:
         cycle_started = utcnow()
         try:
             logger.info("Scheduler cycle started.")
+            if settings.cleanup_enabled and (
+                last_cleanup_at is None
+                or (utcnow() - last_cleanup_at).total_seconds() >= max(1, int(settings.cleanup_interval_hours)) * 3600
+            ):
+                try:
+                    cleanup_stats = await cleanup_old_data()
+                    last_cleanup_at = utcnow()
+                    logger.info("Scheduler: intelligent cleanup completed: %s", cleanup_stats)
+                except Exception:
+                    logger.exception("Scheduler: intelligent cleanup failed; continuing normally.")
             await expiry_cycle()
             logger.info("Scheduler: expiry cycle completed.")
             await evaluate_radar_outcomes()
