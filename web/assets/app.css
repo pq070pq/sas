@@ -1089,3 +1089,13 @@ filter:blur(.2px);
 .terms-admin-main span{margin-top:4px;font-size:9px;font-weight:900}
 .terms-ok{color:#58e6aa}.terms-pending{color:#ffc267}
 @media(max-width:650px){.terms-admin-row{align-items:flex-start}}
+
+
+/* ===== SHARIAH VERIFICATION ===== */
+.stock-shariah{margin:8px 0;padding:7px 9px;border-radius:10px;border:1px solid rgba(255,255,255,.08);font-size:10px;background:rgba(2,12,20,.72)}
+.stock-shariah.sh-ok,.shariah-box.sh-ok{border-color:rgba(25,239,139,.32);background:rgba(25,239,139,.07)}
+.stock-shariah.sh-bad,.shariah-box.sh-bad{border-color:rgba(255,83,83,.32);background:rgba(255,83,83,.07)}
+.stock-shariah.sh-unknown,.shariah-box.sh-unknown{border-color:rgba(255,194,103,.28);background:rgba(255,194,103,.06)}
+.shariah-box{margin:10px 0;padding:13px;border-radius:15px;border:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:7px}
+.shariah-box>div{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.shariah-box>div b{font-size:12px}.shariah-box>div strong{font-size:12px}.shariah-box p{margin:0;font-size:10px;line-height:1.65;color:#b9d0d7}.shariah-box small{font-size:9px;color:#8faab2}.shariah-box em{font-size:9px;color:#a7bcc3;font-style:normal;margin-top:3px}
