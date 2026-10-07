@@ -110,6 +110,29 @@ class Setting(Base):
     value: Mapped[str] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
+class RadarRun(Base):
+    __tablename__ = "radar_runs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    session_date: Mapped[str] = mapped_column(String(16), index=True)
+    session: Mapped[str] = mapped_column(String(24), index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    duration_seconds: Mapped[float | None] = mapped_column()
+    status: Mapped[str] = mapped_column(String(24), index=True)
+    candidates: Mapped[int] = mapped_column(Integer, default=0)
+    shortlist: Mapped[int] = mapped_column(Integer, default=0)
+    passed: Mapped[int] = mapped_column(Integer, default=0)
+    filtered: Mapped[int] = mapped_column(Integer, default=0)
+    errors: Mapped[int] = mapped_column(Integer, default=0)
+    channel_gate_passed: Mapped[int] = mapped_column(Integer, default=0)
+    channel_sent: Mapped[int] = mapped_column(Integer, default=0)
+    channel_app_only: Mapped[int] = mapped_column(Integer, default=0)
+    channel_gate_rejections: Mapped[str] = mapped_column(Text, default="{}")
+    top_opportunities: Mapped[str] = mapped_column(Text, default="[]")
+    diagnostics: Mapped[str] = mapped_column(Text, default="{}")
+    error_type: Mapped[str | None] = mapped_column(String(128))
+    error_message: Mapped[str | None] = mapped_column(Text)
+
 class RadarSignal(Base):
     __tablename__ = "radar_signals"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
