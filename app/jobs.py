@@ -770,6 +770,21 @@ async def stock_radar_cycle():
                         "news_items": row.get("news_items") or [],
                     }
 
+                # ثبّت بيانات السوق الأساسية داخل التقرير لكل إشارة، حتى لو لم نستخدم AI.
+                # لا ننشئ float أو "أسهم متاحة" من التخمين؛ نعرض فقط الأسهم القائمة إذا وفرها المصدر.
+                tech.update({
+                    "volume": row.get("volume"),
+                    "dollar_volume": (
+                        float(q.get("price") or row.get("live_price") or row.get("price") or 0)
+                        * float(row.get("volume") or 0)
+                        if float(q.get("price") or row.get("live_price") or row.get("price") or 0) > 0
+                        and float(row.get("volume") or 0) > 0
+                        else None
+                    ),
+                    "exchange": row.get("exchange") or q.get("exchange"),
+                    "live_price_source": q.get("source") or row.get("live_price_source"),
+                    "fundamentals": tech.get("fundamentals") or {},
+                })
                 report = build_report(symbol, q, tech, classification)
 
                 try:
