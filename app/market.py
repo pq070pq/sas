@@ -495,6 +495,57 @@ async def _public_macro_quote(symbol: str):
 
     return None
 
+async def _yahoo_index_quote(symbol: str):
+    """Last-resort US index quote during an active trading session only.
+
+    Disabled on weekends and US market holidays. Used only after configured
+    market-data providers fail.
+    """
+    if symbol not in {"SPX", "IXIC", "DJI"}:
+        return None
+    try:
+        from .market_calendar import market_status
+        status = market_status()
+        if status.get("holiday") or status.get("session") not in {"premarket", "main", "afterhours"}:
+            return None
+    except Exception:
+        return None
+
+    mapped = {"SPX": "^GSPC", "IXIC": "^IXIC", "DJI": "^DJI"}[symbol]
+    try:
+        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+            r = await client.get(
+                "https://query1.finance.yahoo.com/v8/finance/chart/" + mapped,
+                params={"range": "1d", "interval": "1m", "includePrePost": "true"},
+                headers={"User-Agent": "Mozilla/5.0 SAS-PRO/2.1"},
+            )
+            r.raise_for_status()
+            payload = r.json()
+            result = ((payload.get("chart") or {}).get("result") or [None])[0]
+            meta = (result or {}).get("meta") or {}
+            price = meta.get("regularMarketPrice")
+            previous = meta.get("previousClose")
+            if not _valid_price(price):
+                closes = (((result or {}).get("indicators") or {}).get("quote") or [{}])[0].get("close") or []
+                valid = [x for x in closes if _valid_price(x)]
+                price = valid[-1] if valid else None
+            if not _valid_price(price):
+                return None
+            change_pct = None
+            if _valid_price(previous) and float(previous) != 0:
+                change_pct = (float(price) - float(previous)) / float(previous) * 100
+            return {
+                "symbol": symbol,
+                "price": float(price),
+                "change_pct": change_pct,
+                "source": "Yahoo Chart Fallback",
+                "is_extended_hours": False,
+                "datetime": meta.get("regularMarketTime"),
+            }
+    except Exception as exc:
+        logger.info("YAHOO_INDEX_FALLBACK_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+        return None
+
 async def macro_quote(symbol: str):
     """Holiday/macro quote with independent fallbacks and automatic diagnostics."""
     diagnostics = []
@@ -550,6 +601,15 @@ async def macro_quote(symbol: str):
         diagnostics.append("Stooq:no_data")
     except Exception as exc:
         diagnostics.append(f"Stooq:{type(exc).__name__}")
+
+    # Active-session fallback only; never used on weekends/US holidays.
+    try:
+        fallback = await _yahoo_index_quote(symbol)
+        if fallback:
+            return fallback
+        diagnostics.append("YahooIndex:no_data")
+    except Exception as exc:
+        diagnostics.append(f"YahooIndex:{type(exc).__name__}")
 
     # Final keyless fallback for the three cash indices. This is intentionally
     # after all configured providers so it cannot mask a live/provider quote.
