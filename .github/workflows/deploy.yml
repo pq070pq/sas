@@ -33,9 +33,9 @@ jobs:
           shariah = Path("app/shariah.py").read_text(encoding="utf-8")
           required = [
               "def _parse_yaaqeen_html",
-              'r"غير\\s+شرعي"',
-              'r"محل\\s+نظر"',
-              'r"شرعي"',
+              '"غير شرعي"',
+              '"محل نظر"',
+              '"شرعي"',
           ]
           missing = [item for item in required if item not in shariah]
           if missing:
