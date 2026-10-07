@@ -1865,7 +1865,12 @@ async def _get_intraday_liquidity(symbols):
     return out
 
 
-async def scan_us_low_price_stocks():
+async def scan_us_low_price_stocks(force_refresh: bool = False):
+    # الطلب اليدوي من Mini App يبدأ دورة رصد جديدة فعلًا ولا يعتمد على
+    # مؤشرات اللحظي المخزنة من الدورة السابقة.
+    if force_refresh:
+        _intraday_cache.clear()
+        logger.info("RADAR_FORCE_REFRESH requested: intraday cache cleared")
     # لا نعيد ضبط حالة استنفاد الحصة كل 30 دقيقة؛ عند 429 يتوقف Twelve Data
     # حتى إعادة تشغيل الخدمة، بينما يستمر الرادار بالمصادر الأساسية.
     candidates = await discover_low_price_stocks()
