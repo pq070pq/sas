@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
-from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, AccessRequest, Setting, Invite, AdminRole, get_session, init_db
+from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, RadarRun, AccessRequest, Setting, Invite, AdminRole, get_session, init_db
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
@@ -1099,6 +1099,52 @@ async def admin_deploy_status(user=Depends(telegram_user)):
         }
     except Exception as exc:
         return {"ok": False, "status": "unknown", "message": f"تعذر قراءة حالة GitHub Actions: {exc}"}
+
+@app.get("/api/admin/radar/last")
+async def admin_radar_last(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    await require_admin_permission(user, "settings")
+    run = (await db.execute(
+        select(RadarRun).order_by(RadarRun.started_at.desc()).limit(1)
+    )).scalars().first()
+    if not run:
+        return {"ok": True, "found": False, "message": "لا توجد دورة رادار مسجلة بعد."}
+
+    def loads(value, fallback):
+        try:
+            return json.loads(value or "")
+        except Exception:
+            return fallback
+
+    return {
+        "ok": True,
+        "found": True,
+        "id": run.id,
+        "session_date": run.session_date,
+        "session": run.session,
+        "started_at": aware(run.started_at).isoformat(),
+        "finished_at": aware(run.finished_at).isoformat() if run.finished_at else None,
+        "duration_seconds": run.duration_seconds,
+        "status": run.status,
+        "scanner": {
+            "candidates": run.candidates,
+            "shortlist": run.shortlist,
+            "passed": run.passed,
+            "filtered": run.filtered,
+            "errors": run.errors,
+        },
+        "channel": {
+            "gate_passed": run.channel_gate_passed,
+            "sent": run.channel_sent,
+            "app_only": run.channel_app_only,
+            "rejections": loads(run.channel_gate_rejections, {}),
+        },
+        "top_opportunities": loads(run.top_opportunities, []),
+        "diagnostics": loads(run.diagnostics, {}),
+        "error": {
+            "type": run.error_type,
+            "message": run.error_message,
+        } if run.error_type or run.error_message else None,
+    }
 
 @app.get("/api/admin/overview")
 async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
