@@ -415,12 +415,9 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
         return False, "تناقض هابط قوي"
     if classification.get("chase_risk"):
         return False, "مطاردة سعرية"
-    # A technically incomplete/zero-score analysis is never a Telegram signal.
-    # It remains a watch candidate until enough real OHLCV is available.
-    if float(classification.get("score") or 0) <= 0:
-        return False, "التحليل الفني غير مكتمل"
-    if str(classification.get("behavior") or "").strip() == "غير واضح":
-        return False, "السلوك السعري غير واضح"
+    # لا نكرر قرار الرادار هنا. scanner.py هو صاحب قرار صلاحية الفرصة.
+    # بوابة القناة تتحقق فقط من سلامة بيانات النشر ومخاطر الإرسال، حتى لا
+    # تظهر الفرصة في الرادار ثم تختفي بسبب فلتر ثانٍ مختلف.
     # محرك الرادار هو صاحب قرار اكتشاف الفرصة. لا نعيد هنا تطبيق مرشح RVOL
     # والحركة للمرة الثانية، لأن ذلك كان يجعل السهم يظهر في نتائج الرادار ثم
     # يختفي قبل القناة. هذه البوابة مسؤولة عن سلامة النشر فقط:
@@ -559,9 +556,10 @@ async def stock_radar_cycle():
             await send_message(settings.telegram_channel_id, RADAR_STATUS)
             _radar_open_announced = True
             logger.info("Stock radar status message sent.")
-        except Exception:
-            logger.exception("Stock radar status message failed.")
-            return
+        except Exception as exc:
+            # فشل رسالة الحالة لا يجب أن يوقف دورة الرادار أو يمنع إرسال الفرص.
+            # نكمل الفحص، وستُسجّل مشكلة الإرسال إذا فشل تقرير الفرصة نفسه.
+            logger.exception("Stock radar status message failed; continuing radar cycle: %s", exc)
 
     try:
         from .scanner import scan_us_low_price_stocks
