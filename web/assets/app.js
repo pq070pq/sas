@@ -492,7 +492,7 @@ async function analyzeSymbol(){
  const q=(Number(qRaw?.price)>0||Number.isFinite(Number(qRaw?.change_pct)))
    ? qRaw
    : Object.assign({symbol},miniQuote,{source:miniQuote.source||'SAS PRO OHLCV'});
- const chart=chartR.status==='fulfilled'?chartR.value:{candles:[]};
+ const chart=chartR.status==='fulfilled'&&chartR.value&&typeof chartR.value==='object'?chartR.value:{candles:[],available:false};
  const news=newsR.status==='fulfilled'&&Array.isArray(newsR.value)?newsR.value:[];
  const analysis=analysisR.status==='fulfilled'?analysisR.value:null;
  const shariah=shariahR.status==='fulfilled'?shariahR.value:(analysis?.sas_pro?.targets?.shariah||null);
@@ -548,7 +548,7 @@ const miniAnalysisHtml=
    '<div class="quote-line"><strong>&#36;'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
    notice+
    miniAnalysisHtml+
-   '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
+   '<div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">📊 البيانات الفنية التاريخية غير متاحة حاليًا<br><small>لم يتم اختلاق هدف أو وقف أو إشارة. سيتم إظهارها عند توفر بيانات الشموع والحجم.</small></div>':'<canvas id="stockCanvas" height="230"></canvas>')+'</div>'+
    '<div class="level-grid"><div><small>🟦 الدخول</small><b>&#36;'+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>&#36;'+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>&#36;'+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+rr+'</b></div></div>'+
    '<div class="ai-box"><b>'+(aiAvailable?'⏳ زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+
    '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
@@ -612,7 +612,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData){
  '</div>'+
  '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
  '<div class="news-list">'+(news.length?news.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'')+'</div>';
- drawChart(Array.isArray(chart?.candles)?chart.candles:[]);
+ if(chart?.available!==false) drawChart(Array.isArray(chart?.candles)?chart.candles:[]);
 }
 function drawChart(candles){
  const canvas=document.getElementById('stockCanvas'); if(!canvas)return;
