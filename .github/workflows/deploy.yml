@@ -14,6 +14,36 @@ jobs:
   deploy:
     runs-on: ubuntu-22.04
     steps:
+      - name: Validate Python before deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+
+          files = list(Path("app").rglob("*.py"))
+          if not files:
+              raise SystemExit("No Python application files found")
+
+          for path in files:
+              ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+
+          shariah = Path("app/shariah.py").read_text(encoding="utf-8")
+          required = [
+              "def _parse_yaaqeen_html",
+              'r"غير\\s+شرعي"',
+              'r"محل\\s+نظر"',
+              'r"شرعي"',
+          ]
+          missing = [item for item in required if item not in shariah]
+          if missing:
+              raise SystemExit("Shariah parser regression: " + ", ".join(missing))
+
+          print(f"Pre-deploy validation passed: {len(files)} Python files parsed successfully.")
+          PY
+
       - name: Prepare OVH SSH key
         shell: bash
         env:
