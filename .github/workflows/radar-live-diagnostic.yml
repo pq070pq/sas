@@ -1,0 +1,36 @@
+name: SAS PRO Radar Live Diagnostic
+
+on:
+  push:
+    paths:
+      - ".github/workflows/radar-live-diagnostic.yml"
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Prepare OVH SSH key
+        shell: bash
+        env:
+          OVH_SSH_KEY_B64: ${{ secrets.OVH_SSH_KEY_B64 }}
+        run: |
+          set -e
+          key_file="$RUNNER_TEMP/ovh_key"
+          printf '%s' "$OVH_SSH_KEY_B64" | base64 --decode > "$key_file"
+          chmod 600 "$key_file"
+          ssh-keygen -y -f "$key_file" >/dev/null
+
+      - name: Run live radar
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.OVH_HOST }}
+          username: ${{ secrets.OVH_USER || 'root' }}
+          key_path: ${{ runner.temp }}/ovh_key
+          port: ${{ secrets.OVH_PORT || '22' }}
+          command_timeout: 8m
+          script: |
+            set -e
+            cd /opt/saspro
+            echo "===== SAS PRO LIVE RADAR ====="
+            timeout 300s docker compose exec -T saspro python -c 'import asyncio,json; from app.scanner import scan_us_low_price_stocks; r=asyncio.run(scan_us_low_price_stocks(force_refresh=True)); print(json.dumps({"stocks":[x.get("symbol") for x in r.get("stocks",[])],"count":len(r.get("stocks",[])),"diagnostics":r.get("diagnostics",{})},ensure_ascii=False))'
+            echo "===== END SAS PRO LIVE RADAR ====="
