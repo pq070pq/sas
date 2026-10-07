@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     finnhub_api_keys: str = ""
     fmp_api_key: str = ""
     fmp_api_keys: str = ""
+    # Optional licensed market-data provider. Disabled unless explicitly configured.
+    licensed_market_data_url: str = ""
+    licensed_market_data_api_key: str = ""
+    licensed_market_data_timeout_seconds: int = 10
     panwatch_base_url: str = "http://panwatch:8000"
     panwatch_timeout_seconds: int = 180
     pro_monthly_stars: int = 2250
