@@ -110,3 +110,6 @@ GET /health
 ## الترخيص
 
 PanWatch مشروع منفصل بترخيصه الخاص. تتم مزامنته كما هو ويجب الاحتفاظ بإشعار حقوق النشر وملف الترخيص الأصلي.
+
+
+<!-- RADAR DIAGNOSTIC trigger: performance tuning validation -->
