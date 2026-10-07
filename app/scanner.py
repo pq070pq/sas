@@ -828,14 +828,25 @@ async def discover_low_price_stocks():
             abs(_f(x.get("change_pct"))),
         ),
         reverse=True,
-    )[:settings.radar_staging_limit]
-    semaphore = asyncio.Semaphore(8)
+    )[:min(settings.radar_staging_limit, 300)]
+    # مرحلة التأكيد اليومية كانت نقطة الاختناق: 500 سهم × طلبات OHLCV
+    # بتزامن 8 كانت تجعل دورة الرادار تتجاوز 10 دقائق. نستخدم عميل HTTP
+    # مشتركًا وتزامنًا أعلى مع مهلة مستقلة لكل سهم حتى لا يحتجز سهم واحد
+    # الدورة كلها.
+    semaphore = asyncio.Semaphore(20)
+    analysis_timeout = 15
 
     async def stage(row):
         symbol = str(row.get("symbol") or "").upper()
         async with semaphore:
-            async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 20)) as client:
-                candles, source = await _get_analysis_candles(client, symbol, allow_twelve_fallback=False)
+            try:
+                async with asyncio.timeout(analysis_timeout):
+                    candles, source = await _get_analysis_candles(
+                        client, symbol, allow_twelve_fallback=False
+                    )
+            except (asyncio.TimeoutError, httpx.HTTPError, Exception):
+                logger.warning("RADAR_STAGE_TIMEOUT_OR_ERROR symbol=%s", symbol)
+                return None
         if len(candles) < 30:
             return None
 
@@ -910,8 +921,13 @@ async def discover_low_price_stocks():
         })
         return result
 
-    staged_rows = await asyncio.gather(*(stage(row) for row in candidates), return_exceptions=False)
+    async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 20)) as client:
+        staged_rows = await asyncio.gather(*(stage(row) for row in candidates), return_exceptions=False)
     accepted = [x for x in staged_rows if x]
+    logger.info(
+        "RADAR_MOMENTUM_STAGE candidates=%d accepted=%d staging_limit=%d",
+        len(candidates), len(accepted), min(settings.radar_staging_limit, 300),
+    )
 
     # لا نسمح بانهيار الرادار إلى صفر فقط لأن RVOL/بنية الشموع اليومية
     # لم تتأكد بعد. إذا لم ينجح مسار التأكيد الكامل، نحافظ على أفضل
