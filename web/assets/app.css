@@ -1116,3 +1116,8 @@ filter:blur(.2px);
 .shariah-source-row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;font-size:13px}
 .shariah-search-note{margin-top:12px;font-size:12px;opacity:.75;line-height:1.7}
 .shariah-search-btn{white-space:nowrap}
+
+.shariah-source-row>span{display:flex;flex-direction:column;gap:3px;text-align:right}
+.shariah-source-row>span small{font-size:11px;line-height:1.55;opacity:.72;font-weight:400}
+.shariah-help{display:flex;flex-direction:column;gap:7px;margin:12px 0;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(91,211,255,.12);font-size:12px;line-height:1.65}
+.shariah-help b{font-size:13px}
