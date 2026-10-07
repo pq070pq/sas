@@ -40,10 +40,12 @@ async def analyze(symbol: str):
 
 
 async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
-    """Return observed OHLCV candles for the Mini App terminal chart."""
+    """Return observed OHLCV candles with explicit source diagnostics."""
     base = settings.panwatch_base_url.rstrip("/")
     async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
         rows = []
+        source = "unavailable"
+        attempts = []
         try:
             r = await client.get(
                 f"{base}/api/klines/{symbol.upper()}",
@@ -53,8 +55,10 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
             payload = r.json()
             data = payload.get("data") or payload
             rows = data.get("klines", []) if isinstance(data, dict) else []
-        except Exception:
-            pass
+            if len(rows) >= 20: source = "PanWatch"
+            else: attempts.append("PanWatch:insufficient")
+        except Exception as exc:
+            attempts.append(f"PanWatch:{type(exc).__name__}")
 
         if len(rows) < 20 and settings.twelve_data_api_key:
             try:
@@ -70,10 +74,14 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
                 )
                 r.raise_for_status()
                 rows = list(reversed((r.json()).get("values") or []))
-            except Exception:
-                pass
+            except Exception as exc:
+                attempts.append(f"TwelveData:{type(exc).__name__}")
+            if len(rows) >= 20: source = "Twelve Data"
+            elif len(rows): attempts.append("TwelveData:insufficient")
         if len(rows) < 20:
             rows = await _stooq_ohlcv(symbol, days)
+            if len(rows) >= 20: source = "Stooq"
+            else: attempts.append("Stooq:insufficient")
     candles = []
     for row in rows:
         try:
@@ -85,7 +93,7 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
             })
         except (TypeError, ValueError, KeyError):
             continue
-    return candles
+    return {"candles": candles, "source": source, "available": len(candles) >= 20, "diagnostic": " | ".join(attempts) if attempts else None}
 
 
 async def technical_targets(symbol: str):
