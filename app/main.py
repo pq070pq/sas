@@ -321,6 +321,17 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     targets = [num(x) for x in (tech.get("targets") or [])]
     targets = [x for x in targets if x is not None and x > 0]
 
+    # قراءة فنية مفهومة للمستخدم، مشتقة من المستويات الفعلية ولا تنشئ سعرًا جديدًا.
+    target1 = targets[0] if targets else None
+    if rr is not None and rr < 1:
+        recommendation = '⛔ لا دخول حاليًا — نسبة العائد للمخاطرة ضعيفة.'
+    elif change is not None and change > 10:
+        recommendation = '🟡 مراقبة وعدم مطاردة الارتفاع؛ الدخول مشروط بثبات السعر وتأكيد السيولة.'
+    elif score is not None and score >= 70:
+        recommendation = '🟢 دخول مشروط بعد تأكيد الاختراق والسيولة.'
+    else:
+        recommendation = '🟡 مراقبة؛ الدخول فقط بعد تأكيد الحركة والسيولة.'
+
     current_stop = num(getattr(outcome, "current_stop", None)) if outcome is not None else None
     if current_stop is None:
         current_stop = stop
@@ -377,6 +388,11 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     if holding_horizon:
         summary_lines.append(f"⏱️ <b>مدة الرصد المتوقعة:</b> {_esc(holding_horizon)}")
     add_section(report, "📋 <b>ملخص سريع للمبتدئ</b>", summary_lines)
+
+    add_section(report, '📌 <b>القراءة الفنية الواضحة</b>', [
+        f'🧭 <b>الخلاصة:</b> {_esc(recommendation)}',
+        '⚠️ لا تتم مطاردة السهم بعد ارتفاع حاد؛ يُشترط تأكيد السعر والسيولة قبل أي قرار.',
+    ])
 
     if shariah:
         sh_lines = [
