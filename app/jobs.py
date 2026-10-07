@@ -899,7 +899,10 @@ async def stock_radar_cycle():
                 "score": x.get("opening_opportunity_score"),
                 "change_pct": x.get("live_change_pct") if x.get("live_change_pct") is not None else x.get("change_pct"),
                 "rvol": (x.get("classification") or {}).get("rvol"),
+                "quote_price": x.get("live_price"),
+                "quote_source": x.get("live_price_source"),
                 "channel_gate": (x.get("channel_gate") or {}).get("passed"),
+                "channel_gate_reason": (x.get("channel_gate") or {}).get("reason"),
                 "delivery": (x.get("channel_delivery") or {}).get("published"),
             }
             for x in rows[:10]
