@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 from .config import settings
 from .panwatch import technical_targets, _stooq_ohlcv
-from .news import company_news, select_catalyst, earnings_calendar_window
+from .news import company_news, select_catalyst, score_catalyst, earnings_calendar_window
 from .market import quote
 from .twelve_guard import call as twelve_call
 from .smart_memory import SmartMemory
@@ -2384,6 +2384,8 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
                     "catalyst": bool(news),
                     "news_count": len(news) if isinstance(news, list) else 0,
                     "catalyst_news": select_catalyst(news),
+                    "catalyst_score": (score_catalyst(news) or {}).get("score", 0),
+                    "catalyst_signal": score_catalyst(news) or None,
                     "news_items": [
                         {
                             "headline": str(item.get("headline") or "").strip(),
@@ -2467,7 +2469,9 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
         fib_points = min(10, max(0, fib_score))
         structure_points = min(10, max(0, structure_score / 10))
         price_points = 5 if 0.50 <= price <= 10 else 2
-        return intraday_bonus + liquidity_points + volume_points + move_points + fib_points + structure_points + price_points
+        catalyst_score = _f(item.get("catalyst_score"), 0)
+        catalyst_points = min(20, max(0, (catalyst_score - 40) / 3))
+        return intraday_bonus + liquidity_points + volume_points + move_points + fib_points + structure_points + price_points + catalyst_points
 
     for item in results:
         item["opening_opportunity_score"] = round(_opening_opportunity_score(item), 1)
