@@ -522,6 +522,59 @@ async def _apply_daily_momentum_filter(candidates):
     }
 
 
+async def _discover_licensed_market_data(client):
+    """Optional adapter for a licensed market-data feed.
+
+    The provider must be explicitly configured through LICENSED_MARKET_DATA_URL
+    and LICENSED_MARKET_DATA_API_KEY. Expected response: a JSON list of rows,
+    or {"data": [...]} where each row contains symbol, price, volume and
+    optionally name, change_pct, exchange and market_cap.
+    No web scraping is performed here.
+    """
+    url = str(getattr(settings, "licensed_market_data_url", "") or "").strip()
+    api_key = str(getattr(settings, "licensed_market_data_api_key", "") or "").strip()
+    if not url or not api_key:
+        return []
+    try:
+        r = await client.get(
+            url,
+            headers={"Authorization": f"Bearer {api_key}", "Accept": "application/json"},
+            timeout=max(3, int(getattr(settings, "licensed_market_data_timeout_seconds", 10))),
+            params={"market": "US", "asset_type": "stock"},
+        )
+        r.raise_for_status()
+        payload = r.json()
+        rows = payload.get("data") if isinstance(payload, dict) else payload
+        if not isinstance(rows, list):
+            return []
+    except Exception as exc:
+        logger.warning("LICENSED_MARKET_DATA_FAILED error=%s", type(exc).__name__)
+        return []
+
+    out = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        symbol = str(row.get("symbol") or row.get("ticker") or "").upper().strip()
+        price = _f(row.get("price") if row.get("price") is not None else row.get("last"), 0)
+        volume = _f(row.get("volume") if row.get("volume") is not None else row.get("day_volume"), 0)
+        if not symbol or price <= 0 or volume <= 0 or not (MIN_PRICE <= price <= MAX_PRICE):
+            continue
+        exchange = _normalize_exchange(row.get("exchange") or row.get("mic_code"))
+        if exchange not in ALLOWED_EXCHANGES:
+            exchange = "US"
+        out.append({
+            "symbol": symbol,
+            "name": row.get("name") or row.get("company_name") or symbol,
+            "price": price,
+            "change_pct": _f(row.get("change_pct") if row.get("change_pct") is not None else row.get("percent_change"), 0),
+            "volume": volume,
+            "market_cap": _f(row.get("market_cap"), 0),
+            "exchange": exchange,
+            "source": "Licensed Market Data",
+        })
+    return out
+
 async def _discover_us_exchanges(client):
     """Public exchange screener used as the broad, keyless radar universe."""
     out = []
@@ -700,7 +753,7 @@ async def discover_low_price_stocks():
       4) high-dollar-volume names.
     Detailed OHLCV confirmation happens after staging.
     """
-    source_names = ("nasdaq", "openterminal", "twelvedata", "panwatch")
+    source_names = ("nasdaq", "openterminal", "twelvedata", "panwatch", "licensed")
     source_counts = {name: 0 for name in source_names}
     source_errors = {}
 
@@ -710,6 +763,7 @@ async def discover_low_price_stocks():
             _discover_openterminal(client),
             _discover_twelvedata(client),
             _discover_panwatch(client),
+            _discover_licensed_market_data(client),
             return_exceptions=True,
         )
 
