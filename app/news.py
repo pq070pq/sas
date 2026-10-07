@@ -211,6 +211,66 @@ def select_catalyst(news, max_age_hours: int = 48):
     return candidates[0][1] if candidates else None
 
 
+
+_CATALYST_RULES = {
+    "استحواذ/اندماج": (30, ("acquisition", "acquire", "acquired", "merger", "merges", "buyout")),
+    "عقد/شراكة": (24, ("contract", "agreement", "partnership", "strategic partnership", "deal")),
+    "FDA/تنظيم": (28, ("fda", "approval", "approved", "clearance", "clinical trial", "regulatory")),
+    "نتائج/توجيهات": (20, ("earnings", "revenue", "guidance", "financial results", "profit")),
+    "تمويل/طرح": (-12, ("offering", "public offering", "private placement", "registered direct", "dilution")),
+    "إدراج/ناسداك": (16, ("nasdaq compliance", "minimum bid", "listing", "delisting")),
+    "منتج/تقنية": (18, ("launches", "launch", "new product", "technology", "ai", "patent")),
+    "تقسيم أسهم": (8, ("stock split", "reverse stock split", "share consolidation")),
+}
+
+def score_catalyst(news, max_age_hours: int = 48):
+    """Rank recent headlines by materiality, recency and directional language.
+    This is an evidence score, not a claim that the headline caused the move.
+    """
+    now = datetime.now(timezone.utc)
+    best = None
+    for item in news or []:
+        headline = str(item.get("headline") or "").strip()
+        if not headline:
+            continue
+        published = _safe_timestamp(item.get("datetime"))
+        if not published:
+            continue
+        age = (now - published).total_seconds() / 3600
+        if age < -1 or age > max_age_hours:
+            continue
+        text = headline.lower()
+        points = 0
+        categories = []
+        for label, (weight, terms) in _CATALYST_RULES.items():
+            if any(term in text for term in terms):
+                points += weight
+                categories.append(label)
+        if not categories:
+            points = 8
+        bullish_terms = ("beats", "raises", "record", "wins", "approved", "approval", "strong", "surges", "growth", "contract", "partnership")
+        bearish_terms = ("miss", "cuts", "warning", "lawsuit", "investigation", "offering", "dilution", "delist", "bankruptcy")
+        if any(term in text for term in bullish_terms):
+            points += 8
+        if any(term in text for term in bearish_terms):
+            points -= 10
+        recency_bonus = max(0, 15 - int(age / 4))
+        score = max(0, min(100, 40 + points + recency_bonus))
+        candidate = {
+            "score": score,
+            "direction": "إيجابي" if points > 5 else "سلبي" if points < -5 else "محايد",
+            "impact": "قوي" if score >= 75 else "متوسط" if score >= 55 else "ضعيف",
+            "categories": categories[:3],
+            "headline": headline,
+            "source": str(item.get("source") or "News"),
+            "url": str(item.get("url") or ""),
+            "published_at": published.isoformat(),
+            "age_hours": round(max(0, age), 1),
+        }
+        if best is None or candidate["score"] > best["score"]:
+            best = candidate
+    return best
+
 async def corporate_events(symbol: str):
     """Structured corporate events plus recent material-event headlines."""
     results = {
