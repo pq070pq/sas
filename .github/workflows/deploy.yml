@@ -70,6 +70,10 @@ jobs:
             set -e
             export TWELVE_DATA_API_KEY="${{ secrets.TWELVE_DATA_API_KEY }}"
             cd /opt/saspro
+            # إزالة قفل Git عالق من نشر سابق؛ النشر نفسه محمي بـ concurrency ولا توجد عملية Git متزامنة مقصودة.
+            if [ -f .git/index.lock ]; then
+              rm -f .git/index.lock
+            fi
             git fetch origin main
             git reset --hard origin/main
             # لا نعيد بناء PanWatch مع كل تحديث لـ SAS PRO؛ هذا كان يطيل النشر
