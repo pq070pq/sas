@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     market_brief_enabled: bool = True
     market_brief_window_minutes: int = 65
     radar_interval_minutes: int = 30
-    radar_staging_limit: int = 150
+    radar_staging_limit: int = 60
     radar_shortlist_limit: int = 60
     twelve_data_scan_fallback_symbols: int = 3
     twelve_data_intraday_symbols: int = 2
