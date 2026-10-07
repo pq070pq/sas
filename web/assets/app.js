@@ -729,8 +729,9 @@ function renderAdminHealth(items){
  }
  summary.innerHTML='<div class="admin-system-bad '+(bad?'critical':'warning')+'"><b>'+(bad?'🔴 يوجد عطل يحتاج انتباهك':'🟠 يوجد تنبيه يحتاج المراجعة')+'</b><small>'+bad+' عطل • '+warn+' تنبيه</small></div>';
  list.innerHTML=items.map(x=>{
-   const cls=x.level==='error'?'error':'warn';
-   return '<div class="admin-health-row '+cls+'"><span>'+(x.level==='error'?'🔴':'🟠')+'</span><div><b>'+esc(x.title)+'</b><small>'+esc(x.message)+'</small></div></div>';
+   const cls=x.level==='error'?'error':(x.level==='warn'?'warn':'ok');
+   const icon=x.level==='error'?'🔴':(x.level==='warn'?'🟠':'🟢');
+   return '<div class="admin-health-row '+cls+'"><span>'+icon+'</span><div><b>'+esc(x.title)+'</b><small>'+esc(x.message)+'</small></div></div>';
  }).join('');
 }
 
@@ -744,9 +745,10 @@ async function checkAdminHealth(){
    api('/api/market/radar-status'),
    api('/api/dashboard/home'),
    api('/api/market/ticker'),
-   api('/api/admin/deploy-status')
+   api('/api/admin/deploy-status'),
+   api('/api/admin/radar/last')
   ]);
-  const health=results[0], market=results[1], home=results[2], ticker=results[3], deploy=results[4];
+  const health=results[0], market=results[1], home=results[2], ticker=results[3], deploy=results[4], radar=results[5];
   if(health.status!=='fulfilled' || !health.value?.ok)
    items.push({level:'error',title:'خادم SAS PRO',message:'الخادم لا يستجيب بشكل سليم.'});
   if(market.status!=='fulfilled')
@@ -773,6 +775,26 @@ async function checkAdminHealth(){
    const d=deploy.value||{};
    if(d.conclusion==='failure')
     items.push({level:'error',title:'آخر نشر إلى OVH',message:'آخر عملية نشر فشلت. راجع قسم النشر لمعرفة رقم التشغيل والـ Commit.'});
+  }
+  if(radar.status!=='fulfilled'){
+   items.push({level:'warn',title:'سجل دورة الرادار',message:'تعذر قراءة آخر دورة للرادار من قاعدة التشغيل.'});
+  }else{
+   const r=radar.value||{};
+   if(!r.found){
+    items.push({level:'warn',title:'سجل دورة الرادار',message:'لا توجد دورة رادار مسجلة بعد.'});
+   }else{
+    const s=r.scanner||{}, ch=r.channel||{};
+    const when=r.started_at?new Date(r.started_at).toLocaleTimeString('ar-SA'):'—';
+    if(r.status==='failed'){
+      items.push({level:'error',title:'آخر دورة رادار فشلت',message:(r.error?.type||'خطأ غير معروف')+' — '+(r.error?.message||'بدون رسالة')});
+    }else if(r.status==='success'){
+      const gate=Number(ch.gate_passed||0), sent=Number(ch.sent||0);
+      const best=(r.top_opportunities||[]).slice(0,3).map(x=>x.symbol).filter(Boolean).join('، ')||'لا توجد';
+      items.push({level:'info',title:'آخر دورة رادار — '+when,message:'مرشحون '+Number(s.candidates||0)+' • shortlist '+Number(s.shortlist||0)+' • اجتازوا الرادار '+Number(s.passed||0)+' • بوابة القناة '+gate+' • أُرسل '+sent+' • أفضل المرشحين: '+best});
+    }else{
+      items.push({level:'warn',title:'آخر دورة رادار',message:'الحالة الحالية: '+String(r.status||'غير معروفة')});
+    }
+   }
   }
   renderAdminHealth(items);
  }catch(e){
