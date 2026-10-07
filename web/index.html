@@ -72,7 +72,7 @@
     </nav>
     <main class="terminal-main">
       <section id="tab-dashboard" class="terminal-tab active">
-        <div class="terminal-hero"><div><span class="eyebrow">SAS PRO RADAR</span><h1 id="terminalGreeting">محطة الرصد الذكية</h1><p id="radarStatusText">جاري التحقق من حالة السوق والرصد...</p></div><button class="primary-btn" onclick="runRadar()">📡 فتح بيانات الرادار</button></div>
+        <div class="terminal-hero"><div><span class="eyebrow">SAS PRO RADAR</span><h1 id="terminalGreeting">محطة الرصد الذكية</h1><p id="radarStatusText">جاري التحقق من حالة السوق والرصد...</p></div><div class="dashboard-actions"><button class="primary-btn" onclick="runRadar()">📡 فتح بيانات الرادار</button><button class="channel-btn dashboard-channel-btn" onclick="openChannel()">📡 فتح قناة SAS PRO</button></div></div>
         <div class="metric-grid" id="dashboardMetrics"></div>
         <div class="section-title"><b>🔥 أحدث الفرص / آخر رصد محفوظ</b><button onclick="switchTerminalTab('radar')">عرض كل الرصد</button></div>
         <div id="dashboardRadar" class="stock-grid"><div class="loading">جاري التحميل...</div></div>
