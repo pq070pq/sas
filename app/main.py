@@ -452,12 +452,22 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             rr_lines.append("⚠️ النسبة منخفضة، لذلك يجب الانتباه للمخاطرة.")
     add_section(report, "⚖️ <b>هل العائد المحتمل يستحق المخاطرة؟</b>", rr_lines)
 
-    company = first_value(tech.get("company_name"), tech.get("company"), q.get("company"))
-    sector = first_value(tech.get("sector"), q.get("sector"))
-    market_cap = num(first_value(tech.get("market_cap"), tech.get("market_capitalization")))
-    eps = num(tech.get("eps"))
-    revenue_growth = num(first_value(tech.get("revenue_growth_3y"), tech.get("revenue_growth")))
-    roe = num(tech.get("roe"))
+    fundamentals = tech.get("fundamentals") or {}
+    company = first_value(tech.get("company_name"), tech.get("company"), q.get("company"), fundamentals.get("name"))
+    sector = first_value(tech.get("sector"), q.get("sector"), fundamentals.get("industry"))
+    market_cap = num(first_value(
+        tech.get("market_cap"),
+        tech.get("market_capitalization"),
+        fundamentals.get("market_cap_m"),
+    ))
+    shares_outstanding = num(first_value(
+        tech.get("shares_outstanding_m"),
+        tech.get("shares_outstanding"),
+        fundamentals.get("shares_outstanding_m"),
+    ))
+    eps = num(first_value(tech.get("eps"), fundamentals.get("eps_ttm")))
+    revenue_growth = num(first_value(tech.get("revenue_growth_3y"), tech.get("revenue_growth"), fundamentals.get("revenue_growth_3y")))
+    roe = num(first_value(tech.get("roe"), fundamentals.get("roe_ttm")))
 
     financial_lines = []
     if company:
@@ -476,6 +486,39 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         add_section(report, "💼 <b>لمحة مالية عن الشركة</b>", financial_lines)
         if ai.get("financial_summary"):
             add_section(report, "📖 <b>بشكل مبسط</b>", [_esc(ai.get("financial_summary"))])
+
+    # تفاصيل السوق تُعرض فقط عندما تصل من بيانات فعلية داخل الرادار.
+    # لا نحول "الأسهم المتاحة" إلى float من تلقاء أنفسنا؛ الأسهم القائمة
+    # (shares outstanding) ليست هي الـ float، لذلك نسمّي كل رقم بمصدره الصحيح.
+    market_lines = []
+    volume = num(first_value(tech.get("volume"), q.get("volume")))
+    dollar_volume = num(first_value(
+        tech.get("dollar_volume"),
+        classification.get("dollar_volume"),
+        (radar_checks or {}).get("dollar_volume"),
+    ))
+    if dollar_volume is None and price is not None and volume is not None and volume > 0:
+        dollar_volume = price * volume
+    exchange = first_value(tech.get("exchange"), q.get("exchange"), fundamentals.get("exchange"))
+    live_source = first_value(q.get("source"), tech.get("live_price_source"))
+    session = first_value(tech.get("market_session"), tech.get("market_session_code"))
+    if exchange:
+        market_lines.append(f"🏦 <b>السوق/البورصة:</b> {_esc(exchange)}")
+    if volume is not None and volume > 0:
+        market_lines.append(f"📦 <b>حجم التداول:</b> {volume:,.0f} سهم")
+    if dollar_volume is not None and dollar_volume > 0:
+        market_lines.append(f"💵 <b>قيمة التداول التقريبية:</b> \${dollar_volume:,.0f}")
+    if rvol is not None:
+        market_lines.append(f"📊 <b>الحجم النسبي RVOL:</b> {rvol:.2f}×")
+    if shares_outstanding is not None and shares_outstanding > 0:
+        market_lines.append(f"🔢 <b>الأسهم القائمة:</b> {shares_outstanding:,.2f} مليون سهم")
+    if session:
+        market_lines.append(f"🕒 <b>جلسة السوق:</b> {_esc(session)}")
+    if live_source:
+        market_lines.append(f"🔎 <b>مصدر السعر:</b> {_esc(live_source)}")
+    market_lines.append("🛡️ <b>قاعدة الدقة:</b> لا يظهر أي رقم غير متوفر فعليًا في بيانات الرادار.")
+    if market_lines:
+        add_section(report, "📊 <b>بيانات السوق الفعلية</b>", market_lines)
 
     events = tech.get("corporate_events") or tech.get("events")
     event_lines = []
