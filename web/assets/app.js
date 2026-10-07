@@ -371,6 +371,9 @@ function stockCard(x){
  const section=x.momentum_section||x.section;
  const score=Number(cls.score);
  const ai=x.ai_analysis||x.ai||{};
+ const sh=x.shariah||{};
+ const shLabel=sh.status_ar||'غير واضح / يحتاج تحقق';
+ const shClass=sh.status==='halal'||sh.status==='compliant'?'sh-ok':(sh.status==='haram'||sh.status==='non_compliant'?'sh-bad':'sh-unknown');
  const gates=x.radar_checks||{};
  const catalyst=Number(x.catalyst_score||0);
  const catalystLabel=catalyst>=75?'🔥 محفز قوي':catalyst>=55?'⚡ محفز متوسط':catalyst>0?'📰 محفز ضعيف':'📰 دون محفز حديث';
@@ -380,6 +383,7 @@ function stockCard(x){
  '<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
  '<div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div>'+
  '<div class="stock-gates">'+gate(gates.sas_core!==false,'SAS Core')+gate(gates.liquidity!==false,'السيولة')+gate(gates.target!==false,'الهدف')+gate(gates.live_levels!==false,'المستويات')+'</div>'+
+ ' <div class="stock-shariah '+shClass+'">🕌 <b>الشرعية:</b> '+escHtml(shLabel)+'</div>'+
  '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+'<span>'+catalystLabel+(catalyst>0?' '+catalyst+'/100':'')+'</span>'+(x.live_price_source?'<span>📡 '+escHtml(x.live_price_source)+'</span>':'')+'</div>'+
  '<div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||cls.reason||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div>'+
  '<div class="stock-actions"><button onclick="event.stopPropagation();openSymbol(\''+raw+'\')">⏳ تحليل كامل</button><button onclick="event.stopPropagation();toggleWatch(\''+raw+'\')">'+(terminalState.watch.includes(raw)?'★ محفوظ':'☆ حفظ')+'</button></div></article>';
@@ -403,7 +407,8 @@ async function analyzeSymbol(){
    api('/api/stocks/'+encodeURIComponent(symbol)+'/chart'),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/news'),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/analyze',{method:'POST',timeoutMs:30000}),
-   api('/api/stocks/'+encodeURIComponent(symbol)+'/mini-analysis',{timeoutMs:30000})
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/mini-analysis',{timeoutMs:30000}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/shariah',{timeoutMs:12000})
  ]);
  const qRaw=qR.status==='fulfilled'?qR.value:{symbol,price:null,change_pct:null,source:'غير متاح'};
  const miniPayload=miniR.status==='fulfilled'&&miniR.value&&typeof miniR.value==='object'?miniR.value:null;
@@ -414,6 +419,7 @@ async function analyzeSymbol(){
  const chart=chartR.status==='fulfilled'?chartR.value:{candles:[]};
  const news=newsR.status==='fulfilled'&&Array.isArray(newsR.value)?newsR.value:[];
  const analysis=analysisR.status==='fulfilled'?analysisR.value:null;
+ const shariah=shariahR.status==='fulfilled'?shariahR.value:(analysis?.sas_pro?.targets?.shariah||null);
  if(!analysis){
    const errors=[qR,chartR,newsR,analysisR].filter(x=>x.status==='rejected').map(x=>x.reason?.message).filter(Boolean);
    el.innerHTML='<div class="fatal">⚠️ تعذر إكمال التحليل الكامل<br><small>لكن تم إبقاء البيانات التي نجح تحميلها.</small>'+(errors.length?'<br><small>'+escHtml(errors[0])+'</small>':'')+'</div>';
@@ -421,6 +427,7 @@ async function analyzeSymbol(){
    return;
  }
  const tech=analysis.sas_pro?.targets||{};
+ const sh=shariah||tech.shariah||{};
  const ai=analysis.analysis||{};
  const fcc=analysis.sas_pro?.targets?.fcc_review||ai.fcc_review||{};
  const fccHtml=fcc.available ? '<div class="ai-box"><b>⏳ مراجعة الذكاء الاصطناعي للسهم</b><p><b>التقييم:</b> '+escHtml(fcc.review_level||'محايد')+'</p>'+((fcc.strengths||[]).length?'<p><b>💪 نقاط القوة:</b><br>'+fcc.strengths.slice(0,4).map(x=>'• '+escHtml(x)).join('<br>')+'</p>':'')+((fcc.contradictions||[]).length?'<p><b>⚠️ نقاط تحتاج انتباه:</b><br>'+fcc.contradictions.slice(0,4).map(x=>'• '+escHtml(x)).join('<br>')+'</p>':'')+(fcc.note?'<p><b>📌 الخلاصة:</b> '+escHtml(fcc.note)+'</p>':'')+'<small>مراجعة مساعدة لفهم البيانات فقط، ولا تغيّر مستويات SAS PRO.</small></div>' : '';
@@ -438,6 +445,8 @@ async function analyzeSymbol(){
  const rr=computedRR!=null?computedRR.toFixed(2):(tech.risk_reward!=null?Number(tech.risk_reward).toFixed(2):'—');
  const summary=ai.key_takeaway||ai.headline_summary||'لا توجد خلاصة موثقة متاحة حاليًا.';
  const mini=analysis.mini_analysis||{};
+ const shSources=Array.isArray(sh.sources)?sh.sources:[];
+ const shHtml='<section class="shariah-box '+(sh.status==='halal'||sh.status==='compliant'?'sh-ok':(sh.status==='haram'||sh.status==='non_compliant'?'sh-bad':'sh-unknown'))+'"><div><b>🕌 نافذة التحقق الشرعي</b><strong>'+escHtml(sh.status_ar||'غير واضح / يحتاج تحقق')+'</strong></div><p>'+escHtml(sh.message||'لم تتوفر نتيجة موثقة؛ لم يتم التأليف.')+'</p>'+shSources.slice(0,4).map(s=>'<small>• '+escHtml(s.source||'مصدر')+': '+escHtml(s.status_ar||'مرجع/غير واضح')+'</small>').join('')+(sh.ai?.summary?'<p>🧠 '+escHtml(sh.ai.summary)+'</p>':'')+'<em>⛔ الشرعية مسؤوليتك — التحقق آلي وليس فتوى.</em></section>';
  const miniAnalysisHtml=
    '<section class="mini-analysis">'+
      '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO QUICK ANALYSIS</span><b>⏳ تحليل مختصر</b></div></div>'+
@@ -456,6 +465,7 @@ async function analyzeSymbol(){
    '</section>';
  el.innerHTML=
    '<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div><button onclick="toggleWatch(\''+escHtml(symbol)+'\')">'+(terminalState.watch.includes(symbol)?'★ محفوظ':'☆ حفظ')+'</button></div>'+
+   shHtml+
    '<div class="quote-line"><strong>&#36;'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
    notice+
    miniAnalysisHtml+
