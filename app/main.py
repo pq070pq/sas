@@ -2019,7 +2019,7 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
                 cached["quote"] = live_quote
         except Exception:
             pass
-        if not cached.get("sas_pro", {}).get("targets", {}).get("shariah"):
+        if True:  # تحديث نتيجة يقين في كل تحليل لمنع عرض حكم شرعي قديم من الكاش.
             try:
                 cached.setdefault("sas_pro", {}).setdefault("targets", {})["shariah"] = await asyncio.wait_for(check_shariah(symbol), timeout=8.0)
             except Exception:
