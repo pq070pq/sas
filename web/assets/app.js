@@ -402,7 +402,7 @@ async function analyzeSymbol(){
  if(!symbol)return;
  const el=document.getElementById('symbolResult');
  el.innerHTML='<div class="loading">⏳ يجري تحليل '+escHtml(symbol)+'...</div>';
- const [qR,chartR,newsR,analysisR,miniR]=await Promise.allSettled([
+ const [qR,chartR,newsR,analysisR,miniR,shariahR]=await Promise.allSettled([
    api('/api/stocks/'+encodeURIComponent(symbol)+'/quote'),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/chart'),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/news'),
