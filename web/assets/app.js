@@ -11,6 +11,7 @@ const digitObserver=new MutationObserver(()=>normalizeEnglishDigits(document.bod
 digitObserver.observe(document.body,{subtree:true,childList:true,characterData:true});
 const getInitData=()=>tg?.initData||new URLSearchParams(location.hash.slice(1)).get('tgWebAppData')||new URLSearchParams(location.search).get('tgWebAppData')||'';
 const headers=()=>{const d=getInitData();return {'X-Telegram-Init-Data':d,'Authorization':d?'tma '+d:''};};
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function waitForTelegramInitData(maxWait=5000){
  const started=Date.now();
  while(Date.now()-started<maxWait){
@@ -22,25 +23,41 @@ async function waitForTelegramInitData(maxWait=5000){
  return '';
 }
 async function api(path,opt={}){
- const controller=new AbortController();
- const timeoutMs=Number(opt.timeoutMs||8000);
- const {timeoutMs:_,...fetchOptions}=opt;
- const timeout=setTimeout(()=>controller.abort(),timeoutMs);
- try{
-  fetchOptions.headers=Object.assign(headers(),fetchOptions.headers||{});
-  fetchOptions.signal=controller.signal;
-  const r=await fetch(path,fetchOptions);
-  if(!r.ok){
-   let msg='تعذر تنفيذ العملية';
-   try{const d=await r.json();msg=d.detail||d.message||msg;}
-   catch(e){try{const t=(await r.text()).trim();if(t)msg=t;}catch(_){}}
-   throw new Error(msg);
-  }
-  return r.json();
- }catch(e){
-  if(e?.name==='AbortError')throw new Error('انتهت مهلة الاتصال بالخادم. تحقق من اتصال Telegram وحاول مرة أخرى.');
-  throw e;
- }finally{clearTimeout(timeout);}
+ const timeoutMs=Number(opt.timeoutMs||15000);
+ const retries=Number.isFinite(Number(opt.retries))?Number(opt.retries):(String(opt.method||'GET').toUpperCase()==='GET'?1:0);
+ const {timeoutMs:_,retries:__,...fetchOptions}=opt;
+ let lastError=null;
+ for(let attempt=0;attempt<=retries;attempt++){
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+   refreshTelegramWebApp();
+   fetchOptions.headers=Object.assign(headers(),fetchOptions.headers||{});
+   fetchOptions.signal=controller.signal;
+   fetchOptions.cache='no-store';
+   const r=await fetch(path,fetchOptions);
+   if(!r.ok){
+    let msg='تعذر تنفيذ العملية';
+    try{const d=await r.json();msg=d.detail||d.message||msg;}
+    catch(e){try{const t=(await r.text()).trim();if(t)msg=t;}catch(_){}}
+    // إعادة المحاولة فقط للأخطاء المؤقتة، وليس أخطاء الصلاحيات/الاشتراك.
+    if(attempt<retries && (r.status===408||r.status===429||r.status>=500)){
+     await sleep(350*(attempt+1));
+     continue;
+    }
+    throw new Error(msg);
+   }
+   return await r.json();
+  }catch(e){
+   lastError=e;
+   if(attempt<retries){
+    await sleep(350*(attempt+1));
+    continue;
+   }
+  }finally{clearTimeout(timeout);}
+ }
+ if(lastError?.name==='AbortError')throw new Error('تعذر تحديث البيانات في الوقت المحدد. سيُعاد الاتصال تلقائيًا عند المحاولة التالية.');
+ throw lastError||new Error('تعذر تنفيذ العملية');
 }
 const enDigits=v=>String(v??'').replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-0x0660));
 const normalizeEnglishDigits=root=>{if(!root)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);const nodes=[];while(w.nextNode())nodes.push(w.currentNode);nodes.forEach(n=>{const x=enDigits(n.nodeValue);if(x!==n.nodeValue)n.nodeValue=x;});};
@@ -97,7 +114,7 @@ async function load(){
  }
 }
 
-const terminalState={ticker:[],radar:[],watch:JSON.parse(localStorage.getItem('saspro_watchlist')||'[]'),timer:null,tab:'dashboard'};
+const terminalState={ticker:[],radar:[],watch:JSON.parse(localStorage.getItem('saspro_watchlist')||'[]'),timer:null,tab:'dashboard',refreshing:false,radarScanning:false};
 function escHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 function money(v){const n=Number(v);return Number.isFinite(n)&&n>0?n.toLocaleString('en-US',{minimumFractionDigits:n<10?2:0,maximumFractionDigits:4}):'—';}
 function pct(v){const n=Number(v);return Number.isFinite(n)?(n>=0?'+':'')+n.toFixed(2)+'%':'—';}
@@ -155,6 +172,9 @@ function returnToAdminView(){
 }
 
 async function refreshTerminal(){
+ if(terminalState.refreshing)return;
+ terminalState.refreshing=true;
+ try{
  const clock=document.getElementById('terminalClock');
  if(clock){
   const now=new Date();
@@ -191,6 +211,9 @@ async function refreshTerminal(){
  }
  if(terminalState.tab==='radar' && !errors.length) await runRadar(false);
  if(terminalState.tab==='watch') renderWatchlist();
+ }finally{
+  terminalState.refreshing=false;
+ }
 }
 function renderMarketStrip(s){
  const el=document.getElementById('marketStrip');
@@ -300,6 +323,8 @@ function renderMacro(){
  }
 }
 async function runRadar(show=true){
+ if(terminalState.radarScanning)return;
+ terminalState.radarScanning=true;
  try{
   if(show){document.getElementById('radarGrid').innerHTML='<div class="loading">🔎 يجري تحميل أحدث بيانات الرادار...</div>';switchTerminalTab('radar');}
   // التحديث اليدوي يجبر الرادار على مسح حي جديد بدل عرض آخر رصد محفوظ.
@@ -347,7 +372,13 @@ async function runRadar(show=true){
     openTerms('trial');
     return;
    }
-   document.getElementById('radarGrid').innerHTML='<div class="fatal">'+escHtml(msg)+'</div>';
+   if(!/تعذر تحديث البيانات|مهلة الاتصال/.test(msg)){
+    document.getElementById('radarGrid').innerHTML='<div class="fatal">'+escHtml(msg)+'</div>';
+   }else{
+    console.warn('SAS PRO radar temporary connection issue:',msg);
+   }
+ }finally{
+   terminalState.radarScanning=false;
  }
 }
 function renderRadar(){renderCards(document.getElementById('radarGrid'),terminalState.radar);}
