@@ -86,11 +86,19 @@ async def telegram_webhook_logging(request: Request, call_next):
         try:
             response = await call_next(request)
             logger.info("Telegram webhook response: status=%s", response.status_code)
-            return response
         except Exception as exc:
             logger.exception("Telegram webhook raised exception: %s", exc)
-            return JSONResponse({"ok": True, "handled_error": True}, status_code=200)
-    return await call_next(request)
+            response = JSONResponse({"ok": True, "handled_error": True}, status_code=200)
+    else:
+        response = await call_next(request)
+
+    # Prevent Telegram WebView/browser/CDN from serving stale frontend assets.
+    # Versioned asset URLs are still used, but this makes cache invalidation
+    # automatic even when a file path keeps the same URL.
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
 
