@@ -86,6 +86,10 @@ async def check_shariah(symbol):
                         "verified":bool(status),"updated_at":date_m.group(1) if date_m else None,
                         "reason":("نتيجة منشورة مباشرة من صفحة السهم في يقين." if status else "لم يتم العثور على حكم مباشر في الصفحة."),
                         "methodology":"معايير شرعية منشورة وفق معايير الراجحي","url":YAAQEEN_URL.format(symbol=symbol)}
+        except Exception as e:
+            return {"source":"يقين","status":None,"status_ar":"غير متاح","verified":False,
+                    "reason":"تعذر الوصول إلى صفحة يقين الآن؛ لم يتم تأليف أي نتيجة.","error":type(e).__name__,
+                    "url":YAAQEEN_URL.format(symbol=symbol)}
 
     async def fetch_filterna():
         try:
