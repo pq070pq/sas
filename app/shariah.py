@@ -74,12 +74,12 @@ async def check_shariah(symbol):
                 r = await client.get(YAAQEEN_URL.format(symbol=symbol))
                 r.raise_for_status()
                 text = re.sub(r"<[^>]+>", " ", r.text)
-                text = re.sub(r"\\s+", " ", text)
+                text = re.sub(r"\s+", " ", text)
                 pos = text.find("توافق الشريعة")
                 window = text[pos:pos+900] if pos >= 0 else text[:1500]
                 m = re.search(r"(غير شرعي|محل نظر|شرعي|متوافق مع الشريعة)", window)
                 status = _normalize(m.group(1) if m else None)
-                date_m = re.search(r"تم التحديث بتاريخ\\s*([0-9]{2}-[0-9]{2}-[0-9]{4})", text)
+                date_m = re.search(r"تم التحديث بتاريخ\s*([0-9]{2}-[0-9]{2}-[0-9]{4})", text)
                 return {"source":"يقين","status":status,"status_ar":{"compliant":"شرعي","non_compliant":"غير شرعي","doubtful":"محل نظر"}.get(status,"غير واضح / يحتاج تحقق"),
                         "verified":bool(status),"updated_at":date_m.group(1) if date_m else None,
                         "methodology":"معايير منسوبة للراجحي","url":YAAQEEN_URL.format(symbol=symbol)}
