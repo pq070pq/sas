@@ -2226,7 +2226,7 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     elif cls.get("accumulation"):
         signal_value = "تجميع"
     else:
-        signal_value = "محايدة"
+        signal_value = "غير متاحة" if not cls.get("rsi14") and cls.get("rvol") is None else "محايدة"
 
     momentum_score = (cls.get("score_breakdown") or {}).get("momentum", 0)
     volume_score = (cls.get("score_breakdown") or {}).get("volume", 0)
@@ -2257,7 +2257,7 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     elif signal_value == "سلبية":
         mini_takeaway = "البنية الفنية الحالية سلبية وفق محرك SAS PRO؛ لا يتم اختراع مستويات دخول."
     else:
-        mini_takeaway = "الإشارة محايدة وفق محرك SAS PRO؛ لا يتم اختراع دخول أو وقف أو هدف."
+        mini_takeaway = "البيانات الفنية غير مكتملة؛ لا يمكن اعتماد إشارة أو هدف أو وقف حاليًا."
 
     mini_analysis = {
         "direction": behavior_value,
@@ -2376,7 +2376,7 @@ async def stock_mini_analysis(symbol: str, _: dict = Depends(require_pro)):
     elif cls.get("accumulation"):
         signal = "تجميع"
     else:
-        signal = "محايدة"
+        signal = "غير متاحة" if not cls.get("rsi14") and cls.get("rvol") is None else "محايدة"
 
     breakdown = cls.get("score_breakdown") or {}
     momentum_score = breakdown.get("momentum", 0)
@@ -2411,7 +2411,7 @@ async def stock_mini_analysis(symbol: str, _: dict = Depends(require_pro)):
     elif signal == "سلبية":
         takeaway = "البنية الفنية الحالية سلبية وفق محرك SAS PRO."
     else:
-        takeaway = "الإشارة محايدة وفق محرك SAS PRO."
+        takeaway = "البيانات الفنية غير مكتملة؛ لا يمكن اعتماد إشارة أو هدف أو وقف حاليًا."
 
     response = {
         "ok": True,
