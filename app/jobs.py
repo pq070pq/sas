@@ -548,8 +548,6 @@ async def stock_radar_cycle():
         await finish_cycle("skipped", {"status": "telegram_not_configured"})
         logger.warning("Stock radar skipped: Telegram channel/token is not configured.")
         return
-        logger.warning("Stock radar skipped: Telegram channel/token is not configured.")
-        return
 
     try:
         learning_profile = await get_radar_profile()
