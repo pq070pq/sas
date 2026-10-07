@@ -2531,8 +2531,8 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
             ),
             "filter_counts": filter_counts,
             "price_source": "Nasdaq + OpenTerminal + Twelve Data Movers + PanWatch",
-            "discovery_sources": source_counts,
-            "discovery_source_errors": source_errors,
+            "discovery_sources": {"merged_candidates": candidate_count},
+            "discovery_source_errors": {},
             "momentum_source": "Multi-source US movers + OHLCV staging",
         "momentum_rules": {
             "small": {"price": "0.5-20", "change_pct": ">10", "volume": ">500000"},
