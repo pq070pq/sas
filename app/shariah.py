@@ -64,7 +64,7 @@ async def _zoya(symbol):
 def _parse_yaaqeen_html(html, symbol):
     """Parse Yaqeen's published stock verdict without inventing a result."""
     text = re.sub(r"<[^>]+>", " ", html or "")
-    text = re.sub(r"\\s+", " ", text).strip()
+    text = re.sub(r"\s+", " ", text).strip()
     pos = text.find("توافق الشريعة")
     window = text[pos:pos + 2000] if pos >= 0 else ""
     # Order matters: "غير شرعي" contains the word "شرعي".
@@ -77,7 +77,7 @@ def _parse_yaaqeen_html(html, symbol):
         if re.search(pattern, window):
             verdict = status
             break
-    date_m = re.search(r"تم التحديث بتاريخ\\s*([0-9]{2}-[0-9]{2}-[0-9]{4})", text)
+    date_m = re.search(r"تم التحديث بتاريخ\s*([0-9]{2}-[0-9]{2}-[0-9]{4})", text)
     label = {
         "compliant": "شرعي",
         "non_compliant": "غير شرعي",
