@@ -84,18 +84,25 @@ jobs:
             fi
 
             echo "===== SAS PRO health ====="
+            # Uvicorn لا يفتح المنفذ فعليًا حتى تكتمل startup؛ نعطي SQLite
+            # وتهيئة المهام الخلفية وقتًا كافيًا بدل اعتبار Connection reset فشلًا.
+            sleep 8
             health_ok=0
-            for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
-              if curl -fsS --max-time 3 http://127.0.0.1:8000/health; then
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              curl -fsS --max-time 3 http://127.0.0.1:8000/health >/tmp/saspro_health.out 2>/tmp/saspro_health.err
+              rc=$?
+              if [ "$rc" -eq 0 ]; then
+                cat /tmp/saspro_health.out
                 health_ok=1
                 echo
                 break
               fi
-              echo "Health not ready yet ($i/15); waiting 2s..."
+              echo "Health not ready yet ($i/10), curl_rc=$rc; waiting 2s..."
               sleep 2
             done
             if [ "$health_ok" -ne 1 ]; then
               echo "❌ SAS PRO health endpoint failed after readiness window."
+              cat /tmp/saspro_health.err 2>/dev/null || true
               docker inspect -f 'status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}}' saspro-saspro-1 2>/dev/null || true
               docker compose logs --tail=200 saspro 2>/dev/null || true
               exit 1
