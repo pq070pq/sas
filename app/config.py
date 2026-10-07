@@ -75,6 +75,17 @@ class Settings(BaseSettings):
     news_cache_minutes: int = 10
     fmp_news_enabled: bool = True
     market_update_interval_minutes: int = 30
+    # Intelligent retention: keep business/financial history, remove disposable telemetry.
+    cleanup_enabled: bool = True
+    cleanup_interval_hours: int = 24
+    radar_run_retention_days: int = 60
+    radar_signal_retention_days: int = 180
+    radar_analysis_retention_days: int = 30
+    audit_log_retention_days: int = 180
+    access_request_retention_days: int = 90
+    invite_retention_days: int = 14
+    scheduled_report_retention_days: int = 180
+    runtime_cache_max_items: int = 512
     cron_secret: str = ""
     openterminal_base_url: str = ""
     openterminal_api_url: str = "http://openterminal-api:4000"
