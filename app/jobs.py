@@ -642,6 +642,32 @@ async def stock_radar_cycle():
                 )).scalars().all()
                 existing_map = {str(x.symbol).upper(): x for x in existing_rows}
 
+            # حدود يومية ثابتة حتى لا تتحول كثرة دورات الرادار إلى إزعاج.
+            # الفرص المؤهلة فقط تدخل حد التطبيق؛ سجلات المراقبة المرفوضة لا تستهلكه.
+            daily_rows = (await db.execute(
+                select(RadarSignal).where(RadarSignal.session_date == session_date)
+            )).scalars().all()
+            daily_app_symbols = set()
+            daily_channel_sent = 0
+            for daily_signal in daily_rows:
+                try:
+                    daily_payload = json.loads(daily_signal.payload or "{}")
+                except (TypeError, ValueError):
+                    daily_payload = {}
+                gate = daily_payload.get("channel_gate") or {}
+                if gate.get("passed"):
+                    daily_app_symbols.add(str(daily_signal.symbol or "").upper())
+                if daily_signal.telegram_message_id:
+                    daily_channel_sent += 1
+            daily_app_symbols.discard("")
+            app_daily_limit = max(1, int(settings.radar_app_daily_limit or 15))
+            channel_daily_limit = max(1, int(settings.radar_channel_daily_limit or 5))
+            logger.info(
+                "RADAR_DAILY_LIMITS session=%s app=%d/%d channel=%d/%d",
+                session_date, len(daily_app_symbols), app_daily_limit,
+                daily_channel_sent, channel_daily_limit,
+            )
+
             # اجلب الأسعار الحية دفعةً واحدة بالتوازي. السعر الحي شرط نشر، لكنه
             # لا ينبغي أن يجعل 20-100 سهم ينتظرون بعضهم بالتسلسل.
             quote_sem = asyncio.Semaphore(10)
@@ -746,13 +772,39 @@ async def stock_radar_cycle():
                     "reason": channel_reason,
                 }
 
-                # لا نرسل أكثر من أفضل 5 إشارات في القناة.
-                # المرشح يبقى محفوظًا/ظاهرًا في التطبيق ولا يُفقد من الرصد.
-                if channel_published >= 5:
+                # لا نتجاوز الحد اليومي للتطبيق، وتشمل فرص التطبيق فرص القناة نفسها.
+                if symbol not in daily_app_symbols and len(daily_app_symbols) >= app_daily_limit:
                     channel_app_only += 1
                     row["channel_delivery"] = {
                         "published": False,
-                        "reason": "تم الوصول إلى حد أفضل 5 إشارات للقناة",
+                        "reason": f"تم الوصول إلى الحد اليومي للتطبيق ({app_daily_limit})",
+                    }
+                    try:
+                        if existing:
+                            existing.payload = json.dumps(row, ensure_ascii=False)
+                            existing.created_at = utcnow()
+                        else:
+                            existing = RadarSignal(
+                                symbol=symbol,
+                                session_date=session_date,
+                                payload=json.dumps(row, ensure_ascii=False),
+                            )
+                            db.add(existing)
+                        await db.commit()
+                    except Exception:
+                        await db.rollback()
+                        logger.exception("Radar app-only candidate persistence failed: %s", symbol)
+                    _radar_seen.add(symbol)
+                    continue
+
+                # هذا السهم أصبح ضمن قائمة فرص اليوم في التطبيق.
+                daily_app_symbols.add(symbol)
+                if daily_channel_sent >= channel_daily_limit:
+                    channel_app_only += 1
+                    row["channel_delivery"] = {
+                        "published": False,
+                        "reason": f"تم الوصول إلى الحد اليومي للقناة ({channel_daily_limit})",
+                        "limit": channel_daily_limit,
                     }
                     try:
                         if existing:
@@ -774,8 +826,8 @@ async def stock_radar_cycle():
 
                 row["channel_delivery"] = {
                     "published": True,
-                    "rank": channel_published + 1,
-                    "limit": 5,
+                    "rank": daily_channel_sent + 1,
+                    "limit": channel_daily_limit,
                 }
 
                 # AI enrichment runs only after the technical radar has already
@@ -896,7 +948,7 @@ async def stock_radar_cycle():
 
                     if message_id:
                         cycle_stats["sent"] += 1
-                        channel_published += 1
+                        daily_channel_sent += 1
                     _radar_seen.add(symbol)
                     logger.info(
                         "Radar signal persisted: %s | telegram_message_id=%s",
