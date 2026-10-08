@@ -209,7 +209,7 @@ async function refreshTerminal(){
  if(errors.length && !ticker){
   console.warn('SAS PRO market ticker refresh failed:',errors);
  }
- if(terminalState.tab==='radar' && !errors.length) await runRadar(false);
+ if(terminalState.tab==='radar') await runRadar(false);
  if(terminalState.tab==='watch') renderWatchlist();
  }finally{
   terminalState.refreshing=false;
