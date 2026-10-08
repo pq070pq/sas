@@ -683,12 +683,11 @@ async def stock_radar_cycle():
 
             quote_pairs = await asyncio.gather(*(_live_quote(row) for row in rows), return_exceptions=False)
             live_quotes = dict(quote_pairs)
-            channel_published = 0
             channel_gate_passed = 0
             channel_app_only = 0
             gate_rejections = {}
 
-            # كل سهم اجتاز فلاتر الرادار يظهر في التطبيق؛ القناة لها سقف 5 فقط.
+            # كل سهم مؤهل يظهر في التطبيق ضمن سقف اليوم؛ القناة لها سقف يومي مستقل.
             # لا نرسل جدول Daily Momentum مجمعًا؛ تفاصيل السهم وشروط اجتيازه
             # تظهر داخل تقريره الفردي عبر build_report().
             for row in rows:
