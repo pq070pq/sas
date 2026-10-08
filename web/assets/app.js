@@ -330,6 +330,15 @@ async function runRadar(show=true){
   // التطبيق يعرض فرص اليوم المحفوظة من الرادار؛ الفحص الحي لا يُعاد تشغيله
   // عند كل فتح حتى لا نستهلك موارد مزود البيانات ولا نكرر الرصد.
   const d=await api('/api/radar/scan?fresh=0',{timeoutMs:30000});
+  if(d?.error){
+    const reason=String(d.error.message||d.error.type||'خطأ غير معروف');
+    const diag=d.diagnostics||{};
+    const label='تعذر تحديث بيانات الرادار: '+reason;
+    const box=document.getElementById('radarGrid');
+    if(box)box.innerHTML='<div class="fatal"><b>🔴 تعذر تحديث الرادار</b><br><small>'+escHtml(label)+'</small><br><small>تم الاحتفاظ بالبيانات السابقة إن وُجدت.</small></div>';
+    console.error('SAS PRO radar API error:',d.error);
+    return;
+  }
   terminalState.radar=d.stocks||[];
   const diag=d.diagnostics||{};
   const nextPremarket=d.next_premarket_riyadh||'11:00';
