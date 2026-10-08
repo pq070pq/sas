@@ -2016,6 +2016,15 @@ async def stock_quote(symbol: str, _: dict = Depends(require_pro)):
 @app.get("/api/stocks/{symbol}/shariah")
 async def stock_shariah(symbol: str, _: dict = Depends(require_pro)):
     symbol = symbol.upper().strip()
+    if is_crypto_symbol(symbol):
+        return {
+            "symbol": normalize_crypto_symbol(symbol),
+            "status": "not_applicable",
+            "status_ar": "غير منطبق — أصل رقمي",
+            "verified": False,
+            "message": "التحقق الشرعي الخاص بالأسهم لا ينطبق على الأصول الرقمية.",
+            "sources": [],
+        }
     try:
         return await check_shariah(symbol)
     except Exception as exc:
@@ -2388,8 +2397,36 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
 
 @app.get("/api/stocks/{symbol}/mini-analysis")
 async def stock_mini_analysis(symbol: str, _: dict = Depends(require_pro)):
-    """تحليل SAS PRO مختصر سريع مع ذاكرة مؤقتة لمنع إعادة التحليل المتكرر."""
+    """تحليل SAS PRO مختصر سريع مع ذاكرة مؤقتة، ويستخدم Binance Spot للأصول الرقمية."""
     symbol = symbol.upper().strip()
+
+    if is_crypto_symbol(symbol):
+        pair = normalize_crypto_symbol(symbol)
+        cached = _cache_get(_quick_scan_memory, pair, _QUICK_SCAN_CACHE_TTL)
+        if cached is not None:
+            try:
+                q_live = await binance_quote(pair)
+            except Exception:
+                q_live = None
+            return {"ok": True, "symbol": pair, "quote": q_live if isinstance(q_live, dict) and q_live.get("price") else cached.get("quote", {}), "mini_analysis": cached.get("mini_analysis", {}), "cached": True, "crypto": True, "source": "Binance Spot"}
+        try:
+            data = await asyncio.wait_for(binance_analyze(pair, interval="1h"), timeout=15.0)
+            q = await asyncio.wait_for(binance_quote(pair), timeout=8.0)
+            score = int(data.get("score") or 0)
+            targets = data.get("targets") or []
+            mini = {
+                "direction": "صاعد" if data.get("confirmation", {}).get("trend") else "غير مؤكد",
+                "momentum": "قوي" if score >= 75 else ("متوسط" if score >= 50 else "ضعيف"),
+                "liquidity": "مرتفعة" if (data.get("rvol") or 0) >= 2 else ("طبيعية" if (data.get("rvol") or 0) >= 1.2 else "منخفضة"),
+                "signal": data.get("state") or "غير متاحة", "entry": data.get("entry"), "stop": data.get("stop"),
+                "target": targets[0] if targets else None, "rvol": data.get("rvol"), "takeaway": data.get("takeaway") or "لا توجد خلاصة كافية."
+            }
+            payload = {"ok": True, "symbol": pair, "quote": q, "mini_analysis": mini, "cached": False, "crypto": True, "source": "Binance Spot"}
+            _cache_put(_quick_scan_memory, pair, {"quote": q, "mini_analysis": mini})
+            return payload
+        except Exception as exc:
+            return {"ok": True, "symbol": pair, "quote": {"symbol": pair, "price": None, "change_pct": None, "source": "Binance Spot", "error": f"{type(exc).__name__}: {str(exc)[:180]}"}, "mini_analysis": {"direction": "غير متاح", "momentum": "غير متاح", "liquidity": "غير متاحة", "signal": "غير متاحة", "entry": None, "stop": None, "target": None, "rvol": None, "takeaway": "تعذر الحصول على بيانات Binance Spot الحية؛ لم يتم التخمين."}, "crypto": True, "source": "Binance Spot"}
+
     cached = _cache_get(_quick_scan_memory, symbol, _QUICK_SCAN_CACHE_TTL)
     if cached is not None:
         try:
