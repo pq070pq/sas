@@ -37,6 +37,10 @@ class ArchitectureBoundaryTests(unittest.TestCase):
         jobs_source = (APP / "jobs.py").read_text(encoding="utf-8")
         self.assertIn("from .scheduler import scheduler", jobs_source)
 
+    def test_quality_score_is_independent_from_delivery_and_ui(self):
+        imports = self._imports(APP / "quality_score.py")
+        self.assertTrue({"main", "jobs", "telegram", "scanner"}.isdisjoint(imports))
+
     def test_frontend_is_not_python_dependency(self):
         source = (ROOT / "web" / "assets" / "app.js").read_text(encoding="utf-8")
         self.assertNotIn("app.scanner", source)
@@ -68,3 +72,29 @@ class BinancePureFunctionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class QualityScoreTests(unittest.TestCase):
+    def test_quality_score_is_deterministic_and_bounded(self):
+        from app.quality_score import score_quality
+        row = {
+            "change_pct": 8,
+            "momentum_rvol_10d": 2.5,
+            "intraday_confirmation": True,
+            "breakout_confirmed": True,
+            "news_items": [{"headline": "خبر"}],
+            "risk_reward": 2.5,
+        }
+        result = score_quality(row)
+        self.assertGreaterEqual(result["score"], 0)
+        self.assertLessEqual(result["score"], 100)
+        self.assertEqual(result["score"], score_quality(row)["score"])
+        self.assertEqual(set(result["components"]), {"trend", "momentum", "market", "catalyst", "risk"})
+
+    def test_missing_evidence_does_not_create_price_or_signal(self):
+        from app.quality_score import score_quality
+        result = score_quality({})
+        self.assertIn(result["label"], {"ممتاز", "قوي", "متوسط", "مراقبة"})
+        self.assertNotIn("price", result)
+        self.assertNotIn("entry", result)
+        self.assertNotIn("target", result)
