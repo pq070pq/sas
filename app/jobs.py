@@ -17,6 +17,7 @@ from .radar_learning import learn_radar_profile, get_radar_profile
 from .shariah import check_shariah
 from .maintenance import cleanup_old_data
 from .quality_score import score_quality
+from .quality_backtest import summarize_quality_outcomes
 from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
@@ -967,6 +968,27 @@ async def weekly_radar_report():
             select(RadarOutcome).where(RadarOutcome.session_date >= start).order_by(RadarOutcome.session_date.asc())
         )).scalars().all()
         reached = [x for x in outcomes if int(x.achieved_target or 0) > 0]
+        # Quality Score is evaluated only against persisted live outcomes.
+        outcome_ids = {x.radar_signal_id for x in outcomes}
+        signals = (await db.execute(
+            select(RadarSignal).where(RadarSignal.id.in_(outcome_ids))
+        )).scalars().all() if outcome_ids else []
+        signal_by_id = {x.id: x for x in signals}
+        quality_records = []
+        for outcome in outcomes:
+            signal = signal_by_id.get(outcome.radar_signal_id)
+            if not signal:
+                continue
+            try:
+                payload = json.loads(signal.payload or "{}")
+            except (TypeError, ValueError):
+                payload = {}
+            quality_records.append({
+                "quality_score": payload.get("quality_score"),
+                "status": outcome.status,
+                "achieved_target": outcome.achieved_target,
+            })
+        quality_summary = summarize_quality_outcomes(quality_records)
         stopped = [x for x in outcomes if x.status == "failed"]
         active = [x for x in outcomes if x.status == "active"]
         lines = [
@@ -978,6 +1000,16 @@ async def weekly_radar_report():
             f"🎯 حققت هدفًا فعليًا: <b>{len(reached)}</b>",
             f"🛑 أوقفت/ألغيت: <b>{len(stopped)}</b>",
             f"⏳ تحت المتابعة: <b>{len(active)}</b>",
+            "",
+            "🧪 <b>جودة الرادار حسب Quality Score</b>",
+        ]
+        for label in ("85-100", "75-84", "65-74", "under-65"):
+            q = quality_summary[label]
+            rate = f"{q['success_rate']:.1f}%" if q["success_rate"] is not None else "لا توجد حالات مكتملة"
+            lines.append(
+                f"• {label}: مكتملة {q['completed']} | ناجحة {q['success']} | فشل {q['failure']} | نشطة {q['active']} | النجاح {rate}"
+            )
+        lines.extend([
             "",
             "🏆 <b>الأسهم التي حققت أهدافها</b>",
         ]
@@ -994,7 +1026,7 @@ async def weekly_radar_report():
             "━━━━━━━━━━━━━━━━━━",
             "⚠️ تعتمد الإحصائية على أحداث تحقق الأهداف التي رصدها النظام فعليًا أثناء التشغيل، وليست إعادة احتساب تاريخية.",
             "لا يعد هذا التقرير توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️",
-        ]
+        ])
         await send_message(settings.telegram_channel_id, "\n".join(lines))
         db.add(ScheduledReport(report_key=report_key))
         await db.commit()
