@@ -808,6 +808,8 @@ const ADMIN_ACCORDION_ITEMS=[
 ];
 
 function initAdminAccordion(){
+ const monthly=document.querySelector('.monthly-report-panel');
+ if(monthly && !monthly.id)monthly.id='monthly-report-panel';
  const page=document.getElementById('adminPage');
  const oldNav=page?.querySelector('.admin-nav');
  if(!page||!oldNav||oldNav.dataset.accordionReady==='1')return;
@@ -893,6 +895,14 @@ function syncAdminAccordionVisibility(){
    item.querySelector('.admin-accordion-body')?.classList.remove('open');
   }
  });
+}
+
+function openAdminAccordionFor(id){
+ initAdminAccordion();
+ const item=document.querySelector('.admin-accordion-item[data-admin-accordion-id="'+id+'"]');
+ const trigger=item?.querySelector('.admin-accordion-trigger');
+ if(!item||item.hidden||!trigger)return;
+ if(trigger.getAttribute('aria-expanded')!=='true')trigger.click();
 }
 
 function adminSection(id,btn){
@@ -1251,6 +1261,7 @@ async function openSubscriberStatus(state){
  summary.innerHTML='<span class="subscriber-loading">جاري قراءة البيانات…</span>';
  list.innerHTML='<div class="loading">جاري تحميل القائمة...</div>';
  panel.hidden=false;
+ openAdminAccordionFor('subscriberStatusPanel');
  panel.scrollIntoView({behavior:'smooth',block:'start'});
  try{
   const d=await api('/api/admin/subscribers?state='+encodeURIComponent(state));
