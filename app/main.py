@@ -2117,96 +2117,120 @@ async def dashboard_home(_: dict = Depends(require_pro)):
 
 @app.get("/api/radar/scan")
 async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
-    from .scanner import scan_us_low_price_stocks
-    status = market_status()
-    app_limit = max(1, int(settings.radar_app_daily_limit or 15))
-    session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    """إرجاع فرص الرادار المحفوظة بأمان؛ لا يسمح لفشل بيانات الرادار بإسقاط Mini App بالكامل."""
+    try:
+        from .scanner import scan_us_low_price_stocks
+        status = market_status()
+        app_limit = max(1, int(settings.radar_app_daily_limit or 15))
+        session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
 
-    # التطبيق يعرض قائمة فرص اليوم المحفوظة افتراضيًا؛ لا يعيد تشغيل الرادار
-    # عند كل فتح للواجهة. الفحص الحي يبقى متاحًا صراحةً عبر fresh=1.
-    if not fresh:
-        async with SessionLocal() as db:
-            rows = (await db.execute(
-                select(RadarSignal)
-                .where(RadarSignal.session_date == session_date)
-                .order_by(RadarSignal.created_at.desc())
-            )).scalars().all()
+        if not fresh:
+            async with SessionLocal() as db:
+                rows = (await db.execute(
+                    select(RadarSignal)
+                    .where(RadarSignal.session_date == session_date)
+                    .order_by(RadarSignal.created_at.desc())
+                )).scalars().all()
 
-        stocks = []
-        seen = set()
-        for row in rows:
-            try:
-                payload = json.loads(row.payload or "{}")
-            except (TypeError, ValueError):
-                continue
-            gate = payload.get("channel_gate") or {}
-            if not gate.get("passed") or not payload.get("radar_active", False):
-                continue
-            symbol = str(row.symbol or "").upper()
-            if not symbol or symbol in seen:
-                continue
-            payload.setdefault("symbol", symbol)
-            stocks.append(payload)
-            seen.add(symbol)
+            stocks = []
+            seen = set()
+            for row in rows:
+                try:
+                    payload = json.loads(row.payload or "{}")
+                except (TypeError, ValueError):
+                    continue
+                if not isinstance(payload, dict):
+                    continue
+                gate = payload.get("channel_gate") or {}
+                if not gate.get("passed") or not payload.get("radar_active", False):
+                    continue
+                symbol = str(row.symbol or "").upper()
+                if not symbol or symbol in seen:
+                    continue
+                payload.setdefault("symbol", symbol)
+                stocks.append(payload)
+                seen.add(symbol)
 
-        def _num(value, default=0.0):
-            try:
-                if isinstance(value, dict):
-                    value = value.get("score")
-                return float(value or default)
-            except (TypeError, ValueError):
-                return float(default)
+            def _num(value, default=0.0):
+                try:
+                    if isinstance(value, dict):
+                        value = value.get("score")
+                    return float(value or default)
+                except (TypeError, ValueError):
+                    return float(default)
 
-        stocks.sort(
-            key=lambda x: (
-                _num(x.get("quality_score")),
-                _num(x.get("opening_opportunity_score")),
-            ),
-            reverse=True,
-        )
-        latest = rows[0] if rows else None
+            stocks.sort(
+                key=lambda x: (
+                    _num(x.get("quality_score")),
+                    _num(x.get("opening_opportunity_score")),
+                ),
+                reverse=True,
+            )
+            latest = rows[0] if rows else None
+            return {
+                "enabled": stock_radar_enabled(),
+                "historical": False,
+                "persisted": True,
+                "scan_at": latest.created_at.isoformat() if latest and latest.created_at else None,
+                "session_date": session_date,
+                "session": status.get("session", "unknown"),
+                "stocks": stocks[:app_limit],
+                "diagnostics": {
+                    "candidates": 0,
+                    "passed": len(stocks[:app_limit]),
+                    "filtered": 0,
+                    "errors": 0,
+                    "daily_limit": app_limit,
+                },
+            }
+
+        if not stock_radar_enabled():
+            return {
+                "enabled": False,
+                "historical": True,
+                "reason": status.get("label_ar", "السوق خارج جلسة الرصد"),
+                "session": status.get("session", "unknown"),
+                "scan_at": None,
+                "session_date": session_date,
+                "stocks": [],
+                "diagnostics": {"candidates": 0, "passed": 0, "filtered": 0, "errors": 0, "daily_limit": app_limit},
+            }
+
+        result = await scan_us_low_price_stocks(force_refresh=True)
         return {
-            "enabled": stock_radar_enabled(),
+            "enabled": True,
             "historical": False,
-            "persisted": True,
-            "scan_at": latest.created_at.isoformat() if latest and latest.created_at else None,
-            "session_date": session_date,
-            "session": status["session"],
-            "stocks": stocks[:app_limit],
+            "persisted": False,
+            "scan_at": datetime.now(timezone.utc).isoformat(),
+            "range": {"min": 0.30, "max": 6.00},
+            "method": "SAS PRO Radar",
+            "session": status.get("session", "unknown"),
+            "stocks": (result.get("stocks") or [])[:app_limit],
+            "diagnostics": {**(result.get("diagnostics") or {}), "daily_limit": app_limit},
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Radar API failed")
+        return {
+            "enabled": False,
+            "historical": False,
+            "persisted": False,
+            "stocks": [],
             "diagnostics": {
                 "candidates": 0,
-                "passed": len(stocks[:app_limit]),
+                "passed": 0,
                 "filtered": 0,
-                "errors": 0,
-                "daily_limit": app_limit,
+                "errors": 1,
+                "error_type": type(exc).__name__,
+                "error_message": str(exc)[:240],
+            },
+            "error": {
+                "type": type(exc).__name__,
+                "message": str(exc)[:240],
             },
         }
 
-    if not stock_radar_enabled():
-        return {
-            "enabled": False,
-            "historical": True,
-            "reason": status["label_ar"],
-            "session": status["session"],
-            "scan_at": None,
-            "session_date": session_date,
-            "stocks": [],
-            "diagnostics": {"candidates": 0, "passed": 0, "filtered": 0, "errors": 0, "daily_limit": app_limit},
-        }
-
-    result = await scan_us_low_price_stocks(force_refresh=True)
-    from datetime import datetime, timezone
-    return {
-        "enabled": True,
-        "historical": False,
-        "persisted": False,
-        "scan_at": datetime.now(timezone.utc).isoformat(),
-        "range": {"min": 0.50, "max": 30.00},
-        "method": "Faisal",
-        "session": status["session"],
-        "stocks": result.get("stocks", [])[:app_limit],
-        "diagnostics": {**(result.get("diagnostics") or {}), "daily_limit": app_limit},
-    }
 
 @app.get("/api/stocks/{symbol}/chart")
 async def stock_chart(symbol: str, _: dict = Depends(require_pro)):
