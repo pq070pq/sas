@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     radar_interval_minutes: int = 10
     radar_staging_limit: int = 120
     radar_shortlist_limit: int = 60
+    # Daily publication limits: best 5 to the channel, max 15 qualified opportunities in the Mini App.
+    radar_channel_daily_limit: int = 5
+    radar_app_daily_limit: int = 15
     twelve_data_scan_fallback_symbols: int = 3
     twelve_data_intraday_symbols: int = 2
     # Safety limits: Twelve Data is optional and must never be allowed to drain the account.
