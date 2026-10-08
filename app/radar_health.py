@@ -22,7 +22,33 @@ def _task_snapshot(task):
         return {"state": "missing", "age": None, "in_radar": False}
 
     if task.done():
-        return {"state": "done", "age": None, "in_radar": False}
+        if task.cancelled():
+            return {
+                "state": "done",
+                "age": None,
+                "in_radar": False,
+                "error_type": "CancelledError",
+                "error": "مهمة المجدول أُلغيت.",
+            }
+        try:
+            exc = task.exception()
+        except Exception as exc:
+            return {
+                "state": "done",
+                "age": None,
+                "in_radar": False,
+                "error_type": type(exc).__name__,
+                "error": str(exc) or repr(exc),
+            }
+        if exc is None:
+            return {"state": "done", "age": None, "in_radar": False, "error_type": None, "error": None}
+        return {
+            "state": "done",
+            "age": None,
+            "in_radar": False,
+            "error_type": type(exc).__name__,
+            "error": str(exc) or repr(exc),
+        }
 
     stack = task.get_stack(limit=20)
     in_radar = False
@@ -117,7 +143,14 @@ async def radar_health_monitor():
                 issue = "مهمة المجدول غير موجودة."
                 severity = "critical"
             elif snapshot["state"] == "done":
-                issue = "مهمة المجدول توقفت/انهارت."
+                error_type = snapshot.get("error_type")
+                error = str(snapshot.get("error") or "").strip()
+                if error_type and error:
+                    issue = f"مهمة المجدول توقفت/انهارت: {error_type}: {error}"
+                elif error_type:
+                    issue = f"مهمة المجدول توقفت/انهارت: {error_type}"
+                else:
+                    issue = "مهمة المجدول توقفت/انهارت بدون استثناء مسجل."
                 severity = "critical"
             elif active_session and snapshot["in_radar"] and snapshot["age"] is not None:
                 if snapshot["age"] >= RADAR_STUCK_SECONDS:
@@ -132,11 +165,17 @@ async def radar_health_monitor():
                 restarted = False
                 if severity == "critical":
                     restarted = await _restart_scheduler(issue)
+                restart_text = (
+                    "♻️ <b>تمت محاولة إعادة تشغيل المجدول تلقائيًا.</b>"
+                    if restarted
+                    else "⚠️ <b>تعذرت إعادة تشغيل المجدول تلقائيًا أو كانت ضمن مهلة الحماية.</b>"
+                )
                 sent = await _notify_admin(
                     "🚨 <b>SAS PRO | تنبيه صحة الرادار</b>\n\n"
                     f"❌ <b>الحالة:</b> {issue}\n"
                     f"📡 <b>الجلسة:</b> {status.get('label_ar') or session}\n"
-                    "🛠️ النظام سيستمر في المراقبة، ويجب فحص الرادار/المزودات إذا استمر الخلل."
+                    f"{restart_text}\n"
+                    "🔎 تم تضمين نوع الاستثناء ورسالة الخطأ في التنبيه لتحديد السبب الحقيقي بدل الاكتفاء برسالة عامة."
                 )
                 if sent:
                     _health_alert_active = True
