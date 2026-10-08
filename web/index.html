@@ -121,7 +121,7 @@
 
     <nav class="admin-nav" aria-label="أقسام الإدارة">
       <button class="active" data-admin-target="adminOverview" onclick="adminSection('adminOverview',this)">⌂ <span>نظرة عامة</span></button>
-      <button data-admin-target="adminRadarPreviewPanel" onclick="adminSection('adminRadarPreviewPanel',this)">📡 <span>فحص الرادار</span></button>
+      <button data-admin-target="adminRadarPreviewPanel" onclick="adminSection('adminRadarPreviewPanel',this)">📡 <span>حالة الرادار</span></button>
       <button data-admin-target="adminUsersPanel" onclick="adminSection('adminUsersPanel',this)">👥 <span>المشتركون</span></button>
       <button data-admin-target="adminSubscriptionPanel" onclick="adminSection('adminSubscriptionPanel',this)">💎 <span>الاشتراكات</span></button>
       <button data-admin-target="starsPanel" onclick="adminSection('starsPanel',this)">⭐ <span>المدفوعات</span></button>
@@ -144,10 +144,10 @@
     <section class="admin-stats" id="adminStats"></section>
       <section class="admin-panel" id="adminRadarPreviewPanel" hidden>
       <div class="section-head">
-        <div><b>📡 فحص الرادار الجديد</b><small>Smart Levels + ICT — فحص حقيقي بدون إرسال للقناة</small></div>
-        <button class="admin-close-list" id="adminRadarRunBtn" onclick="runAdminRadarPreview()">▶ تشغيل الفحص</button>
+        <div><b>📡 فحص الرادار الجديد</b><small>Smart Levels + ICT — الرادار يعمل تلقائيًا ولا يحتاج تشغيلًا يدويًا</small></div>
+        <span class="admin-auto-badge">🟢 يعمل تلقائيًا كل 10 دقائق</span>
       </div>
-      <div id="adminRadarPreviewSummary" class="subscriber-status-summary"><span>اضغط «تشغيل الفحص» لقراءة وضع الرادار الحالي.</span></div>
+      <div id="adminRadarPreviewSummary" class="subscriber-status-summary"><span>الرادار يعمل تلقائيًا أثناء جلسات السوق، والقناة تستقبل أفضل 5 فقط.</span></div>
       <div id="adminRadarPreviewTop" class="subscriber-status-list"></div>
       <div id="adminRadarPreviewRejects" class="subscriber-status-list"></div>
     </section>
