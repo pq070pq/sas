@@ -1,6 +1,9 @@
 name: SAS PRO Live Radar Status
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
   schedule:
     - cron: "*/15 * * * *"
@@ -35,9 +38,9 @@ jobs:
           out="$GITHUB_WORKSPACE/radar-live-status.json"
           ssh_opts=(-i "$RUNNER_TEMP/ovh_key" -p "$OVH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=15)
           ssh "${ssh_opts[@]}" "$OVH_USER@$OVH_HOST" 'cd /opt/saspro && docker compose exec -T saspro python - <<'"'"'PY'"'"'
-          import asyncio, json, os
+          import asyncio, json
           from datetime import datetime, timezone
-          from sqlalchemy import select, text
+          from sqlalchemy import select
           from app.db import SessionLocal, RadarRun
 
           async def main():
