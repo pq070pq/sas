@@ -14,17 +14,18 @@ RIYADH = ZoneInfo("Asia/Riyadh")
 
 _last_snapshot_at = None
 _btc_previous_snapshot_price = None
+_btc_last_sent_at = None
 
 # أثناء إغلاق السوق نعرض المؤشرات الثلاثة + بيتكوين + الذهب.
 MACRO = [
     ("IXIC", "📊 Nasdaq"),
     ("SPX", "📊 S&P 500"),
     ("DJI", "📊 Dow Jones Industrial"),
-    ("BTC/USD", "₿ بيتكوين"),
     ("XAU/USD", "🥇 الذهب"),
 ]
 
 HOLIDAY_INTERVAL_MINUTES = 360  # 6 ساعات
+BTC_HOLIDAY_INTERVAL_MINUTES = 180  # بيتكوين مستقل كل 3 ساعات
 
 
 def _fmt_price(value):
@@ -331,6 +332,43 @@ async def publish_market_update(reason: str = "تحديث السوق عبر مص
         "news": len(news),
     }
 
+
+async def publish_btc_holiday_update():
+    """رصد بيتكوين مستقل عن تقرير مؤشرات السوق والأخبار أثناء الإجازة."""
+    global _btc_last_sent_at, _btc_previous_snapshot_price
+    if not settings.telegram_channel_id or not settings.telegram_bot_token:
+        return {"sent": False, "reason": "Telegram not configured"}
+    status = market_status()
+    if not status["holiday"] and status["session"] != "weekend":
+        return {"sent": False, "reason": "stock market is open"}
+    now = datetime.now(timezone.utc)
+    if _btc_last_sent_at is not None and (now - _btc_last_sent_at).total_seconds() < BTC_HOLIDAY_INTERVAL_MINUTES * 60:
+        return {"sent": False, "reason": "btc interval not reached"}
+    try:
+        q = await binance_quote("BTCUSDT")
+        if not q or not _valid_price(q.get("price")):
+            return {"sent": False, "reason": "no real BTC price available"}
+        price = float(q["price"])
+        change_6h = await _btc_6h_change()
+        if change_6h is None and _btc_previous_snapshot_price not in (None, 0):
+            change_6h = ((price - _btc_previous_snapshot_price) / _btc_previous_snapshot_price) * 100
+        lines = [
+            "₿ <b>SAS PRO | رصد بيتكوين</b>",
+            "",
+            f"💵 <b>السعر الحالي:</b> ${_fmt_price(price)}",
+            f"📈 <b>التغير خلال 6 ساعات:</b> {_fmt_pct(change_6h)}",
+            _btc_move_line(price, _btc_previous_snapshot_price),
+            "",
+            f"🕐 {datetime.now(RIYADH).strftime('%Y-%m-%d %H:%M')} بتوقيت السعودية",
+            "",
+            "⚡ <b>SAS PRO</b>",
+        ]
+        await send_message(settings.telegram_channel_id, "\n".join(lines))
+        _btc_last_sent_at = now
+        _btc_previous_snapshot_price = price
+        return {"sent": True, "asset": "BTC"}
+    except Exception as exc:
+        return {"sent": False, "reason": f"BTC holiday radar failed: {exc}"}
 
 async def publish_holiday_radar():
     """تحديث العطلة كل 6 ساعات مع قياس حركة بيتكوين بين التحديثين."""
