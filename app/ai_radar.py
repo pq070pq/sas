@@ -260,8 +260,8 @@ async def analyze_stock(
             "key_takeaway": "تحليل الذكاء الاصطناعي غير مفعّل — أضف مفتاح مزود LLM في .env.",
         }
 
-    key = _cache_key(symbol, safe_news, safe_fundamentals, tipranks, events)
-    cached = _cache.get(key)
+    cache_key = _cache_key(symbol, safe_news, safe_fundamentals, tipranks, events)
+    cached = _cache.get(cache_key)
     now = time.monotonic()
     if cached and now - cached[0] < _CACHE_TTL:
         return cached[1]
@@ -324,10 +324,14 @@ async def analyze_stock(
                         raise ValueError("LLM returned invalid JSON")
 
                     result = _validate(parsed, safe_news, safe_fundamentals)
+                    if not result.get("enabled"):
+                        # A provider can return HTTP 200 but still fail our
+                        # evidence/guardrail validation. Try the next provider.
+                        raise ValueError(result.get("status") or "AI validation failed")
                     result["provider"] = provider["name"]
                     result["model"] = provider["model"]
                     result["evidence_count"] = len(safe_news)
-                    _cache[key] = (now, result)
+                    _cache[cache_key] = (now, result)
                     return result
                 except Exception as exc:
                     last_error = exc
