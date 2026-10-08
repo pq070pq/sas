@@ -9,6 +9,7 @@ import hmac
 import html
 import httpx
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -1953,55 +1954,85 @@ async def dashboard_home(_: dict = Depends(require_pro)):
 async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
     from .scanner import scan_us_low_price_stocks
     status = market_status()
-    if not stock_radar_enabled():
+    app_limit = max(1, int(settings.radar_app_daily_limit or 15))
+    session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+
+    # التطبيق يعرض قائمة فرص اليوم المحفوظة افتراضيًا؛ لا يعيد تشغيل الرادار
+    # عند كل فتح للواجهة. الفحص الحي يبقى متاحًا صراحةً عبر fresh=1.
+    if not fresh:
         async with SessionLocal() as db:
             rows = (await db.execute(
                 select(RadarSignal)
+                .where(RadarSignal.session_date == session_date)
                 .order_by(RadarSignal.created_at.desc())
-                .limit(100)
             )).scalars().all()
+
         stocks = []
         seen = set()
-        valid_historical_rows = []
         for row in rows:
             try:
-                session_day = date.fromisoformat(str(row.session_date)[:10])
-                if session_day.weekday() < 5 and session_day not in us_market_holidays(session_day.year):
-                    valid_historical_rows.append(row)
                 payload = json.loads(row.payload or "{}")
-                payload.setdefault("symbol", row.symbol)
-                gate = payload.get("channel_gate") or {}
-                if not gate.get("passed"):
-                    continue
-                if row.symbol not in seen:
-                    stocks.append(payload)
-                    seen.add(row.symbol)
-            except Exception:
+            except (TypeError, ValueError):
                 continue
-        latest_valid = valid_historical_rows[0] if valid_historical_rows else None
-        latest_scan_at = latest_valid.created_at.isoformat() if latest_valid and latest_valid.created_at else None
-        latest_session_date = latest_valid.session_date if latest_valid else None
+            gate = payload.get("channel_gate") or {}
+            if not gate.get("passed"):
+                continue
+            symbol = str(row.symbol or "").upper()
+            if not symbol or symbol in seen:
+                continue
+            payload.setdefault("symbol", symbol)
+            stocks.append(payload)
+            seen.add(symbol)
+
+        stocks.sort(
+            key=lambda x: (
+                float((x.get("quality_score") or {}).get("score") or 0),
+                float(x.get("opening_opportunity_score") or 0),
+            ),
+            reverse=True,
+        )
+        latest = rows[0] if rows else None
+        return {
+            "enabled": stock_radar_enabled(),
+            "historical": False,
+            "persisted": True,
+            "scan_at": latest.created_at.isoformat() if latest and latest.created_at else None,
+            "session_date": session_date,
+            "session": status["session"],
+            "stocks": stocks[:app_limit],
+            "diagnostics": {
+                "candidates": 0,
+                "passed": len(stocks[:app_limit]),
+                "filtered": 0,
+                "errors": 0,
+                "daily_limit": app_limit,
+            },
+        }
+
+    if not stock_radar_enabled():
         return {
             "enabled": False,
             "historical": True,
             "reason": status["label_ar"],
             "session": status["session"],
-            "scan_at": latest_scan_at,
-            "session_date": latest_session_date,
-            "stocks": stocks[:settings.radar_app_daily_limit],
-            "diagnostics": {"candidates": 0, "passed": len(stocks[:settings.radar_app_daily_limit]), "filtered": 0, "errors": 0},
+            "scan_at": None,
+            "session_date": session_date,
+            "stocks": [],
+            "diagnostics": {"candidates": 0, "passed": 0, "filtered": 0, "errors": 0, "daily_limit": app_limit},
         }
-    result = await scan_us_low_price_stocks(force_refresh=bool(fresh))
+
+    result = await scan_us_low_price_stocks(force_refresh=True)
     from datetime import datetime, timezone
     return {
         "enabled": True,
         "historical": False,
+        "persisted": False,
         "scan_at": datetime.now(timezone.utc).isoformat(),
         "range": {"min": 0.50, "max": 30.00},
         "method": "Faisal",
         "session": status["session"],
-        "stocks": result.get("stocks", [])[:settings.radar_app_daily_limit],
-        "diagnostics": result.get("diagnostics", {}),
+        "stocks": result.get("stocks", [])[:app_limit],
+        "diagnostics": {**(result.get("diagnostics") or {}), "daily_limit": app_limit},
     }
 
 @app.get("/api/stocks/{symbol}/chart")
