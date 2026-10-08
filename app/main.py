@@ -31,6 +31,7 @@ from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
 from .fcc_reviewer import review_stock
 from .shariah import check_shariah
 from .smart_memory import SmartMemory
+from .binance_spot import is_crypto_symbol, normalize_symbol as normalize_crypto_symbol, quote as binance_quote, analyze as binance_analyze, candles as binance_candles
 
 logger = logging.getLogger(__name__)
 
@@ -1981,10 +1982,18 @@ async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
 
 @app.get("/api/stocks/{symbol}/chart")
 async def stock_chart(symbol: str, _: dict = Depends(require_pro)):
-    data = await ohlcv(symbol.upper(), days=90, interval="1d")
+    raw_symbol = symbol.upper().strip()
+    if is_crypto_symbol(raw_symbol):
+        try:
+            pair = normalize_crypto_symbol(raw_symbol)
+            data = await binance_candles(pair, interval="1h", limit=220)
+            return {"symbol": pair, "candles": data[-90:], "available": len(data) >= 20, "source": "Binance Spot", "interval": "1h"}
+        except Exception as exc:
+            return {"symbol": normalize_crypto_symbol(raw_symbol), "candles": [], "available": False, "source": "Binance Spot", "error": f"{type(exc).__name__}: {str(exc)[:180]}"}
+    data = await ohlcv(raw_symbol, days=90, interval="1d")
     if isinstance(data, list):
-        return {"symbol": symbol.upper(), "candles": data, "available": len(data) >= 20, "source": "legacy"}
-    return {"symbol": symbol.upper(), **data}
+        return {"symbol": raw_symbol, "candles": data, "available": len(data) >= 20, "source": "legacy"}
+    return {"symbol": raw_symbol, **data}
 
 @app.get("/api/stocks/{symbol}/news")
 async def stock_news(symbol: str, _: dict = Depends(require_pro)):
@@ -1996,7 +2005,13 @@ async def stock_events(symbol: str, _: dict = Depends(require_pro)):
 
 @app.get("/api/stocks/{symbol}/quote")
 async def stock_quote(symbol: str, _: dict = Depends(require_pro)):
-    return await quote(symbol.upper())
+    raw_symbol = symbol.upper().strip()
+    if is_crypto_symbol(raw_symbol):
+        try:
+            return await binance_quote(raw_symbol)
+        except Exception as exc:
+            return {"symbol": normalize_crypto_symbol(raw_symbol), "price": None, "change_pct": None, "source": "Binance Spot", "market": "crypto_spot", "error": f"{type(exc).__name__}: {str(exc)[:180]}"}
+    return await quote(raw_symbol)
 
 @app.get("/api/stocks/{symbol}/shariah")
 async def stock_shariah(symbol: str, _: dict = Depends(require_pro)):
@@ -2010,8 +2025,71 @@ async def stock_shariah(symbol: str, _: dict = Depends(require_pro)):
 
 @app.post("/api/stocks/{symbol}/analyze")
 async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession = Depends(get_session)):
-    """تحليل Mini App متعدد الطبقات: البيانات الفنية لا تتوقف بسبب غياب AI أو خبر."""
+    """تحليل Mini App متعدد الطبقات، مع مسار حي مستقل لـ Binance Spot للأصول الرقمية."""
     symbol = symbol.upper().strip()
+
+    if is_crypto_symbol(symbol):
+        pair = normalize_crypto_symbol(symbol)
+        try:
+            crypto = await asyncio.wait_for(binance_analyze(pair, interval="1h"), timeout=15.0)
+            q = await asyncio.wait_for(binance_quote(pair), timeout=8.0)
+            crypto["change_pct"] = q.get("change_pct")
+            crypto["quote_volume"] = q.get("quote_volume")
+            crypto["high_24h"] = q.get("high_24h")
+            crypto["low_24h"] = q.get("low_24h")
+        except Exception as exc:
+            return {
+                "ok": True, "symbol": pair, "partial": True,
+                "quote": {"symbol": pair, "price": None, "change_pct": None, "source": "Binance Spot", "market": "crypto_spot", "error": f"{type(exc).__name__}: {str(exc)[:180]}"},
+                "mini_analysis": {"direction": "غير متاح", "momentum": "غير متاح", "liquidity": "غير متاحة", "signal": "غير متاحة", "entry": None, "stop": None, "target": None, "rvol": None, "takeaway": "تعذر الحصول على بيانات Binance Spot الحية؛ لم يتم تخمين أي سعر أو مستوى."},
+                "technical_analysis": {}, "sas_pro": {"targets": {"status": "error", "targets": [], "shariah": {"status": "not_applicable", "status_ar": "غير منطبق — أصل رقمي", "verified": False, "message": "مسار الشرعية الخاص بالأسهم لا يطبق على هذا الأصل.", "sources": []}}, "classification": {}, "report": None, "disclaimer": DISCLAIMER}
+            }
+
+        target_list = crypto.get("targets") or []
+        entry, stop = crypto.get("entry") or crypto.get("price"), crypto.get("stop")
+        target1 = target_list[0] if target_list else None
+        rr = None
+        try:
+            if entry and stop and target1 and float(entry) > float(stop):
+                rr = round((float(target1) - float(entry)) / (float(entry) - float(stop)), 2)
+        except Exception:
+            rr = None
+
+        score = int(crypto.get("score") or 0)
+        mini = {
+            "direction": "صاعد" if crypto.get("confirmation", {}).get("trend") else "غير مؤكد",
+            "momentum": "قوي" if score >= 75 else ("متوسط" if score >= 50 else "ضعيف"),
+            "liquidity": "مرتفعة" if (crypto.get("rvol") or 0) >= 2 else ("طبيعية" if (crypto.get("rvol") or 0) >= 1.2 else "منخفضة"),
+            "signal": crypto.get("state") or "غير متاحة", "entry": entry, "stop": stop, "target": target1,
+            "rvol": crypto.get("rvol"), "takeaway": crypto.get("takeaway") or "لا توجد خلاصة كافية."
+        }
+        targets = {
+            "status": "ok" if target_list else "watch", "price": entry, "exit": stop,
+            "support": crypto.get("support"), "resistance": crypto.get("resistance"),
+            "targets": target_list, "target1": target1, "risk_reward": rr,
+            "risk_reward_warning": rr is None or rr < 1.5, "atr": crypto.get("atr14"),
+            "source": "Binance Spot", "interval": crypto.get("interval"),
+            "indicators": {k: crypto.get(k) for k in ("ema20","ema50","ema200","rsi14","adx14","macd","macd_signal","macd_hist","atr14","atr_pct")},
+            "shariah": {"status": "not_applicable", "status_ar": "غير منطبق — أصل رقمي", "verified": False, "message": "هذا تحليل أصل رقمي وليس سهمًا أمريكيًا؛ لم يتم تطبيق بوابة الشرعية الخاصة بالأسهم.", "sources": []}
+        }
+        classification = {
+            "pass": score >= 60, "score": score, "type": "crypto_spot",
+            "behavior": crypto.get("state") or "غير واضح", "rvol": crypto.get("rvol"), "rsi14": crypto.get("rsi14"),
+            "risk_level": "مرتفع" if (crypto.get("atr_pct") or 0) >= 5 else "متوسط",
+            "breakout_confirmed": bool(crypto.get("confirmation", {}).get("breakout") and crypto.get("confirmation", {}).get("volume")),
+            "reason": crypto.get("takeaway"), "score_breakdown": {}
+        }
+        payload = {
+            "analysis": {"enabled": False, "ai_available": False, "key_takeaway": crypto.get("takeaway"), "fallback_type": "binance_spot_technical"},
+            "mini_analysis": mini, "technical_analysis": crypto, "quote": q,
+            "sas_pro": {"targets": targets, "classification": classification, "report": None, "disclaimer": DISCLAIMER},
+            "news": [], "fundamentals": {}, "ai_status": "not_applicable", "partial": False,
+            "crypto": True, "source": "Binance Spot", "symbol": pair,
+            "chart": {"candles": crypto.get("candles") or [], "interval": "1h"}
+        }
+        _cache_put(_analysis_memory, pair, payload)
+        _cache_put(_quick_scan_memory, pair, {"quote": q, "mini_analysis": mini})
+        return payload
 
     cached = _cache_get(_analysis_memory, symbol, _ANALYSIS_CACHE_TTL)
     if cached is not None:
