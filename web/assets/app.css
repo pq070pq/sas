@@ -1226,7 +1226,8 @@ filter:blur(.2px);
 .admin-brand span{color:#718d96}
 .admin-header-actions{display:flex;align-items:center;gap:6px}
 .admin-refresh{min-height:36px!important;padding:8px 10px!important;font-size:10px!important}
-.admin-header-actions .admin-refresh:first-of-type{display:none}
+/* زر صفحة المستخدم يجب أن يبقى ظاهرًا للمالك/المشرف للعودة إلى واجهة المشترك */
+.admin-header-actions .admin-refresh:first-of-type{display:inline-flex;align-items:center;justify-content:center}
 
 /* Replace the old horizontal navigation with true mobile-friendly accordion rows. */
 .admin-nav{display:none!important}
@@ -1335,3 +1336,28 @@ filter:blur(.2px);
 /* Keep the redesigned admin compact and prevent horizontal overflow. */
 #adminPage *{max-width:100%;box-sizing:border-box}
 #adminPage .plan-edit{overflow:auto}
+
+
+/* توازن رأسي للوحة الإدارة داخل Telegram WebView */
+#adminPage{
+  padding-top:clamp(30px,7vh,64px)!important;
+}
+#adminPage .admin-header{
+  margin-top:0;
+}
+@media (max-width:600px){
+  #adminPage{
+    padding-top:42px!important;
+    padding-bottom:84px!important;
+  }
+  #adminPage .admin-header{
+    margin-bottom:16px;
+  }
+  #adminPage .admin-header-actions{
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+  #adminPage .admin-header-actions .admin-refresh{
+    min-height:34px!important;
+  }
+}
