@@ -2149,10 +2149,18 @@ async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
             stocks.append(payload)
             seen.add(symbol)
 
+            def _num(value, default=0.0):
+            try:
+                if isinstance(value, dict):
+                    value = value.get("score")
+                return float(value or default)
+            except (TypeError, ValueError):
+                return float(default)
+
         stocks.sort(
             key=lambda x: (
-                float((x.get("quality_score") or {}).get("score") or 0),
-                float(x.get("opening_opportunity_score") or 0),
+                _num(x.get("quality_score")),
+                _num(x.get("opening_opportunity_score")),
             ),
             reverse=True,
         )
