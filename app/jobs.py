@@ -1012,7 +1012,7 @@ async def weekly_radar_report():
         lines.extend([
             "",
             "🏆 <b>الأسهم التي حققت أهدافها</b>",
-        ]
+        ])
         if reached:
             lines.extend(
                 f"• {x.symbol} — تحقق الهدف {int(x.achieved_target)}"
@@ -1026,7 +1026,7 @@ async def weekly_radar_report():
             "━━━━━━━━━━━━━━━━━━",
             "⚠️ تعتمد الإحصائية على أحداث تحقق الأهداف التي رصدها النظام فعليًا أثناء التشغيل، وليست إعادة احتساب تاريخية.",
             "لا يعد هذا التقرير توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️",
-        ])
+        ]
         await send_message(settings.telegram_channel_id, "\n".join(lines))
         db.add(ScheduledReport(report_key=report_key))
         await db.commit()
