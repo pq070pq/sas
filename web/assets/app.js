@@ -327,8 +327,9 @@ async function runRadar(show=true){
  terminalState.radarScanning=true;
  try{
   if(show){document.getElementById('radarGrid').innerHTML='<div class="loading">🔎 يجري تحميل أحدث بيانات الرادار...</div>';switchTerminalTab('radar');}
-  // التحديث اليدوي يجبر الرادار على مسح حي جديد بدل عرض آخر رصد محفوظ.
-  const d=await api('/api/radar/scan?fresh=1',{timeoutMs:30000});
+  // التطبيق يعرض فرص اليوم المحفوظة من الرادار؛ الفحص الحي لا يُعاد تشغيله
+  // عند كل فتح حتى لا نستهلك موارد مزود البيانات ولا نكرر الرصد.
+  const d=await api('/api/radar/scan?fresh=0',{timeoutMs:30000});
   terminalState.radar=d.stocks||[];
   const diag=d.diagnostics||{};
   const nextPremarket=d.next_premarket_riyadh||'11:00';
