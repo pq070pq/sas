@@ -1049,6 +1049,26 @@ async function runAdminRadarPreview(){
 async function adminRefresh(){
  initAdminAccordion();
  const p=me?.admin_permissions||[];
+ const permissionRules={
+  adminRadarPreviewPanel:p.includes('radar'),
+  adminUsersPanel:p.includes('users'),
+  termsAdminPanel:p.includes('users'),
+  subscriberStatusPanel:p.includes('users'),
+  monthlyReportPanel:p.includes('users'),
+  adminSubscriptionPanel:p.includes('subscriptions')||p.includes('settings'),
+  starsPanel:p.includes('payments'),
+  staffPanel:p.includes('admins'),
+  deployPanel:p.includes('settings'),
+  plansEditorPanel:p.includes('settings')
+ };
+ const monthlyPanel=document.getElementById('monthly-report-panel');
+ if(monthlyPanel)monthlyPanel.id='monthlyReportPanel';
+ for(const [id,allowed] of Object.entries(permissionRules)){
+  const panel=document.getElementById(id);
+  if(!panel)continue;
+  panel.dataset.adminPermissionHidden=allowed?'0':'1';
+  if(!allowed)panel.hidden=true;
+ }
  const radarPanel=document.getElementById('adminRadarPreviewPanel');
  const radarNav=document.querySelector('[data-admin-target="adminRadarPreviewPanel"]');
  if(radarPanel){radarPanel.hidden=!p.includes('radar');radarPanel.dataset.adminPermissionHidden=(!p.includes('radar'))?'1':'0';}
@@ -1056,7 +1076,7 @@ async function adminRefresh(){
  const tasks=[];
  if(p.includes('users')){tasks.push(loadAdminStats(),adminSearch(),loadAdminMonthlyReport(),loadAdminTerms());}
  if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;document.getElementById('plansEditorPanel').hidden=false;document.getElementById('plansEditorPanel').dataset.adminPermissionHidden='0';document.getElementById('deployPanel').hidden=false;document.getElementById('deployPanel').dataset.adminPermissionHidden='0';tasks.push(loadAdminPlans(),loadSubscriptionConfig(),loadDeployStatus());}
- else {document.getElementById('planEditor').closest('.admin-panel').hidden=true;document.getElementById('plansEditorPanel').hidden=true;document.getElementById('plansEditorPanel').dataset.adminPermissionHidden='1';document.getElementById('deployPanel').hidden=true;document.getElementById('deployPanel').dataset.adminPermissionHidden='1';document.getElementById('planEditor').closest('.admin-panel').previousElementSibling.hidden=true;}
+ else {document.getElementById('planEditor').closest('.admin-panel').hidden=true;document.getElementById('plansEditorPanel').hidden=true;document.getElementById('plansEditorPanel').dataset.adminPermissionHidden='1';document.getElementById('deployPanel').hidden=true;document.getElementById('deployPanel').dataset.adminPermissionHidden='1';}
  if(p.includes('payments')){document.getElementById('starsPanel').hidden=false;document.getElementById('starsPanel').dataset.adminPermissionHidden='0';tasks.push(loadStarsWallet());}else{document.getElementById('starsPanel').hidden=true;document.getElementById('starsPanel').dataset.adminPermissionHidden='1';}
  await Promise.all(tasks);
  syncAdminAccordionVisibility();
