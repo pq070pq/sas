@@ -2,6 +2,7 @@ import asyncio
 import logging
 import json
 import httpx
+import os
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -28,6 +29,22 @@ if not logger.handlers:
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
     logger.addHandler(handler)
 logger.propagate = False
+
+def _trace_symbols():
+    raw = os.getenv("RADAR_TRACE_SYMBOLS", "")
+    return {token.strip().upper() for token in raw.split(",") if token.strip()}
+
+
+def _trace_symbol(symbol):
+    return str(symbol or "").upper().strip() in _trace_symbols()
+
+
+def _trace_gate(symbol, **fields):
+    if not _trace_symbol(symbol):
+        return
+    payload = " ".join(f"{key}={value!r}" for key, value in fields.items())
+    logger.info("RADAR_TRACE_GATE symbol=%s %s", str(symbol).upper().strip(), payload)
+
 
 def _money(value):
     try:
@@ -773,6 +790,18 @@ async def stock_radar_cycle():
                 }
 
                 channel_ok, channel_reason = _radar_channel_gate(status, row, q, learning_profile)
+                _trace_gate(
+                    symbol,
+                    session=status.get("session"),
+                    passed=channel_ok,
+                    reason=channel_reason,
+                    opportunity_status=classification.get("opportunity_status"),
+                    confirmation_ready=classification.get("confirmation_ready"),
+                    quote_price=q.get("price"),
+                    quote_source=q.get("source"),
+                    extended=q.get("is_extended_hours"),
+                    stale=q.get("stale"),
+                )
                 if not channel_ok:
                     gate_rejections[channel_reason] = int(gate_rejections.get(channel_reason, 0)) + 1
                     cycle_stats["skipped"] += 1
@@ -1095,6 +1124,21 @@ async def stock_radar_cycle():
         except Exception:
             await db.rollback()
             logger.exception("Radar active-state refresh failed")
+
+        trace_gate_results = {}
+        for trace_symbol in sorted(_trace_symbols()):
+            trace_gate_results[trace_symbol] = {
+                "row_present": any(str(x.get("symbol") or "").upper() == trace_symbol for x in rows),
+                "gate": next(
+                    (x.get("channel_gate") for x in rows if str(x.get("symbol") or "").upper() == trace_symbol),
+                    None,
+                ),
+                "delivery": next(
+                    (x.get("channel_delivery") for x in rows if str(x.get("symbol") or "").upper() == trace_symbol),
+                    None,
+                ),
+            }
+        gate_rejections["__trace_symbols__"] = trace_gate_results
 
         await finish_cycle(
             "success",

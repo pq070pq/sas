@@ -2,6 +2,7 @@ import asyncio
 import httpx
 import time
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 from .config import settings
@@ -44,6 +45,32 @@ _candle_cache = SmartMemory(_CANDLE_CACHE_TTL, max_items=96)
 _panwatch_semaphore = asyncio.Semaphore(6)
 _twelvedata_fallback_semaphore = asyncio.Semaphore(1)
 _twelve_data_quota_exhausted = False
+
+
+def _trace_symbols():
+    """Return explicitly requested symbols for end-to-end radar diagnostics.
+
+    Set RADAR_TRACE_SYMBOLS=DKI or a comma-separated list in the runtime environment.
+    Tracing is observational only: it never changes discovery, scoring, filtering, or
+    channel-gate decisions.
+    """
+    raw = os.getenv("RADAR_TRACE_SYMBOLS", "")
+    return {
+        token.strip().upper()
+        for token in raw.split(",")
+        if token.strip()
+    }
+
+
+def _trace_symbol(symbol):
+    return str(symbol or "").upper().strip() in _trace_symbols()
+
+
+def _trace(stage, symbol, **fields):
+    if not _trace_symbol(symbol):
+        return
+    payload = " ".join(f"{key}={value!r}" for key, value in fields.items())
+    logger.info("RADAR_TRACE stage=%s symbol=%s %s", stage, str(symbol).upper().strip(), payload)
 
 
 def _f(value, default=0.0):
@@ -788,6 +815,20 @@ async def discover_low_price_stocks():
                 merged[symbol] = dict(row)
 
     universe = list(merged.values())
+    trace_symbols = _trace_symbols()
+    if trace_symbols:
+        for trace_symbol in sorted(trace_symbols):
+            matching = merged.get(trace_symbol)
+            _trace(
+                "discovery_merged",
+                trace_symbol,
+                found=bool(matching),
+                price=(matching or {}).get("price"),
+                volume=(matching or {}).get("volume"),
+                change_pct=(matching or {}).get("change_pct"),
+                exchange=(matching or {}).get("exchange"),
+                source=(matching or {}).get("source"),
+            )
     if not universe:
         logger.warning("RADAR_DISCOVERY_EMPTY sources=%s errors=%s", source_counts, source_errors)
         return []
@@ -828,6 +869,20 @@ async def discover_low_price_stocks():
         ),
         reverse=True,
     )[:min(settings.radar_staging_limit, 300)]
+    if trace_symbols:
+        for trace_symbol in sorted(trace_symbols):
+            staged_row = staged.get(trace_symbol)
+            candidate_row = next((x for x in candidates if str(x.get("symbol") or "").upper() == trace_symbol), None)
+            _trace(
+                "discovery_staged",
+                trace_symbol,
+                staged=bool(staged_row),
+                admitted_to_candidate_cap=bool(candidate_row),
+                candidate_cap=min(settings.radar_staging_limit, 300),
+                price=(candidate_row or staged_row or {}).get("price"),
+                volume=(candidate_row or staged_row or {}).get("volume"),
+                change_pct=(candidate_row or staged_row or {}).get("change_pct"),
+            )
     # مرحلة التأكيد اليومية كانت نقطة الاختناق: 500 سهم × طلبات OHLCV
     # بتزامن 8 كانت تجعل دورة الرادار تتجاوز 10 دقائق. نستخدم عميل HTTP
     # مشتركًا وتزامنًا أعلى مع مهلة مستقلة لكل سهم حتى لا يحتجز سهم واحد
@@ -847,6 +902,7 @@ async def discover_low_price_stocks():
                 logger.warning("RADAR_STAGE_TIMEOUT_OR_ERROR symbol=%s", symbol)
                 return None
         if len(candles) < 30:
+            _trace("momentum_stage_reject", symbol, candle_count=len(candles), source=source)
             return None
 
         closes = [x["close"] for x in candles]
@@ -898,6 +954,17 @@ async def discover_low_price_stocks():
 
         # Reject only if there is no evidence of either movement or accumulation.
         if not (accumulation_signal or movement_signal or breakout_setup):
+            _trace(
+                "momentum_stage_reject",
+                symbol,
+                reason="no_movement_accumulation_breakout_setup",
+                rvol=round(rvol, 2),
+                change_pct=change,
+                dollar_volume=round(dollar_volume, 2),
+                accumulation=accumulation_signal,
+                movement=movement_signal,
+                breakout_setup=breakout_setup,
+            )
             return None
 
         result = dict(row)
@@ -918,11 +985,24 @@ async def discover_low_price_stocks():
                 else "اقتراب من مقاومة مع حجم داعم"
             ),
         })
+        _trace(
+            "momentum_stage_pass",
+            symbol,
+            section=result.get("momentum_section"),
+            rvol_10d=result.get("momentum_rvol_10d"),
+            threshold=result.get("momentum_rvol_threshold"),
+            change_pct=result.get("change_pct"),
+            source=source,
+        )
         return result
 
     async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 20)) as client:
         staged_rows = await asyncio.gather(*(stage(row) for row in candidates), return_exceptions=False)
     accepted = [x for x in staged_rows if x]
+    if trace_symbols:
+        for trace_symbol in sorted(trace_symbols):
+            accepted_row = next((x for x in accepted if str(x.get("symbol") or "").upper() == trace_symbol), None)
+            _trace("momentum_shortlist", trace_symbol, accepted=bool(accepted_row), shortlist_limit=settings.radar_shortlist_limit)
     logger.info(
         "RADAR_MOMENTUM_STAGE candidates=%d accepted=%d staging_limit=%d",
         len(candidates), len(accepted), min(settings.radar_staging_limit, 300),
@@ -2184,6 +2264,19 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
                     row,
                     allow_twelve_fallback=symbol in twelve_fallback_symbols,
                 )
+                _trace(
+                    "classification",
+                    symbol,
+                    strategy_pass=classification.get("strategy_pass"),
+                    smart_levels_score=classification.get("smart_levels_score"),
+                    rsi=classification.get("rsi14"),
+                    rvol=classification.get("rvol"),
+                    breakout_confirmed=classification.get("breakout_confirmed"),
+                    chase_risk=classification.get("chase_risk"),
+                    distribution_risk=classification.get("distribution_risk"),
+                    bearish_hs=classification.get("bearish_head_shoulders"),
+                    data_source=classification.get("data_source"),
+                )
                 filter_counts["classify_checked"] += 1
                 # عدّ شروط SAS الفردية لتحديد نقطة الاختناق، دون تغيير pass.
                 if row.get("momentum_section") == "accumulation":
@@ -2282,6 +2375,7 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
                 if classification.get("pass"):
                     filter_counts["sas_core_pass"] += 1
                 if not classification.get("pass"):
+                    _trace("sas_strategy_reject", symbol, reason=classification.get("reason"), strategy_pass=classification.get("strategy_pass"))
                     return None, {
                         "symbol": symbol,
                         "exchange": row.get("exchange"),
@@ -2338,6 +2432,15 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
                         and not accumulation
                     )
                 ):
+                    _trace(
+                        "liquidity_reject",
+                        symbol,
+                        reason="سيولة/RVOL غير كافية لتأكيد الفرصة",
+                        dollar_volume=round(dollar_volume, 2),
+                        daily_rvol=round(daily_rvol, 2),
+                        change_pct=change_pct,
+                        independent_confirmation=independent_confirmation,
+                    )
                     return None, {
                         "symbol": symbol,
                         "exchange": row.get("exchange"),
@@ -2518,6 +2621,7 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
                     hard_failures.append("لا يوجد سعر حي موثوق")
 
                 if hard_failures:
+                    _trace("final_hard_reject", symbol, reasons=hard_failures, live_price=live_price, live_source=live_source)
                     filter_counts["watch_candidates"] += 1
                     return None, {
                         "symbol": symbol,
@@ -2529,6 +2633,17 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
 
                 # المرشح المبكر يبقى محفوظًا للمراقبة، لكنه لا يصبح فرصة مؤكدة.
                 confirmation_ready = bool(final_target_ok and final_rr_ok)
+                _trace(
+                    "final_status",
+                    symbol,
+                    opportunity_status=("confirmed" if confirmation_ready else "watch"),
+                    target_ok=final_target_ok,
+                    rr=round(final_rr, 2),
+                    rr_ok=final_rr_ok,
+                    live_ok=final_live_ok,
+                    live_price=live_price,
+                    live_source=live_source,
+                )
                 classification["confirmation_ready"] = confirmation_ready
                 classification["opportunity_status"] = (
                     "confirmed" if confirmation_ready else "watch"
@@ -2739,6 +2854,8 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
             "discovery_sources": {"merged_candidates": candidate_count},
             "discovery_source_errors": {},
             "momentum_source": "Multi-source US movers + OHLCV staging",
+            "trace_symbols": sorted(_trace_symbols()),
+            "trace_note": "Trace is observational only. Set RADAR_TRACE_SYMBOLS to a comma-separated list; tracing never changes radar decisions.",
         "momentum_rules": {
             "small": {"price": "0.5-20", "change_pct": ">10", "volume": ">500000"},
             "large": {"market_cap": ">1B", "change_pct": ">3"},
