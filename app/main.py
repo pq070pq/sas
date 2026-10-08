@@ -1970,6 +1970,9 @@ async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
                     valid_historical_rows.append(row)
                 payload = json.loads(row.payload or "{}")
                 payload.setdefault("symbol", row.symbol)
+                gate = payload.get("channel_gate") or {}
+                if not gate.get("passed"):
+                    continue
                 if row.symbol not in seen:
                     stocks.append(payload)
                     seen.add(row.symbol)
@@ -1985,8 +1988,8 @@ async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
             "session": status["session"],
             "scan_at": latest_scan_at,
             "session_date": latest_session_date,
-            "stocks": stocks[:20],
-            "diagnostics": {"candidates": 0, "passed": len(stocks[:20]), "filtered": 0, "errors": 0},
+            "stocks": stocks[:settings.radar_app_daily_limit],
+            "diagnostics": {"candidates": 0, "passed": len(stocks[:settings.radar_app_daily_limit]), "filtered": 0, "errors": 0},
         }
     result = await scan_us_low_price_stocks(force_refresh=bool(fresh))
     from datetime import datetime, timezone
@@ -1997,7 +2000,7 @@ async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
         "range": {"min": 0.50, "max": 30.00},
         "method": "Faisal",
         "session": status["session"],
-        "stocks": result.get("stocks", []),
+        "stocks": result.get("stocks", [])[:settings.radar_app_daily_limit],
         "diagnostics": result.get("diagnostics", {}),
     }
 
