@@ -2149,7 +2149,7 @@ async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
             stocks.append(payload)
             seen.add(symbol)
 
-            def _num(value, default=0.0):
+        def _num(value, default=0.0):
             try:
                 if isinstance(value, dict):
                     value = value.get("score")
