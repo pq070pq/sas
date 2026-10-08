@@ -47,6 +47,13 @@ jobs:
           print(f"Pre-deploy validation passed: {len(files)} Python files parsed successfully.")
           PY
 
+      - name: Install Python dependencies for pre-deploy tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r requirements.txt
+
       - name: Architecture and regression tests before deployment
         shell: bash
         run: |
