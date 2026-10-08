@@ -2330,6 +2330,41 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
                     else:
                         filter_counts["risk_reward_warning"] += 1
 
+                # بوابة SAS PRO النهائية: لا تدخل الفرصة الحقيقية إلا إذا كانت
+                # استراتيجية مؤكدة + هدف حي + وقف صالح + R:R >= 1.5.
+                # أي سهم لا يحقق هذه الشروط يبقى خارج النتائج القابلة للنشر.
+                final_target_levels = targets.get("targets") if isinstance(targets, dict) else []
+                final_target_levels = final_target_levels if isinstance(final_target_levels, list) else []
+                final_target = _f(final_target_levels[0], 0) if final_target_levels else 0
+                final_stop = _f(targets.get("exit"), 0) if isinstance(targets, dict) else 0
+                final_rr = _f(targets.get("risk_reward"), 0) if isinstance(targets, dict) else 0
+                final_target_ok = bool(
+                    isinstance(targets, dict)
+                    and targets.get("status") == "ok"
+                    and final_target > live_price > final_stop > 0
+                )
+                final_live_ok = bool(live_price > 0 and live_source and str(live_source).lower() not in {"unavailable", "scan data"})
+                final_strategy_ok = bool(classification.get("strategy_pass"))
+                final_rr_ok = bool(final_rr >= 1.5)
+                final_failures = []
+                if not final_strategy_ok:
+                    final_failures.append("لم تجتز استراتيجية SAS")
+                if not final_live_ok:
+                    final_failures.append("لا يوجد سعر حي موثوق")
+                if not final_target_ok:
+                    final_failures.append("لا يوجد هدف/وقف حي صالح")
+                if not final_rr_ok:
+                    final_failures.append("R:R أقل من 1.5")
+                if final_failures:
+                    filter_counts["watch_candidates"] += 1
+                    return None, {
+                        "symbol": symbol,
+                        "exchange": row.get("exchange"),
+                        "status": "filtered",
+                        "reason": "؛ ".join(final_failures),
+                        "data_source": live_source or classification.get("data_source"),
+                    }
+
                 filter_counts["final_pass"] += 1
                 earnings_warning = earnings_by_symbol.get(symbol)
                 # حالة شروط الرادار الفعلية التي اجتازها السهم.
