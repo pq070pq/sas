@@ -2330,9 +2330,9 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
                     else:
                         filter_counts["risk_reward_warning"] += 1
 
-                # بوابة SAS PRO النهائية: لا تدخل الفرصة الحقيقية إلا إذا كانت
-                # استراتيجية مؤكدة + هدف حي + وقف صالح + R:R >= 1.5.
-                # أي سهم لا يحقق هذه الشروط يبقى خارج النتائج القابلة للنشر.
+                # البوابة النهائية تفصل بين "المراقبة" و"الفرصة المؤكدة":
+                # لا نحذف المرشح المبكر إذا كان ناقصًا هدفًا/R:R فقط؛ يبقى للمراقبة.
+                # لكن لا يسمح له بالوصول للقناة أو قائمة الفرص المؤكدة حتى تكتمل الشروط.
                 final_target_levels = targets.get("targets") if isinstance(targets, dict) else []
                 final_target_levels = final_target_levels if isinstance(final_target_levels, list) else []
                 final_target = _f(final_target_levels[0], 0) if final_target_levels else 0
@@ -2343,27 +2343,40 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
                     and targets.get("status") == "ok"
                     and final_target > live_price > final_stop > 0
                 )
-                final_live_ok = bool(live_price > 0 and live_source and str(live_source).lower() not in {"unavailable", "scan data"})
+                final_live_ok = bool(
+                    live_price > 0
+                    and live_source
+                    and str(live_source).lower() not in {"unavailable", "scan data"}
+                )
                 final_strategy_ok = bool(classification.get("strategy_pass"))
                 final_rr_ok = bool(final_rr >= 1.5)
-                final_failures = []
+
+                # شروط أساسية: إذا فشلت الاستراتيجية أو السعر الحي، لا تعتبر
+                # مراقبة قابلة للتحول؛ أما نقص الهدف/R:R فيبقي السهم تحت المراقبة.
+                hard_failures = []
                 if not final_strategy_ok:
-                    final_failures.append("لم تجتز استراتيجية SAS")
+                    hard_failures.append("لم تجتز استراتيجية SAS")
                 if not final_live_ok:
-                    final_failures.append("لا يوجد سعر حي موثوق")
-                if not final_target_ok:
-                    final_failures.append("لا يوجد هدف/وقف حي صالح")
-                if not final_rr_ok:
-                    final_failures.append("R:R أقل من 1.5")
-                if final_failures:
+                    hard_failures.append("لا يوجد سعر حي موثوق")
+
+                if hard_failures:
                     filter_counts["watch_candidates"] += 1
                     return None, {
                         "symbol": symbol,
                         "exchange": row.get("exchange"),
                         "status": "filtered",
-                        "reason": "؛ ".join(final_failures),
+                        "reason": "؛ ".join(hard_failures),
                         "data_source": live_source or classification.get("data_source"),
                     }
+
+                # المرشح المبكر يبقى محفوظًا للمراقبة، لكنه لا يصبح فرصة مؤكدة.
+                confirmation_ready = bool(final_target_ok and final_rr_ok)
+                classification["confirmation_ready"] = confirmation_ready
+                classification["opportunity_status"] = (
+                    "confirmed" if confirmation_ready else "watch"
+                )
+                if not confirmation_ready:
+                    filter_counts["watch_candidates"] += 1
 
                 filter_counts["final_pass"] += 1
                 earnings_warning = earnings_by_symbol.get(symbol)
