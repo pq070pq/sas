@@ -47,6 +47,13 @@ jobs:
           print(f"Pre-deploy validation passed: {len(files)} Python files parsed successfully.")
           PY
 
+      - name: Architecture and regression tests before deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q app tests
+          python3 -m unittest discover -s tests -v
+
       - name: Prepare OVH SSH key
         shell: bash
         env:
