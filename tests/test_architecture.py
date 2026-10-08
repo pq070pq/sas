@@ -98,3 +98,17 @@ class QualityScoreTests(unittest.TestCase):
         self.assertNotIn("price", result)
         self.assertNotIn("entry", result)
         self.assertNotIn("target", result)
+
+
+class QualityBacktestTests(unittest.TestCase):
+    def test_quality_buckets_use_completed_outcomes_only(self):
+        from app.quality_backtest import summarize_quality_outcomes
+        result = summarize_quality_outcomes([
+            {"quality_score": 90, "status": "target1", "achieved_target": 1},
+            {"quality_score": 90, "status": "failed", "achieved_target": 0},
+            {"quality_score": 90, "status": "active", "achieved_target": 0},
+        ])
+        self.assertEqual(result["85-100"]["success"], 1)
+        self.assertEqual(result["85-100"]["failure"], 1)
+        self.assertEqual(result["85-100"]["active"], 1)
+        self.assertEqual(result["85-100"]["success_rate"], 50.0)
