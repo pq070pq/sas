@@ -901,8 +901,35 @@ function startAdminHealthMonitor(){
  adminHealthTimer=setInterval(checkAdminHealth,60000);
 }
 
+async function runAdminRadarPreview(){
+ const btn=document.getElementById('adminRadarRunBtn');
+ const summary=document.getElementById('adminRadarPreviewSummary');
+ const top=document.getElementById('adminRadarPreviewTop');
+ const rejects=document.getElementById('adminRadarPreviewRejects');
+ if(!btn||!summary||!top||!rejects)return;
+ const old=btn.textContent;
+ btn.disabled=true; btn.textContent='⏳ جاري الفحص…';
+ summary.innerHTML='<span class="subscriber-loading">جاري تشغيل Smart Levels + ICT على المرشحين الفعليين…</span>';
+ top.innerHTML=''; rejects.innerHTML='';
+ try{
+  const d=await api('/api/admin/radar/run-preview',{method:'POST'});
+  const s=d.scanner||{};
+  summary.innerHTML='<b>✅ اكتمل الفحص</b><span>المرشحون: '+Number(s.candidates||0).toLocaleString('en-US')+' • المختصر: '+Number(s.shortlist||0).toLocaleString('en-US')+' • المؤكد: '+Number(s.confirmed||0)+' • مراقبة: '+Number(s.watch||0)+' • مرفوض: '+Number(s.filtered||0)+' • أخطاء: '+Number(s.errors||0)+'</span><small>'+esc(d.message||'')+'</small>';
+  const rows=Array.isArray(d.top5)?d.top5:[];
+  top.innerHTML='<div class="section-head"><b>🔥 أفضل 5</b><span>ترتيب الفحص الجديد</span></div>'+(rows.length?rows.map((x,i)=>'<article class="subscriber-status-row"><div class="terms-admin-avatar">'+(i+1)+'</div><div class="terms-admin-main"><b>'+esc(x.symbol||'—')+'</b><small>السعر: '+esc(x.price??'—')+' • التغير: '+esc(x.change_pct??'—')+'% • RVOL: '+esc(x.rvol??'—')+'×</small><span>Smart Score: '+esc(x.smart_levels_score??'—')+' • '+esc(x.smart_levels_status||'—')+' • R:R '+esc(x.risk_reward??'—')+'</span><small>'+esc((x.gate_reasons||[]).slice(0,4).join(' • '))+'</small></div></article>').join(''):'<div class="empty-state">لا توجد فرصة مؤكدة حاليًا وفق البوابة الجديدة.</div>';
+  const rs=Array.isArray(d.rejections)?d.rejections:[];
+  rejects.innerHTML='<div class="section-head"><b>🧪 أبرز أسباب الاستبعاد</b><span>أول 20 حالة</span></div>'+(rs.length?rs.map(x=>'<article class="subscriber-status-row"><div class="terms-admin-avatar">🔴</div><div class="terms-admin-main"><b>'+esc(x.symbol||'—')+'</b><small>'+esc(x.reason||'غير محدد')+'</small></div></article>').join(''):'<div class="empty-state">لا توجد حالات استبعاد مسجلة في هذه الجولة.</div>');
+ }catch(e){
+  summary.innerHTML='<div class="fatal">'+esc(e.message||'فشل تشغيل الفحص.')+'</div>';
+ }finally{btn.disabled=false;btn.textContent=old;}
+}
+
 async function adminRefresh(){
  const p=me?.admin_permissions||[];
+ const radarPanel=document.getElementById('adminRadarPreviewPanel');
+ const radarNav=document.querySelector('[data-admin-target="adminRadarPreviewPanel"]');
+ if(radarPanel)radarPanel.hidden=!p.includes('radar');
+ if(radarNav)radarNav.hidden=!p.includes('radar');
  const tasks=[];
  if(p.includes('users')){tasks.push(loadAdminStats(),adminSearch(),loadAdminMonthlyReport(),loadAdminTerms());}
  if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;document.getElementById('plansEditorPanel').hidden=false;document.getElementById('deployPanel').hidden=false;tasks.push(loadAdminPlans(),loadSubscriptionConfig(),loadDeployStatus());}

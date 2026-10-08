@@ -42,6 +42,7 @@ telegram_polling_task = None
 telegram_config_task = None
 private_analysis_task = None
 radar_health_task = None
+radar_manual_lock = asyncio.Lock()
 
 # ذاكرة SAS PRO الذكية: TTL + حد أقصى + إزالة تلقائية للقديم.
 _ANALYSIS_CACHE_TTL = 900
@@ -1206,6 +1207,78 @@ async def admin_radar_last(user=Depends(telegram_user), db: AsyncSession = Depen
             "message": run.error_message,
         } if run.error_type or run.error_message else None,
     }
+
+@app.post("/api/admin/radar/run-preview")
+async def admin_radar_run_preview(user=Depends(telegram_user)):
+    """Run the current Smart Levels + ICT radar without publishing to Telegram."""
+    await require_admin_permission(user, "radar")
+    if radar_manual_lock.locked():
+        raise HTTPException(409, "توجد دورة فحص يدوية تعمل حاليًا؛ انتظر انتهائها.")
+    async with radar_manual_lock:
+        started = utcnow()
+        try:
+            from .scanner import scan_us_low_price_stocks
+            result = await scan_us_low_price_stocks(force_refresh=True)
+            diagnostics = result.get("diagnostics") or {}
+            rows = list(result.get("stocks") or [])
+
+            def score(row):
+                return float(row.get("opening_opportunity_score") or row.get("smart_levels_score") or 0)
+
+            rows.sort(key=score, reverse=True)
+            confirmed = [
+                r for r in rows
+                if str((r.get("classification") or {}).get("opportunity_status") or "") == "confirmed"
+            ]
+            watch = [
+                r for r in rows
+                if str((r.get("classification") or {}).get("opportunity_status") or "") != "confirmed"
+            ]
+
+            def compact(row):
+                cls = row.get("classification") or {}
+                gate = cls.get("smart_levels_ict") or {}
+                return {
+                    "symbol": row.get("symbol"),
+                    "price": row.get("live_price") or row.get("price"),
+                    "change_pct": row.get("live_change_pct") if row.get("live_change_pct") is not None else row.get("change_pct"),
+                    "rvol": cls.get("rvol"),
+                    "smart_levels_score": cls.get("smart_levels_score"),
+                    "smart_levels_status": cls.get("smart_levels_status"),
+                    "status": cls.get("opportunity_status") or "watch",
+                    "confirmation_ready": bool(cls.get("confirmation_ready")),
+                    "gate_reasons": gate.get("reasons") or [],
+                    "targets": (row.get("targets") or {}).get("targets") or [],
+                    "risk_reward": (row.get("targets") or {}).get("risk_reward"),
+                }
+
+            return {
+                "ok": True,
+                "mode": "preview_only",
+                "started_at": started.isoformat(),
+                "finished_at": utcnow().isoformat(),
+                "duration_seconds": round((utcnow() - started).total_seconds(), 2),
+                "scanner": {
+                    "candidates": int(diagnostics.get("candidates") or 0),
+                    "shortlist": int(diagnostics.get("shortlist") or 0),
+                    "passed": int(diagnostics.get("passed") or 0),
+                    "filtered": int(diagnostics.get("filtered") or 0),
+                    "errors": int(diagnostics.get("errors") or 0),
+                    "confirmed": len(confirmed),
+                    "watch": len(watch),
+                },
+                "top5": [compact(x) for x in confirmed[:5]],
+                "watch_top": [compact(x) for x in watch[:10]],
+                "rejections": (diagnostics.get("filtered_examples") or [])[:20],
+                "filter_counts": diagnostics.get("filter_counts") or {},
+                "message": "تم الفحص فقط؛ لم يتم إرسال أي رسالة إلى قناة Telegram أو تغيير قائمة القناة.",
+            }
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("Admin radar preview failed: %s", exc)
+            raise HTTPException(500, f"فشل فحص الرادار: {type(exc).__name__}: {exc}")
+
 
 @app.get("/api/admin/overview")
 async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
