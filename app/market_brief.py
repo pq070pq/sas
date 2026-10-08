@@ -148,7 +148,7 @@ async def publish_market_brief():
         lines += ["", "📰 <b>زبدة الأخبار المؤثرة</b>"]
         if ai.get("enabled") and ai.get("status") == "ok":
             lines += [
-                f"🔹 <b>الخلاصة بالعربية:</b> {html.escape(str(ai.get('headline_summary') or 'غير واضح'))}",
+                f"🔹 <b>الخلاصة:</b> {html.escape(str(ai.get('headline_summary') or 'غير واضح'))}",
                 f"🔹 <b>تأثير الخبر:</b> {html.escape(str(ai.get('why_rising') or 'غير واضح'))}",
                 f"🔹 <b>التقييم:</b> {html.escape(str(ai.get('news_assessment') or 'غير واضح'))}",
             ]
