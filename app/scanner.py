@@ -1395,6 +1395,167 @@ def _trading_profile(*, price, atr_pct, rvol, power_trend, accumulation, breakou
         "risk_note": "التصنيف وصفي مبني على التذبذب والحجم والبنية اليومية، وليس حكمًا على ملاءمة السهم لمحفظتك.",
     }
 
+
+
+def _smart_levels_ict_confirmation(
+    candles,
+    price,
+    rvol,
+    rsi14,
+    ema20,
+    ema50,
+    supports,
+    resistances,
+    breakout_info,
+    patterns,
+    structure,
+    fibonacci,
+    fvg,
+    divergence,
+):
+    """SAS Smart Levels + ICT gate derived from the supplied TradingView logic.
+
+    The gate replaces the previous broad SAS entry gate. It uses observed OHLCV:
+    previous-close control, ADR exhaustion, dynamic step/levels, confluence,
+    smart support/resistance structure, breakout quality, EMA direction and
+    bearish invalidation. It does not fabricate intraday ORB data.
+    """
+    if len(candles) < 20 or price <= 0:
+        return {"pass": False, "score": 0, "status": "بيانات غير كافية", "reasons": ["بيانات غير كافية"]}
+
+    prev = candles[-2]
+    control = prev["close"]
+    prev_range = max(0.0, prev["high"] - prev["low"])
+    adr_rows = candles[-6:-1]
+    adr = sum(max(0.0, x["high"] - x["low"]) for x in adr_rows) / max(1, len(adr_rows))
+    step = max(prev_range / 10.0, price * 0.006)
+    call_level = control + step
+    put_level = control - step
+
+    used_range = max(x["high"] for x in candles[-1:]) - min(x["low"] for x in candles[-1:])
+    # Daily approximation of ADR exhaustion; intraday ORB is handled separately
+    # when 5m data is available after staging.
+    day_range = candles[-1]["high"] - candles[-1]["low"]
+    adr_pct = (day_range / adr * 100.0) if adr > 0 else 0.0
+    adr_exhausted = adr_pct >= 90.0
+
+    def near(level, pct=0.30):
+        return level is not None and abs(price - level) <= step * pct
+
+    nearest_support = max([x for x in supports if x < price], default=None)
+    nearest_resistance = min([x for x in resistances if x > price], default=None)
+    confluence = 0
+    for lvl in (nearest_support, nearest_resistance, control, call_level, put_level):
+        if near(lvl):
+            confluence += 1
+    for lvl in (fibonacci.get("level"), (fvg.get("low") if fvg.get("active") else None)):
+        if near(lvl):
+            confluence += 1
+
+    ema_bull = bool(ema20 is not None and ema50 is not None and ema20 > ema50)
+    structure_bull = bool(structure.get("bullish"))
+    breakout_confirmed = bool(breakout_info.get("confirmed"))
+    breakout_retest = bool(breakout_info.get("retest"))
+    fake = bool(breakout_info.get("fake"))
+    extension = breakout_info.get("extension_pct")
+    room = breakout_info.get("room_pct")
+
+    higher_lows = len(candles) >= 5 and all(
+        candles[-i]["low"] >= candles[-i-1]["low"] * 0.995 for i in range(1, 5)
+    )
+    bullish_location = bool(price > control and (price >= call_level or near(nearest_support) or near(control)))
+    bounce_setup = bool(
+        bullish_location and higher_lows and ema_bull and rvol >= 1.15
+        and not adr_exhausted
+    )
+
+    score = 0
+    reasons = []
+    if price > control:
+        score += 10
+        reasons.append("فوق الكنترول")
+    if price >= call_level:
+        score += 10
+        reasons.append("فوق مستوى CALL")
+    if ema_bull:
+        score += 10
+        reasons.append("EMA 20/50 إيجابي")
+    if structure_bull:
+        score += 10
+        reasons.append("بنية HH/HL")
+    if rvol >= 2.0:
+        score += 15
+        reasons.append(f"RVOL {rvol:.1f}x قوي")
+    elif rvol >= 1.5:
+        score += 10
+        reasons.append(f"RVOL {rvol:.1f}x")
+    elif rvol >= 1.15:
+        score += 5
+    if rsi14 is not None:
+        if 55 <= rsi14 <= 70:
+            score += 10
+            reasons.append(f"RSI {rsi14:.1f} ضمن النطاق")
+        elif 50 <= rsi14 <= 75:
+            score += 5
+        else:
+            score -= 8
+    if confluence >= 2:
+        score += 10
+        reasons.append(f"توافق مستويات {confluence}")
+    elif confluence == 1:
+        score += 5
+    if breakout_confirmed:
+        score += 15
+        reasons.append("اختراق مؤكد")
+        if breakout_retest:
+            score += 5
+            reasons.append("إعادة اختبار ناجحة")
+    elif bounce_setup:
+        score += 12
+        reasons.append("ارتداد من بنية دعم")
+    if extension is not None and extension <= 8:
+        score += 5
+    if room is not None and room >= 3:
+        score += 5
+
+    hard_blocks = []
+    if fake:
+        hard_blocks.append("اختراق وهمي")
+    if adr_exhausted and not breakout_retest:
+        hard_blocks.append("إنهاك ADR")
+    if patterns.get("head_shoulders") and patterns.get("head_shoulders_neckline") and price < patterns["head_shoulders_neckline"] * 0.995:
+        hard_blocks.append("رأس وكتفين هابط")
+    if divergence.get("bearish") and not breakout_confirmed:
+        hard_blocks.append("انحراف RSI سلبي")
+    if rvol < 1.0:
+        hard_blocks.append("حجم غير كافٍ")
+    if not (breakout_confirmed or bounce_setup or (price > control and ema_bull and structure_bull)):
+        hard_blocks.append("لا توجد بنية دخول واضحة")
+
+    passed = score >= 62 and not hard_blocks
+    status = "تأكيد قوي" if passed and score >= 75 else "تأكيد" if passed else "مراقبة/مرفوض"
+    if hard_blocks:
+        reasons.extend(["حظر: " + x for x in hard_blocks])
+
+    return {
+        "pass": passed,
+        "score": max(0, min(100, score)),
+        "status": status,
+        "reasons": reasons,
+        "control": round(control, 4),
+        "step": round(step, 4),
+        "call_level": round(call_level, 4),
+        "put_level": round(put_level, 4),
+        "adr": round(adr, 4),
+        "adr_pct": round(adr_pct, 2),
+        "adr_exhausted": adr_exhausted,
+        "confluence": confluence,
+        "breakout_confirmed": breakout_confirmed,
+        "breakout_retest": breakout_retest,
+        "bounce_setup": bounce_setup,
+    }
+
+
 async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fallback: bool = False):
     async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 30)) as client:
         candles, data_source = await _get_analysis_candles(client, symbol, allow_twelve_fallback, min_candles=60)
@@ -1660,34 +1821,28 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
 
     score = trend_score + momentum_score + volume_score + relative_strength_score + breakout_quality_score + risk_score
 
-    # مساران للمرور:
-    # 1) Early SAS: يحافظ على منطق الاتجاه المبكر لكن لا يشترط عمر 1-5 جلسات وحده.
-    # 2) Breakout: يطبق منهج الملف المرفق: إغلاق + فوليوم + استمرار، مع منع المصيدة
-    #    والمساحة الضيقة، وإعادة الاختبار كتعزيز وليست شرطًا وحيدًا.
-    early_setup_pass = bool(
-        power_trend
-        and (early_timing or accumulation)
-        and 50 <= (rsi14 or 0) <= 72
-        and rvol >= 1.2
-        and near_entry
-        and not distribution_risk
-        and not bearish_head_shoulders
+    # البوابة الجديدة: Smart Levels + ICT.
+    # شروط الدخول القديمة (Early SAS / Breakout القديمة) لم تعد بوابة قبول.
+    smart_gate = _smart_levels_ict_confirmation(
+        candles=candles,
+        price=price,
+        rvol=rvol,
+        rsi14=rsi14,
+        ema20=ema20,
+        ema50=ema50,
+        supports=supports,
+        resistances=resistances,
+        breakout_info=breakout_info,
+        patterns=patterns,
+        structure=structure,
+        fibonacci=fibonacci,
+        fvg=fvg,
+        divergence=divergence,
     )
-    breakout_pass = bool(
-        breakout_confirmed
-        and 48 <= (rsi14 or 0) <= 75
-        and rvol >= 1.5
-        and (power_trend or sma20 >= sma50 * 0.98 or accumulation)
-        and not distribution_risk
-        and not bearish_head_shoulders
-        and (breakout_room_pct is None or breakout_room_pct >= 3.0)
-    )
-    strategy_pass = bool(early_setup_pass or breakout_pass)
-
-    # الاستراتيجيات القديمة تبقى كبيانات تشخيصية فقط ولا تمنع السهم
-    # من دخول مراحل الرادار. بوابة الرادار الفعلية هي:
-    # الزخم + RVOL + السيولة + الأهداف/الوقف + R:R.
-    core_pass = True
+    strategy_pass = bool(smart_gate["pass"])
+    early_setup_pass = bool(smart_gate["bounce_setup"])
+    breakout_pass = bool(smart_gate["breakout_confirmed"] and smart_gate["pass"])
+    core_pass = strategy_pass
 
     breakout_reject_reasons = []
     if breakout_confirmed and not breakout_pass:
@@ -1796,6 +1951,9 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         "breakout_pass": breakout_pass,
         "breakout_reject_reasons": breakout_reject_reasons,
         "strategy_pass": strategy_pass,
+        "smart_levels_ict": smart_gate,
+        "smart_levels_score": smart_gate["score"],
+        "smart_levels_status": smart_gate["status"],
         "score_breakdown": {
             "trend": trend_score,
             "momentum": momentum_score,
