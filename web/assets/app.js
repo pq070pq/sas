@@ -996,8 +996,23 @@ async function checkAdminHealth(){
       const gate=Number(ch.gate_passed||0), sent=Number(ch.sent||0);
       const best=(r.top_opportunities||[]).slice(0,3).map(x=>x.symbol).filter(Boolean).join('، ')||'لا توجد';
       items.push({level:'info',title:'آخر دورة رادار — '+when,message:'مرشحون '+Number(s.candidates||0)+' • shortlist '+Number(s.shortlist||0)+' • اجتازوا الرادار '+Number(s.passed||0)+' • بوابة القناة '+gate+' • أُرسل '+sent+' • أفضل المرشحين: '+best});
+    }else if(r.status==='skipped'){
+      const reason=String(r.diagnostics?.status||'');
+      const session=String(r.session||r.diagnostics?.session||'غير معروف');
+      if(reason==='market_closed'){
+        const sessionLabel={
+          overnight:'خارج جلسة الرصد الليلية',
+          night_pending:'قبل بدء جلسة الرصد الليلية',
+          weekend:'عطلة نهاية الأسبوع',
+        }[session]||'السوق خارج جلسة الرصد الحالية';
+        items.push({level:'info',title:'آخر دورة رادار — لا يوجد عطل',message:'تم تجاوز الدورة بشكل طبيعي لأن '+sessionLabel+'. سيتم تشغيل الرادار تلقائيًا عند دخول جلسة الرصد.'});
+      }else if(reason==='telegram_not_configured'){
+        items.push({level:'error',title:'الرادار متوقف: إعدادات Telegram ناقصة',message:'لم يتم تشغيل الدورة لأن Telegram Bot Token أو Channel ID غير مضبوط. راجع إعدادات النظام.'});
+      }else{
+        items.push({level:'warn',title:'آخر دورة رادار تحتاج تفسيرًا',message:'الدورة انتهت بحالة skipped دون سبب معروف. الحالة: '+esc(String(r.status||'غير معروفة'))});
+      }
     }else{
-      items.push({level:'warn',title:'آخر دورة رادار',message:'الحالة الحالية: '+String(r.status||'غير معروفة')});
+      items.push({level:'warn',title:'آخر دورة رادار تحتاج تفسيرًا',message:'الحالة الحالية: '+String(r.status||'غير معروفة')+' ولم تُسجل كنجاح أو تجاوز طبيعي.'});
     }
    }
   }
