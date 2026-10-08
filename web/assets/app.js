@@ -1054,7 +1054,7 @@ async function adminRefresh(){
   adminUsersPanel:p.includes('users'),
   termsAdminPanel:p.includes('users'),
   subscriberStatusPanel:p.includes('users'),
-  monthlyReportPanel:p.includes('users'),
+  'monthly-report-panel':p.includes('users'),
   adminSubscriptionPanel:p.includes('subscriptions')||p.includes('settings'),
   starsPanel:p.includes('payments'),
   staffPanel:p.includes('admins'),
@@ -1062,7 +1062,6 @@ async function adminRefresh(){
   plansEditorPanel:p.includes('settings')
  };
  const monthlyPanel=document.getElementById('monthly-report-panel');
- if(monthlyPanel)monthlyPanel.id='monthlyReportPanel';
  for(const [id,allowed] of Object.entries(permissionRules)){
   const panel=document.getElementById(id);
   if(!panel)continue;
