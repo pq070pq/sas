@@ -1167,13 +1167,12 @@ async function loadAdminTerms(){
   const accepted=Number(d.accepted||0), pending=Number(d.pending||0), total=Number(d.total||rows.length);
   const summary=document.getElementById('termsAdminSummary');
   const list=document.getElementById('termsAdminList');
-  if(summary)summary.innerHTML='<b>'+accepted.toLocaleString('en-US')+'</b><span>موافقون • غير موافق: '+pending.toLocaleString('en-US')+' • الإجمالي: '+total.toLocaleString('en-US')+' • النسخة الحالية: '+esc(d.terms_version||'—')+'</span>';
+  if(summary)summary.innerHTML='<b>'+accepted.toLocaleString('en-US')+'</b><span>موافقون • الإجمالي: '+total.toLocaleString('en-US')+' • النسخة الحالية: '+esc(d.terms_version||'—')+'</span>';
   if(list)list.innerHTML=rows.length?rows.map(u=>{
    const name=[u.first_name,u.last_name].filter(Boolean).join(' ')||'بدون اسم';
-   const acceptedNow=Boolean(u.accepted);
-   const date=u.accepted_at?new Date(u.accepted_at).toLocaleString('ar-SA'):'لم تتم الموافقة بعد';
+   const date=u.accepted_at?new Date(u.accepted_at).toLocaleString('ar-SA'):'—';
    const ver=u.terms_version||'—';
-   return '<article class="terms-admin-row"><div class="terms-admin-avatar">'+(acceptedNow?'✅':'⏳')+'</div><div class="terms-admin-main"><b>'+esc(name)+'</b><small>'+(u.username?'@'+esc(u.username)+' • ':'')+'Telegram ID: '+esc(u.telegram_id)+'</small><span class="'+(acceptedNow?'terms-ok':'terms-pending')+'">'+(acceptedNow?'موافق على الشروط':'لم يوافق بعد')+'</span><small>النسخة: '+esc(ver)+' • التاريخ: '+esc(date)+'</small></div></article>';
+   return '<article class="terms-admin-row"><div class="terms-admin-avatar">✅</div><div class="terms-admin-main"><b>'+esc(name)+'</b><small>'+(u.username?'@'+esc(u.username)+' • ':'')+'Telegram ID: '+esc(u.telegram_id)+'</small><span class="terms-ok">موافق على الشروط</span><small>النسخة: '+esc(ver)+' • التاريخ: '+esc(date)+'</small></div></article>';
   }).join(''):'<div class="empty-state">لا توجد بيانات مستخدمين حتى الآن.</div>';
  }catch(e){
   const el=document.getElementById('termsAdminList'); if(el)el.innerHTML='<div class="fatal">تعذر تحميل موافقات الشروط: '+esc(e.message)+'</div>';
