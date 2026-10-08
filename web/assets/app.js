@@ -927,12 +927,16 @@ function renderAdminHealth(items){
  const warn=items.filter(x=>x.level==='warn').length;
  updated.textContent='آخر فحص: '+new Date().toLocaleTimeString('ar-SA');
  const info=items.filter(x=>x.level==='info').length;
- if(!bad&&!warn&&!info){
-  summary.innerHTML='<div class="admin-system-ok"><b>🟢 لا توجد مشاكل</b><small>الرادار والخدمات الأساسية تعمل بشكل طبيعي.</small></div>';
-  list.innerHTML='<div class="admin-health-row ok"><span>✓</span><div><b>الحالة العامة سليمة</b><small>سيتم إعادة الفحص تلقائيًا كل دقيقة.</small></div></div>';
+ if(!bad&&!warn){
+  summary.innerHTML='<div class="admin-system-ok"><b>🟢 النظام سليم</b><small>'+(
+    info ? 'لا توجد أعطال. توجد معلومات تشغيلية فقط.' : 'الرادار والخدمات الأساسية تعمل بشكل طبيعي.'
+  )+'</small></div>';
+  list.innerHTML=items.length
+    ? items.map(x=>'<div class="admin-health-row ok"><span>🟢</span><div><b>'+esc(x.title)+'</b><small>'+esc(x.message)+'</small></div></div>').join('')
+    : '<div class="admin-health-row ok"><span>✓</span><div><b>الحالة العامة سليمة</b><small>سيتم إعادة الفحص تلقائيًا كل دقيقة.</small></div></div>';
   return;
  }
- summary.innerHTML='<div class="admin-system-bad '+(bad?'critical':'warning')+'"><b>'+(bad?'🔴 يوجد عطل يحتاج انتباهك':'🟠 يوجد تنبيه يحتاج المراجعة')+'</b><small>'+bad+' عطل • '+warn+' تنبيه</small></div>';
+ summary.innerHTML='<div class="admin-system-bad '+(bad?'critical':'warning')+'"><b>'+(bad?'🔴 يوجد عطل يحتاج انتباهك':'🟠 يوجد تنبيه يحتاج المراجعة')+'</b><small>'+bad+' عطل • '+warn+' تنبيه'+(info?' • '+info+' معلومة':'')+'</small></div>';
  list.innerHTML=items.map(x=>{
    const cls=x.level==='error'?'error':(x.level==='warn'?'warn':'ok');
    const icon=x.level==='error'?'🔴':(x.level==='warn'?'🟠':'🟢');
