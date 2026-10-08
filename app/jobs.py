@@ -680,6 +680,30 @@ async def stock_radar_cycle():
                 and bool((json.loads(x.payload or "{}") if x.payload else {}).get("radar_active"))
             }
             app_active_count = len(app_active_symbols)
+
+            # إذا اختفى سهم كان نشطًا من قائمة الفرص المؤكدة في دورة ناجحة،
+            # نخرجه من التطبيق حتى تدخل فرصة مؤكدة أخرى مكانه. لا نغيّر سجلات
+            # القناة المنشورة أو نتائج الأهداف؛ هذا يغيّر حالة الرصد داخل التطبيق فقط.
+            if int(diagnostics.get("errors") or 0) == 0:
+                for old in daily_rows:
+                    old_symbol = str(old.symbol or "").upper()
+                    if old_symbol not in current_confirmed_symbols:
+                        try:
+                            old_payload = json.loads(old.payload or "{}")
+                        except Exception:
+                            old_payload = {}
+                        if old_payload.get("radar_active"):
+                            old_payload["radar_active"] = False
+                            old_payload["strategy_status"] = "inactive"
+                            old_payload["strategy_inactive_reason"] = "فقد شروط التأكيد في دورة رادار لاحقة"
+                            old.payload = json.dumps(old_payload, ensure_ascii=False)
+                            old.created_at = utcnow()
+                            logger.info(
+                                "Radar active opportunity removed: %s | reason=lost_confirmation",
+                                old_symbol,
+                            )
+                await db.commit()
+
             logger.info(
                 "RADAR_DAILY_LIMITS session=%s app_current_limit=%d channel=%d/%d",
                 session_date, daily_app_limit, daily_channel_sent, channel_daily_limit,
@@ -821,7 +845,6 @@ async def stock_radar_cycle():
                 if symbol not in app_active_symbols:
                     app_active_symbols.add(symbol)
                     app_active_count += 1
-                channel_gate_passed += 1
                 row["channel_gate"] = {
                     "passed": True,
                     "session": status.get("session"),
