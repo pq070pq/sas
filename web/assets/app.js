@@ -907,8 +907,8 @@ async function runAdminRadarPreview(){
  const top=document.getElementById('adminRadarPreviewTop');
  const rejects=document.getElementById('adminRadarPreviewRejects');
  if(!btn||!summary||!top||!rejects)return;
- const old=btn.textContent;
- btn.disabled=true; btn.textContent='⏳ جاري الفحص…';
+ const old=btn?.textContent || '';
+ if(btn){btn.disabled=true; btn.textContent='⏳ الفحص التلقائي يعمل عبر scheduler…';}
  summary.innerHTML='<span class="subscriber-loading">جاري تشغيل Smart Levels + ICT على المرشحين الفعليين…</span>';
  top.innerHTML=''; rejects.innerHTML='';
  try{
@@ -929,7 +929,7 @@ async function runAdminRadarPreview(){
   rejects.innerHTML='<div class="section-head"><b>🧪 أبرز أسباب الاستبعاد</b><span>أول 20 حالة</span></div>'+(rs.length?rs.map(x=>'<article class="subscriber-status-row"><div class="terms-admin-avatar">🔴</div><div class="terms-admin-main"><b>'+esc(x.symbol||'—')+'</b><small>'+esc(x.reason||'غير محدد')+'</small></div></article>').join(''):'<div class="empty-state">لا توجد حالات استبعاد مسجلة في هذه الجولة.</div>');
  }catch(e){
   summary.innerHTML='<div class="fatal">'+esc(e.message||'فشل تشغيل الفحص.')+'</div>';
- }finally{btn.disabled=false;btn.textContent=old;}
+ }finally{if(btn){btn.disabled=false;btn.textContent=old;}}
 }
 
 async function adminRefresh(){
