@@ -1975,7 +1975,7 @@ async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
             except (TypeError, ValueError):
                 continue
             gate = payload.get("channel_gate") or {}
-            if not gate.get("passed"):
+            if not gate.get("passed") or not payload.get("radar_active", False):
                 continue
             symbol = str(row.symbol or "").upper()
             if not symbol or symbol in seen:
