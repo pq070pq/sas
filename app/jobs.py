@@ -16,6 +16,7 @@ from .market_brief import publish_market_brief
 from .radar_learning import learn_radar_profile, get_radar_profile
 from .shariah import check_shariah
 from .maintenance import cleanup_old_data
+from .quality_score import score_quality
 from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
@@ -583,11 +584,20 @@ async def stock_radar_cycle():
                 "Twelve Data quota exhausted; continuing radar with PanWatch/primary data."
             )
         rows = scan_result.get("stocks", [])
+        # Quality Score is deterministic and runs before AI. Every candidate
+        # receives the same weighted model; AI only explains the evidence later.
+        for row in rows:
+            try:
+                row["quality_score"] = score_quality(row)
+            except Exception:
+                logger.exception("Quality score failed for %s; keeping safe neutral score.", row.get("symbol"))
+                row["quality_score"] = score_quality({})
         # القناة: نرتب جميع الفرص أولاً ثم نسمح بأفضل 5 إشارات فقط.
         # التطبيق يستقبل القائمة الكاملة دون هذا القيد.
         rows = sorted(
             rows,
             key=lambda r: (
+                float((r.get("quality_score") or {}).get("score") or 0),
                 float(r.get("opening_opportunity_score") or 0),
                 float(r.get("intraday_confirmation_score") or 0),
                 float(r.get("change_pct") or 0),
@@ -788,6 +798,7 @@ async def stock_radar_cycle():
                             tipranks=tipranks_data,
                             market={
                                 "momentum_section": row.get("momentum_section"),
+                                "quality_score": row.get("quality_score"),
                                 "daily_change_pct": row.get("change_pct"),
                                 "relative_volume_10d": row.get("momentum_rvol_10d"),
                                 "relative_volume_threshold": row.get("momentum_rvol_threshold"),
@@ -810,6 +821,7 @@ async def stock_radar_cycle():
                             "ai_analysis": ai_analysis,
                             "fundamentals": fundamentals,
                             "news_items": row.get("news_items") or [],
+                        "quality_score": row.get("quality_score"),
                             "tipranks_analysis": tipranks_data,
                         }
                         if ai_analysis.get("enabled"):
@@ -908,6 +920,8 @@ async def stock_radar_cycle():
             {
                 "symbol": str(x.get("symbol") or ""),
                 "score": x.get("opening_opportunity_score"),
+                "quality_score": (x.get("quality_score") or {}).get("score"),
+                "quality_label": (x.get("quality_score") or {}).get("label"),
                 "change_pct": x.get("live_change_pct") if x.get("live_change_pct") is not None else x.get("change_pct"),
                 "rvol": (x.get("classification") or {}).get("rvol"),
                 "quote_price": x.get("live_price"),
