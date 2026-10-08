@@ -384,6 +384,10 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
     extended = session in {"premarket", "afterhours", "night"}
 
     classification = row.get("classification") or {}
+    # لا تسمح بوابة القناة أو التطبيق بفرصة "مراقبة" غير مكتملة.
+    # يجب أن يعلن scanner.py صراحةً أن الهدف/الوقف/R:R مكتملة.
+    if classification.get("opportunity_status") != "confirmed" or not bool(classification.get("confirmation_ready")):
+        return False, "الفرصة ما زالت تحت المراقبة ولم تكتمل شروط التأكيد"
     targets = row.get("targets") or {}
     price = None
     try:
@@ -661,6 +665,21 @@ async def stock_radar_cycle():
                 select(RadarSignal).where(RadarSignal.session_date == session_date)
             )).scalars().all()
             daily_channel_sent = sum(1 for x in daily_rows if x.telegram_message_id)
+            # سقف التطبيق = 15 فرصة مؤكدة ونشطة حاليًا، وليس 15 سجلًا تاريخيًا.
+            # نحسب القائمة الحالية من نتائج هذه الدورة فقط بعد نجاح الفحص.
+            current_confirmed_symbols = {
+                str(r.get("symbol") or "").upper()
+                for r in rows
+                if str((r.get("classification") or {}).get("opportunity_status") or "") == "confirmed"
+                and bool((r.get("classification") or {}).get("confirmation_ready"))
+            }
+            app_active_symbols = {
+                str(x.symbol).upper()
+                for x in daily_rows
+                if str(x.symbol or "").upper() in current_confirmed_symbols
+                and bool((json.loads(x.payload or "{}") if x.payload else {}).get("radar_active"))
+            }
+            app_active_count = len(app_active_symbols)
             logger.info(
                 "RADAR_DAILY_LIMITS session=%s app_current_limit=%d channel=%d/%d",
                 session_date, daily_app_limit, daily_channel_sent, channel_daily_limit,
@@ -764,6 +783,45 @@ async def stock_radar_cycle():
                     continue
 
                 channel_gate_passed += 1
+                # لا نسمح بأكثر من 15 فرصة مؤكدة نشطة في التطبيق.
+                # ترتيب rows تم حسمه مسبقًا حسب جودة الفرصة، لذلك الفرص خارج
+                # أول 15 تبقى مراقبة ولا تظهر كفرص نشطة في التطبيق.
+                if symbol not in app_active_symbols and app_active_count >= daily_app_limit:
+                    row["channel_gate"] = {
+                        "passed": True,
+                        "session": status.get("session"),
+                        "reason": channel_reason,
+                    }
+                    row["radar_active"] = False
+                    row["channel_delivery"] = {
+                        "published": False,
+                        "app_visible": False,
+                        "reason": f"تم الوصول إلى الحد الحالي للتطبيق ({daily_app_limit})",
+                        "limit": daily_app_limit,
+                    }
+                    try:
+                        if existing:
+                            existing.payload = json.dumps(row, ensure_ascii=False)
+                            existing.created_at = utcnow()
+                        else:
+                            existing = RadarSignal(
+                                symbol=symbol,
+                                session_date=session_date,
+                                payload=json.dumps(row, ensure_ascii=False),
+                            )
+                            db.add(existing)
+                        await db.commit()
+                    except Exception:
+                        await db.rollback()
+                        logger.exception("Radar app-cap persistence failed: %s", symbol)
+                    cycle_stats["skipped"] += 1
+                    _radar_seen.add(symbol)
+                    continue
+
+                if symbol not in app_active_symbols:
+                    app_active_symbols.add(symbol)
+                    app_active_count += 1
+                channel_gate_passed += 1
                 row["channel_gate"] = {
                     "passed": True,
                     "session": status.get("session"),
@@ -771,8 +829,7 @@ async def stock_radar_cycle():
                 }
                 row["radar_active"] = True
 
-                # التطبيق سيأخذ أفضل 15 من الفرص النشطة الحالية عند العرض.
-                # لا نستبعد السهم من الرصد لمجرد أنه خارج أول 15 الآن.
+                # التطبيق يعرض فقط الفرص المؤكدة التي دخلت سقف الـ15 الحالي.
                 if daily_channel_sent >= channel_daily_limit:
                     channel_app_only += 1
                     row["channel_delivery"] = {
