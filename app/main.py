@@ -177,6 +177,33 @@ async def startup():
     global scheduler_task, holiday_radar_task, telegram_polling_task, telegram_config_task, private_analysis_task, radar_health_task
     telegram_config_task = asyncio.create_task(_configure_telegram(), name="saspro-telegram-config")
     scheduler_task = asyncio.create_task(scheduler(), name="saspro-scheduler")
+
+    def _scheduler_done(task):
+        try:
+            if task.cancelled():
+                logging.getLogger(__name__).warning(
+                    "SAS PRO scheduler task cancelled unexpectedly."
+                )
+                return
+            exc = task.exception()
+            if exc is not None:
+                logging.getLogger(__name__).error(
+                    "SAS PRO scheduler task terminated with exception: %s: %s",
+                    type(exc).__name__,
+                    exc,
+                    exc_info=(type(exc), exc, exc.__traceback__),
+                )
+            else:
+                logging.getLogger(__name__).error(
+                    "SAS PRO scheduler task stopped unexpectedly without exception."
+                )
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "Failed to inspect SAS PRO scheduler task termination."
+            )
+
+    scheduler_task.add_done_callback(_scheduler_done)
+
     holiday_radar_task = asyncio.create_task(holiday_radar_scheduler(), name="saspro-holiday-radar")
     radar_health_task = asyncio.create_task(radar_health_monitor(), name="saspro-radar-health")
     telegram_polling_task = asyncio.create_task(telegram_polling_loop(), name="saspro-telegram-polling")
