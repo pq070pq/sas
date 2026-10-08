@@ -113,7 +113,7 @@ def webapp_url() -> str:
     if not base:
         return ""
     separator = "&" if "?" in base else "?"
-    return f"{base}{separator}v=20261005-16"
+    return f"{base}{separator}v=20261008-06"
 
 DISCLAIMER = "لا يعد توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️"
 PLANS = {}
