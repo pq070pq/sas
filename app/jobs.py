@@ -727,6 +727,7 @@ async def stock_radar_cycle():
             channel_gate_passed = 0
             channel_app_only = 0
             gate_rejections = {}
+            delivery_errors = {}
 
             # كل سهم مؤهل يظهر في التطبيق ضمن سقف اليوم؛ القناة لها سقف يومي مستقل.
             # لا نرسل جدول Daily Momentum مجمعًا؛ تفاصيل السهم وشروط اجتيازه
@@ -1016,12 +1017,23 @@ async def stock_radar_cycle():
                     await db.commit()
 
                     message_id = None
-                    try:
-                        result = await send_message(settings.telegram_channel_id, report)
-                        message_id = result.get("message_id") if isinstance(result, dict) else None
-                    except Exception:
+                    delivery_error = None
+                    for delivery_attempt in range(1, 3):
+                        try:
+                            result = await send_message(settings.telegram_channel_id, report)
+                            message_id = result.get("message_id") if isinstance(result, dict) else None
+                            if message_id:
+                                break
+                            delivery_error = "Telegram لم يُرجع message_id"
+                        except Exception as exc:
+                            delivery_error = f"{type(exc).__name__}: {str(exc)[:300]}"
+                            logger.exception("Radar Telegram delivery failed: symbol=%s attempt=%d/2", symbol, delivery_attempt)
+                            if delivery_attempt < 2:
+                                await asyncio.sleep(1.0)
+                    if not message_id:
                         cycle_stats["failed"] += 1
-                        logger.exception("Radar Telegram delivery failed but signal was persisted: %s", symbol)
+                        delivery_errors[symbol] = delivery_error or "سبب إرسال غير معروف"
+                        logger.error("RADAR_CHANNEL_DELIVERY_FAILED symbol=%s error=%s", symbol, delivery_errors[symbol])
 
                     if message_id:
                         existing.telegram_message_id = int(message_id)
@@ -1105,6 +1117,8 @@ async def stock_radar_cycle():
             gate_rejections=gate_rejections,
             top_opportunities=top,
         )
+        if delivery_errors:
+            logger.error("RADAR_CHANNEL_DELIVERY_SUMMARY failed=%d details=%s", len(delivery_errors), delivery_errors)
     except Exception as exc:
         logger.exception("Stock radar cycle failed.")
         await finish_cycle("failed", locals().get("diagnostics") or {}, error=exc)
