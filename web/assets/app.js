@@ -926,6 +926,10 @@ async function runAdminRadarPreview(){
 
 async function adminRefresh(){
  const p=me?.admin_permissions||[];
+ const radarPanel=document.getElementById('adminRadarPreviewPanel');
+ const radarNav=document.querySelector('[data-admin-target="adminRadarPreviewPanel"]');
+ if(radarPanel)radarPanel.hidden=!p.includes('radar');
+ if(radarNav)radarNav.hidden=!p.includes('radar');
  const tasks=[];
  if(p.includes('users')){tasks.push(loadAdminStats(),adminSearch(),loadAdminMonthlyReport(),loadAdminTerms());}
  if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;document.getElementById('plansEditorPanel').hidden=false;document.getElementById('deployPanel').hidden=false;tasks.push(loadAdminPlans(),loadSubscriptionConfig(),loadDeployStatus());}
