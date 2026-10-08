@@ -1162,6 +1162,98 @@ async def admin_deploy_status(user=Depends(telegram_user)):
     except Exception as exc:
         return {"ok": False, "status": "unknown", "message": f"تعذر قراءة حالة GitHub Actions: {exc}"}
 
+@app.get("/api/admin/health")
+async def admin_health(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    """Compact admin health endpoint with explicit component diagnostics."""
+    admin = await get_admin(int(user["id"]))
+    if not admin:
+        raise HTTPException(403, "لا تملك صلاحيات الإدارة")
+
+    out = {"ok": True, "checked_at": utcnow().isoformat(), "components": []}
+
+    def add(name, status, message, detail=None):
+        item = {"name": name, "status": status, "message": message}
+        if detail:
+            item["detail"] = str(detail)[:500]
+        out["components"].append(item)
+
+    try:
+        add("خادم SAS PRO", "ok", "الخادم يستجيب بشكل طبيعي.")
+    except Exception as exc:
+        add("خادم SAS PRO", "error", "تعذر فحص الخادم.", exc)
+
+    try:
+        market = market_status()
+        add(
+            "حالة السوق والرادار",
+            "ok" if not (market.get("open") and stock_radar_enabled() is False) else "error",
+            ("السوق مفتوح والرادار مفعّل." if market.get("open") else "السوق خارج الجلسة؛ التشغيل الآلي ينتظر جلسة الرصد.")
+            if not (market.get("open") and stock_radar_enabled() is False)
+            else "السوق مفتوح لكن الرادار غير مفعّل."
+        )
+    except Exception as exc:
+        add("حالة السوق والرادار", "error", "تعذر قراءة حالة السوق والرادار.", exc)
+
+    try:
+        session_date = market_status()["date"]
+        rows = (await db.execute(
+            select(RadarSignal)
+            .where(RadarSignal.session_date == session_date)
+            .order_by(RadarSignal.created_at.desc())
+            .limit(100)
+        )).scalars().all()
+        if not rows:
+            rows = (await db.execute(
+                select(RadarSignal).order_by(RadarSignal.created_at.desc()).limit(1)
+            )).scalars().all()
+        add("لوحة الرادار", "ok", f"تمت قراءة بيانات الرادار بنجاح. السجلات المتاحة: {len(rows)}.")
+    except Exception as exc:
+        add("لوحة الرادار", "error", "تعذر قراءة بيانات لوحة الرادار.", exc)
+
+    try:
+        ticker_data = await ticker()
+        valid = isinstance(ticker_data, list) and any(Number(x.get("price")) > 0 for x in ticker_data if isinstance(x, dict))
+        add("أسعار السوق", "ok" if valid else "warn", "تم تحديث أسعار السوق." if valid else "مصادر الأسعار لم تُرجع أسعارًا صالحة حاليًا.")
+    except Exception as exc:
+        add("أسعار السوق", "warn", "تعذر تحديث شريط أسعار السوق حاليًا؛ لا يمنع تشغيل الرادار.", exc)
+
+    try:
+        run = (await db.execute(select(RadarRun).order_by(RadarRun.started_at.desc()).limit(1))).scalars().first()
+        if not run:
+            add("سجل دورة الرادار", "warn", "لا توجد دورة رادار مسجلة بعد.")
+        elif run.status == "failed":
+            add("سجل دورة الرادار", "error", f"آخر دورة فشلت: {run.error_type or 'خطأ غير محدد'} — {run.error_message or 'بدون رسالة'}.")
+        elif run.status == "skipped":
+            reason = {}
+            try: reason = json.loads(run.diagnostics or "{}")
+            except Exception: reason = {}
+            why = reason.get("status") or "سبب غير مسجل"
+            add("سجل دورة الرادار", "ok", f"آخر دورة تم تجاوزها طبيعيًا: {why}.")
+        else:
+            add("سجل دورة الرادار", "ok", f"آخر دورة حالتها: {run.status or 'غير معروفة'}.")
+    except Exception as exc:
+        add("سجل دورة الرادار", "error", "تعذر قراءة آخر دورة للرادار.", exc)
+
+    if await has_permission(int(user["id"]), "settings"):
+        try:
+            url = "https://api.github.com/repos/pq070pq/sas/actions/runs?per_page=10"
+            async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+                response = await client.get(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "SAS-PRO-Admin"})
+                response.raise_for_status()
+                data = response.json()
+            runs = data.get("workflow_runs") or []
+            deploy = next((x for x in runs if x.get("name") == "Deploy SAS PRO to OVH"), runs[0] if runs else None)
+            if deploy and deploy.get("conclusion") == "failure":
+                add("آخر نشر إلى OVH", "error", "آخر عملية نشر فشلت؛ راجع قسم النشر.")
+            elif deploy:
+                add("آخر نشر إلى OVH", "ok", f"آخر نشر: {deploy.get('status') or 'غير معروف'} — Commit {(deploy.get('head_sha') or '')[:7] or '—'}.")
+            else:
+                add("آخر نشر إلى OVH", "warn", "لا توجد عملية نشر مسجلة بعد.")
+        except Exception as exc:
+            add("آخر نشر إلى OVH", "warn", "تعذر قراءة حالة GitHub Actions؛ هذا لا يعني أن SAS PRO متوقف.", exc)
+
+    return out
+
 @app.get("/api/admin/radar/last")
 async def admin_radar_last(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     await require_admin_permission(user, "settings")
