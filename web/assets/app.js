@@ -916,7 +916,15 @@ async function runAdminRadarPreview(){
   const s=d.scanner||{};
   summary.innerHTML='<b>✅ اكتمل الفحص</b><span>المرشحون: '+Number(s.candidates||0).toLocaleString('en-US')+' • المختصر: '+Number(s.shortlist||0).toLocaleString('en-US')+' • المؤكد: '+Number(s.confirmed||0)+' • مراقبة: '+Number(s.watch||0)+' • مرفوض: '+Number(s.filtered||0)+' • أخطاء: '+Number(s.errors||0)+'</span><small>'+esc(d.message||'')+'</small>';
   const rows=Array.isArray(d.top5)?d.top5:[];
-  top.innerHTML='<div class="section-head"><b>🔥 أفضل 5</b><span>ترتيب الفحص الجديد</span></div>'+(rows.length?rows.map((x,i)=>'<article class="subscriber-status-row"><div class="terms-admin-avatar">'+(i+1)+'</div><div class="terms-admin-main"><b>'+esc(x.symbol||'—')+'</b><small>السعر: '+esc(x.price??'—')+' • التغير: '+esc(x.change_pct??'—')+'% • RVOL: '+esc(x.rvol??'—')+'×</small><span>Smart Score: '+esc(x.smart_levels_score??'—')+' • '+esc(x.smart_levels_status||'—')+' • R:R '+esc(x.risk_reward??'—')+'</span><small>'+esc((x.gate_reasons||[]).slice(0,4).join(' • '))+'</small></div></article>').join(''):'<div class="empty-state">لا توجد فرصة مؤكدة حاليًا وفق البوابة الجديدة.</div>';
+  let topHtml='<div class="section-head"><b>🔥 أفضل 5</b><span>ترتيب الفحص الجديد</span></div>';
+  if(rows.length){
+   topHtml+=rows.map((x,i)=>{
+    return '<article class="subscriber-status-row"><div class="terms-admin-avatar">'+(i+1)+'</div><div class="terms-admin-main"><b>'+esc(x.symbol||'—')+'</b><small>السعر: '+esc(x.price??'—')+' • التغير: '+esc(x.change_pct??'—')+'% • RVOL: '+esc(x.rvol??'—')+'×</small><span>Smart Score: '+esc(x.smart_levels_score??'—')+' • '+esc(x.smart_levels_status||'—')+' • R:R '+esc(x.risk_reward??'—')+'</span><small>'+esc((x.gate_reasons||[]).slice(0,4).join(' • '))+'</small></div></article>';
+   }).join('');
+  }else{
+   topHtml+='<div class="empty-state">لا توجد فرصة مؤكدة حاليًا وفق البوابة الجديدة.</div>';
+  }
+  top.innerHTML=topHtml;
   const rs=Array.isArray(d.rejections)?d.rejections:[];
   rejects.innerHTML='<div class="section-head"><b>🧪 أبرز أسباب الاستبعاد</b><span>أول 20 حالة</span></div>'+(rs.length?rs.map(x=>'<article class="subscriber-status-row"><div class="terms-admin-avatar">🔴</div><div class="terms-admin-main"><b>'+esc(x.symbol||'—')+'</b><small>'+esc(x.reason||'غير محدد')+'</small></div></article>').join(''):'<div class="empty-state">لا توجد حالات استبعاد مسجلة في هذه الجولة.</div>');
  }catch(e){
