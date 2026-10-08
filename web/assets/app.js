@@ -793,13 +793,117 @@ function openDeployActions(){
  if(tg?.openLink)tg.openLink(url);else window.open(url,'_blank');
 }
 
-function adminSection(id,btn){
- const el=document.getElementById(id);
- if(!el || el.hidden)return;
- document.querySelectorAll('.admin-nav button').forEach(x=>x.classList.remove('active'));
- if(btn)btn.classList.add('active');
- el.scrollIntoView({behavior:'smooth',block:'start'});
+const ADMIN_ACCORDION_ITEMS=[
+ ['adminOverview','⌂','نظرة عامة','الحالة العامة والإحصاءات والتنبيهات'],
+ ['adminRadarPreviewPanel','📡','حالة الرادار','آخر دورة، أفضل الفرص وأسباب الاستبعاد'],
+ ['adminUsersPanel','👥','المشتركون','البحث وإدارة المستخدمين'],
+ ['termsAdminPanel','📋','موافقات الشروط','الموافقات ونسخة الشروط'],
+ ['adminSubscriptionPanel','💎','الاشتراكات','التجربة والباقات وإعدادات الاشتراك'],
+ ['starsPanel','⭐','المدفوعات','Telegram Stars والعمليات المالية'],
+ ['staffPanel','🛡️','المشرفون','الأدوار والصلاحيات'],
+ ['deployPanel','🚀','النشر','حالة GitHub Actions والنشر إلى OVH'],
+ ['plansEditorPanel','💎','الباقات والأسعار','تعديل الأسعار وظهور الباقات'],
+ ['ownerCard','👑','حساب المالك','بيانات الحساب الرئيسي'],
+ ['monthly-report-panel','📊','التقرير الشهري','ملخص أداء المنصة الشهري']
+];
+
+function initAdminAccordion(){
+ const page=document.getElementById('adminPage');
+ const oldNav=page?.querySelector('.admin-nav');
+ if(!page||!oldNav||oldNav.dataset.accordionReady==='1')return;
+ const shell=document.createElement('div');
+ shell.className='admin-accordion';
+ shell.setAttribute('aria-label','أقسام إدارة SAS PRO');
+
+ // افصل اللوحات الموجودة داخل النظرة العامة أولاً، ثم أعد ترتيبها
+ // داخل قائمة واحدة حتى يفتح كل قسم مباشرة أسفل عنوانه.
+ const overview=document.getElementById('adminOverview');
+ const movingIds=ADMIN_ACCORDION_ITEMS.slice(1).map(x=>x[0]);
+ const movingPanels=[];
+ for(const id of movingIds){
+  const el=document.getElementById(id);
+  if(el && el.parentElement!==shell)movingPanels.push(el);
+ }
+
+ for(const [id,icon,title,subtitle] of ADMIN_ACCORDION_ITEMS){
+  const panel=document.getElementById(id);
+  if(!panel)continue;
+  const item=document.createElement('section');
+  item.className='admin-accordion-item';
+  item.dataset.adminAccordionId=id;
+
+  const header=document.createElement('button');
+  header.type='button';
+  header.className='admin-accordion-trigger';
+  header.setAttribute('aria-controls',id);
+  header.setAttribute('aria-expanded',id==='adminOverview'?'true':'false');
+  header.innerHTML='<span class="admin-accordion-icon">'+icon+'</span><span class="admin-accordion-copy"><b>'+title+'</b><small>'+subtitle+'</small></span><span class="admin-accordion-chevron">⌄</span>';
+
+  const body=document.createElement('div');
+  body.className='admin-accordion-body';
+  body.appendChild(panel);
+  if(id!=='adminOverview')panel.hidden=true;
+
+  header.addEventListener('click',()=>{
+   const isOpen=header.getAttribute('aria-expanded')==='true';
+   document.querySelectorAll('.admin-accordion-item').forEach(other=>{
+    const h=other.querySelector('.admin-accordion-trigger');
+    const b=other.querySelector('.admin-accordion-body');
+    const p=other.querySelector('.admin-panel,.admin-overview,.owner-card');
+    const same=other===item;
+    const open=same?!isOpen:false;
+    if(h)h.setAttribute('aria-expanded',String(open));
+    if(b)b.classList.toggle('open',open);
+    if(p){
+     // لا نكسر إخفاء الصلاحيات؛ الفتح اليدوي فقط يزيل حالة الإغلاق.
+     if(open)p.hidden=false;
+     else if(p.dataset.adminPermissionHidden==='1')p.hidden=true;
+     else p.hidden=true;
+    }
+   });
+   if(!isOpen){
+    body.classList.add('open');
+    item.scrollIntoView({behavior:'smooth',block:'start'});
+   }
+  });
+
+  item.appendChild(header);
+  item.appendChild(body);
+  shell.appendChild(item);
+ }
+
+ oldNav.replaceWith(shell);
+ shell.querySelector('[data-admin-accordion-id="adminOverview"] .admin-accordion-body')?.classList.add('open');
+ shell.querySelector('[data-admin-accordion-id="adminOverview"] .admin-accordion-trigger')?.classList.add('is-open');
+ syncAdminAccordionVisibility();
 }
+
+function syncAdminAccordionVisibility(){
+ const shell=document.querySelector('.admin-accordion');
+ if(!shell)return;
+ shell.querySelectorAll('.admin-accordion-item').forEach(item=>{
+  const id=item.dataset.adminAccordionId;
+  const panel=document.getElementById(id);
+  const trigger=item.querySelector('.admin-accordion-trigger');
+  if(!panel||!trigger)return;
+  const permissionHidden=panel.dataset.adminPermissionHidden==='1';
+  item.hidden=permissionHidden;
+  if(permissionHidden){
+   trigger.setAttribute('aria-expanded','false');
+   item.querySelector('.admin-accordion-body')?.classList.remove('open');
+  }
+ });
+}
+
+function adminSection(id,btn){
+ initAdminAccordion();
+ const item=document.querySelector('.admin-accordion-item[data-admin-accordion-id="'+id+'"]');
+ const trigger=item?.querySelector('.admin-accordion-trigger');
+ if(!item||item.hidden||!trigger)return;
+ const open=trigger.getAttribute('aria-expanded')==='true';
+ trigger.click();
+}
+
 let adminHealthTimer=null;
 let adminHealthBusy=false;
 let adminHealthLastSignature='';
@@ -933,17 +1037,19 @@ async function runAdminRadarPreview(){
 }
 
 async function adminRefresh(){
+ initAdminAccordion();
  const p=me?.admin_permissions||[];
  const radarPanel=document.getElementById('adminRadarPreviewPanel');
  const radarNav=document.querySelector('[data-admin-target="adminRadarPreviewPanel"]');
- if(radarPanel)radarPanel.hidden=!p.includes('radar');
+ if(radarPanel){radarPanel.hidden=!p.includes('radar');radarPanel.dataset.adminPermissionHidden=(!p.includes('radar'))?'1':'0';}
  if(radarNav)radarNav.hidden=!p.includes('radar');
  const tasks=[];
  if(p.includes('users')){tasks.push(loadAdminStats(),adminSearch(),loadAdminMonthlyReport(),loadAdminTerms());}
- if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;document.getElementById('plansEditorPanel').hidden=false;document.getElementById('deployPanel').hidden=false;tasks.push(loadAdminPlans(),loadSubscriptionConfig(),loadDeployStatus());}
- else {document.getElementById('planEditor').closest('.admin-panel').hidden=true;document.getElementById('plansEditorPanel').hidden=true;document.getElementById('deployPanel').hidden=true;document.getElementById('planEditor').closest('.admin-panel').previousElementSibling.hidden=true;}
- if(p.includes('payments')){document.getElementById('starsPanel').hidden=false;tasks.push(loadStarsWallet());}else{document.getElementById('starsPanel').hidden=true;}
+ if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;document.getElementById('plansEditorPanel').hidden=false;document.getElementById('plansEditorPanel').dataset.adminPermissionHidden='0';document.getElementById('deployPanel').hidden=false;document.getElementById('deployPanel').dataset.adminPermissionHidden='0';tasks.push(loadAdminPlans(),loadSubscriptionConfig(),loadDeployStatus());}
+ else {document.getElementById('planEditor').closest('.admin-panel').hidden=true;document.getElementById('plansEditorPanel').hidden=true;document.getElementById('plansEditorPanel').dataset.adminPermissionHidden='1';document.getElementById('deployPanel').hidden=true;document.getElementById('deployPanel').dataset.adminPermissionHidden='1';document.getElementById('planEditor').closest('.admin-panel').previousElementSibling.hidden=true;}
+ if(p.includes('payments')){document.getElementById('starsPanel').hidden=false;document.getElementById('starsPanel').dataset.adminPermissionHidden='0';tasks.push(loadStarsWallet());}else{document.getElementById('starsPanel').hidden=true;document.getElementById('starsPanel').dataset.adminPermissionHidden='1';}
  await Promise.all(tasks);
+ syncAdminAccordionVisibility();
  startAdminHealthMonitor();
 }
 const STAFF_ROLE_PERMISSIONS={
