@@ -301,6 +301,14 @@ async def evaluate_radar_outcomes():
                 )
                 if stop_triggered:
                     existing.status = "failed"
+                    try:
+                        signal_payload = json.loads(signal.payload or "{}")
+                    except (TypeError, ValueError):
+                        signal_payload = {}
+                    signal_payload["radar_active"] = False
+                    signal_payload["strategy_status"] = "cancelled"
+                    signal_payload["strategy_cancel_reason"] = "لم يتحقق الهدف وتم تفعيل الوقف"
+                    signal.payload = json.dumps(signal_payload, ensure_ascii=False)
                     from .main import build_report
                     updated_report = build_report(
                         signal.symbol,
@@ -316,11 +324,12 @@ async def evaluate_radar_outcomes():
 
                     await send_message(
                         settings.telegram_channel_id,
-                        "🛑 <b>تفعيل الوقف</b> — \x24" + signal.symbol + "\n\n"
-                        f"💵 السعر المرصود: <b>\x24{_money(price)}</b>\n"
-                        f"🛡 الوقف: <b>\x24{_money(existing.current_stop)}</b>\n"
-                        f"🎯 آخر هدف محقق: <b>{existing.achieved_target}</b>\n"
-                        "📌 تم إنهاء الرصد وفق مستوى الوقف المسجل.",
+                        "❌ <b>لم تتحقق الفرصة</b> — \x24" + signal.symbol + "\n\n"
+                        f"💵 السعر عند الإنهاء: <b>\x24{_money(price)}</b>\n"
+                        f"🛡 الوقف المفعّل: <b>\x24{_money(existing.current_stop)}</b>\n"
+                        f"🎯 الأهداف المحققة: <b>{existing.achieved_target}</b>\n"
+                        "🚫 <b>الاستراتيجية ملغية</b>\n"
+                        "📌 لم يتحقق الهدف المطلوب وتم تفعيل الوقف، لذلك تم إنهاء الرصد.",
                         reply_to_message_id=int(signal.telegram_message_id),
                     )
 
