@@ -1212,7 +1212,7 @@ async def admin_health(user=Depends(telegram_user), db: AsyncSession = Depends(g
 
     try:
         ticker_data = await ticker()
-        valid = isinstance(ticker_data, list) and any(Number(x.get("price")) > 0 for x in ticker_data if isinstance(x, dict))
+        valid = isinstance(ticker_data, list) and any(float(x.get("price") or 0) > 0 for x in ticker_data if isinstance(x, dict))
         add("أسعار السوق", "ok" if valid else "warn", "تم تحديث أسعار السوق." if valid else "مصادر الأسعار لم تُرجع أسعارًا صالحة حاليًا.")
     except Exception as exc:
         add("أسعار السوق", "warn", "تعذر تحديث شريط أسعار السوق حاليًا؛ لا يمنع تشغيل الرادار.", exc)
