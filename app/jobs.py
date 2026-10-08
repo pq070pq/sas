@@ -344,6 +344,7 @@ async def evaluate_radar_outcomes():
 
 
 _radar_open_announced = False
+_radar_no_opportunity_announced = False
 _radar_seen = set()
 
 RADAR_STATUS = """📡 SAS PRO RADAR ⏳
@@ -502,7 +503,7 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
 
 
 async def stock_radar_cycle():
-    global _radar_open_announced
+    global _radar_open_announced, _radar_no_opportunity_announced
     cycle_started = utcnow()
     status = market_status()
     session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
@@ -563,19 +564,13 @@ async def stock_radar_cycle():
     # الفترة السابقة للبري ماركت ليست جلسة رصد؛ ننتظر 04:00 ET.
     if status["holiday"] or status["session"] in {"weekend", "overnight", "night_pending"}:
         _radar_open_announced = False
+        _radar_no_opportunity_announced = False
         await finish_cycle("skipped", {"status": "market_closed", "session": status.get("session"), "holiday": bool(status.get("holiday"))})
         logger.info("Stock radar skipped: market holiday/weekend (session=%s).", status.get("session"))
         return
 
-    if not _radar_open_announced:
-        try:
-            await send_message(settings.telegram_channel_id, RADAR_STATUS)
-            _radar_open_announced = True
-            logger.info("Stock radar status message sent.")
-        except Exception as exc:
-            # فشل رسالة الحالة لا يجب أن يوقف دورة الرادار أو يمنع إرسال الفرص.
-            # نكمل الفحص، وستُسجّل مشكلة الإرسال إذا فشل تقرير الفرصة نفسه.
-            logger.exception("Stock radar status message failed; continuing radar cycle: %s", exc)
+    # لا نرسل رسالة "لا توجد فرصة" قبل انتهاء الفحص؛ القرار يعتمد على
+    # بوابة القناة الفعلية، وليس على مجرد بدء الدورة.
 
     try:
         from .scanner import scan_us_low_price_stocks
@@ -1076,6 +1071,25 @@ async def stock_radar_cycle():
                     cycle_stats["reanalyzed"],
                     cycle_stats["sent"],
                     cycle_stats["failed"],
+                )
+
+        # رسالة الحالة تُرسل فقط عند عدم وجود أي سهم يستحق الإرسال للقناة.
+        # لا تتكرر في كل دورة: تُعاد فقط عندما تتغير الحالة من "فرصة موجودة"
+        # إلى "لا توجد فرصة مؤكدة". وإذا ظهرت فرصة، نعيد تسليح الرسالة للدورة التالية.
+        if channel_gate_passed > 0:
+            _radar_no_opportunity_announced = False
+        elif not _radar_no_opportunity_announced:
+            try:
+                await send_message(settings.telegram_channel_id, RADAR_STATUS)
+                _radar_no_opportunity_announced = True
+                logger.info(
+                    "Stock radar no-opportunity status sent: no channel-worthy opportunity in cycle id=%s.",
+                    run.id,
+                )
+            except Exception as exc:
+                logger.exception(
+                    "Stock radar no-opportunity status failed; continuing radar cycle: %s",
+                    exc,
                 )
 
         top = [
