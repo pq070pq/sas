@@ -949,80 +949,20 @@ async function checkAdminHealth(){
  adminHealthBusy=true;
  const items=[];
  try{
-  const results=await Promise.allSettled([
-   api('/health'),
-   api('/api/market/radar-status'),
-   api('/api/dashboard/home'),
-   api('/api/market/ticker'),
-   api('/api/admin/deploy-status'),
-   api('/api/admin/radar/last')
-  ]);
-  const health=results[0], market=results[1], home=results[2], ticker=results[3], deploy=results[4], radar=results[5];
-  if(health.status!=='fulfilled' || !health.value?.ok)
-   items.push({level:'error',title:'خادم SAS PRO',message:'الخادم لا يستجيب بشكل سليم.'});
-  if(market.status!=='fulfilled')
-   items.push({level:'error',title:'حالة السوق والرادار',message:'تعذر قراءة حالة السوق والرادار.'});
-  else{
-   const m=market.value||{};
-   if(m.open && m.stock_radar_enabled===false)
-    items.push({level:'error',title:'الرادار متوقف أثناء السوق',message:'السوق مفتوح لكن الرادار غير مفعّل.'});
-  }
-  if(home.status!=='fulfilled')
-   items.push({level:'error',title:'لوحة الرادار',message:'تعذر تحميل بيانات لوحة الرادار.'});
-  else{
-   const r=home.value?.radar||{};
-   if(r.error || r.status==='error')
-    items.push({level:'error',title:'خطأ في بيانات الرادار',message:String(r.error||'الخدمة أعادت حالة خطأ.')});
-   if(market.status==='fulfilled' && market.value?.open && r.enabled===false)
-    items.push({level:'error',title:'الرصد الآلي غير نشط',message:'السوق مفتوح ولكن لوحة الرادار تشير إلى أنه غير نشط.'});
-  }
-  if(ticker.status!=='fulfilled')
-   items.push({level:'warn',title:'أسعار السوق',message:'تعذر تحديث شريط أسعار السوق حاليًا.'});
-  else if(Array.isArray(ticker.value) && !ticker.value.some(x=>Number(x?.price)>0))
-   items.push({level:'warn',title:'أسعار السوق',message:'مصادر الأسعار لم تُرجع أسعارًا صالحة حاليًا.'});
-  if(deploy.status==='fulfilled'){
-   const d=deploy.value||{};
-   if(d.conclusion==='failure')
-    items.push({level:'error',title:'آخر نشر إلى OVH',message:'آخر عملية نشر فشلت. راجع قسم النشر لمعرفة رقم التشغيل والـ Commit.'});
-  }
-  if(radar.status!=='fulfilled'){
-   items.push({level:'warn',title:'سجل دورة الرادار',message:'تعذر قراءة آخر دورة للرادار من قاعدة التشغيل.'});
-  }else{
-   const r=radar.value||{};
-   if(!r.found){
-    items.push({level:'warn',title:'سجل دورة الرادار',message:'لا توجد دورة رادار مسجلة بعد.'});
-   }else{
-    const s=r.scanner||{}, ch=r.channel||{};
-    const when=r.started_at?new Date(r.started_at).toLocaleTimeString('ar-SA'):'—';
-    if(r.status==='failed'){
-      items.push({level:'error',title:'آخر دورة رادار فشلت',message:(r.error?.type||'خطأ غير معروف')+' — '+(r.error?.message||'بدون رسالة')});
-    }else if(r.status==='success'){
-      const gate=Number(ch.gate_passed||0), sent=Number(ch.sent||0);
-      const best=(r.top_opportunities||[]).slice(0,3).map(x=>x.symbol).filter(Boolean).join('، ')||'لا توجد';
-      items.push({level:'info',title:'آخر دورة رادار — '+when,message:'مرشحون '+Number(s.candidates||0)+' • shortlist '+Number(s.shortlist||0)+' • اجتازوا الرادار '+Number(s.passed||0)+' • بوابة القناة '+gate+' • أُرسل '+sent+' • أفضل المرشحين: '+best});
-    }else if(r.status==='skipped'){
-      const reason=String(r.diagnostics?.status||'');
-      const session=String(r.session||r.diagnostics?.session||'غير معروف');
-      if(reason==='market_closed'){
-        const sessionLabel={
-          overnight:'خارج جلسة الرصد الليلية',
-          night_pending:'قبل بدء جلسة الرصد الليلية',
-          weekend:'عطلة نهاية الأسبوع',
-        }[session]||'السوق خارج جلسة الرصد الحالية';
-        items.push({level:'info',title:'آخر دورة رادار — لا يوجد عطل',message:'تم تجاوز الدورة بشكل طبيعي لأن '+sessionLabel+'. سيتم تشغيل الرادار تلقائيًا عند دخول جلسة الرصد.'});
-      }else if(reason==='telegram_not_configured'){
-        items.push({level:'error',title:'الرادار متوقف: إعدادات Telegram ناقصة',message:'لم يتم تشغيل الدورة لأن Telegram Bot Token أو Channel ID غير مضبوط. راجع إعدادات النظام.'});
-      }else{
-        items.push({level:'warn',title:'آخر دورة رادار تحتاج تفسيرًا',message:'الدورة انتهت بحالة skipped دون سبب معروف. الحالة: '+esc(String(r.status||'غير معروفة'))});
-      }
-    }else{
-      items.push({level:'warn',title:'آخر دورة رادار تحتاج تفسيرًا',message:'الحالة الحالية: '+String(r.status||'غير معروفة')+' ولم تُسجل كنجاح أو تجاوز طبيعي.'});
-    }
-   }
+  const d=await api('/api/admin/health',{timeoutMs:12000});
+  const components=Array.isArray(d.components)?d.components:[];
+  components.forEach(x=>{
+   const level=x.status==='error'?'error':(x.status==='warn'?'warn':'info');
+   const detail=x.detail?(' — '+x.detail):'';
+   items.push({level,title:String(x.name||'مكوّن غير معروف'),message:String(x.message||'لا توجد تفاصيل')+detail});
+  });
+  if(!components.length){
+   items.push({level:'warn',title:'مراقبة النظام',message:'الخادم استجاب لكن لم يُرجع تفاصيل مكونات الفحص.'});
   }
   renderAdminHealth(items);
  }catch(e){
-  renderAdminHealth([{level:'error',title:'مراقبة النظام',message:e?.message||'تعذر تنفيذ فحص الحالة.'}]);
+  const msg=String(e?.message||'تعذر تنفيذ فحص الحالة.');
+  renderAdminHealth([{level:'error',title:'اتصال لوحة الإدارة بالخادم',message:msg+' — تحقق من اتصال Mini App بالخادم ثم أعد المحاولة.'}]);
  }finally{
   adminHealthBusy=false;
  }
