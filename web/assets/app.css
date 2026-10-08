@@ -1190,3 +1190,148 @@ filter:blur(.2px);
 }
 
 .chart-unavailable{min-height:190px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:9px;text-align:center;color:#a9c1cf;font-size:15px;line-height:1.7;padding:20px;box-sizing:border-box}.chart-unavailable small{max-width:460px;color:#718792;font-size:11px;line-height:1.7}
+
+/* SAS PRO ADMIN ACCORDION REDESIGN — 2026-10-08 */
+.admin-page{
+  --admin-bg:#020912;
+  --admin-surface:rgba(6,20,30,.94);
+  --admin-surface-2:rgba(4,15,24,.98);
+  --admin-border:rgba(90,185,205,.16);
+  --admin-accent:#31d8e6;
+  --admin-accent-soft:rgba(49,216,230,.10);
+  padding:10px 10px 72px;
+  background:
+    radial-gradient(circle at 90% 0,rgba(31,180,205,.08),transparent 28%),
+    radial-gradient(circle at 0 45%,rgba(21,89,112,.07),transparent 32%),
+    var(--admin-bg);
+}
+.admin-header{
+  top:5px;
+  margin-bottom:10px;
+  padding:13px 14px;
+  border-radius:18px;
+  background:linear-gradient(145deg,rgba(6,24,35,.98),rgba(2,11,18,.98));
+  border-color:rgba(91,202,219,.20);
+  box-shadow:0 12px 35px rgba(0,0,0,.38);
+}
+.admin-brand{display:flex;align-items:center;gap:10px;min-width:0}
+.admin-brand-mark{
+  width:40px;height:40px;border-radius:13px;display:grid;place-items:center;
+  background:linear-gradient(145deg,#123b49,#061720);
+  border:1px solid rgba(49,216,230,.30);color:#c8fbff;
+  box-shadow:0 0 22px rgba(49,216,230,.08);
+}
+.admin-brand b{color:#e8fdff}
+.admin-brand b em{font-style:normal;color:#5fe2eb;font-size:.72em}
+.admin-brand span{color:#718d96}
+.admin-header-actions{display:flex;align-items:center;gap:6px}
+.admin-refresh{min-height:36px!important;padding:8px 10px!important;font-size:10px!important}
+.admin-header-actions .admin-refresh:first-of-type{display:none}
+
+/* Replace the old horizontal navigation with true mobile-friendly accordion rows. */
+.admin-nav{display:none!important}
+.admin-accordion{display:flex;flex-direction:column;gap:7px;margin-top:8px}
+.admin-accordion-item{
+  overflow:hidden;
+  border:1px solid var(--admin-border);
+  border-radius:17px;
+  background:linear-gradient(145deg,rgba(6,22,32,.92),rgba(2,12,20,.97));
+  box-shadow:0 8px 24px rgba(0,0,0,.22);
+}
+.admin-accordion-item[hidden]{display:none!important}
+.admin-accordion-trigger{
+  width:100%;min-height:60px;display:flex;align-items:center;gap:11px;
+  padding:10px 13px;border:0;background:transparent;color:#dceff2;
+  text-align:right;direction:rtl;cursor:pointer;
+}
+.admin-accordion-trigger:hover{background:rgba(49,216,230,.035)}
+.admin-accordion-trigger[aria-expanded="true"]{
+  background:linear-gradient(90deg,rgba(49,216,230,.10),rgba(49,216,230,.025));
+}
+.admin-accordion-icon{
+  width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;
+  border-radius:12px;background:rgba(49,216,230,.07);
+  border:1px solid rgba(49,216,230,.13);font-size:18px;
+}
+.admin-accordion-copy{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.admin-accordion-copy b{font-size:13px;font-weight:900;color:#e7fafd}
+.admin-accordion-copy small{font-size:9px;color:#718b94;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.admin-accordion-chevron{
+  width:28px;height:28px;display:grid;place-items:center;border-radius:9px;
+  color:#6f929b;font-size:17px;transition:transform .2s ease,background .2s ease;
+}
+.admin-accordion-trigger[aria-expanded="true"] .admin-accordion-chevron{
+  transform:rotate(180deg);background:rgba(49,216,230,.08);color:#7cecf3;
+}
+.admin-accordion-body{
+  display:grid;grid-template-rows:0fr;
+  transition:grid-template-rows .24s ease,opacity .2s ease;
+  opacity:0;
+}
+.admin-accordion-body.open{
+  grid-template-rows:1fr;opacity:1;
+}
+.admin-accordion-body > *{min-height:0;overflow:hidden}
+.admin-accordion-body > .admin-overview,
+.admin-accordion-body > .admin-panel,
+.admin-accordion-body > .owner-card{
+  margin:0!important;border-radius:0 0 15px 15px!important;
+  border-left:0!important;border-right:0!important;border-bottom:0!important;
+  box-shadow:none!important;
+}
+.admin-accordion-body .admin-panel{padding:14px!important}
+.admin-accordion-body .admin-welcome{margin:0 0 10px;border-radius:14px}
+.admin-accordion-body .admin-alerts-panel{margin:0 0 10px!important}
+.admin-accordion-body .admin-stats{margin-bottom:10px}
+.admin-accordion-body .owner-card{margin:0!important}
+.admin-accordion-body .subscriber-status-panel[hidden],
+.admin-accordion-body .admin-panel[hidden],
+.admin-accordion-body .owner-card[hidden],
+.admin-accordion-body .admin-overview[hidden]{display:none!important}
+
+/* Cleaner neutral admin palette: cyan is reserved for actions/status, not every border. */
+.admin-page .admin-panel,
+.admin-page .owner-card{
+  border-color:rgba(100,165,180,.15);
+  background:linear-gradient(145deg,rgba(5,21,30,.95),rgba(2,11,18,.98));
+}
+.admin-page .section-head{margin-bottom:11px}
+.admin-page .section-head b{font-size:13px;color:#dff5f7}
+.admin-page .section-head span{color:#718b94}
+.admin-page .save-btn,
+.admin-page .search-row button{
+  background:linear-gradient(180deg,#35d9e6,#159daa);
+  color:#001215;
+}
+.admin-page input,.admin-page select{
+  background:#03111a!important;
+  border-color:rgba(100,165,180,.18)!important;
+}
+.admin-page .admin-stats div{
+  background:linear-gradient(145deg,rgba(7,26,36,.95),rgba(2,12,19,.98));
+  border-color:rgba(100,165,180,.13);
+}
+.admin-page .admin-stats strong{color:#64e1e8}
+.admin-page .admin-system-ok{border-color:rgba(45,210,150,.15)}
+.admin-page .admin-alerts-panel{background:linear-gradient(145deg,rgba(5,22,30,.96),rgba(2,12,19,.98))}
+
+/* Mobile spacing and touch targets */
+@media(max-width:650px){
+  .admin-page{padding:7px 7px 78px}
+  .admin-header{position:sticky;top:3px;border-radius:16px}
+  .admin-header-actions{gap:4px}
+  .admin-header-actions .admin-refresh{font-size:9px!important;padding:7px 8px!important}
+  .admin-accordion{gap:6px}
+  .admin-accordion-trigger{min-height:58px;padding:9px 10px}
+  .admin-accordion-icon{width:36px;height:36px;flex-basis:36px}
+  .admin-accordion-copy b{font-size:12px}
+  .admin-accordion-copy small{font-size:8px}
+  .admin-accordion-body .admin-panel{padding:12px!important}
+  .admin-accordion-body .admin-stats{grid-template-columns:repeat(2,1fr)}
+  .admin-accordion-body .admin-welcome{padding:14px}
+  .admin-accordion-body .owner-card{padding:14px!important}
+}
+
+/* Keep the redesigned admin compact and prevent horizontal overflow. */
+#adminPage *{max-width:100%;box-sizing:border-box}
+#adminPage .plan-edit{overflow:auto}
