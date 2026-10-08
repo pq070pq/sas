@@ -148,10 +148,17 @@ async def publish_market_brief():
         lines += ["", "📰 <b>زبدة الأخبار المؤثرة</b>"]
         if ai.get("enabled") and ai.get("status") == "ok":
             lines += [
-                f"🔹 <b>الخلاصة:</b> {html.escape(str(ai.get('headline_summary') or 'غير واضح'))}",
+                f"🔹 <b>الخلاصة بالعربية:</b> {html.escape(str(ai.get('headline_summary') or 'غير واضح'))}",
                 f"🔹 <b>تأثير الخبر:</b> {html.escape(str(ai.get('why_rising') or 'غير واضح'))}",
                 f"🔹 <b>التقييم:</b> {html.escape(str(ai.get('news_assessment') or 'غير واضح'))}",
             ]
+            # حتى عند نجاح الترجمة/التحليل، يبقى رابط الخبر الأصلي ظاهرًا لكل خبر.
+            for item in news[:3]:
+                headline = html.escape(str(item.get("headline") or "").strip())
+                source = html.escape(str(item.get("source") or "المصدر"))
+                link = _news_link(item)
+                if headline:
+                    lines.append(f"📰 <b>المصدر:</b> {source} — {headline} {link}")
         elif news:
             for item in news[:3]:
                 headline = html.escape(str(item.get("headline") or "").strip())
