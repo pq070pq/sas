@@ -46,6 +46,11 @@ class ArchitectureBoundaryTests(unittest.TestCase):
         self.assertNotIn("app.scanner", source)
         self.assertNotIn("app.jobs", source)
 
+    def test_daily_radar_publication_limits(self):
+        from app.config import settings
+        self.assertEqual(settings.radar_channel_daily_limit, 5)
+        self.assertEqual(settings.radar_app_daily_limit, 15)
+
     def test_core_imports(self):
         for module in (
             "app.scanner",
