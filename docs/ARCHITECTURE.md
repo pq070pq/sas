@@ -21,7 +21,8 @@
 
 ## 3. STOCK RADAR / رادار الأسهم
 - `app/scanner.py`: اكتشاف وترشيح وتحليل مرشحي الأسهم.
-- `app/jobs.py`: دورة الرادار والـ scheduler وتسليم الإشارات.
+- `app/jobs.py`: دورة الرادار وتسليم الإشارات والنتائج.
+- `app/scheduler.py`: جدولة الدورات وتوقيت التشغيل فقط.
 - `app/radar_learning.py`: التعلم من نتائج الرادار.
 - `app/smart_memory.py`: الذاكرة والكاش/منع التكرار.
 
@@ -77,6 +78,9 @@
 - `.github/workflows/radar-live-status.yml`: دليل حالة الإنتاج.
 - `.github/workflows/syntax.yml`: اختبارات الكود.
 - `.github/workflows/deploy.yml`: التحقق ثم النشر.
+
+### حد Scheduler
+`main.py` يستورد `scheduler` من `app/scheduler.py`. يحتفظ `jobs.py` بتصدير توافق مؤقت فقط حتى لا تنكسر الاستدعاءات القديمة.
 
 ## 12. DEPLOYMENT
 - `Dockerfile`
