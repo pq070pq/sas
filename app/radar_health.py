@@ -72,12 +72,37 @@ def _task_snapshot(task):
 
 
 async def _notify_admin(text):
+    """Send health alerts only to the configured owner/admin chat.
+
+    Never use the public SAS PRO channel as an alert destination. Telegram
+    channel/group chat IDs are negative (commonly -100...), while
+    OWNER_TELEGRAM_ID is expected to be the private owner's positive user ID.
+    """
     admin_id = int(settings.owner_telegram_id or 0)
+    channel_id = str(settings.telegram_channel_id or "").strip()
+
     if not admin_id:
         logger.error("Radar health alert skipped: OWNER_TELEGRAM_ID is not configured.")
         return False
+
+    # Hard safety guard: health diagnostics must never leak to subscribers.
+    if channel_id and str(admin_id) == channel_id:
+        logger.critical(
+            "Radar health alert blocked: OWNER_TELEGRAM_ID equals TELEGRAM_CHANNEL_ID. "
+            "Health diagnostics must never be sent to the public channel."
+        )
+        return False
+
+    if admin_id < 0:
+        logger.critical(
+            "Radar health alert blocked: OWNER_TELEGRAM_ID=%s is not a private user chat.",
+            admin_id,
+        )
+        return False
+
     try:
         await send_message(admin_id, text)
+        logger.info("Radar health alert delivered to owner/admin chat=%s.", admin_id)
         return True
     except Exception:
         logger.exception("Radar health alert delivery failed.")
