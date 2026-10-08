@@ -10,7 +10,8 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from .config import settings
-from .holiday_radar import publish_holiday_radar
+from .holiday_radar import publish_holiday_radar, publish_btc_holiday_update
+from .holiday_news import publish_holiday_news
 from .market_calendar import market_status
 from .maintenance import cleanup_old_data
 from .timeutil import utcnow
@@ -75,7 +76,11 @@ async def scheduler():
             status = market_status()
             if status["holiday"] or status["session"] == "weekend":
                 logger.info("Scheduler mode: holiday/weekend radar.")
+                # ثلاث رسائل مستقلة: مؤشرات السوق، بيتكوين، وموجز الأخبار.
+                # كل وظيفة لها مؤقتها الخاص لمنع التداخل والتكرار.
                 await publish_holiday_radar()
+                await publish_btc_holiday_update()
+                await publish_holiday_news()
             else:
                 logger.info("Scheduler mode: stock radar.")
                 await stock_radar_cycle()
