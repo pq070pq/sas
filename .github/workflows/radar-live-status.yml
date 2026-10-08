@@ -1,0 +1,107 @@
+name: SAS PRO Live Radar Status
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+concurrency:
+  group: saspro-live-radar-status
+  cancel-in-progress: true
+
+jobs:
+  status:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Prepare OVH SSH key
+        shell: bash
+        env:
+          OVH_SSH_KEY_B64: ${{ secrets.OVH_SSH_KEY_B64 }}
+        run: |
+          set -euo pipefail
+          key_file="$RUNNER_TEMP/ovh_key"
+          printf '%s' "$OVH_SSH_KEY_B64" | base64 --decode > "$key_file"
+          chmod 600 "$key_file"
+          ssh-keygen -y -f "$key_file" >/dev/null
+
+      - name: Read latest production radar runs
+        shell: bash
+        env:
+          OVH_HOST: ${{ secrets.OVH_HOST }}
+          OVH_USER: ${{ secrets.OVH_USER || 'root' }}
+          OVH_PORT: ${{ secrets.OVH_PORT || '22' }}
+        run: |
+          set -euo pipefail
+          out="$GITHUB_WORKSPACE/radar-live-status.json"
+          ssh_opts=(-i "$RUNNER_TEMP/ovh_key" -p "$OVH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=15)
+          ssh "${ssh_opts[@]}" "$OVH_USER@$OVH_HOST" 'cd /opt/saspro && docker compose exec -T saspro python - <<'"'"'PY'"'"'
+          import asyncio, json, os
+          from datetime import datetime, timezone
+          from sqlalchemy import select, text
+          from app.db import SessionLocal, RadarRun
+
+          async def main():
+              async with SessionLocal() as session:
+                  result = await session.execute(
+                      select(RadarRun).order_by(RadarRun.started_at.desc()).limit(20)
+                  )
+                  rows = result.scalars().all()
+                  payload = []
+                  for r in rows:
+                      payload.append({
+                          "id": r.id,
+                          "session_date": r.session_date,
+                          "session": r.session,
+                          "started_at": r.started_at.isoformat() if r.started_at else None,
+                          "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+                          "duration_seconds": r.duration_seconds,
+                          "status": r.status,
+                          "candidates": r.candidates,
+                          "shortlist": r.shortlist,
+                          "passed": r.passed,
+                          "filtered": r.filtered,
+                          "errors": r.errors,
+                          "channel_gate_passed": r.channel_gate_passed,
+                          "channel_sent": r.channel_sent,
+                          "channel_app_only": r.channel_app_only,
+                          "channel_gate_rejections": r.channel_gate_rejections,
+                          "top_opportunities": r.top_opportunities,
+                          "diagnostics": r.diagnostics,
+                          "error_type": r.error_type,
+                          "error_message": r.error_message,
+                      })
+                  print(json.dumps({
+                      "checked_at_utc": datetime.now(timezone.utc).isoformat(),
+                      "source": "OVH production RadarRun database",
+                      "runs": payload,
+                  }, ensure_ascii=False))
+          asyncio.run(main())
+          PY' > "$out"
+
+          python3 -m json.tool "$out" >/dev/null
+          echo "===== LATEST PRODUCTION RADAR RUNS ====="
+          cat "$out"
+          echo "===== END PRODUCTION RADAR RUNS ====="
+
+      - name: Capture recent radar logs
+        shell: bash
+        env:
+          OVH_HOST: ${{ secrets.OVH_HOST }}
+          OVH_USER: ${{ secrets.OVH_USER || 'root' }}
+          OVH_PORT: ${{ secrets.OVH_PORT || '22' }}
+        run: |
+          set -euo pipefail
+          ssh_opts=(-i "$RUNNER_TEMP/ovh_key" -p "$OVH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=15)
+          ssh "${ssh_opts[@]}" "$OVH_USER@$OVH_HOST" 'cd /opt/saspro && docker compose logs --tail=500 saspro 2>&1 | grep -E "RADAR_CYCLE_(STARTED|FINISHED)|RADAR_SCAN_DIAGNOSTICS|RADAR HEALTH ALERT|RADAR WATCHDOG|Stock radar cycle failed|Stock radar scan completed" || true' > "$GITHUB_WORKSPACE/radar-live-logs.txt"
+          echo "===== RECENT RADAR EVENTS ====="
+          cat "$GITHUB_WORKSPACE/radar-live-logs.txt"
+          echo "===== END RECENT RADAR EVENTS ====="
+
+      - name: Upload production radar evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: saspro-radar-live-evidence
+          path: |
+            radar-live-status.json
+            radar-live-logs.txt
+          retention-days: 14
