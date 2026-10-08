@@ -29,6 +29,14 @@ class ArchitectureBoundaryTests(unittest.TestCase):
         forbidden = {"main", "jobs", "scanner", "private_analysis"}
         self.assertTrue(forbidden.isdisjoint(imports))
 
+    def test_scheduler_is_separate_from_jobs_and_ui(self):
+        scheduler_source = (APP / "scheduler.py").read_text(encoding="utf-8")
+        self.assertNotIn("from .main import", scheduler_source)
+        self.assertNotIn("from .telegram import", scheduler_source)
+        self.assertNotIn("from .scanner import", scheduler_source)
+        jobs_source = (APP / "jobs.py").read_text(encoding="utf-8")
+        self.assertIn("from .scheduler import scheduler", jobs_source)
+
     def test_frontend_is_not_python_dependency(self):
         source = (ROOT / "web" / "assets" / "app.js").read_text(encoding="utf-8")
         self.assertNotIn("app.scanner", source)
