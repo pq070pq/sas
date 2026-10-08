@@ -24,7 +24,6 @@ from .news import company_news, corporate_events, tipranks_analysis
 from .scheduler import scheduler
 from .market_calendar import market_status, us_market_holidays
 from .holiday_radar import stock_radar_enabled
-from .holiday_radar import holiday_radar_scheduler
 from .radar_health import radar_health_monitor
 from .timeutil import utcnow, aware
 from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, get_subscription_config, setting_set, setting_get, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings, create_user_channel_invite
@@ -37,7 +36,6 @@ from .binance_spot import is_crypto_symbol, normalize_symbol as normalize_crypto
 logger = logging.getLogger(__name__)
 
 scheduler_task = None
-holiday_radar_task = None
 telegram_polling_task = None
 telegram_config_task = None
 private_analysis_task = None
@@ -174,7 +172,7 @@ async def _configure_telegram():
 async def startup():
     await init_db()
     await ensure_subscription_settings()
-    global scheduler_task, holiday_radar_task, telegram_polling_task, telegram_config_task, private_analysis_task, radar_health_task
+    global scheduler_task, telegram_polling_task, telegram_config_task, private_analysis_task, radar_health_task
     telegram_config_task = asyncio.create_task(_configure_telegram(), name="saspro-telegram-config")
     scheduler_task = asyncio.create_task(scheduler(), name="saspro-scheduler")
 
@@ -204,7 +202,6 @@ async def startup():
 
     scheduler_task.add_done_callback(_scheduler_done)
 
-    holiday_radar_task = asyncio.create_task(holiday_radar_scheduler(), name="saspro-holiday-radar")
     radar_health_task = asyncio.create_task(radar_health_monitor(), name="saspro-radar-health")
     telegram_polling_task = asyncio.create_task(telegram_polling_loop(), name="saspro-telegram-polling")
     def _telegram_polling_done(task):
