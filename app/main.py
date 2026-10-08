@@ -390,6 +390,27 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         summary_lines.append(f"⏱️ <b>مدة الرصد المتوقعة:</b> {_esc(holding_horizon)}")
     add_section(report, "📋 <b>ملخص سريع للمبتدئ</b>", summary_lines)
 
+    quality = tech.get("quality_score") or {}
+    if quality.get("score") is not None:
+        components = quality.get("components") or {}
+        labels = {
+            "trend": "الاتجاه",
+            "momentum": "الزخم والحجم",
+            "market": "السوق العام",
+            "catalyst": "المحفز",
+            "risk": "المخاطر",
+        }
+        quality_lines = [
+            f"⭐ <b>جودة الفرصة: {float(quality.get('score')):.0f}/100 — {_esc(quality.get('label') or 'مراقبة')}</b>",
+            f"🧭 الاتجاه: {float(components.get('trend') or 0):.0f}/100",
+            f"🔥 الزخم والحجم: {float(components.get('momentum') or 0):.0f}/100",
+            f"🌎 السوق العام: {float(components.get('market') or 0):.0f}/100",
+            f"🚀 المحفز: {float(components.get('catalyst') or 0):.0f}/100",
+            f"🛡 المخاطر: {float(components.get('risk') or 0):.0f}/100",
+            "ℹ️ هذه درجة ترتيب آلية للمقارنة بين الفرص وليست توصية شراء أو بيع.",
+        ]
+        add_section(report, "⭐ <b>جودة الفرصة — بشكل مبسط</b>", quality_lines)
+
     add_section(report, '📌 <b>القراءة الفنية الواضحة</b>', [
         f'🧭 <b>الخلاصة:</b> {_esc(recommendation)}',
         '⚠️ لا تتم مطاردة السهم بعد ارتفاع حاد؛ يُشترط تأكيد السعر والسيولة قبل أي قرار.',
