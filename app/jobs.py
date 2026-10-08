@@ -728,6 +728,14 @@ async def stock_radar_cycle():
             channel_app_only = 0
             gate_rejections = {}
             delivery_errors = {}
+            # تشخيص حاسم للدورة: يوضح أين اختفت الفرصة بدل الاكتفاء بعدد النتائج النهائي.
+            confirmation_stats = {
+                "confirmed": 0,
+                "watch": 0,
+                "live_quote_unavailable": 0,
+                "gate_passed": 0,
+                "gate_rejected": 0,
+            }
 
             # كل سهم مؤهل يظهر في التطبيق ضمن سقف اليوم؛ القناة لها سقف يومي مستقل.
             # لا نرسل جدول Daily Momentum مجمعًا؛ تفاصيل السهم وشروط اجتيازه
@@ -766,6 +774,12 @@ async def stock_radar_cycle():
                 if q.get("price") is None:
                     logger.warning("Radar live quote unavailable; keeping candidate in watchlist: %s source=%s", symbol, q.get("source"))
                 classification = row.get("classification") or {}
+                if classification.get("opportunity_status") == "confirmed" and bool(classification.get("confirmation_ready")):
+                    confirmation_stats["confirmed"] += 1
+                else:
+                    confirmation_stats["watch"] += 1
+                if q.get("price") is None:
+                    confirmation_stats["live_quote_unavailable"] += 1
                 tech = {
                     **(row.get("targets") or {}),
                     "radar_checks": row.get("radar_checks") or {},
@@ -775,6 +789,7 @@ async def stock_radar_cycle():
 
                 channel_ok, channel_reason = _radar_channel_gate(status, row, q, learning_profile)
                 if not channel_ok:
+                    confirmation_stats["gate_rejected"] += 1
                     gate_rejections[channel_reason] = int(gate_rejections.get(channel_reason, 0)) + 1
                     cycle_stats["skipped"] += 1
                     row["channel_gate"] = {
@@ -808,6 +823,7 @@ async def stock_radar_cycle():
                     continue
 
                 channel_gate_passed += 1
+                confirmation_stats["gate_passed"] += 1
                 # لا نسمح بأكثر من 15 فرصة مؤكدة نشطة في التطبيق.
                 # ترتيب rows تم حسمه مسبقًا حسب جودة الفرصة، لذلك الفرص خارج
                 # أول 15 تبقى مراقبة ولا تظهر كفرص نشطة في التطبيق.
@@ -1108,6 +1124,29 @@ async def stock_radar_cycle():
             await db.rollback()
             logger.exception("Radar active-state refresh failed")
 
+        diagnostics["confirmation_stats"] = confirmation_stats
+        diagnostics["gate_rejections"] = gate_rejections
+        diagnostics["delivery_errors"] = delivery_errors
+        diagnostics["delivery_summary"] = {
+            "sent": cycle_stats["sent"],
+            "failed": cycle_stats["failed"],
+            "errors": len(delivery_errors),
+        }
+        logger.info(
+            "RADAR_FUNNEL id=%s candidates=%d shortlist=%d passed=%d confirmed=%d watch=%d quote_missing=%d gate_passed=%d gate_rejected=%d sent=%d delivery_failed=%d rejections=%s",
+            run.id,
+            int(diagnostics.get("candidates") or 0),
+            int(diagnostics.get("shortlist") or 0),
+            int(diagnostics.get("passed") or 0),
+            confirmation_stats["confirmed"],
+            confirmation_stats["watch"],
+            confirmation_stats["live_quote_unavailable"],
+            confirmation_stats["gate_passed"],
+            confirmation_stats["gate_rejected"],
+            cycle_stats["sent"],
+            len(delivery_errors),
+            gate_rejections,
+        )
         await finish_cycle(
             "success",
             diagnostics,
