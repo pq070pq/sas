@@ -1484,27 +1484,39 @@ async def admin_terms_status(user=Depends(telegram_user), db: AsyncSession = Dep
     await require_admin_permission(user, "users")
     users = (await db.execute(select(User).order_by(User.created_at.desc()))).scalars().all()
     current = TERMS_VERSION
+    admin_ids = set(
+        (await db.execute(
+            select(AdminRole.telegram_id).where(AdminRole.enabled.is_(True))
+        )).scalars().all()
+    )
     rows = []
     accepted = 0
+    total_users = 0
     for u in users:
+        # حسابات الإدارة ليست ضمن موافقات المستخدمين على الشروط.
+        if int(u.telegram_id) in admin_ids:
+            continue
+        total_users += 1
         ok = bool(u.terms_accepted_at and u.terms_version == current)
-        if ok:
-            accepted += 1
+        if not ok:
+            # لوحة الإدارة تعرض الموافقات الفعلية فقط؛ لا تعرض "لم يوافق".
+            continue
+        accepted += 1
         rows.append({
             "telegram_id": u.telegram_id,
             "username": u.username,
             "first_name": u.first_name,
             "last_name": u.last_name,
-            "accepted": ok,
+            "accepted": True,
             "accepted_at": aware(u.terms_accepted_at).isoformat() if u.terms_accepted_at else None,
             "terms_version": u.terms_version,
         })
     return {
         "ok": True,
         "terms_version": current,
-        "total": len(rows),
+        "total": total_users,
         "accepted": accepted,
-        "pending": len(rows) - accepted,
+        "pending": 0,
         "users": rows,
     }
 
