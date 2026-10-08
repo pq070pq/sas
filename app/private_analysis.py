@@ -6,6 +6,7 @@ from .panwatch import technical_targets
 from .news import company_news, corporate_events, company_fundamentals, tipranks_analysis
 from .ai_radar import analyze_stock
 from .smart_memory import dedupe_records
+from .binance_spot import is_crypto_symbol, normalize_symbol as normalize_crypto_symbol, quote as binance_quote, analyze as binance_analyze
 
 
 def _money(value):
@@ -208,6 +209,84 @@ def _evidence_summary(behavior, rvol, rsi, score, stop, target1):
 
 async def build_private_analysis(symbol: str):
     symbol = symbol.upper().strip()
+
+    # تحليل الأصول الرقمية في التقرير الكامل: Binance Spot هو المصدر الوحيد
+    # للسعر والشموع والحجم والمؤشرات، ولا نمرر الأصل إلى مسار الأسهم.
+    if is_crypto_symbol(symbol):
+        pair = normalize_crypto_symbol(symbol)
+        try:
+            data = await asyncio.wait_for(binance_analyze(pair, interval="1h"), timeout=15)
+            q = await asyncio.wait_for(binance_quote(pair), timeout=8)
+            price = q.get("price")
+            change = q.get("change_pct")
+            entry = data.get("entry") or price
+            stop = data.get("stop")
+            targets = data.get("targets") or []
+            rvol = data.get("rvol")
+            rsi = data.get("rsi14")
+            score = data.get("score")
+            rr = None
+            if entry and stop and targets and float(entry) > float(stop):
+                rr = (float(targets[0]) - float(entry)) / (float(entry) - float(stop))
+            confirmation = data.get("confirmation") or {}
+            checks = [
+                ("الاتجاه فوق EMA20/EMA50", confirmation.get("trend")),
+                ("اختراق المقاومة", confirmation.get("breakout")),
+                ("الحجم فوق المتوسط", confirmation.get("volume")),
+                ("MACD إيجابي", confirmation.get("macd")),
+                ("RSI داعم", confirmation.get("rsi")),
+                ("ADX يدعم الاتجاه", confirmation.get("adx")),
+            ]
+            check_text = "\\n".join(
+                f"{'🟢' if ok else '⚪'} {html.escape(label)}"
+                for label, ok in checks
+            )
+            target_text = "\\n".join(
+                f"🎯 <b>الهدف {i}:</b> {_money(level)}"
+                for i, level in enumerate(targets[:3], 1)
+            ) or "⚠️ لا يوجد هدف موثوق من البيانات الحالية."
+            rr_text = f"1 : {float(rr):.2f}" if rr is not None else "غير محسوب"
+            state = html.escape(str(data.get("state") or "غير واضح"))
+            risk = "مرتفع" if (data.get("atr_pct") or 0) >= 5 else "متوسط"
+            return (
+                f"🚀 <b>SAS PRO | التحليل الكامل — {html.escape(pair)}</b>\\n"
+                "━━━━━━━━━━━━━━━━━━\\n"
+                "📡 <b>مصدر البيانات: Binance Spot</b>\\n"
+                f"💵 السعر الحالي: <b>{_money(price)}</b>   📈 التغير: <b>{_pct(change)}</b>\\n"
+                f"🧭 الحالة: <b>{state}</b>   ⭐ SAS Score: <b>{score}/100</b>\\n"
+                f"⚠️ مستوى المخاطرة: <b>{risk}</b>\\n"
+                "━━━━━━━━━━━━━━━━━━\\n"
+                "🎯 <b>الخطة المشروطة</b>\\n"
+                f"🔵 الدخول المرجعي: <b>{_money(entry)}</b>\\n"
+                f"🛑 الوقف: <b>{_money(stop)}</b>\\n"
+                f"{target_text}\\n"
+                f"⚖️ R:R للهدف الأول: <b>{rr_text}</b>\\n"
+                "━━━━━━━━━━━━━━━━━━\\n"
+                "📊 <b>المؤشرات</b>\\n"
+                f"EMA20: <b>{_money(data.get('ema20'))}</b>\\n"
+                f"EMA50: <b>{_money(data.get('ema50'))}</b>\\n"
+                f"EMA200: <b>{_money(data.get('ema200'))}</b>\\n"
+                f"RSI 14: <b>{_num(rsi)}</b>\\n"
+                f"ADX 14: <b>{_num(data.get('adx14'))}</b>\\n"
+                f"ATR 14: <b>{_money(data.get('atr14'))}</b> ({_pct(data.get('atr_pct'))})\\n"
+                f"RVOL: <b>{_num(rvol, '×')}</b>\\n"
+                "━━━━━━━━━━━━━━━━━━\\n"
+                "🧠 <b>لماذا ظهرت هذه الحالة؟</b>\\n"
+                f"{check_text}\\n"
+                "━━━━━━━━━━━━━━━━━━\\n"
+                f"📌 <b>الخلاصة:</b> {html.escape(str(data.get('takeaway') or 'لا توجد خلاصة كافية.'))}\\n"
+                "ℹ️ الأهداف والوقف مستويات حسابية من بيانات Binance Spot وليست ضمانًا للسعر المستقبلي.\\n"
+                "⚠️ معلومات تعليمية فقط وليست توصية شراء أو بيع."
+            )
+        except Exception as exc:
+            return (
+                f"🚀 <b>SAS PRO | التحليل الكامل — {html.escape(pair)}</b>\\n"
+                "━━━━━━━━━━━━━━━━━━\\n"
+                "⚠️ تعذر الحصول على بيانات Binance Spot الحية.\\n"
+                f"الخطأ التقني: <code>{html.escape(type(exc).__name__)}</code>\\n"
+                "لم يتم تخمين سعر أو هدف أو وقف."
+            )
+
     async def bounded(coro, timeout, fallback):
         try:
             return await asyncio.wait_for(coro, timeout=timeout)
