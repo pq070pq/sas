@@ -642,30 +642,19 @@ async def stock_radar_cycle():
                 )).scalars().all()
                 existing_map = {str(x.symbol).upper(): x for x in existing_rows}
 
-            # حدود يومية ثابتة حتى لا تتحول كثرة دورات الرادار إلى إزعاج.
-            # الفرص المؤهلة فقط تدخل حد التطبيق؛ سجلات المراقبة المرفوضة لا تستهلكه.
+            # حد القناة يومي، أما التطبيق فليس قائمة تاريخية ثابتة:
+            # يعرض دائمًا فرص الرادار الحالية، وبحد أقصى 15 فرصة.
+            # إذا فقد السهم شروط الرادار يُوسم غير نشط ويخرج من التطبيق،
+            # وتدخل فرصة مؤهلة أخرى مكانه.
+            daily_app_limit = max(1, int(settings.radar_app_daily_limit or 15))
+            channel_daily_limit = max(1, int(settings.radar_channel_daily_limit or 5))
             daily_rows = (await db.execute(
                 select(RadarSignal).where(RadarSignal.session_date == session_date)
             )).scalars().all()
-            daily_app_symbols = set()
-            daily_channel_sent = 0
-            for daily_signal in daily_rows:
-                try:
-                    daily_payload = json.loads(daily_signal.payload or "{}")
-                except (TypeError, ValueError):
-                    daily_payload = {}
-                gate = daily_payload.get("channel_gate") or {}
-                if gate.get("passed"):
-                    daily_app_symbols.add(str(daily_signal.symbol or "").upper())
-                if daily_signal.telegram_message_id:
-                    daily_channel_sent += 1
-            daily_app_symbols.discard("")
-            app_daily_limit = max(1, int(settings.radar_app_daily_limit or 15))
-            channel_daily_limit = max(1, int(settings.radar_channel_daily_limit or 5))
+            daily_channel_sent = sum(1 for x in daily_rows if x.telegram_message_id)
             logger.info(
-                "RADAR_DAILY_LIMITS session=%s app=%d/%d channel=%d/%d",
-                session_date, len(daily_app_symbols), app_daily_limit,
-                daily_channel_sent, channel_daily_limit,
+                "RADAR_DAILY_LIMITS session=%s app_current_limit=%d channel=%d/%d",
+                session_date, daily_app_limit, daily_channel_sent, channel_daily_limit,
             )
 
             # اجلب الأسعار الحية دفعةً واحدة بالتوازي. السعر الحي شرط نشر، لكنه
@@ -740,6 +729,7 @@ async def stock_radar_cycle():
                         "session": status.get("session"),
                         "reason": channel_reason,
                     }
+                    row["radar_active"] = False
                     # Keep rejected-but-promising candidates as watch records.
                     # They do not generate Telegram messages, but they are
                     # rechecked on the next cycle so a real confirmation is not lost.
@@ -770,13 +760,16 @@ async def stock_radar_cycle():
                     "session": status.get("session"),
                     "reason": channel_reason,
                 }
+                row["radar_active"] = True
 
-                # لا نتجاوز الحد اليومي للتطبيق، وتشمل فرص التطبيق فرص القناة نفسها.
-                if symbol not in daily_app_symbols and len(daily_app_symbols) >= app_daily_limit:
+                # التطبيق سيأخذ أفضل 15 من الفرص النشطة الحالية عند العرض.
+                # لا نستبعد السهم من الرصد لمجرد أنه خارج أول 15 الآن.
+                if daily_channel_sent >= channel_daily_limit:
                     channel_app_only += 1
                     row["channel_delivery"] = {
                         "published": False,
-                        "reason": f"تم الوصول إلى الحد اليومي للتطبيق ({app_daily_limit})",
+                        "reason": f"تم الوصول إلى الحد اليومي للقناة ({channel_daily_limit})",
+                        "limit": channel_daily_limit,
                     }
                     try:
                         if existing:
@@ -984,6 +977,36 @@ async def stock_radar_cycle():
             }
             for x in rows[:10]
         ]
+        # أي سهم من رصد اليوم لم يعد ضمن النتائج المؤهلة الحالية يخرج من التطبيق.
+        # لا نحذف السجل التاريخي؛ فقط نعطله حتى يبقى Forward Test محفوظًا.
+        current_symbols = {
+            str(x.get("symbol") or "").upper()
+            for x in rows
+            if str(x.get("symbol") or "").strip()
+        }
+        current_active_symbols = {
+            str(x.get("symbol") or "").upper()
+            for x in rows
+            if bool(x.get("radar_active"))
+        }
+        try:
+            today_signals = (await db.execute(
+                select(RadarSignal).where(RadarSignal.session_date == session_date)
+            )).scalars().all()
+            for signal in today_signals:
+                symbol = str(signal.symbol or "").upper()
+                if symbol not in current_symbols or symbol not in current_active_symbols:
+                    try:
+                        payload = json.loads(signal.payload or "{}")
+                    except (TypeError, ValueError):
+                        payload = {}
+                    payload["radar_active"] = False
+                    signal.payload = json.dumps(payload, ensure_ascii=False)
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            logger.exception("Radar active-state refresh failed")
+
         await finish_cycle(
             "success",
             diagnostics,
