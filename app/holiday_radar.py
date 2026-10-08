@@ -8,6 +8,7 @@ from .config import settings
 from .market import macro_quote
 from .market_calendar import market_status
 from .telegram import send_message
+from .binance_spot import quote as binance_quote
 
 RIYADH = ZoneInfo("Asia/Riyadh")
 
@@ -242,9 +243,14 @@ async def holiday_snapshot():
     rows = []
     for symbol, label in MACRO:
         try:
-            # للمؤشرات والذهب نجرب المصادر العامة المستقلة أولاً، ثم طبقة السوق
-            # الحالية التي تحتوي Finnhub/FMP/Twelve Data وغيرها.
-            q = await _public_holiday_fallback(symbol)
+            # BTC/USDT يتغذى مباشرة من Binance Spot بدل خلطه مع مزودي الأسهم.
+            if symbol == "BTC/USD":
+                try:
+                    q = await binance_quote("BTCUSDT")
+                except Exception:
+                    q = None
+            else:
+                q = await _public_holiday_fallback(symbol)
             if not q or not _valid_price(q.get("price")):
                 q = await _nasdaq_index_fallback(symbol)
             if not q or not _valid_price(q.get("price")):
