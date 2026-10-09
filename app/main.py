@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import html
 import httpx
+from urllib.parse import urlsplit
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -281,6 +282,22 @@ async def telegram_polling_loop():
         except Exception as exc:
             logger.exception("Telegram polling failed: %s", exc)
             await asyncio.sleep(3)
+
+def _safe_external_http_url(value):
+    raw = str(value or "").strip()
+    if not raw or any(char.isspace() for char in raw) or chr(92) in raw:
+        return ""
+    try:
+        parsed = urlsplit(raw)
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+            return ""
+        if parsed.username is not None or parsed.password is not None:
+            return ""
+        parsed.port
+    except (TypeError, ValueError, UnicodeError):
+        return ""
+    return raw
+
 
 def build_report(symbol: str, q: dict, tech: dict, classification: dict | None = None, outcome=None) -> str:
     """Build the standard SAS PRO beginner-friendly stock report."""
@@ -624,10 +641,29 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     valid_news = [item for item in news_items if isinstance(item, dict) and item.get("headline")]
     if valid_news:
         news_lines = []
-        for idx, item in enumerate(valid_news[:8], 1):
+        for idx, item in enumerate(valid_news[:5], 1):
+            summary = str(item.get("ai_summary") or "").strip()
+            summary_label = "مختصر AI"
+            if not summary:
+                summary = str(item.get("summary") or "").strip()
+                summary_label = "ملخص المصدر"
+            if not summary:
+                summary = "لا يتوفر مختصر لهذا الخبر."
+                summary_label = "الملخص"
+            elif item.get("ai_summary_basis") == "headline_only":
+                summary += " (مبني على العنوان فقط)"
+
+            source_name = _esc(item.get("source") or "مصدر غير محدد")
+            source_url = _safe_external_http_url(item.get("url"))
+            source_line = (
+                f'<a href="{_esc(source_url)}">المصدر: {source_name}</a>'
+                if source_url else f"المصدر: {source_name}"
+            )
             news_lines += [
                 f"<b>{idx}️⃣</b> {_esc(item.get('headline'))}",
-                ""
+                f"📝 <b>{summary_label}:</b> {_esc(summary[:360])}",
+                source_line,
+                "",
             ]
         while news_lines and news_lines[-1] == "":
             news_lines.pop()
@@ -2564,6 +2600,27 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         analysis_payload["fallback_type"] = "technical"
     analysis_payload["ai_available"] = bool(ai_result.get("enabled")) if isinstance(ai_result, dict) else False
     analysis_payload["fcc_review"] = fcc_review
+
+    summary_by_story = {}
+    for summary_item in analysis_payload.get("news_summaries") or []:
+        if not isinstance(summary_item, dict):
+            continue
+        story_key = (str(summary_item.get("url") or "").strip(), str(summary_item.get("headline") or "").strip())
+        if story_key[0] and story_key[1] and summary_item.get("summary"):
+            summary_by_story[story_key] = summary_item
+    news_for_display = []
+    for item in news if isinstance(news, list) else []:
+        if not isinstance(item, dict):
+            news_for_display.append(item)
+            continue
+        display_item = dict(item)
+        story_key = (str(item.get("url") or "").strip(), str(item.get("headline") or "").strip())
+        summary_item = summary_by_story.get(story_key)
+        if summary_item:
+            display_item["ai_summary"] = summary_item.get("summary")
+            display_item["ai_summary_basis"] = summary_item.get("basis")
+        news_for_display.append(display_item)
+    targets["news_items"] = news_for_display
     if isinstance(tipranks_data, dict) and tipranks_data:
         tipranks_data["summary"] = analysis_payload.get("tipranks_summary") or "غير متوفر"
         tipranks_data["signal"] = analysis_payload.get("tipranks_signal") or "غير واضح"
@@ -2657,7 +2714,7 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
             "report": report,
             "disclaimer": DISCLAIMER,
         },
-        "news": news if isinstance(news, list) else [],
+        "news": news_for_display,
         "fundamentals": fundamentals if isinstance(fundamentals, dict) else {},
         "ai_status": ai_result.get("status") if isinstance(ai_result, dict) else "unavailable",
         "partial": bool(
