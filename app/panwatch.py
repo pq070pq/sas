@@ -79,6 +79,36 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
             if len(rows) >= 20: source = "Twelve Data"
             elif len(rows): attempts.append("TwelveData:insufficient")
         if len(rows) < 20:
+            # Finnhub candle endpoint is an additional historical-data fallback
+            # for cases where PanWatch/Twelve Data do not return enough bars.
+            finnhub_key = str(getattr(settings, "finnhub_api_key", "") or "").strip()
+            if finnhub_key:
+                try:
+                    from datetime import datetime, timedelta, timezone
+                    end_ts = int(datetime.now(timezone.utc).timestamp())
+                    start_ts = int((datetime.now(timezone.utc) - timedelta(days=max(45, min(int(days) * 2, 730)))).timestamp())
+                    r = await client.get(
+                        "https://finnhub.io/api/v1/stock/candle",
+                        params={"symbol": symbol.upper(), "resolution": "D", "from": start_ts, "to": end_ts, "token": finnhub_key},
+                    )
+                    r.raise_for_status()
+                    payload = r.json()
+                    if payload.get("s") == "ok" and payload.get("c"):
+                        rows = [{
+                            "datetime": datetime.fromtimestamp(payload["t"][i], timezone.utc).strftime("%Y-%m-%d"),
+                            "open": payload["o"][i], "high": payload["h"][i],
+                            "low": payload["l"][i], "close": payload["c"][i],
+                            "volume": payload["v"][i],
+                        } for i in range(len(payload["c"]))]
+                        if len(rows) >= 20:
+                            source = "Finnhub Candles"
+                        else:
+                            attempts.append("Finnhub:insufficient")
+                    else:
+                        attempts.append(f"Finnhub:{payload.get('s', 'no_data')}")
+                except Exception as exc:
+                    attempts.append(f"Finnhub:{type(exc).__name__}")
+        if len(rows) < 20:
             rows = await _stooq_ohlcv(symbol, days)
             if len(rows) >= 20: source = "Stooq"
             else: attempts.append("Stooq:insufficient")
