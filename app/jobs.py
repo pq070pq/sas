@@ -693,7 +693,10 @@ async def stock_radar_cycle():
             daily_app_limit = max(1, int(settings.radar_app_daily_limit or 15))
             channel_daily_limit = max(1, int(settings.radar_channel_daily_limit or 5))
             daily_rows = (await db.execute(
-                select(RadarSignal).where(RadarSignal.session_date == session_date)
+                select(RadarSignal).where(
+                    RadarSignal.session_date == session_date,
+                    RadarSignal.expires_at > utcnow(),
+                )
             )).scalars().all()
             daily_channel_sent = sum(1 for x in daily_rows if x.telegram_message_id)
             # سقف التطبيق = 15 فرصة مؤكدة ونشطة حاليًا، وليس 15 سجلًا تاريخيًا.
@@ -777,6 +780,18 @@ async def stock_radar_cycle():
                     continue
 
                 existing = existing_map.get(symbol)
+                # An expired signal remains historical for this session. Do not
+                # revive it or send a duplicate alert during a fresh scan.
+                if existing and existing.expires_at is not None:
+                    expiry_value = existing.expires_at
+                    now_value = utcnow()
+                    if expiry_value.tzinfo is None:
+                        expiry_value = expiry_value.replace(tzinfo=timezone.utc)
+                    if expiry_value <= now_value:
+                        cycle_stats["skipped"] += 1
+                        _radar_seen.add(symbol)
+                        logger.info("Radar duplicate skipped: %s | reason=signal_expired", symbol)
+                        continue
                 # لا نكرر نفس السهم بلا سبب.
                 if existing and existing.telegram_message_id:
                     try:
