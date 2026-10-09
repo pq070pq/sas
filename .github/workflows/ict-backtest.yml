@@ -28,6 +28,9 @@ jobs:
   backtest:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+      FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
