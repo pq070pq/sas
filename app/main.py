@@ -1275,7 +1275,10 @@ async def admin_health(user=Depends(telegram_user), db: AsyncSession = Depends(g
         session_date = market_status()["date"]
         rows = (await db.execute(
             select(RadarSignal)
-            .where(RadarSignal.session_date == session_date)
+            .where(
+                RadarSignal.session_date == session_date,
+                RadarSignal.expires_at > utcnow(),
+            )
             .order_by(RadarSignal.created_at.desc())
             .limit(100)
         )).scalars().all()
@@ -2163,6 +2166,7 @@ async def dashboard_home(_: dict = Depends(require_pro)):
         if not rows:
             rows = (await db.execute(
                 select(RadarSignal)
+                .where(RadarSignal.expires_at > utcnow())
                 .order_by(RadarSignal.created_at.desc())
                 .limit(100)
             )).scalars().all()
@@ -2217,7 +2221,10 @@ async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
             async with SessionLocal() as db:
                 rows = (await db.execute(
                     select(RadarSignal)
-                    .where(RadarSignal.session_date == session_date)
+                    .where(
+                        RadarSignal.session_date == session_date,
+                        RadarSignal.expires_at > utcnow(),
+                    )
                     .order_by(RadarSignal.created_at.desc())
                 )).scalars().all()
 

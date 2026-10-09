@@ -28,6 +28,7 @@ async def scheduler():
     from .jobs import (
         expiry_cycle,
         evaluate_radar_outcomes,
+        expire_radar_signals,
         weekly_radar_report,
         stock_radar_cycle,
     )
@@ -54,6 +55,7 @@ async def scheduler():
 
             await expiry_cycle()
             logger.info("Scheduler: expiry cycle completed.")
+            await expire_radar_signals()
             await evaluate_radar_outcomes()
 
             try:

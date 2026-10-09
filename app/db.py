@@ -3,6 +3,7 @@ from sqlalchemy import Boolean, DateTime, Integer, String, Text, UniqueConstrain
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from .config import settings
+from .radar_expiry import expiry_at
 
 engine = create_async_engine(
     settings.database_url,
@@ -140,6 +141,7 @@ class RadarSignal(Base):
     session_date: Mapped[str] = mapped_column(String(16), index=True)
     payload: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=lambda: expiry_at(), index=True)
     telegram_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     __table_args__ = (UniqueConstraint("symbol", "session_date", name="uq_radar_symbol_session"),)
 
@@ -212,7 +214,14 @@ async def init_db():
             })
             await _sqlite_add_columns(conn, "radar_signals", {
                 "telegram_message_id": "INTEGER",
+                "expires_at": "DATETIME",
             })
+            # Backfill existing rows once; later rescans never extend expiry.
+            await conn.execute(text("""
+                UPDATE radar_signals
+                SET expires_at = datetime(created_at, '+24 hours')
+                WHERE expires_at IS NULL AND created_at IS NOT NULL
+            """))
             await _sqlite_add_columns(conn, "radar_outcomes", {
                 "target4": "FLOAT",
                 "target5": "FLOAT",

@@ -126,6 +126,41 @@ async def expiry_cycle():
         await db.commit()
 
 
+async def expire_radar_signals(now=None):
+    """Deactivate opportunities after their fixed 24-hour lifetime.
+
+    Signal and outcome rows remain available for historical performance reports.
+    Expiry sends no Telegram message and never changes subscriptions or settings.
+    """
+    now = now or utcnow()
+    expired_count = 0
+    async with SessionLocal() as db:
+        signals = (await db.execute(
+            select(RadarSignal).where(
+                RadarSignal.expires_at.is_not(None),
+                RadarSignal.expires_at <= now,
+            )
+        )).scalars().all()
+        for signal in signals:
+            try:
+                payload = json.loads(signal.payload or "{}")
+            except (TypeError, ValueError):
+                payload = {}
+            if not isinstance(payload, dict):
+                payload = {}
+            changed = bool(payload.get("radar_active")) or payload.get("strategy_status") != "expired"
+            payload["radar_active"] = False
+            payload["strategy_status"] = "expired"
+            payload["strategy_inactive_reason"] = "انتهت صلاحية فرصة الرصد بعد 24 ساعة"
+            signal.payload = json.dumps(payload, ensure_ascii=False)
+            if changed:
+                expired_count += 1
+        await db.commit()
+    if expired_count:
+        logger.info("Radar expiry: deactivated %d opportunity(ies) after 24 hours.", expired_count)
+    return expired_count
+
+
 async def evaluate_radar_outcomes():
     """Evaluate only today's published radar signals with valid upward targets.
 
@@ -137,6 +172,7 @@ async def evaluate_radar_outcomes():
             select(RadarSignal).where(
                 RadarSignal.session_date == today_session,
                 RadarSignal.telegram_message_id.is_not(None),
+                RadarSignal.expires_at > utcnow(),
             )
         )).scalars().all()
         logger.info("Radar outcome evaluation: %d today's published signals.", len(signals))
@@ -657,7 +693,10 @@ async def stock_radar_cycle():
             daily_app_limit = max(1, int(settings.radar_app_daily_limit or 15))
             channel_daily_limit = max(1, int(settings.radar_channel_daily_limit or 5))
             daily_rows = (await db.execute(
-                select(RadarSignal).where(RadarSignal.session_date == session_date)
+                select(RadarSignal).where(
+                    RadarSignal.session_date == session_date,
+                    RadarSignal.expires_at > utcnow(),
+                )
             )).scalars().all()
             daily_channel_sent = sum(1 for x in daily_rows if x.telegram_message_id)
             # سقف التطبيق = 15 فرصة مؤكدة ونشطة حاليًا، وليس 15 سجلًا تاريخيًا.
@@ -741,6 +780,18 @@ async def stock_radar_cycle():
                     continue
 
                 existing = existing_map.get(symbol)
+                # An expired signal remains historical for this session. Do not
+                # revive it or send a duplicate alert during a fresh scan.
+                if existing and existing.expires_at is not None:
+                    expiry_value = existing.expires_at
+                    now_value = utcnow()
+                    if expiry_value.tzinfo is None:
+                        expiry_value = expiry_value.replace(tzinfo=timezone.utc)
+                    if expiry_value <= now_value:
+                        cycle_stats["skipped"] += 1
+                        _radar_seen.add(symbol)
+                        logger.info("Radar duplicate skipped: %s | reason=signal_expired", symbol)
+                        continue
                 # لا نكرر نفس السهم بلا سبب.
                 if existing and existing.telegram_message_id:
                     try:
