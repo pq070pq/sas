@@ -819,109 +819,35 @@ async def stock_radar_cycle():
 
                 channel_gate_passed += 1
                 confirmation_stats["gate_passed"] += 1
-                # لا نسمح بأكثر من 15 فرصة مؤكدة نشطة في التطبيق.
-                # ترتيب rows تم حسمه مسبقًا حسب جودة الفرصة، لذلك الفرص خارج
-                # أول 15 تبقى مراقبة ولا تظهر كفرص نشطة في التطبيق.
-                if symbol not in app_active_symbols and app_active_count >= daily_app_limit:
-                    row["channel_gate"] = {
-                        "passed": True,
-                        "session": status.get("session"),
-                        "reason": channel_reason,
-                    }
-                    row["radar_active"] = False
-                    row["channel_delivery"] = {
-                        "published": False,
-                        "app_visible": False,
-                        "reason": f"تم الوصول إلى الحد الحالي للتطبيق ({daily_app_limit})",
-                        "limit": daily_app_limit,
-                    }
-                    try:
-                        if existing:
-                            existing.payload = json.dumps(row, ensure_ascii=False)
-                            existing.created_at = utcnow()
-                        else:
-                            existing = RadarSignal(
-                                symbol=symbol,
-                                session_date=session_date,
-                                payload=json.dumps(row, ensure_ascii=False),
-                            )
-                            db.add(existing)
-                        await db.commit()
-                    except Exception:
-                        await db.rollback()
-                        logger.exception("Radar app-cap persistence failed: %s", symbol)
-                    cycle_stats["skipped"] += 1
-                    _radar_seen.add(symbol)
-                    continue
-
-                if symbol not in app_active_symbols:
-                    app_active_symbols.add(symbol)
-                    app_active_count += 1
+                # التطبيق يبقي سقف الفرص النشطة مستقلًا؛ هذا السقف لا يمنع نشر المرشح للقناة.
+                app_cap_reached = (
+                    symbol not in app_active_symbols
+                    and app_active_count >= daily_app_limit
+                )
                 row["channel_gate"] = {
                     "passed": True,
                     "session": status.get("session"),
                     "reason": channel_reason,
                 }
-                row["radar_active"] = True
-
-                # التطبيق يعرض فقط الفرص المؤكدة التي دخلت سقف الـ15 الحالي.
-                if channel_daily_limit > 0 and daily_channel_sent >= channel_daily_limit:
-                    channel_app_only += 1
+                row["radar_active"] = not app_cap_reached
+                if app_cap_reached:
                     row["channel_delivery"] = {
-                        "published": False,
-                        "reason": f"تم الوصول إلى الحد اليومي للقناة ({channel_daily_limit})",
-                        "limit": channel_daily_limit or None,
+                        "published": True,
+                        "app_visible": False,
+                        "reason": f"أُرسل للقناة، لكنه خارج حد الفرص النشطة في التطبيق ({daily_app_limit})",
+                        "limit": daily_app_limit,
                     }
-                    try:
-                        if existing:
-                            existing.payload = json.dumps(row, ensure_ascii=False)
-                            existing.created_at = utcnow()
-                        else:
-                            existing = RadarSignal(
-                                symbol=symbol,
-                                session_date=session_date,
-                                payload=json.dumps(row, ensure_ascii=False),
-                            )
-                            db.add(existing)
-                        await db.commit()
-                    except Exception:
-                        await db.rollback()
-                        logger.exception("Radar app-only candidate persistence failed: %s", symbol)
-                    _radar_seen.add(symbol)
-                    continue
-
-                # هذا السهم أصبح ضمن قائمة فرص اليوم في التطبيق.
-                daily_app_symbols.add(symbol)
-                if daily_channel_sent >= channel_daily_limit:
-                    channel_app_only += 1
+                else:
+                    if symbol not in app_active_symbols:
+                        app_active_symbols.add(symbol)
+                        app_active_count += 1
+                    daily_app_symbols.add(symbol)
                     row["channel_delivery"] = {
-                        "published": False,
-                        "reason": f"تم الوصول إلى الحد اليومي للقناة ({channel_daily_limit})",
-                        "limit": channel_daily_limit or None,
+                        "published": True,
+                        "app_visible": True,
+                        "rank": daily_channel_sent + 1,
+                        "limit": None,
                     }
-                    try:
-                        if existing:
-                            existing.payload = json.dumps(row, ensure_ascii=False)
-                            existing.created_at = utcnow()
-                        else:
-                            existing = RadarSignal(
-                                symbol=symbol,
-                                session_date=session_date,
-                                payload=json.dumps(row, ensure_ascii=False),
-                            )
-                            db.add(existing)
-                        await db.commit()
-                    except Exception:
-                        await db.rollback()
-                        logger.exception("Radar app-only candidate persistence failed: %s", symbol)
-                    _radar_seen.add(symbol)
-                    continue
-
-                row["channel_delivery"] = {
-                    "published": True,
-                    "rank": daily_channel_sent + 1,
-                    "limit": channel_daily_limit or None,
-                }
 
                 # AI enrichment runs only after the technical radar has already
                 # selected the candidate. It cannot create a signal, target,
