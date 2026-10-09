@@ -509,6 +509,45 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
                          tech.get("reason"), tech.get("technical_reason"))
     if reason:
         sas_lines += ["", "🔎 <b>سبب الرصد:</b>"] + reason_lines(reason)
+
+    # Explain every material radar condition so a channel reader can see what
+    # passed, what did not, and why this candidate was published.
+    check_labels = [
+        ("momentum", "الزخم"),
+        ("sas_core", "شروط SAS الأساسية"),
+        ("liquidity", "السيولة الأساسية"),
+        ("rvol", "الحجم النسبي RVOL"),
+        ("target", "وجود هدف فني مؤكد"),
+        ("live_levels", "توفر المستويات الفنية"),
+        ("no_distribution", "عدم وجود تصريف واضح"),
+        ("no_bearish_hs", "عدم وجود نموذج هابط قوي"),
+        ("no_chase", "عدم وجود مطاردة سعرية"),
+        ("advanced_confirmation", "التأكيد الفني المتقدم"),
+    ]
+    check_lines = []
+    for check_key, check_label in check_labels:
+        check_value = radar_checks.get(check_key)
+        if check_value is True:
+            check_lines.append(f"🟢 تحقق: {_esc(check_label)}")
+        elif check_value is False:
+            check_lines.append(f"🔴 لم يتحقق: {_esc(check_label)}")
+        elif check_value is not None:
+            check_lines.append(f"🟡 جزئي/غير حاسم: {_esc(check_label)} — {_esc(check_value)}")
+    if radar_checks.get("momentum_rvol") is not None:
+        threshold = radar_checks.get("momentum_rvol_threshold")
+        threshold_text = f" (المطلوب {threshold:.2f}×)" if isinstance(threshold, (int, float)) else ""
+        check_lines.append(f"📊 RVOL الزخم: {_esc(radar_checks.get('momentum_rvol'))}×{threshold_text}")
+    gate = tech.get("channel_gate") or {}
+    if gate:
+        check_lines.append(
+            ("📨 سبب النشر: " if gate.get("passed") else "👀 سبب الإرسال للمراقبة: ")
+            + _esc(gate.get("reason") or "غير محدد")
+        )
+    if tech.get("radar_candidate_status"):
+        check_lines.append(f"📍 حالة المرشح: {_esc(tech.get('radar_candidate_status'))}")
+    if check_lines:
+        sas_lines += ["", "🧾 <b>فحص الشروط — ما تحقق وما لم يتحقق</b>"] + check_lines
+
     if target_ok is not None:
         sas_lines += ["", "🎯 الهدف السعري: <b>مؤكد فنيًا</b>" if bool(target_ok) else "🎯 الهدف السعري: <b>غير مؤكد</b>"]
     if live_levels is not None:
