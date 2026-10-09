@@ -22,6 +22,7 @@ from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
 from .news import company_news, corporate_events, tipranks_analysis
+from .news_translation import translate_stock_news
 from .scheduler import scheduler
 from .market_calendar import market_status, us_market_holidays
 from .holiday_radar import stock_radar_enabled
@@ -2637,6 +2638,12 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
             display_item["ai_summary"] = summary_item.get("summary")
             display_item["ai_summary_basis"] = summary_item.get("basis")
         news_for_display.append(display_item)
+    # Translate verified headlines/summaries into Arabic without changing source URLs.
+    try:
+        translated_news = await translate_stock_news(symbol, news_for_display)
+        analysis_payload["news_summaries"] = translated_news
+    except Exception:
+        analysis_payload["news_summaries"] = []
     targets["news_items"] = news_for_display
     if isinstance(tipranks_data, dict) and tipranks_data:
         tipranks_data["summary"] = analysis_payload.get("tipranks_summary") or "غير متوفر"
