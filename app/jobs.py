@@ -417,7 +417,10 @@ def _radar_condition_lines(row, quote_data=None, gate_passed=None, gate_reason=N
         )
     quote_price = quote_data.get("price")
     quote_source = quote_data.get("source") or "غير متوفر"
-    quote_ok = quote_price is not None and _money(quote_price) != "غير واضح" and float(quote_price or 0) > 0 and not quote_data.get("stale")
+    try:
+        quote_ok = quote_price is not None and float(quote_price) > 0 and not quote_data.get("stale")
+    except (TypeError, ValueError):
+        quote_ok = False
     lines.append(f"• السعر الحي: <b>{'🟢 متوفر' if quote_ok else '🔴 غير متوفر/قديم'}</b> — المصدر: {html.escape(str(quote_source)[:100])}")
     confirmed = cls.get("opportunity_status") == "confirmed" and bool(cls.get("confirmation_ready"))
     lines.append(f"• اكتمال تأكيد الفرصة: <b>{'🟢 مكتملة' if confirmed else '🔴 غير مكتملة — مراقبة فقط'}</b>")
