@@ -615,7 +615,7 @@ async def stock_radar_cycle():
             ),
             reverse=True,
         )
-        logger.info("Stock radar scan completed: %d result(s); channel_limit=%s; diagnostics=%s", len(rows), (int(settings.radar_channel_daily_limit or 0) or "unlimited"), diagnostics)
+        logger.info("Stock radar scan completed: %d result(s); channel_limit=unlimited; diagnostics=%s", len(rows), diagnostics)
 
         # تحقق الشرعية لأفضل المرشحين بالتوازي؛ لا يغيّر ترتيب الرادار ولا بوابة السعر.
         shariah_map = {}
@@ -655,7 +655,7 @@ async def stock_radar_cycle():
             # إذا فقد السهم شروط الرادار يُوسم غير نشط ويخرج من التطبيق،
             # وتدخل فرصة مؤهلة أخرى مكانه.
             daily_app_limit = max(1, int(settings.radar_app_daily_limit or 15))
-            channel_daily_limit = max(0, int(settings.radar_channel_daily_limit or 0))
+            channel_daily_limit = 0  # Publish every detected candidate; no daily channel cap.
             daily_rows = (await db.execute(
                 select(RadarSignal).where(RadarSignal.session_date == session_date)
             )).scalars().all()
@@ -700,8 +700,8 @@ async def stock_radar_cycle():
                 await db.commit()
 
             logger.info(
-                "RADAR_DAILY_LIMITS session=%s app_current_limit=%d channel=%d/%d",
-                session_date, daily_app_limit, daily_channel_sent, channel_daily_limit,
+                "RADAR_DAILY_LIMITS session=%s app_current_limit=%d channel_sent=%d channel_limit=unlimited",
+                session_date, daily_app_limit, daily_channel_sent,
             )
 
             # اجلب الأسعار الحية دفعةً واحدة بالتوازي. السعر الحي شرط نشر، لكنه
