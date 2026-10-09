@@ -26,7 +26,12 @@ def fetch_daily(symbol: str, timeout: int = 15) -> list[dict]:
     with urllib.request.urlopen(request, timeout=timeout) as response:
         payload = response.read().decode("utf-8", errors="replace")
     rows = []
-    for row in csv.DictReader(io.StringIO(payload)):
+    reader = csv.DictReader(io.StringIO(payload))
+    required = {"Date", "Open", "High", "Low", "Close", "Volume"}
+    if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
+        preview = payload.strip().replace("\\n", " ")[:180]
+        raise RuntimeError("Stooq returned no OHLCV CSV for " + symbol + ": " + (preview or "empty response"))
+    for row in reader:
         try:
             item = {
                 "date": row["Date"],
@@ -143,7 +148,7 @@ def main() -> int:
             all_signals.extend(signals)
             diagnostics.append({"symbol": symbol, "bars": len(rows), "signals": len(signals), "status": "ok"})
         except Exception as exc:
-            diagnostics.append({"symbol": symbol, "status": "error", "error": type(exc).__name__})
+            diagnostics.append({"symbol": symbol, "status": "error", "error": type(exc).__name__, "detail": str(exc)[:220]})
         time.sleep(0.15)
 
     report = {
