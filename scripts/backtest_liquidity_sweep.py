@@ -20,32 +20,87 @@ from datetime import datetime, timezone
 
 
 def fetch_daily(symbol: str, timeout: int = 15) -> list[dict]:
-    query = urllib.parse.urlencode({"s": symbol.lower() + ".us", "i": "d"})
-    url = "https://stooq.com/q/d/l/?" + query
-    request = urllib.request.Request(url, headers={"User-Agent": "SAS-PRO-ICT-Backtest/1.0"})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        payload = response.read().decode("utf-8", errors="replace")
-    rows = []
-    reader = csv.DictReader(io.StringIO(payload))
-    required = {"Date", "Open", "High", "Low", "Close", "Volume"}
-    if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
-        preview = payload.strip().replace("\\n", " ")[:180]
-        raise RuntimeError("Stooq returned no OHLCV CSV for " + symbol + ": " + (preview or "empty response"))
-    for row in reader:
+    """Try API-keyed historical providers first; Stooq is last-resort only."""
+    import os
+    import json as _json
+    import urllib.error
+
+    def request_json(url: str, params: dict) -> dict:
+        full_url = url + "?" + urllib.parse.urlencode(params)
+        req = urllib.request.Request(full_url, headers={"User-Agent": "SAS-PRO-ICT-Backtest/1.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            return _json.loads(response.read().decode("utf-8", errors="replace"))
+
+    errors = []
+    td_key = os.getenv("TWELVE_DATA_API_KEY", "").strip()
+    if td_key:
         try:
-            item = {
-                "date": row["Date"],
-                "open": float(row["Open"]),
-                "high": float(row["High"]),
-                "low": float(row["Low"]),
-                "close": float(row["Close"]),
-                "volume": float(row["Volume"]),
-            }
-            if min(item["open"], item["high"], item["low"], item["close"]) > 0:
-                rows.append(item)
-        except (KeyError, ValueError, TypeError):
-            continue
-    return rows
+            data = request_json("https://api.twelvedata.com/time_series", {
+                "symbol": symbol.upper(), "interval": "1day", "outputsize": 365, "apikey": td_key
+            })
+            values = data.get("values") or []
+            if values:
+                rows = []
+                for x in reversed(values):
+                    try:
+                        rows.append({"date": x.get("datetime", ""), "open": float(x["open"]),
+                                     "high": float(x["high"]), "low": float(x["low"]),
+                                     "close": float(x["close"]), "volume": float(x.get("volume") or 0)})
+                    except (ValueError, TypeError, KeyError):
+                        continue
+                if rows:
+                    return rows
+            errors.append("Twelve Data: " + str(data.get("message") or data.get("code") or "no values")[:150])
+        except Exception as exc:
+            errors.append("Twelve Data: " + type(exc).__name__)
+
+    fh_key = os.getenv("FINNHUB_API_KEY", "").strip()
+    if fh_key:
+        try:
+            from datetime import timedelta
+            now = datetime.now(timezone.utc)
+            data = request_json("https://finnhub.io/api/v1/stock/candle", {
+                "symbol": symbol.upper(), "resolution": "D",
+                "from": int((now - timedelta(days=730)).timestamp()),
+                "to": int(now.timestamp()), "token": fh_key,
+            })
+            if data.get("s") == "ok" and data.get("c"):
+                return [{
+                    "date": datetime.fromtimestamp(data["t"][i], timezone.utc).strftime("%Y-%m-%d"),
+                    "open": float(data["o"][i]), "high": float(data["h"][i]),
+                    "low": float(data["l"][i]), "close": float(data["c"][i]),
+                    "volume": float(data["v"][i]),
+                } for i in range(len(data["c"]))]
+            errors.append("Finnhub: " + str(data.get("s") or data.get("error") or "no data")[:150])
+        except Exception as exc:
+            errors.append("Finnhub: " + type(exc).__name__)
+
+    # Stooq currently may return a browser-verification HTML page in CI.
+    # Keep it as a fallback, but fail transparently rather than treating HTML as CSV.
+    try:
+        query = urllib.parse.urlencode({"s": symbol.lower() + ".us", "i": "d"})
+        req = urllib.request.Request("https://stooq.com/q/d/l/?" + query,
+                                     headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            payload = response.read().decode("utf-8", errors="replace")
+        reader = csv.DictReader(io.StringIO(payload))
+        required = {"Date", "Open", "High", "Low", "Close", "Volume"}
+        if reader.fieldnames and required.issubset(set(reader.fieldnames)):
+            rows = []
+            for row in reader:
+                try:
+                    rows.append({"date": row["Date"], "open": float(row["Open"]),
+                                 "high": float(row["High"]), "low": float(row["Low"]),
+                                 "close": float(row["Close"]), "volume": float(row["Volume"])})
+                except (ValueError, TypeError, KeyError):
+                    continue
+            if rows:
+                return rows
+        preview = payload.strip().replace("\\n", " ")[:100]
+        errors.append("Stooq blocked/non-CSV: " + (preview or "empty response"))
+    except Exception as exc:
+        errors.append("Stooq: " + type(exc).__name__)
+    raise RuntimeError(" | ".join(errors) or "No historical data provider configured")
 
 
 def sweep_at(rows: list[dict], index: int, lookback: int, min_penetration_pct: float) -> dict | None:
