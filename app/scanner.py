@@ -1635,11 +1635,16 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
     neckline = max(c["high"] for c in candles[-40:] if c["low"] not in (left_low, right_low))
     w_pattern = abs(left_low - right_low) / max(price, 0.0001) <= 0.10 and price >= neckline * 0.995
 
+    # ICT liquidity sweep: evaluate the latest completed daily candle against
+    # prior levels only (exclude the current candle to avoid look-ahead bias).
+    from .liquidity_sweep import detect_liquidity_sweep
+    ict_sweep = detect_liquidity_sweep(candles, lookback=20)
     sweep = False
     if support is not None:
         last = candles[-1]
         prev = candles[-2]
         sweep = prev["low"] < support and last["close"] > support
+    sweep = bool(sweep or ict_sweep["bullish"])
 
     # المقاومة القادمة فوق السعر ليست مستوى الاختراق؛ مستوى الاختراق هو آخر مقاومة
     # تاريخية تحت السعر. هذا يمنع التعارض القديم الذي جعل breakout شبه مستحيل.
@@ -1976,6 +1981,8 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         "former_runner": former_runner,
         "accumulation": accumulation,
         "sweep": sweep,
+        "ict_liquidity_sweep": ict_sweep,
+        "ict_sweep_confirmed": bool(ict_sweep["bullish"]),
         "breakout": breakout,
         "w_pattern": w_pattern,
         "fill_gap": fill_gap,
