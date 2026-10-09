@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     ai_max_news: int = 5
     ai_max_calls_per_cycle: int = 2
     ai_news_cache_minutes: int = 10
+    # Optional ScrapeGraphAI enrichment; disabled unless explicitly configured.
+    scrapegraphai_enabled: bool = False
+    scrapegraphai_api_key: str = ""
+    # Optional ScrapeGraphAI enrichment for already-discovered news URLs only.
+    scrapegraphai_enabled: bool = False
+    scrapegraphai_api_key: str = ""
     # Optional Free Claude Code reviewer. Never part of radar gating.
     fcc_reviewer_enabled: bool = False
     fcc_reviewer_base_url: str = ""
