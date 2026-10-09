@@ -838,10 +838,11 @@ async def stock_radar_cycle():
                         )
                         send_result = await send_message(settings.telegram_channel_id, watch_report)
                         watch_message_id = send_result.get("message_id") if isinstance(send_result, dict) else None
-                        if watch_message_id and existing is not None:
-                            existing.telegram_message_id = int(watch_message_id)
-                            existing.payload = json.dumps(row, ensure_ascii=False)
-                            await db.commit()
+                        if watch_message_id:
+                            if existing is not None:
+                                existing.telegram_message_id = int(watch_message_id)
+                                existing.payload = json.dumps(row, ensure_ascii=False)
+                                await db.commit()
                             cycle_stats["sent"] += 1
                             daily_channel_sent += 1
                         else:
