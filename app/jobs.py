@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import json
+import html
 import httpx
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
@@ -371,6 +372,63 @@ RADAR_STATUS = """📡 SAS PRO RADAR ⏳
 
 ⚡ SAS PRO ⚡
 الدقة أولًا • بدون مطاردة • بدون إشارات وهمية"""
+
+
+def _radar_criteria_explanation(row, quote_data, gate_passed, gate_reason):
+    """Explain observed radar checks without treating missing data as a pass."""
+    row = row if isinstance(row, dict) else {}
+    checks = row.get("radar_checks") if isinstance(row.get("radar_checks"), dict) else {}
+    cls = row.get("classification") if isinstance(row.get("classification"), dict) else {}
+    quote_data = quote_data if isinstance(quote_data, dict) else {}
+    passed, failed, unknown = [], [], []
+    labels = [
+        ("momentum", "فلتر الزخم الأساسي"), ("sas_core", "شروط SAS Core"),
+        ("liquidity", "فلتر السيولة"), ("rvol", "الحجم النسبي RVOL ≥ 1.0×"),
+        ("target", "وجود هدف فني مؤكد"), ("live_levels", "توفر مستويات فنية"),
+        ("no_distribution", "عدم رصد خطر تصريف"), ("no_bearish_hs", "عدم رصد نموذج هابط"),
+        ("no_chase", "عدم رصد خطر مطاردة السعر"), ("advanced_confirmation", "التأكيد الفني المتقدم")
+    ]
+    for key, label in labels:
+        value = checks.get(key)
+        if key == "sas_core" and key not in checks:
+            value = cls.get("pass") if "pass" in cls else None
+        if key == "advanced_confirmation" and key not in checks:
+            value = cls.get("advanced_confirmation_pass") if "advanced_confirmation_pass" in cls else None
+        (passed if value is True else failed if value is False else unknown).append(label)
+    price = quote_data.get("price") or row.get("live_price") or row.get("price")
+    change = quote_data.get("change_pct")
+    if change is None:
+        change = row.get("live_change_pct", row.get("change_pct"))
+    rvol, threshold = checks.get("momentum_rvol"), checks.get("momentum_rvol_threshold")
+    quality = row.get("quality_score") if isinstance(row.get("quality_score"), dict) else {}
+    score, rr = cls.get("score"), checks.get("risk_reward")
+    lines = [
+        "", "━━━━━━━━━━━━━━━━━━", "🧾 <b>لماذا أرسل SAS PRO هذا السهم؟</b>",
+        "• اكتشفه محرك الرادار وأدخله نتائج الفحص؛ النشر يشرح الحالة ولا يعني أن الصفقة مؤكدة.",
+        "", "✅ <b>الشروط التي تحققت</b>"
+    ]
+    lines += ["• " + html.escape(x) for x in passed] or ["• لا توجد شروط اجتياز مستقلة موثقة."]
+    lines += ["", "❌ <b>الشروط التي لم تتحقق</b>"]
+    lines += ["• " + html.escape(x) for x in failed] or ["• لا يوجد فشل مسجل في هذه المجموعة."]
+    lines += ["", "➖ <b>غير محسوم / بيانات غير متاحة</b>"]
+    lines += ["• " + html.escape(x) for x in unknown] or ["• لا توجد شروط غير محسومة في القائمة."]
+    lines += [
+        "", "📊 <b>البيانات التي استند إليها التقرير</b>",
+        "• السعر: <b>" + (html.escape("$%.4f" % float(price)) if isinstance(price, (int, float)) and float(price) > 0 else "غير متوفر") + "</b>",
+        "• التغير: <b>" + (html.escape("%+.2f%%" % float(change)) if isinstance(change, (int, float)) else "غير متوفر") + "</b>",
+        "• RVOL: <b>" + (html.escape("%.2f×" % float(rvol)) if isinstance(rvol, (int, float)) else "غير متوفر") + "</b>" + (" — العتبة: " + html.escape("%.2f×" % float(threshold)) if isinstance(threshold, (int, float)) else ""),
+        "• SAS Core: <b>" + (html.escape(str(score)) + "/100" if isinstance(score, (int, float)) else "غير متوفر") + "</b>",
+        "• جودة الفرصة: <b>" + (html.escape(str(quality.get("score"))) + "/100" if isinstance(quality.get("score"), (int, float)) else "غير متوفر") + "</b>",
+        "• Risk/Reward: <b>" + (html.escape("%.2f" % float(rr)) if isinstance(rr, (int, float)) else "غير متوفر") + "</b>",
+        "", "📣 <b>قرار الإرسال للقناة</b>",
+        "• السبب: رُصد السهم ضمن نتائج محرك SAS PRO؛ لذلك أُرسل التقرير لإظهار الشروط المتحققة وغير المتحققة.",
+        "• بوابة التأكيد: <b>" + ("اجتازها" if gate_passed else "لم يجتزها") + "</b>",
+        "• سبب البوابة: " + html.escape(str(gate_reason or "غير مسجل")),
+        "• حالة الفرصة: <b>" + html.escape(str(cls.get("opportunity_status") or "غير محددة")) + "</b>",
+        "• جاهزية التأكيد: <b>" + ("نعم" if cls.get("confirmation_ready") else "لا") + "</b>",
+        "⚠️ الرصد ليس توصية شراء أو بيع ولا ضمانًا للنتيجة."
+    ]
+    return "\n".join(lines)
 
 
 def _radar_channel_gate(status, row, quote_data, learning=None):
@@ -836,6 +894,7 @@ async def stock_radar_cycle():
                             f"\\n🔎 <b>سبب عدم اكتمال التأكيد:</b> {channel_reason}"
                             "\\n📋 أُرسل التقرير لإظهار ما تحقق وما لم يتحقق، وليس كتوصية تداول."
                         )
+                        watch_report += _radar_criteria_explanation(row, q, False, channel_reason)
                         send_result = await send_message(settings.telegram_channel_id, watch_report)
                         watch_message_id = send_result.get("message_id") if isinstance(send_result, dict) else None
                         if watch_message_id:
@@ -990,6 +1049,7 @@ async def stock_radar_cycle():
                 )
                 tech["quality_score"] = row.get("quality_score")
                 report = build_report(symbol, q, tech, classification)
+                report += _radar_criteria_explanation(row, q, True, channel_reason)
 
                 try:
                     # احفظ نتيجة الرادار أولاً حتى تبقى بيانات السهم ظاهرة في
