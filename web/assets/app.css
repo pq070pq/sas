@@ -1370,3 +1370,8 @@ filter:blur(.2px);
 .chart-box canvas{display:block;width:100%;height:260px}
 
 .chart-title.chart-focus{outline:2px solid var(--cyan);outline-offset:4px;border-radius:8px;transition:outline .2s ease}
+
+.chart-title-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.gocharting-link{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 10px;border:1px solid rgba(45,244,255,.35);border-radius:9px;background:rgba(45,244,255,.08);color:var(--cyan);font-size:11px;font-weight:800;text-decoration:none;white-space:nowrap}
+.gocharting-link:active{transform:scale(.98)}
+@media(max-width:480px){.chart-title-actions{gap:6px}.gocharting-link{padding:6px 8px;font-size:10px}.chart-title-actions small{max-width:120px}}
