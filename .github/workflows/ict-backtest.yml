@@ -1,0 +1,51 @@
+name: SAS PRO ICT historical backtest
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: "Comma-separated US tickers (example: SOFI,PLTR,LCID)"
+        required: true
+        default: "SOFI,PLTR,LCID,OPEN,JOBY,ACHR,NU,HOOD"
+        type: string
+      lookback:
+        description: "Prior daily candles used to define liquidity"
+        required: true
+        default: "20"
+        type: string
+      min_dollar_volume:
+        description: "Minimum daily dollar volume (0 disables this filter)"
+        required: true
+        default: "1000000"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/ict-liquidity-sweep-test
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run historical ICT liquidity sweep test
+        run: |
+          python scripts/backtest_liquidity_sweep.py \
+            --symbols "${{ inputs.symbols }}" \
+            --lookback "${{ inputs.lookback }}" \
+            --min-dollar-volume "${{ inputs.min_dollar_volume }}" \
+            --min-price 0.30 --max-price 15.00 \
+            --horizons 5,10 --output ict_backtest_results.json
+      - name: Upload backtest report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: saspro-ict-backtest-report
+          path: ict_backtest_results.json
+          if-no-files-found: warn
+          retention-days: 30
