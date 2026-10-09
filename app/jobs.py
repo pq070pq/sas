@@ -925,39 +925,9 @@ async def stock_radar_cycle():
                 # لا نسمح بأكثر من 15 فرصة مؤكدة نشطة في التطبيق.
                 # ترتيب rows تم حسمه مسبقًا حسب جودة الفرصة، لذلك الفرص خارج
                 # أول 15 تبقى مراقبة ولا تظهر كفرص نشطة في التطبيق.
-                if symbol not in app_active_symbols and app_active_count >= daily_app_limit:
-                    row["channel_gate"] = {
-                        "passed": True,
-                        "session": status.get("session"),
-                        "reason": channel_reason,
-                    }
-                    row["radar_active"] = False
-                    row["channel_delivery"] = {
-                        "published": False,
-                        "app_visible": False,
-                        "reason": f"تم الوصول إلى الحد الحالي للتطبيق ({daily_app_limit})",
-                        "limit": daily_app_limit,
-                    }
-                    try:
-                        if existing:
-                            existing.payload = json.dumps(row, ensure_ascii=False)
-                            existing.created_at = utcnow()
-                        else:
-                            existing = RadarSignal(
-                                symbol=symbol,
-                                session_date=session_date,
-                                payload=json.dumps(row, ensure_ascii=False),
-                            )
-                            db.add(existing)
-                        await db.commit()
-                    except Exception:
-                        await db.rollback()
-                        logger.exception("Radar app-cap persistence failed: %s", symbol)
-                    cycle_stats["skipped"] += 1
-                    _radar_seen.add(symbol)
-                    continue
-
-                if symbol not in app_active_symbols:
+                # سقف التطبيق لا يمنع نشر التشخيص في القناة؛ يحدد الظهور داخل التطبيق فقط.
+                app_has_capacity = symbol in app_active_symbols or app_active_count < daily_app_limit
+                if app_has_capacity and symbol not in app_active_symbols:
                     app_active_symbols.add(symbol)
                     app_active_count += 1
                 row["channel_gate"] = {
@@ -965,7 +935,11 @@ async def stock_radar_cycle():
                     "session": status.get("session"),
                     "reason": channel_reason,
                 }
-                row["radar_active"] = True
+                row["radar_active"] = bool(app_has_capacity)
+                if not app_has_capacity:
+                    row["app_visibility_reason"] = f"تم الوصول إلى الحد الحالي للتطبيق ({daily_app_limit})"
+                else:
+                    row.pop("app_visibility_reason", None)
 
                 # التطبيق يعرض فقط الفرص المؤكدة التي دخلت سقف الـ15 الحالي.
                 if daily_channel_sent >= channel_daily_limit:
