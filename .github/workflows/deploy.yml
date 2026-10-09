@@ -8,7 +8,9 @@ on:
 
 concurrency:
   group: saspro-production
-  cancel-in-progress: true
+  # لا تلغِ نشرًا جارياً؛ قد تستمر أوامر SSH على الخادم بعد إلغاء GitHub Actions
+  # وتتداخل مع النشر التالي، فتختفي الحاوية أثناء docker compose up.
+  cancel-in-progress: false
 
 jobs:
   deploy:
