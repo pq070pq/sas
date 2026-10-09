@@ -2277,6 +2277,50 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
                         if not classification.get("breakout_pass"):
                             filter_counts["sas_breakout_reject_other"] += 1
 
+                # Multi-signal confluence: a single failed technical filter must not
+                # erase a candidate when several independent bullish clues agree.
+                # Keep data-integrity checks hard; keep technical disagreements as warnings.
+                bullish_signals = {
+                    "power_trend": bool(classification.get("power_trend")),
+                    "accumulation": bool(classification.get("accumulation")),
+                    "breakout_confirmed": bool(classification.get("breakout_confirmed")),
+                    "breakout_retest": bool(classification.get("breakout_retest")),
+                    "liquidity_sweep_reclaim": bool(classification.get("sweep")),
+                    "w_pattern": bool(classification.get("w_pattern")),
+                    "double_bottom_confirmed": bool(classification.get("double_bottom_confirmed")),
+                    "inverse_hs_confirmed": bool(classification.get("inverse_hs_confirmed")),
+                    "relative_strength": _f(classification.get("relative_strength"), 0) > 0,
+                    "rvol": _f(classification.get("rvol"), 0) >= 1.5,
+                    "rsi_momentum": 50 <= _f(classification.get("rsi14"), 0) <= 72,
+                    "market_structure": bool(classification.get("market_structure_bullish")),
+                }
+                confluence = [name for name, active in bullish_signals.items() if active]
+                classification["bullish_signal_count"] = len(confluence)
+                classification["bullish_signals"] = confluence
+                # Only a combined, strong bearish picture is a technical hard stop.
+                severe_bearish_conflict = bool(
+                    classification.get("distribution_risk")
+                    and classification.get("bearish_head_shoulders")
+                    and classification.get("market_structure_bearish")
+                )
+                classification["severe_bearish_conflict"] = severe_bearish_conflict
+                classification["multi_signal_recovered"] = bool(
+                    not classification.get("pass") and len(confluence) >= 2
+                    and not severe_bearish_conflict
+                    and not classification.get("breakout_fake")
+                )
+                if classification["multi_signal_recovered"]:
+                    classification["pass"] = True
+                    classification["strategy_pass"] = True
+                    classification["reason"] = (
+                        str(classification.get("reason") or "").strip()
+                        + " | استعادة متعددة الشروط: "
+                        + "، ".join(confluence)
+                    ).strip(" |")
+                    logger.info(
+                        "RADAR_MULTI_SIGNAL_RECOVERY %s signals=%s",
+                        symbol, ",".join(confluence),
+                    )
                 if classification.get("strategy_pass"):
                     filter_counts["sas_strategy_pass"] += 1
                 if classification.get("pass"):
@@ -2528,10 +2572,23 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
                     }
 
                 # المرشح المبكر يبقى محفوظًا للمراقبة، لكنه لا يصبح فرصة مؤكدة.
-                confirmation_ready = bool(final_target_ok and final_rr_ok)
+                # Confluence can promote a genuine early setup even when one
+                # target/R:R criterion is imperfect; publish the risk as a warning.
+                # A real live quote remains mandatory and no price/target is fabricated.
+                multi_signal_count = int(classification.get("bullish_signal_count") or 0)
+                confirmation_ready = bool(
+                    final_live_ok
+                    and (
+                        (final_target_ok and final_rr_ok)
+                        or multi_signal_count >= 2
+                    )
+                )
                 classification["confirmation_ready"] = confirmation_ready
                 classification["opportunity_status"] = (
                     "confirmed" if confirmation_ready else "watch"
+                )
+                classification["confluence_warning"] = bool(
+                    confirmation_ready and (not final_target_ok or not final_rr_ok)
                 )
                 if not confirmation_ready:
                     filter_counts["watch_candidates"] += 1
@@ -2575,6 +2632,10 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
                     "rsi_divergence": (classification.get("rsi_divergence") or {}).get("state"),
                     "risk_reward": round(_f(targets.get("risk_reward"), 0), 2) if isinstance(targets, dict) and targets.get("risk_reward") is not None else None,
                     "risk_reward_warning": bool(isinstance(targets, dict) and targets.get("risk_reward_warning")),
+                    "bullish_signal_count": int(classification.get("bullish_signal_count") or 0),
+                    "bullish_signals": classification.get("bullish_signals") or [],
+                    "multi_signal_recovered": bool(classification.get("multi_signal_recovered")),
+                    "confluence_warning": bool(classification.get("confluence_warning")),
                     "advanced_warning": bool(advanced_warning),
                 }
 
