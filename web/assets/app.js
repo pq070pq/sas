@@ -357,17 +357,34 @@ function renderMacro(){
 async function runRadar(show=true){
  if(terminalState.radarScanning)return;
  terminalState.radarScanning=true;
+ const button=document.getElementById('radarScanBtn');
+ const grid=document.getElementById('radarGrid');
+ const startedAt=Date.now();
+ let elapsedTimer=null;
  try{
-  if(show){document.getElementById('radarGrid').innerHTML='<div class="loading">🔎 يجري تحميل أحدث بيانات الرادار...</div>';switchTerminalTab('radar');}
-  // التطبيق يعرض فرص اليوم المحفوظة من الرادار؛ الفحص الحي لا يُعاد تشغيله
-  // عند كل فتح حتى لا نستهلك موارد مزود البيانات ولا نكرر الرصد.
-  const d=await api('/api/radar/scan?fresh=0',{timeoutMs:30000});
+  if(show){
+   switchTerminalTab('radar');
+   if(button){button.disabled=true;button.textContent='⏳ جارٍ مسح الأسهم…';}
+   const existing=terminalState.radar.length;
+   const progress=document.createElement('div');
+   progress.id='radarScanProgress';
+   progress.className='loading radar-scan-progress';
+   progress.innerHTML='<b>🔎 بدأ مسح الأسهم</b><br><small>يجري البحث والتحليل وفق شروط SAS PRO. ستظهر النتائج بعد اكتمال التحقق منها'+(existing?'، مع الاحتفاظ بآخر نتائج الرصد أثناء المسح.':'.')+'</small><br><span class="radar-scan-elapsed">الوقت المنقضي: 0 ثانية</span>';
+   const diagnostics=document.getElementById('radarDiagnostics');
+   if(diagnostics)diagnostics.prepend(progress);
+   elapsedTimer=setInterval(()=>{
+    const elapsed=Math.floor((Date.now()-startedAt)/1000);
+    const label=document.querySelector('#radarScanProgress .radar-scan-elapsed');
+    if(label)label.textContent='الوقت المنقضي: '+elapsed+' ثانية';
+   },1000);
+   if(!existing && grid)grid.innerHTML='<div class="empty-state">⏳ جارٍ فحص المرشحين… ستظهر الأسهم التي تجتاز شروط الرادار عند انتهاء التحليل.</div>';
+  }
+  // يبدأ هذا الزر دورة رصد فعلية جديدة بدل الاكتفاء بقراءة الإشارات المحفوظة.
+  const d=await api('/api/radar/scan?fresh=1',{timeoutMs:180000,retries:0});
   if(d?.error){
     const reason=String(d.error.message||d.error.type||'خطأ غير معروف');
-    const diag=d.diagnostics||{};
-    const label='تعذر تحديث بيانات الرادار: '+reason;
     const box=document.getElementById('radarGrid');
-    if(box)box.innerHTML='<div class="fatal"><b>🔴 تعذر تحديث الرادار</b><br><small>'+escHtml(label)+'</small><br><small>تم الاحتفاظ بالبيانات السابقة إن وُجدت.</small></div>';
+    if(box)box.innerHTML='<div class="fatal"><b>🔴 تعذر إكمال مسح الأسهم</b><br><small>'+escHtml(reason)+'</small><br><small>تم الاحتفاظ بآخر نتائج الرصد إن وُجدت.</small></div>';
     console.error('SAS PRO radar API error:',d.error);
     return;
   }
@@ -377,22 +394,23 @@ async function runRadar(show=true){
   const mode=d.historical
    ? '🗂️ آخر رصد محفوظ'
    : d.session==='premarket'
-    ? '🟡 فحص حي — Pre-Market'
-    : d.session==='regular'
-     ? '🟢 فحص حي — السوق الرسمي'
-     : d.session==='afterhours'
-      ? '🟠 فحص حي — After-Hours'
-      : d.session==='night'
-       ? '🟣 فحص حي — التداول الليلي'
-       : d.session==='night_pending'
-        ? '🟣 التداول الليلي يفتح قريبًا'
-        : '🌙 السوق مغلق — يبدأ Pre-Market الساعة '+nextPremarket+' بتوقيت الرياض';
+     ? '🟡 فحص حي — Pre-Market'
+     : d.session==='regular'
+       ? '🟢 فحص حي — السوق الرسمي'
+       : d.session==='afterhours'
+         ? '🟠 فحص حي — After-Hours'
+         : d.session==='night'
+           ? '🟣 فحص حي — التداول الليلي'
+           : d.session==='night_pending'
+             ? '🟣 التداول الليلي يفتح قريبًا'
+             : '🌙 السوق مغلق — يبدأ Pre-Market الساعة '+nextPremarket+' بتوقيت الرياض';
   const scanAt=d.scan_at?formatDateTime(d.scan_at):null;
   const sessionDate=d.session_date?formatSessionDate(d.session_date):null;
   const scanLabel=d.historical
    ? (sessionDate ? 'جلسة '+sessionDate+(scanAt?' — آخر تحديث '+scanAt:'') : 'غير متوفر')
    : (scanAt ? scanAt+' بتوقيت الرياض' : 'غير متوفر');
-  document.getElementById('radarDiagnostics').innerHTML='<b class="radar-mode">'+mode+'</b><span>🕒 وقت الرصد: '+escHtml(scanLabel)+'</span><span>مرشحون '+Number(diag.candidates||0)+'</span><span>اجتازوا '+Number(diag.passed||0)+'</span><span>مستبعدون '+Number(diag.filtered||0)+'</span><span>أخطاء '+Number(diag.errors||0)+'</span>';
+  const diagnosticsEl=document.getElementById('radarDiagnostics');
+  if(diagnosticsEl)diagnosticsEl.innerHTML='<b class="radar-mode">'+mode+'</b><span>🕒 وقت الرصد: '+escHtml(scanLabel)+'</span><span>مرشحون '+Number(diag.candidates||0)+'</span><span>اجتازوا '+Number(diag.passed||0)+'</span><span>مستبعدون '+Number(diag.filtered||0)+'</span><span>أخطاء '+Number(diag.errors||0)+'</span>';
   const candidateEl=document.getElementById('radarCandidates');
   const candidates=Array.isArray(diag.filtered_examples)?diag.filtered_examples:[];
   if(candidateEl && candidates.length){
@@ -414,12 +432,11 @@ async function runRadar(show=true){
     openTerms('trial');
     return;
    }
-   if(!/تعذر تحديث البيانات|مهلة الاتصال/.test(msg)){
-    document.getElementById('radarGrid').innerHTML='<div class="fatal">'+escHtml(msg)+'</div>';
-   }else{
-    console.warn('SAS PRO radar temporary connection issue:',msg);
-   }
+   if(grid)grid.innerHTML='<div class="fatal"><b>تعذر إكمال مسح الأسهم</b><br>'+escHtml(msg||'حدث خطأ غير معروف')+'<br><small>يمكنك إعادة المحاولة؛ لم تُحذف نتائج الرصد السابقة من قاعدة البيانات.</small></div>';
  }finally{
+   if(elapsedTimer)clearInterval(elapsedTimer);
+   document.getElementById('radarScanProgress')?.remove();
+   if(button){button.disabled=false;button.textContent='🔎 مسح الأسهم';}
    terminalState.radarScanning=false;
  }
 }
