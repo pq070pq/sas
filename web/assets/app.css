@@ -1375,3 +1375,16 @@ filter:blur(.2px);
 .gocharting-link{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 10px;border:1px solid rgba(45,244,255,.35);border-radius:9px;background:rgba(45,244,255,.08);color:var(--cyan);font-size:11px;font-weight:800;text-decoration:none;white-space:nowrap}
 .gocharting-link:active{transform:scale(.98)}
 @media(max-width:480px){.chart-title-actions{gap:6px}.gocharting-link{padding:6px 8px;font-size:10px}.chart-title-actions small{max-width:120px}}
+
+
+/* Radar scan: calmer copy and a medium-sized action button */
+#radarScanBtn{width:176px;min-width:150px;max-width:100%;min-height:46px;align-self:center;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:11px 16px;font-size:13px;line-height:1.35;white-space:nowrap;border-radius:12px;flex:0 0 auto;transition:background .2s,border-color .2s,transform .2s}
+#radarScanBtn:disabled{opacity:.88;cursor:wait}
+#radarScanBtn:active{transform:scale(.98)}
+#radarDiagnostics .radar-scan-progress{width:100%;margin:0 0 12px;padding:14px 16px;border:1px solid rgba(45,244,255,.18);border-radius:14px;background:rgba(3,18,27,.76);text-align:center;line-height:1.9;color:var(--text);font-size:13px}
+#radarScanProgress b{display:block;color:#8de7ff;font-size:15px;margin-bottom:4px}
+#radarScanProgress small{display:block;color:var(--muted);font-size:11px;line-height:1.8}
+#radarScanProgress .radar-scan-stage{display:inline-block;margin:7px 0 2px;color:#d8f6ff;font-size:12px}
+#radarScanProgress .radar-scan-elapsed{display:block;color:#8bc8d8;font-size:11px;font-variant-numeric:tabular-nums}
+@media(max-width:600px){.terminal-panel-head{gap:10px;align-items:center}.terminal-panel-head>div{min-width:0;flex:1}.terminal-panel-head h2{font-size:20px;line-height:1.45}.terminal-panel-head small{line-height:1.7}#radarScanBtn{width:154px;min-width:140px;padding:10px 11px;font-size:12px}}
+@media(max-width:380px){.terminal-panel-head{flex-wrap:wrap}.terminal-panel-head>div{width:100%}#radarScanBtn{width:170px;margin-inline:auto}}
