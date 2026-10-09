@@ -601,8 +601,8 @@ async def stock_radar_cycle():
             except Exception:
                 logger.exception("Quality score failed for %s; keeping safe neutral score.", row.get("symbol"))
                 row["quality_score"] = score_quality({})
-        # القناة: نرتب جميع الفرص أولاً ثم نسمح بأفضل 5 إشارات فقط.
-        # التطبيق يستقبل القائمة الكاملة دون هذا القيد.
+        # القناة: ننشر كل سهم أخرجه الرادار؛ الترتيب يحدد الأولوية فقط ولا يخفي بقية المرشحين.
+        # يظهر في التقرير ما تحقق وما لم يتحقق، ولا يعني الرصد أن السهم فرصة مؤكدة.
         rows = sorted(
             rows,
             key=lambda r: (
@@ -615,7 +615,7 @@ async def stock_radar_cycle():
             ),
             reverse=True,
         )
-        logger.info("Stock radar scan completed: %d result(s); channel_limit=5; diagnostics=%s", len(rows), diagnostics)
+        logger.info("Stock radar scan completed: %d result(s); channel_limit=%s; diagnostics=%s", len(rows), channel_daily_limit or "unlimited", diagnostics)
 
         # تحقق الشرعية لأفضل المرشحين بالتوازي؛ لا يغيّر ترتيب الرادار ولا بوابة السعر.
         shariah_map = {}
@@ -655,7 +655,7 @@ async def stock_radar_cycle():
             # إذا فقد السهم شروط الرادار يُوسم غير نشط ويخرج من التطبيق،
             # وتدخل فرصة مؤهلة أخرى مكانه.
             daily_app_limit = max(1, int(settings.radar_app_daily_limit or 15))
-            channel_daily_limit = max(1, int(settings.radar_channel_daily_limit or 5))
+            channel_daily_limit = max(0, int(settings.radar_channel_daily_limit or 0))
             daily_rows = (await db.execute(
                 select(RadarSignal).where(RadarSignal.session_date == session_date)
             )).scalars().all()
@@ -865,12 +865,12 @@ async def stock_radar_cycle():
                 row["radar_active"] = True
 
                 # التطبيق يعرض فقط الفرص المؤكدة التي دخلت سقف الـ15 الحالي.
-                if daily_channel_sent >= channel_daily_limit:
+                if channel_daily_limit > 0 and daily_channel_sent >= channel_daily_limit:
                     channel_app_only += 1
                     row["channel_delivery"] = {
                         "published": False,
                         "reason": f"تم الوصول إلى الحد اليومي للقناة ({channel_daily_limit})",
-                        "limit": channel_daily_limit,
+                        "limit": channel_daily_limit or None,
                     }
                     try:
                         if existing:
@@ -897,7 +897,7 @@ async def stock_radar_cycle():
                     row["channel_delivery"] = {
                         "published": False,
                         "reason": f"تم الوصول إلى الحد اليومي للقناة ({channel_daily_limit})",
-                        "limit": channel_daily_limit,
+                        "limit": channel_daily_limit or None,
                     }
                     try:
                         if existing:
@@ -920,7 +920,7 @@ async def stock_radar_cycle():
                 row["channel_delivery"] = {
                     "published": True,
                     "rank": daily_channel_sent + 1,
-                    "limit": channel_daily_limit,
+                    "limit": channel_daily_limit or None,
                 }
 
                 # AI enrichment runs only after the technical radar has already
@@ -1076,7 +1076,7 @@ async def stock_radar_cycle():
         # رسالة الحالة تُرسل فقط عند عدم وجود أي سهم يستحق الإرسال للقناة.
         # لا تتكرر في كل دورة: تُعاد فقط عندما تتغير الحالة من "فرصة موجودة"
         # إلى "لا توجد فرصة مؤكدة". وإذا ظهرت فرصة، نعيد تسليح الرسالة للدورة التالية.
-        if channel_gate_passed > 0:
+        if channel_gate_passed > 0 or cycle_stats.get("sent", 0) > 0:
             _radar_no_opportunity_announced = False
         elif not _radar_no_opportunity_announced:
             try:
