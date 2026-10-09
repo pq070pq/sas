@@ -78,7 +78,7 @@ class NewsSummaryValidationTests(unittest.TestCase):
             "news_summaries": [{
                 "headline": "نتائج الشركة",
                 "source": "مصدر مزيف",
-                "url": "https://attacker.example/",
+                "url": "https://news.example.com/story",
                 "summary": "ملخص موثق",
                 "basis": "source_excerpt",
             }],
