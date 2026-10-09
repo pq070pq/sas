@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import json
+import html
 import httpx
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
@@ -373,6 +374,94 @@ RADAR_STATUS = """📡 SAS PRO RADAR ⏳
 الدقة أولًا • بدون مطاردة • بدون إشارات وهمية"""
 
 
+def _radar_condition_lines(row, quote_data=None, gate_passed=None, gate_reason=None):
+    """Explain every known scanner check and the final channel gate without inventing missing evidence."""
+    row = row if isinstance(row, dict) else {}
+    checks = row.get("radar_checks") if isinstance(row.get("radar_checks"), dict) else {}
+    cls = row.get("classification") if isinstance(row.get("classification"), dict) else {}
+    quote_data = quote_data if isinstance(quote_data, dict) else {}
+    labels = {
+        "momentum": "زخم السهم",
+        "sas_core": "شروط SAS الأساسية",
+        "liquidity": "السيولة",
+        "rvol": "الحجم النسبي RVOL",
+        "target": "وجود هدف فني",
+        "live_levels": "توفر المستويات الفنية",
+        "no_distribution": "عدم وجود تصريف واضح",
+        "no_bearish_hs": "عدم وجود نموذج انعكاس هابط قوي",
+        "no_chase": "عدم وجود مخاطرة مطاردة سعرية",
+        "advanced_confirmation": "التأكيد الفني المتقدم",
+        "intraday_confirmation": "تأكيد الحركة خلال الجلسة",
+        "breakout_confirmed": "تأكيد الاختراق",
+        "accumulation": "علامات التجميع",
+    }
+    lines = []
+    for key, label in labels.items():
+        value = checks.get(key, cls.get(key))
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            mark = "🟢 تحقق" if value else "🔴 لم يتحقق"
+        else:
+            mark = "📊 " + html.escape(str(value)[:120])
+        lines.append(f"• {label}: <b>{mark}</b>")
+    momentum_rvol = checks.get("momentum_rvol")
+    threshold = checks.get("momentum_rvol_threshold")
+    if momentum_rvol is not None or threshold is not None:
+        lines.append(
+            "• RVOL مقابل العتبة: <b>"
+            + html.escape(str(momentum_rvol if momentum_rvol is not None else "غير متوفر"))
+            + "× / "
+            + html.escape(str(threshold if threshold is not None else "غير محددة"))
+            + "×</b>"
+        )
+    quote_price = quote_data.get("price")
+    quote_source = quote_data.get("source") or "غير متوفر"
+    try:
+        quote_ok = quote_price is not None and float(quote_price) > 0 and not quote_data.get("stale")
+    except (TypeError, ValueError):
+        quote_ok = False
+    lines.append(f"• السعر الحي: <b>{'🟢 متوفر' if quote_ok else '🔴 غير متوفر/قديم'}</b> — المصدر: {html.escape(str(quote_source)[:100])}")
+    confirmed = cls.get("opportunity_status") == "confirmed" and bool(cls.get("confirmation_ready"))
+    lines.append(f"• اكتمال تأكيد الفرصة: <b>{'🟢 مكتملة' if confirmed else '🔴 غير مكتملة — مراقبة فقط'}</b>")
+    if gate_passed is not None:
+        lines.append(f"• بوابة النشر النهائية: <b>{'🟢 اجتاز' if gate_passed else '🔴 لم يجتز'}</b>")
+    if gate_reason:
+        lines.append("• السبب النهائي: <b>" + html.escape(str(gate_reason)[:300]) + "</b>")
+    return lines
+
+
+def _radar_diagnostic_message(row, quote_data, gate_reason):
+    """Telegram message for detected candidates that do not qualify as a confirmed signal."""
+    symbol = html.escape(str(row.get("symbol") or "غير معروف"))
+    price = quote_data.get("price") if isinstance(quote_data, dict) else None
+    change = quote_data.get("change_pct") if isinstance(quote_data, dict) else None
+    try:
+        price_line = f"💵 السعر الحي: <b>${float(price):.4f}</b>" if price is not None and float(price) > 0 else "💵 السعر الحي: <b>غير متوفر</b>"
+    except (TypeError, ValueError):
+        price_line = "💵 السعر الحي: <b>غير متوفر</b>"
+    try:
+        change_line = f"📈 التغير: <b>{float(change):+.2f}%</b>" if change is not None else "📈 التغير: <b>غير متوفر</b>"
+    except (TypeError, ValueError):
+        change_line = "📈 التغير: <b>غير متوفر</b>"
+    checks = _radar_condition_lines(row, quote_data, False, gate_reason)
+    return "\n".join([
+        "📡 <b>SAS PRO | رصد وتشخيص</b>",
+        "━━━━━━━━━━━━━━━━━━",
+        f"🔎 السهم: <b>{symbol}</b>",
+        price_line,
+        change_line,
+        "",
+        "🟡 <b>لماذا أرسله الرادار؟</b>",
+        "ظهر السهم ضمن نتائج الفحص الفني، لكن هذا التقرير ليس إشارة دخول مؤكدة.",
+        "",
+        "🧾 <b>الشروط التي تحققت والتي لم تتحقق</b>",
+        *checks,
+        "",
+        "⚠️ هذا تقرير تشخيصي تعليمي، وليس توصية شراء أو بيع."
+    ])
+
+
 def _radar_channel_gate(status, row, quote_data, learning=None):
     """Final Telegram gate: broad scanner finds candidates, this gate decides what reaches the channel.
     
@@ -655,7 +744,7 @@ async def stock_radar_cycle():
             # إذا فقد السهم شروط الرادار يُوسم غير نشط ويخرج من التطبيق،
             # وتدخل فرصة مؤهلة أخرى مكانه.
             daily_app_limit = max(1, int(settings.radar_app_daily_limit or 15))
-            channel_daily_limit = max(1, int(settings.radar_channel_daily_limit or 5))
+            # لا نضع سقفًا يوميًا لرسائل القناة: كل نتيجة أعادها الرادار تُرسل كتقرير منفصل أو تشخيص واضح.\n            channel_daily_limit = max(1, daily_channel_sent + len(rows) + 1)
             daily_rows = (await db.execute(
                 select(RadarSignal).where(RadarSignal.session_date == session_date)
             )).scalars().all()
@@ -811,8 +900,25 @@ async def stock_radar_cycle():
                     except Exception:
                         await db.rollback()
                         logger.exception("Radar watch candidate persistence failed: %s", symbol)
+                    # المستخدم يريد رؤية كل سهم رصده المحرك، حتى عندما لا يجتاز بوابة الإشارة.
+                    # أرسل تقرير تشخيصي يشرح الشروط التي تحققت والتي لم تتحقق؛ لا نسميه فرصة مؤكدة.
+                    try:
+                        diagnostic_message = _radar_diagnostic_message(row, q, channel_reason)
+                        result = await send_message(settings.telegram_channel_id, diagnostic_message)
+                        diagnostic_id = result.get("message_id") if isinstance(result, dict) else None
+                        if diagnostic_id and existing:
+                            existing.telegram_message_id = int(diagnostic_id)
+                            await db.commit()
+                            cycle_stats["sent"] += 1
+                        elif not diagnostic_id:
+                            cycle_stats["failed"] += 1
+                            delivery_errors[symbol] = "لم يُرجع Telegram message_id للتقرير التشخيصي"
+                    except Exception as exc:
+                        cycle_stats["failed"] += 1
+                        delivery_errors[symbol] = f"{type(exc).__name__}: {str(exc)[:250]}"
+                        logger.exception("Radar diagnostic Telegram delivery failed: %s", symbol)
                     logger.info(
-                        "Radar channel gate skipped: %s | session=%s | reason=%s",
+                        "Radar candidate diagnostic sent: %s | session=%s | gate_reason=%s",
                         symbol, status.get("session"), channel_reason,
                     )
                     continue
@@ -822,39 +928,9 @@ async def stock_radar_cycle():
                 # لا نسمح بأكثر من 15 فرصة مؤكدة نشطة في التطبيق.
                 # ترتيب rows تم حسمه مسبقًا حسب جودة الفرصة، لذلك الفرص خارج
                 # أول 15 تبقى مراقبة ولا تظهر كفرص نشطة في التطبيق.
-                if symbol not in app_active_symbols and app_active_count >= daily_app_limit:
-                    row["channel_gate"] = {
-                        "passed": True,
-                        "session": status.get("session"),
-                        "reason": channel_reason,
-                    }
-                    row["radar_active"] = False
-                    row["channel_delivery"] = {
-                        "published": False,
-                        "app_visible": False,
-                        "reason": f"تم الوصول إلى الحد الحالي للتطبيق ({daily_app_limit})",
-                        "limit": daily_app_limit,
-                    }
-                    try:
-                        if existing:
-                            existing.payload = json.dumps(row, ensure_ascii=False)
-                            existing.created_at = utcnow()
-                        else:
-                            existing = RadarSignal(
-                                symbol=symbol,
-                                session_date=session_date,
-                                payload=json.dumps(row, ensure_ascii=False),
-                            )
-                            db.add(existing)
-                        await db.commit()
-                    except Exception:
-                        await db.rollback()
-                        logger.exception("Radar app-cap persistence failed: %s", symbol)
-                    cycle_stats["skipped"] += 1
-                    _radar_seen.add(symbol)
-                    continue
-
-                if symbol not in app_active_symbols:
+                # سقف التطبيق لا يمنع نشر التشخيص في القناة؛ يحدد الظهور داخل التطبيق فقط.
+                app_has_capacity = symbol in app_active_symbols or app_active_count < daily_app_limit
+                if app_has_capacity and symbol not in app_active_symbols:
                     app_active_symbols.add(symbol)
                     app_active_count += 1
                 row["channel_gate"] = {
@@ -862,7 +938,11 @@ async def stock_radar_cycle():
                     "session": status.get("session"),
                     "reason": channel_reason,
                 }
-                row["radar_active"] = True
+                row["radar_active"] = bool(app_has_capacity)
+                if not app_has_capacity:
+                    row["app_visibility_reason"] = f"تم الوصول إلى الحد الحالي للتطبيق ({daily_app_limit})"
+                else:
+                    row.pop("app_visibility_reason", None)
 
                 # التطبيق يعرض فقط الفرص المؤكدة التي دخلت سقف الـ15 الحالي.
                 if daily_channel_sent >= channel_daily_limit:
@@ -1011,6 +1091,10 @@ async def stock_radar_cycle():
                     "fundamentals": tech.get("fundamentals") or {},
                 })
                 report = build_report(symbol, q, tech, classification)
+                # Add an explicit pass/fail checklist so readers can see why this stock reached the channel.
+                report += "\n\n━━━━━━━━━━━━━━━━━━\n\n🧾 <b>شروط الرادار وسبب النشر</b>\n\n"
+                report += "\n".join(_radar_condition_lines(row, q, True, channel_reason))
+                report += "\n\n📌 أُرسل لأن محرك الرادار اجتاز بوابة النشر النهائية؛ التفاصيل أعلاه توضح الشروط الفعلية.\n"
 
                 try:
                     # احفظ نتيجة الرادار أولاً حتى تبقى بيانات السهم ظاهرة في
@@ -1076,7 +1160,7 @@ async def stock_radar_cycle():
         # رسالة الحالة تُرسل فقط عند عدم وجود أي سهم يستحق الإرسال للقناة.
         # لا تتكرر في كل دورة: تُعاد فقط عندما تتغير الحالة من "فرصة موجودة"
         # إلى "لا توجد فرصة مؤكدة". وإذا ظهرت فرصة، نعيد تسليح الرسالة للدورة التالية.
-        if channel_gate_passed > 0:
+        if channel_gate_passed > 0 or cycle_stats["sent"] > 0:
             _radar_no_opportunity_announced = False
         elif not _radar_no_opportunity_announced:
             try:
