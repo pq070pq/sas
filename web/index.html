@@ -63,12 +63,12 @@
     <section class="market-ticker-wrap" aria-label="أسعار الأسواق">
       <div id="marketTicker" class="market-ticker"><div class="loading">جاري تحميل الأسعار...</div></div>
     </section>
-    <nav class="terminal-tabs">
-      <button class="active" data-tab="dashboard" onclick="switchTerminalTab('dashboard')">⌂ الرئيسية</button>
-      <button data-tab="radar" onclick="switchTerminalTab('radar')">📡 الرادار</button>
-      <button data-tab="search" onclick="switchTerminalTab('search')">🔎 بحث</button>
-      <button data-tab="watch" onclick="switchTerminalTab('watch')">★ المحفوظة</button>
-      <button data-tab="account" onclick="switchTerminalTab('account')">👤 الحساب</button>
+    <nav class="terminal-tabs" role="tablist" aria-label="أقسام المنصة">
+      <button class="active" role="tab" aria-selected="true" data-tab="dashboard" onclick="switchTerminalTab('dashboard')">⌂ الرئيسية</button>
+      <button role="tab" aria-selected="false" data-tab="radar" onclick="switchTerminalTab('radar')">📡 الرادار</button>
+      <button role="tab" aria-selected="false" data-tab="search" onclick="switchTerminalTab('search')">🔎 بحث</button>
+      <button role="tab" aria-selected="false" data-tab="watch" onclick="switchTerminalTab('watch')">★ المحفوظة</button>
+      <button role="tab" aria-selected="false" data-tab="account" onclick="switchTerminalTab('account')">👤 الحساب</button>
     </nav>
     <main class="terminal-main">
       <section id="tab-dashboard" class="terminal-tab active">
@@ -99,7 +99,23 @@
         <div id="macroGrid" class="macro-grid"></div>
       </section>
       <section id="tab-radar" class="terminal-tab"><div class="terminal-panel-head"><div><span class="eyebrow">SAS PRO RADAR</span><h2>بيانات الأسهم المرصودة</h2><small>🕒 يوضح لك وقت تنفيذ آخر رصد فعلي بتوقيت الرياض</small><small>السعر • الحركة • الحجم • RVOL • الدخول • الوقف • الهدف • R:R</small></div><button class="primary-btn" onclick="runRadar()">↻ تحديث البيانات</button></div><div id="radarDiagnostics" class="diagnostics"></div><div id="radarCandidates" class="radar-candidates" hidden></div><div id="radarGrid" class="stock-grid"></div></section>
-      <section id="tab-search" class="terminal-tab"><div class="search-terminal"><input id="symbolSearch" maxlength="12" autocomplete="off" placeholder="ابحث عن رمز السهم مثل NVDA أو AAPL"><button class="primary-btn" onclick="analyzeSymbol()">تحليل السهم</button><button class="secondary-btn shariah-search-btn" onclick="searchShariah()">🕌 بحث الشرعية</button></div><div id="shariahSearchResult" class="shariah-search-result" hidden></div><div id="symbolResult" class="symbol-result"><div class="empty-state">اكتب رمز السهم لعرض السعر، الرسم، المستويات، الأخبار وتحليل SAS PRO، أو استخدم «بحث الشرعية» للتحقق المستقل.</div></div></section>
+      <section id="tab-search" class="terminal-tab">
+        <div class="search-terminal">
+          <input id="symbolSearch" maxlength="12" autocomplete="off" placeholder="ابحث عن رمز السهم مثل NVDA أو AAPL" aria-label="رمز السهم">
+          <button class="primary-btn" onclick="analyzeSymbol()">تحليل السهم</button>
+          <button class="secondary-btn shariah-search-btn" onclick="searchShariah()">🕌 بحث الشرعية</button>
+        </div>
+        <div class="stock-shortcuts-row" aria-label="أسهم شائعة">
+          <span>اختصارات شائعة:</span>
+          <button class="stock-shortcut-btn" onclick="openSymbol('NVDA',true)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> NVDA</button>
+          <button class="stock-shortcut-btn" onclick="openSymbol('AAPL',true)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 15h-2v-2h2zm0-4h-2V7h2z"/></svg> AAPL</button>
+          <button class="stock-shortcut-btn" onclick="openSymbol('TSLA',true)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 12 10s-6.7.6-8.5 1.1C2.7 11.3 2 12.1 2 13v3c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg> TSLA</button>
+          <button class="stock-shortcut-btn" onclick="openSymbol('AMD',true)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3zM6 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"/></svg> AMD</button>
+          <button class="stock-shortcut-btn" onclick="openSymbol('SPY',true)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> SPY</button>
+        </div>
+        <div id="shariahSearchResult" class="shariah-search-result" hidden></div>
+        <div id="symbolResult" class="symbol-result"><div class="empty-state">اكتب رمز السهم لعرض السعر، الرسم، المستويات، الأخبار وتحليل SAS PRO، أو استخدم «بحث الشرعية» للتحقق المستقل.</div></div>
+      </section>
       <section id="tab-watch" class="terminal-tab"><div class="terminal-panel-head"><div><span class="eyebrow">WATCHLIST</span><h2>الأسهم المحفوظة</h2></div></div><div id="watchGrid" class="stock-grid"></div></section>
       <section id="tab-account" class="terminal-tab"><div class="account-terminal"><div class="account-avatar us-account-mark">📈</div><h2 id="accountName">—</h2><p id="accountPlan">—</p><div class="account-cards" id="accountCards"></div><div class="account-contact"><b>📝 للملاحظات والاقتراحات</b><span>تواصل مباشرة مع SAS PRO</span><a class="contact-btn" href="https://t.me/SAS770" target="_blank" rel="noopener">💬 مراسلة SAS PRO على الخاص</a></div></div></section>
     </main>
@@ -114,8 +130,8 @@
       </div>
       <div class="admin-header-actions">
         <span class="admin-live"><i></i> النظام يعمل</span>
-        <button class="admin-refresh" onclick="openAdminUserView()">👤 صفحة المستخدم</button>
-        <button class="admin-refresh" onclick="adminRefresh()">↻ تحديث</button>
+        <button class="admin-refresh" aria-label="عرض صفحة المستخدم" onclick="openAdminUserView()">👤 صفحة المستخدم</button>
+        <button class="admin-refresh" aria-label="تحديث بيانات الإدارة" onclick="adminRefresh()">↻ تحديث</button>
       </div>
     </header>
 
@@ -231,7 +247,7 @@
 
     <section class="admin-panel" id="adminUsersPanel">
       <div class="section-head"><b>🔎 البحث عن مستخدم</b><span>Telegram ID أو Username</span></div>
-      <div class="search-row"><input id="adminSearch" placeholder="مثال: 123456789 أو username"><button onclick="adminSearch()">بحث</button></div>
+      <div class="search-row"><input id="adminSearch" aria-label="البحث عن مستخدم بواسطة Telegram ID أو اسم المستخدم" placeholder="مثال: 123456789 أو username"><button aria-label="بدء البحث" onclick="adminSearch()">بحث</button></div>
       <div id="adminUsers"></div>
     </section>
 
@@ -266,9 +282,9 @@
   </section>
 </div>
 
-<div id="termsModal" class="modal" hidden>
+<div id="termsModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="termsTitle">
   <div class="modal-card">
-    <div class="modal-head"><b>📋 شروط استخدام SAS PRO</b><button onclick="closeTerms()">×</button></div>
+    <div class="modal-head"><b id="termsTitle">📋 شروط استخدام SAS PRO</b><button aria-label="إغلاق" onclick="closeTerms()">×</button></div>
     <div id="termsText" class="terms-text"></div>
     <label class="terms-check" id="termsAgreeRow"><input id="termsAgree" type="checkbox" onchange="toggleTermsButton()"> <span><b>أوافق على شروط استخدام SAS PRO</b><small>أقر بأنني قرأت الشروط وفهمتها وأوافق عليها قبل بدء التجربة أو الشراء.</small></span></label>
     <div class="modal-actions">

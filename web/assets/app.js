@@ -153,7 +153,11 @@ function pct(v){const n=Number(v);return Number.isFinite(n)?(n>=0?'+':'')+n.toFi
 function switchTerminalTab(tab){
  terminalState.tab=tab;
  document.querySelectorAll('.terminal-tab').forEach(x=>x.classList.toggle('active',x.id==='tab-'+tab));
- document.querySelectorAll('.terminal-tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
+ document.querySelectorAll('.terminal-tabs button').forEach(x=>{
+  const active=x.dataset.tab===tab;
+  x.classList.toggle('active',active);
+  x.setAttribute('aria-selected',active?'true':'false');
+ });
  if(tab==='radar')renderRadar();
  if(tab==='watch')renderWatchlist();
 }
@@ -757,6 +761,10 @@ function toggleTermsButton(){
  button.textContent=agree?.checked?'أوافق على الشروط وأتابع':'أوافق على الشروط وأتابع';
 }
 function closeTerms(){document.getElementById('termsModal').hidden=true;termAction=null;}
+document.addEventListener('keydown',e=>{
+ if(e.key==='Escape'){const m=document.getElementById('termsModal');if(m&&!m.hidden)closeTerms();}
+ if(e.key==='Enter'&&document.activeElement&&document.activeElement.id==='adminSearch'){adminSearch();}
+});
 async function continueTerms(){
  const agree=document.getElementById('termsAgree');
  const button=document.getElementById('termsContinue');
