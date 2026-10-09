@@ -13,12 +13,12 @@ from .smart_memory import SmartMemory
 
 # رادار SAS PRO:
 # - السوق: NASDAQ / NYSE / AMEX
-# - السعر: $0.30 - $6.00
+# - السعر: $0.30 - $15.00
 # - لا نعتمد على نسبة الارتفاع وحدها؛ نبحث عن حركة مؤكدة أو تجميع قابل للقياس.
 # - Twelve Data ليس مصدر الرصد الأساسي ولا يُستهلك أثناء دورة الرادار.
 # - استراتيجية SAS: السلوك، التداول، RVOL، الدعم/المقاومة والثبات.
 MIN_PRICE = 0.30
-MAX_PRICE = 6.00
+MAX_PRICE = 15.00
 MAX_RADAR_RESULTS = 30
 MAX_SECTION_RESULTS = 15
 MIN_DAILY_DOLLAR_VOLUME = 1_000_000.0
@@ -2740,7 +2740,7 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
             "discovery_source_errors": {},
             "momentum_source": "Multi-source US movers + OHLCV staging",
         "momentum_rules": {
-            "small": {"price": "0.5-20", "change_pct": ">10", "volume": ">500000"},
+            "small": {"price": "0.30-15.00", "change_pct": ">10", "volume": ">500000"},
             "large": {"market_cap": ">1B", "change_pct": ">3"},
             "rvol_formula": "today_volume / average_volume_last_10_sessions",
             "rvol_time_thresholds": MOMENTUM_RVOL_THRESHOLDS,
