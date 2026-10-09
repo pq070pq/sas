@@ -141,7 +141,7 @@ class RadarSignal(Base):
     session_date: Mapped[str] = mapped_column(String(16), index=True)
     payload: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=expiry_at, index=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=lambda: expiry_at(), index=True)
     telegram_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     __table_args__ = (UniqueConstraint("symbol", "session_date", name="uq_radar_symbol_session"),)
 
