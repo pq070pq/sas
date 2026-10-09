@@ -1,5 +1,6 @@
 import asyncio
 import html
+from urllib.parse import urlsplit
 
 from .market import quote
 from .panwatch import technical_targets
@@ -7,6 +8,22 @@ from .news import company_news, corporate_events, company_fundamentals, tipranks
 from .ai_radar import analyze_stock
 from .smart_memory import dedupe_records
 from .binance_spot import is_crypto_symbol, normalize_symbol as normalize_crypto_symbol, quote as binance_quote, analyze as binance_analyze
+
+
+def _safe_http_url(value):
+    raw = str(value or "").strip()
+    if not raw or any(char.isspace() for char in raw) or chr(92) in raw:
+        return ""
+    try:
+        parsed = urlsplit(raw)
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+            return ""
+        if parsed.username is not None or parsed.password is not None:
+            return ""
+        parsed.port
+    except (TypeError, ValueError, UnicodeError):
+        return ""
+    return raw
 
 
 def _money(value):
@@ -116,23 +133,53 @@ def _format_corporate_actions(events):
     return "\n".join(lines)
 
 
-def _format_news(news):
-    if not news:
-        return "📰 <b>الأخبار:</b> لا توجد أخبار موثقة حديثة من المصادر المتاحة."
-    lines = ["📰 <b>أهم الأخبار الأخيرة</b>"]
+def _format_news(news, ai=None):
+    if not isinstance(news, list) or not news:
+        return "\n".join(lines) if lines else "• لا توجد أخبار موثقة حديثة من المصادر المتاحة."
+
+    summary_by_story = {}
+    for summary_item in (ai or {}).get("news_summaries") or []:
+        if not isinstance(summary_item, dict):
+            continue
+        story_key = (
+            str(summary_item.get("url") or "").strip(),
+            str(summary_item.get("headline") or "").strip(),
+        )
+        if story_key[0] and story_key[1] and summary_item.get("summary"):
+            summary_by_story[story_key] = summary_item
+
+    lines = []
     for item in news[:5]:
         if not isinstance(item, dict):
             continue
-        headline = html.escape(str(item.get("headline") or "").strip())
-        source = html.escape(str(item.get("source") or "").strip())
-        url = html.escape(str(item.get("url") or "").strip(), quote=True)
-        if not headline:
+        raw_headline = str(item.get("headline") or "").strip()
+        if not raw_headline:
             continue
-        if url:
-            lines.append(f'• <a href="{url}">{headline}</a> — {source or "المصدر"}')
-        else:
-            lines.append(f"• {headline} — {source or 'المصدر'}")
-    return "\n".join(lines)
+        headline = html.escape(raw_headline)
+        source = html.escape(str(item.get("source") or "المصدر").strip())
+        url = _safe_http_url(item.get("url"))
+        headline_line = (
+            f'<a href="{html.escape(url, quote=True)}">{headline}</a> — {source}'
+            if url else f"{headline} — {source}"
+        )
+        lines.append(f"• {headline_line}")
+
+        story_key = (str(item.get("url") or "").strip(), raw_headline)
+        ai_story = summary_by_story.get(story_key) or {}
+        summary = str(item.get("ai_summary") or ai_story.get("summary") or "").strip()
+        basis = item.get("ai_summary_basis") or ai_story.get("basis")
+        label = "مختصر AI"
+        if not summary:
+            summary = str(item.get("summary") or "").strip()
+            label = "ملخص المصدر"
+        if not summary:
+            summary = "لا يتوفر مختصر موثق لهذا الخبر."
+            label = "الملخص"
+        elif basis == "headline_only":
+            summary += " (مبني على العنوان فقط)"
+        lines.append(f"  📝 <b>{label}:</b> {html.escape(summary[:240])}")
+
+    return "\\n".join(lines) if lines else "• لا توجد أخبار موثقة حديثة من المصادر المتاحة."
 
 
 def _format_tipranks(tipranks, ai):
@@ -513,14 +560,7 @@ async def build_private_analysis(symbol: str):
     tipranks_text = _format_tipranks(tipranks, ai)
     ai_text = _format_ai(ai)
 
-    news_lines = []
-    for item in news[:8]:
-        if not isinstance(item, dict) or not item.get("headline"):
-            continue
-        headline = html.escape(str(item.get("headline")))
-        url = html.escape(str(item.get("url") or ""), quote=True)
-        news_lines.append(f'<a href="{url}">• {headline}</a>' if url else f"• {headline}")
-    news_text = "\n".join(news_lines) if news_lines else "• لا توجد أخبار موثقة حديثة."
+    news_text = _format_news(news, ai)
 
     report = (
         f"🚀 <b>SAS PRO | التحليل الخاص — {html.escape(symbol)}</b>\n"

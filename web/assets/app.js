@@ -116,6 +116,31 @@ async function load(){
 
 const terminalState={ticker:[],radar:[],watch:JSON.parse(localStorage.getItem('saspro_watchlist')||'[]'),timer:null,tab:'dashboard',refreshing:false,radarScanning:false};
 function escHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
+function safeNewsUrl(value){
+ try{
+  const raw=String(value||'').trim();
+  if(!raw||raw.split('').some(ch=>ch.charCodeAt(0)<=32)||raw.includes(String.fromCharCode(92)))return '';
+  const url=new URL(raw);
+  if(!['http:','https:'].includes(url.protocol)||!url.hostname||url.username||url.password)return '';
+  return url.href;
+ }catch{return '';}
+}
+function renderNewsItems(items,limit=5){
+ if(!Array.isArray(items)||!items.length)return '<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>';
+ return items.slice(0,limit).map(n=>{
+  n=n&&typeof n==='object'?n:{};
+  const headline=escHtml(n.headline||n.title||'خبر');
+  const source=escHtml(n.source||'مصدر غير محدد');
+  const url=safeNewsUrl(n.url);
+  const aiSummary=String(n.ai_summary||'').trim();
+  const sourceSummary=String(n.summary||'').trim();
+  const summary=aiSummary||sourceSummary;
+  const label=aiSummary?'مختصر AI':sourceSummary?'ملخص المصدر':'الملخص';
+  const basis=aiSummary&&n.ai_summary_basis==='headline_only'?' <small>(من العنوان فقط)</small>':'';
+  const body='<b>'+headline+'</b><small>'+source+'</small><span style="display:block;white-space:normal;margin-top:6px;line-height:1.55"><strong>'+label+':</strong> '+escHtml(summary||'لا يتوفر مختصر لهذا الخبر.')+basis+'</span>';
+  return url?'<a class="news-entry" href="'+escHtml(url)+'" target="_blank" rel="noopener noreferrer">'+body+'</a>':'<div class="news-entry">'+body+'</div>';
+ }).join('');
+}
 function money(v){const n=Number(v);return Number.isFinite(n)&&n>0?n.toLocaleString('en-US',{minimumFractionDigits:n<10?2:0,maximumFractionDigits:4}):'—';}
 function pct(v){const n=Number(v);return Number.isFinite(n)?(n>=0?'+':'')+n.toFixed(2)+'%':'—';}
 function switchTerminalTab(tab){
@@ -561,7 +586,7 @@ const miniAnalysisHtml=
    '<div class="chart-title"><b>📈 شارت السهم</b><div class="chart-title-actions"><small>شموع وحجم تداول • بيانات SAS PRO</small><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">↗ فتح GoCharting</a></div></div><div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">📊 البيانات الفنية التاريخية غير متاحة حاليًا<br><small>لم يتم اختلاق هدف أو وقف أو إشارة. سيتم إظهارها عند توفر بيانات الشموع والحجم.</small></div>':'<canvas id="stockCanvas" height="230"></canvas>')+'</div>'+
    '<div class="level-grid"><div><small>🟦 الدخول</small><b>&#36;'+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>&#36;'+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>&#36;'+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+rr+'</b></div></div>'+
    '<div class="ai-box"><b>'+(aiAvailable?'⏳ زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+
-   '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
+   '<div class="news-list">'+renderNewsItems(newsFromAnalysis,5)+'</div>'+
    '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
  const chartCandles=Array.isArray(chart.candles)?chart.candles:[];
  requestAnimationFrame(()=>drawChart(chartCandles));
@@ -627,7 +652,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData){
    
  '</div>'+
  '<div class="chart-title"><b>📈 شارت السهم</b><div class="chart-title-actions"><small>شموع وحجم تداول • بيانات SAS PRO</small><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">↗ فتح GoCharting</a></div></div><div class="chart-box"><canvas id="stockCanvas" height="260"></canvas></div>'+
- '<div class="news-list">'+(news.length?news.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'')+'</div>';
+ '<div class="news-list">'+renderNewsItems(news,5)+'</div>';
  const partialCandles=Array.isArray(chart?.candles)?chart.candles:[];
  requestAnimationFrame(()=>drawChart(partialCandles));
  if(!partialCandles.length){
