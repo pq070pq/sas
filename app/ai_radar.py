@@ -146,7 +146,7 @@ def _prompt(symbol: str, news: list[dict], fundamentals: dict, market: dict | No
 - لا تقل إن خبرًا سبب الارتفاع بشكل مؤكد إلا إذا كان محتوى الخبر وتوقيته يدعمان ذلك؛ استخدم «مرتبط بالخبر» أو «ارتباط محتمل» أو «غير واضح».
 - أي رقم مالي تذكره يجب أن يكون موجودًا حرفيًا في verified_financial_data.
 - أي خبر تذكره يجب أن يكون مأخوذًا من verified_news_sources.
-- لخّص كل مصدر خبري على حدة داخل news_summaries واربطه بمعرّفه نفسه. إذا لم يوجد إلا العنوان، لا تضف تفاصيل واذكر أن الاختصار مبني على العنوان فقط.
+- لخّص كل مصدر خبري على حدة داخل news_summaries واربطه بمعرّفه نفسه. ترجم عنوان كل خبر إلى العربية في translated_headline ترجمة أمينة دون تغيير المعنى أو إضافة معلومة. إذا لم يوجد إلا العنوان، لا تضف تفاصيل واذكر أن الاختصار مبني على العنوان فقط.
 - معلومات TipRanks مصدر تحليلي مستقل: ترجمها واشرحها بالعربية، لكن لا تعتبرها سعرًا أو هدفًا أو إشارة SAS PRO.
 - حلل أحداث الشركة: الأرباح، التوزيعات، التقسيم/الدمج، معاملات المطلعين، وإفصاحات الشركة إذا كانت موجودة.
 - انتبه لإشارات التمويل أو التخفيف أو بيع الأسهم أو التغييرات في الضمانات، ولا تستنتج وجودها إذا لم تظهر في الأدلة.
@@ -158,7 +158,7 @@ def _prompt(symbol: str, news: list[dict], fundamentals: dict, market: dict | No
 {{
   "primary_source_id": "N1 أو N2 أو غير واضح",
   "supporting_source_ids": ["N2"],
-  "news_summaries": [{"source_id": "N1", "summary": "اختصار عربي موجز لهذا المصدر فقط"}],
+  "news_summaries": [{"source_id": "N1", "translated_headline": "عنوان عربي أمين للخبر", "summary": "اختصار عربي موجز لهذا المصدر فقط"}],
   "headline_summary": "تلخيص للخبر الموجود في المصدر فقط",
   "why_rising": "تفسير مبني على محتوى وتوقيت المصادر فقط، أو غير واضح",
   "news_assessment": "مرتبط بالخبر | ارتباط محتمل | غير واضح",
@@ -213,9 +213,15 @@ def _validate(parsed: dict, news: list[dict], fundamentals: dict) -> dict:
             ):
                 continue
             seen_summary_ids.add(source_id)
+            original_headline = str(source.get("headline") or "").strip()[:500]
+            translated_headline = str(entry.get("translated_headline") or "").strip()
+            # Translation is display-only; preserve the original title and source URL.
+            if not translated_headline or len(translated_headline) > 500:
+                translated_headline = ""
             news_summaries.append({
                 "source_id": source_id,
-                "headline": str(source.get("headline") or "")[:500],
+                "headline": original_headline,
+                "translated_headline": translated_headline,
                 "source": str(source.get("source") or "")[:120],
                 "url": _safe_http_url(source.get("url")),
                 "summary": summary[:480],
