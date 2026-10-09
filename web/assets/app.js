@@ -364,20 +364,20 @@ async function runRadar(show=true){
  try{
   if(show){
    switchTerminalTab('radar');
-   if(button){button.disabled=true;button.textContent='🔎 نبحث عن الفرص…';}
+   if(button){button.disabled=true;button.textContent='⏳ جارٍ الفحص…';}
    const existing=terminalState.radar.length;
    const progress=document.createElement('div');
    progress.id='radarScanProgress';
    progress.className='loading radar-scan-progress';
-   progress.innerHTML='<b>🔎 نبحث لك عن الفرص بهدوء</b><br><small>نراجع حركة الأسهم والسيولة، ثم نتحقق من شروط SAS PRO قبل عرض النتائج.'+(existing?' سنُبقي آخر النتائج ظاهرة أثناء الفحص.':'')+'</small><br><span class="radar-scan-stage">نبدأ البحث عن الأسهم النشطة…</span><br><span class="radar-scan-elapsed">⏱️ جارٍ الفحص</span><br><small>غالبًا يستغرق الفحص أقل من دقيقة، وقد تزيد المدة حسب توفر البيانات.</small>';
+   progress.innerHTML='<b>🔎 نبحث عن الفرص الواعدة</b><br><small>نراجع الحركة والسيولة، ونتأكد من الشروط قبل عرض النتائج.'+(existing?' ستبقى النتائج السابقة ظاهرة.':'')+'</small><br><span class="radar-scan-stage">نبحث عن الأسهم النشطة…</span><br><span class="radar-scan-elapsed">⏱️ جارٍ الفحص</span>';
    const diagnostics=document.getElementById('radarDiagnostics');
    if(diagnostics)diagnostics.prepend(progress);
-   const stages=['نبحث عن الأسهم النشطة…','نراجع الحركة والسيولة…','نتحقق من الشروط الفنية…','نستبعد الإشارات غير المكتملة…'];
+   const stages=['نبحث عن الأسهم النشطة…','نراجع الحركة والسيولة…','نتحقق من الشروط الفنية…','نرتب النتائج التي اجتازت الفحص…'];
    elapsedTimer=setInterval(()=>{
     const elapsed=Math.floor((Date.now()-startedAt)/1000);
     const label=document.querySelector('#radarScanProgress .radar-scan-elapsed');
     const stage=document.querySelector('#radarScanProgress .radar-scan-stage');
-    if(label)label.textContent='⏱️ مضت '+elapsed+' ثانية — ما زلنا نراجع الفرص';
+    if(label)label.textContent='⏱️ '+elapsed+' ث · نكمل مراجعة الفرص';
     if(stage)stage.textContent=stages[Math.floor(elapsed/6)%stages.length];
    },1000);
    if(!existing && grid)grid.innerHTML='<div class="empty-state">نراجع الأسهم الآن… ستظهر هنا فقط النتائج التي تجتاز شروط الرادار.</div>';
