@@ -114,8 +114,8 @@
       </div>
       <div class="admin-header-actions">
         <span class="admin-live"><i></i> النظام يعمل</span>
-        <button class="admin-refresh" onclick="openAdminUserView()">👤 صفحة المستخدم</button>
-        <button class="admin-refresh" onclick="adminRefresh()">↻ تحديث</button>
+        <button class="admin-refresh" aria-label="عرض صفحة المستخدم" onclick="openAdminUserView()">👤 صفحة المستخدم</button>
+        <button class="admin-refresh" aria-label="تحديث بيانات الإدارة" onclick="adminRefresh()">↻ تحديث</button>
       </div>
     </header>
 
@@ -231,7 +231,7 @@
 
     <section class="admin-panel" id="adminUsersPanel">
       <div class="section-head"><b>🔎 البحث عن مستخدم</b><span>Telegram ID أو Username</span></div>
-      <div class="search-row"><input id="adminSearch" placeholder="مثال: 123456789 أو username"><button onclick="adminSearch()">بحث</button></div>
+      <div class="search-row"><input id="adminSearch" aria-label="البحث عن مستخدم بواسطة Telegram ID أو اسم المستخدم" placeholder="مثال: 123456789 أو username"><button aria-label="بدء البحث" onclick="adminSearch()">بحث</button></div>
       <div id="adminUsers"></div>
     </section>
 
