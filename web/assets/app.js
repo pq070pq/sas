@@ -364,20 +364,23 @@ async function runRadar(show=true){
  try{
   if(show){
    switchTerminalTab('radar');
-   if(button){button.disabled=true;button.textContent='⏳ جارٍ مسح الأسهم…';}
+   if(button){button.disabled=true;button.textContent='🔎 نبحث عن الفرص…';}
    const existing=terminalState.radar.length;
    const progress=document.createElement('div');
    progress.id='radarScanProgress';
    progress.className='loading radar-scan-progress';
-   progress.innerHTML='<b>🔎 بدأ مسح الأسهم</b><br><small>يجري البحث والتحليل وفق شروط SAS PRO. ستظهر النتائج بعد اكتمال التحقق منها'+(existing?'، مع الاحتفاظ بآخر نتائج الرصد أثناء المسح.':'.')+'</small><br><span class="radar-scan-elapsed">الوقت المنقضي: 0 ثانية</span>';
+   progress.innerHTML='<b>🔎 نبحث لك عن الفرص بهدوء</b><br><small>نراجع حركة الأسهم والسيولة، ثم نتحقق من شروط SAS PRO قبل عرض النتائج.'+(existing?' سنُبقي آخر النتائج ظاهرة أثناء الفحص.':'')+'</small><br><span class="radar-scan-stage">نبدأ البحث عن الأسهم النشطة…</span><br><span class="radar-scan-elapsed">⏱️ جارٍ الفحص</span><br><small>غالبًا يستغرق الفحص أقل من دقيقة، وقد تزيد المدة حسب توفر البيانات.</small>';
    const diagnostics=document.getElementById('radarDiagnostics');
    if(diagnostics)diagnostics.prepend(progress);
+   const stages=['نبحث عن الأسهم النشطة…','نراجع الحركة والسيولة…','نتحقق من الشروط الفنية…','نستبعد الإشارات غير المكتملة…'];
    elapsedTimer=setInterval(()=>{
     const elapsed=Math.floor((Date.now()-startedAt)/1000);
     const label=document.querySelector('#radarScanProgress .radar-scan-elapsed');
-    if(label)label.textContent='الوقت المنقضي: '+elapsed+' ثانية';
+    const stage=document.querySelector('#radarScanProgress .radar-scan-stage');
+    if(label)label.textContent='⏱️ مضت '+elapsed+' ثانية — ما زلنا نراجع الفرص';
+    if(stage)stage.textContent=stages[Math.floor(elapsed/6)%stages.length];
    },1000);
-   if(!existing && grid)grid.innerHTML='<div class="empty-state">⏳ جارٍ فحص المرشحين… ستظهر الأسهم التي تجتاز شروط الرادار عند انتهاء التحليل.</div>';
+   if(!existing && grid)grid.innerHTML='<div class="empty-state">نراجع الأسهم الآن… ستظهر هنا فقط النتائج التي تجتاز شروط الرادار.</div>';
   }
   // يبدأ هذا الزر دورة رصد فعلية جديدة بدل الاكتفاء بقراءة الإشارات المحفوظة.
   const d=await api('/api/radar/scan?fresh=1',{timeoutMs:180000,retries:0});
