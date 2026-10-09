@@ -38,9 +38,9 @@ jobs:
       - name: Run historical ICT liquidity sweep test
         run: |
           python scripts/backtest_liquidity_sweep.py \
-            --symbols "${{ inputs.symbols }}" \
-            --lookback "${{ inputs.lookback }}" \
-            --min-dollar-volume "${{ inputs.min_dollar_volume }}" \
+            --symbols "${{ inputs.symbols || 'SOFI,PLTR,LCID,OPEN,JOBY,ACHR,NU,HOOD' }}" \
+            --lookback "${{ inputs.lookback || '20' }}" \
+            --min-dollar-volume "${{ inputs.min_dollar_volume || '1000000' }}" \
             --min-price 0.30 --max-price 15.00 \
             --horizons 5,10 --output ict_backtest_results.json
       - name: Upload backtest report
