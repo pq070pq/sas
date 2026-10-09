@@ -35,9 +35,15 @@ jobs:
           OVH_PORT: ${{ secrets.OVH_PORT || '22' }}
         run: |
           set -euo pipefail
+          : "${OVH_HOST:?Missing required GitHub Actions secret OVH_HOST}"
+          : "${OVH_USER:?Missing SSH user}"
+          : "${OVH_PORT:?Missing SSH port}"
+          key_file="$RUNNER_TEMP/ovh_key"
+          test -s "$key_file" || { echo "::error::OVH SSH key file is missing or empty"; exit 1; }
           out="$GITHUB_WORKSPACE/radar-live-status.json"
-          ssh_opts=(-i "$RUNNER_TEMP/ovh_key" -p "$OVH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=15)
-          ssh "${ssh_opts[@]}" "$OVH_USER@$OVH_HOST" 'cd /opt/saspro && docker compose exec -T saspro python - <<'"'"'PY'"'"'
+          err="$RUNNER_TEMP/radar-live-status-ssh.err"
+          ssh_opts=(-i "$key_file" -p "$OVH_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=15)
+          if ! ssh "${ssh_opts[@]}" "$OVH_USER@$OVH_HOST" 'cd /opt/saspro && docker compose exec -T saspro python - <<'"'"'PY'"'"'
           import asyncio, json
           from datetime import datetime, timezone
           from sqlalchemy import select
@@ -79,7 +85,11 @@ jobs:
                       "runs": payload,
                   }, ensure_ascii=False))
           asyncio.run(main())
-          PY' > "$out"
+          PY' > "$out" 2>"$err"; then
+            echo "::error::Could not read production RadarRun data. SSH/remote error follows:"
+            cat "$err"
+            exit 1
+          fi
 
           python3 -m json.tool "$out" >/dev/null
           echo "===== LATEST PRODUCTION RADAR RUNS ====="
@@ -94,7 +104,10 @@ jobs:
           OVH_PORT: ${{ secrets.OVH_PORT || '22' }}
         run: |
           set -euo pipefail
-          ssh_opts=(-i "$RUNNER_TEMP/ovh_key" -p "$OVH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=15)
+          : "${OVH_HOST:?Missing required GitHub Actions secret OVH_HOST}"
+          key_file="$RUNNER_TEMP/ovh_key"
+          test -s "$key_file" || { echo "::error::OVH SSH key file is missing or empty"; exit 1; }
+          ssh_opts=(-i "$key_file" -p "$OVH_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=15)
           ssh "${ssh_opts[@]}" "$OVH_USER@$OVH_HOST" 'cd /opt/saspro && docker compose logs --tail=500 saspro 2>&1 | grep -E "RADAR_CYCLE_(STARTED|FINISHED)|RADAR_SCAN_DIAGNOSTICS|RADAR HEALTH ALERT|RADAR WATCHDOG|Stock radar cycle failed|Stock radar scan completed" || true' > "$GITHUB_WORKSPACE/radar-live-logs.txt"
           echo "===== RECENT RADAR EVENTS ====="
           cat "$GITHUB_WORKSPACE/radar-live-logs.txt"
