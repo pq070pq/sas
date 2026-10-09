@@ -1,6 +1,7 @@
 import unittest
 
 from app.ai_radar import _safe_http_url, _safe_news, _validate
+from app.private_analysis import _format_news
 
 
 class NewsSummaryValidationTests(unittest.TestCase):
@@ -66,6 +67,35 @@ class NewsSummaryValidationTests(unittest.TestCase):
             "https://example.com:invalid/news",
         ):
             self.assertEqual(_safe_http_url(url), "")
+
+    def test_private_report_binds_summary_and_source_to_the_story(self):
+        output = _format_news([{
+            "headline": "نتائج الشركة",
+            "source": "مصدر موثوق",
+            "url": "https://news.example.com/story",
+            "summary": "مقتطف من المصدر",
+        }], {
+            "news_summaries": [{
+                "headline": "نتائج الشركة",
+                "source": "مصدر مزيف",
+                "url": "https://attacker.example/",
+                "summary": "ملخص موثق",
+                "basis": "source_excerpt",
+            }],
+        })
+        self.assertIn("مختصر AI", output)
+        self.assertIn("ملخص موثق", output)
+        self.assertIn('href="https://news.example.com/story"', output)
+        self.assertNotIn("attacker.example", output)
+
+    def test_private_report_does_not_link_unsafe_news_urls(self):
+        output = _format_news([{
+            "headline": "نتائج الشركة",
+            "source": "مصدر",
+            "url": "javascript:alert(1)",
+        }])
+        self.assertNotIn("href=", output)
+        self.assertIn("نتائج الشركة", output)
 
     def test_unsafe_news_urls_are_excluded_from_ai_evidence(self):
         rows = [

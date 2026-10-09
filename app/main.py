@@ -638,11 +638,28 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     if event_lines:
         add_section(report, "🔄 <b>الأحداث المؤثرة</b>", event_lines)
 
+    ai_summary_by_story = {}
+    for summary_item in ai.get("news_summaries") or []:
+        if not isinstance(summary_item, dict):
+            continue
+        story_key = (
+            str(summary_item.get("url") or "").strip(),
+            str(summary_item.get("headline") or "").strip(),
+        )
+        if story_key[0] and story_key[1] and summary_item.get("summary"):
+            ai_summary_by_story[story_key] = summary_item
+
     valid_news = [item for item in news_items if isinstance(item, dict) and item.get("headline")]
     if valid_news:
         news_lines = []
         for idx, item in enumerate(valid_news[:5], 1):
-            summary = str(item.get("ai_summary") or "").strip()
+            story_key = (
+                str(item.get("url") or "").strip(),
+                str(item.get("headline") or "").strip(),
+            )
+            ai_story = ai_summary_by_story.get(story_key) or {}
+            summary = str(item.get("ai_summary") or ai_story.get("summary") or "").strip()
+            summary_basis = item.get("ai_summary_basis") or ai_story.get("basis")
             summary_label = "مختصر AI"
             if not summary:
                 summary = str(item.get("summary") or "").strip()
@@ -650,7 +667,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             if not summary:
                 summary = "لا يتوفر مختصر لهذا الخبر."
                 summary_label = "الملخص"
-            elif item.get("ai_summary_basis") == "headline_only":
+            elif summary_basis == "headline_only":
                 summary += " (مبني على العنوان فقط)"
 
             source_name = _esc(item.get("source") or "مصدر غير محدد")
@@ -661,7 +678,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             )
             news_lines += [
                 f"<b>{idx}️⃣</b> {_esc(item.get('headline'))}",
-                f"📝 <b>{summary_label}:</b> {_esc(summary[:360])}",
+                f"📝 <b>{summary_label}:</b> {_esc(summary[:240])}",
                 source_line,
                 "",
             ]
