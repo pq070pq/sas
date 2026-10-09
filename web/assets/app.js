@@ -558,7 +558,7 @@ const miniAnalysisHtml=
    '<div class="quote-line"><strong>&#36;'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
    notice+
    miniAnalysisHtml+
-   '<div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">📊 البيانات الفنية التاريخية غير متاحة حاليًا<br><small>لم يتم اختلاق هدف أو وقف أو إشارة. سيتم إظهارها عند توفر بيانات الشموع والحجم.</small></div>':'<canvas id="stockCanvas" height="230"></canvas>')+'</div>'+
+   '<div class="chart-title"><b>📈 شارت السهم</b><small>شموع وحجم تداول • بيانات SAS PRO</small></div><div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">📊 البيانات الفنية التاريخية غير متاحة حاليًا<br><small>لم يتم اختلاق هدف أو وقف أو إشارة. سيتم إظهارها عند توفر بيانات الشموع والحجم.</small></div>':'<canvas id="stockCanvas" height="230"></canvas>')+'</div>'+
    '<div class="level-grid"><div><small>🟦 الدخول</small><b>&#36;'+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>&#36;'+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>&#36;'+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+rr+'</b></div></div>'+
    '<div class="ai-box"><b>'+(aiAvailable?'⏳ زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+
    '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
@@ -620,36 +620,30 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData){
    '<p class="mini-takeaway">'+escHtml(miniData?.mini_analysis?.takeaway||'تعذر تحميل تحليل SAS المختصر حاليًا.')+'</p>'+
    
  '</div>'+
- '<div class="chart-box"><canvas id="stockCanvas" height="230"></canvas></div>'+
+ '<div class="chart-title"><b>📈 شارت السهم</b><small>شموع وحجم تداول • بيانات SAS PRO</small></div><div class="chart-box"><canvas id="stockCanvas" height="260"></canvas></div>'+
  '<div class="news-list">'+(news.length?news.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'')+'</div>';
  if(chart?.available!==false) drawChart(Array.isArray(chart?.candles)?chart.candles:[]);
 }
 function drawChart(candles){
- const canvas=document.getElementById('stockCanvas'); if(!canvas)return;
- const dpr=Math.max(1,window.devicePixelRatio||1),w=canvas.clientWidth||600,h=230;
+ const canvas=document.getElementById('stockCanvas');if(!canvas)return;
+ const dpr=Math.max(1,window.devicePixelRatio||1),w=canvas.clientWidth||600,h=260;
  canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
- const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);
- ctx.clearRect(0,0,w,h);
- const bg=ctx.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#071a2a');bg.addColorStop(1,'#020b14');
- ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
- if(!candles.length){
-   ctx.fillStyle='#a9c1cf';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('لا توجد بيانات شموع متاحة',w/2,40);return;
- }
- const vals=candles.map(x=>Number(x.close)).filter(Number.isFinite);
- if(!vals.length){ctx.fillStyle='#a9c1cf';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('لا توجد أسعار صالحة للرسم',w/2,40);return;}
- const min=Math.min(...vals),max=Math.max(...vals),range=max-min||Math.max(max*.02,1),pad=range*.08;
- ctx.strokeStyle='rgba(91,211,255,.12)';ctx.lineWidth=1;
- for(let g=0;g<=4;g++){const y=18+g*(h-42)/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
- const points=candles.map((x,i)=>{
-   const v=Number(x.close),px=i*(w-30)/Math.max(1,candles.length-1)+15,py=h-20-((v-(min-pad))/(range+2*pad))*(h-44);return [px,py,v];
- }).filter(p=>Number.isFinite(p[2]));
- const grad=ctx.createLinearGradient(0,0,w,0);grad.addColorStop(0,'#28d7ff');grad.addColorStop(1,'#55f2b1');
- ctx.strokeStyle='rgba(40,215,255,.18)';ctx.lineWidth=9;ctx.beginPath();
- points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
- ctx.strokeStyle=grad;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();
- points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
- ctx.fillStyle='#d9f5ff';ctx.font='bold 11px sans-serif';ctx.textAlign='left';
- ctx.fillText('$'+money(max),10,14);ctx.fillText('$'+money(min),10,h-4);
+ const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+ const bg=ctx.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#071a2a');bg.addColorStop(1,'#020b14');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+ if(!Array.isArray(candles)||!candles.length){ctx.fillStyle='#a9c1cf';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('لا توجد بيانات شموع متاحة',w/2,42);return;}
+ const rows=candles.map(x=>({o:Number(x.open),h:Number(x.high),l:Number(x.low),c:Number(x.close),v:Number(x.volume)})).filter(x=>Number.isFinite(x.c)&&x.c>0);
+ if(!rows.length){ctx.fillStyle='#a9c1cf';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('لا توجد أسعار صالحة للرسم',w/2,42);return;}
+ const hasOHLC=rows.some(x=>Number.isFinite(x.o)&&Number.isFinite(x.h)&&Number.isFinite(x.l));
+ const highs=rows.map(x=>Number.isFinite(x.h)?x.h:x.c),lows=rows.map(x=>Number.isFinite(x.l)?x.l:x.c);
+ const min=Math.min(...lows),max=Math.max(...highs),range=max-min||Math.max(max*.02,.01),pad=range*.08;
+ const top=24,bottom=hasOHLC?h-48:h-22,plotH=bottom-top,y=v=>bottom-((v-(min-pad))/(range+2*pad))*plotH;
+ ctx.strokeStyle='rgba(91,211,255,.13)';ctx.lineWidth=1;
+ for(let g=0;g<=4;g++){const yy=top+g*plotH/4;ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(w,yy);ctx.stroke();const price=max+pad-(range+2*pad)*g/4;ctx.fillStyle='#8ba8b8';ctx.font='10px sans-serif';ctx.textAlign='left';ctx.fillText('$'+money(price),5,Math.max(11,yy-3));}
+ const step=(w-24)/rows.length,bodyW=Math.max(2,Math.min(9,step*.62));
+ if(hasOHLC){rows.forEach((x,i)=>{const px=12+i*step+step/2,open=Number.isFinite(x.o)?x.o:x.c,high=Number.isFinite(x.h)?x.h:Math.max(open,x.c),low=Number.isFinite(x.l)?x.l:Math.min(open,x.c),up=x.c>=open,color=up?'#26d9a0':'#ff657a';ctx.strokeStyle=color;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(px,y(high));ctx.lineTo(px,y(low));ctx.stroke();ctx.fillStyle=color;ctx.fillRect(px-bodyW/2,Math.min(y(open),y(x.c)),bodyW,Math.max(1.5,Math.abs(y(open)-y(x.c))));});}
+ else{const points=rows.map((x,i)=>[12+i*step+step/2,y(x.c)]);ctx.strokeStyle='#36d9ff';ctx.lineWidth=2;ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();}
+ if(hasOHLC&&rows.some(x=>Number.isFinite(x.v)&&x.v>0)){const maxV=Math.max(...rows.map(x=>Number.isFinite(x.v)?x.v:0)),base=h-8,volH=23;rows.forEach((x,i)=>{if(!Number.isFinite(x.v)||x.v<=0)return;const px=12+i*step+step/2,open=Number.isFinite(x.o)?x.o:x.c;ctx.fillStyle=x.c>=open?'rgba(38,217,160,.55)':'rgba(255,101,122,.55)';ctx.fillRect(px-bodyW/2,base-(x.v/maxV)*volH,bodyW,(x.v/maxV)*volH);});}
+ ctx.fillStyle='#d9f5ff';ctx.font='bold 11px sans-serif';ctx.textAlign='right';ctx.fillText('آخر إغلاق: $'+money(rows[rows.length-1].c),w-8,14);
 }
 function formatTime(v){return v?new Date(v).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}):'—';}
 function formatDateTime(v){return v?new Date(v).toLocaleString('ar-SA',{weekday:'long',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';}
