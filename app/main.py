@@ -219,8 +219,8 @@ async def startup():
             logging.getLogger(__name__).warning("Telegram polling task stopped unexpectedly.")
     telegram_polling_task.add_done_callback(_telegram_polling_done)
     logging.getLogger(__name__).warning(
-        "Background tasks started: scheduler=%s holiday_radar=%s telegram=%s",
-        scheduler_task.get_name(), holiday_radar_task.get_name(), telegram_polling_task.get_name()
+        "Background tasks started: scheduler=%s radar_health=%s telegram=%s",
+        scheduler_task.get_name(), radar_health_task.get_name(), telegram_polling_task.get_name()
     )
 
 async def telegram_polling_loop():
