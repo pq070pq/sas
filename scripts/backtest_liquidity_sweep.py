@@ -139,14 +139,13 @@ def evaluate(rows: list[dict], symbol: str, lookback: int, min_price: float,
         if price * candle["volume"] < min_dollar_volume:
             continue
         detected = sweep_at(rows, i, lookback, min_penetration_pct)
-        if not detected:
-            continue
         record = {
             "symbol": symbol.upper(),
             "date": candle["date"],
             "entry_close": round(price, 6),
-            "support_level": round(detected["support"], 6),
-            "penetration_pct": round(detected["penetration_pct"], 4),
+            "signal_type": "ict_sweep" if detected else "baseline_no_sweep",
+            "support_level": round(detected["support"], 6) if detected else None,
+            "penetration_pct": round(detected["penetration_pct"], 4) if detected else None,
             "dollar_volume": round(price * candle["volume"], 2),
         }
         for horizon in horizons:
@@ -217,7 +216,15 @@ def main() -> int:
             "min_penetration_pct": args.min_penetration_pct,
         },
         "diagnostics": diagnostics,
-        "summary": [summarize(all_signals, h) for h in horizons],
+        "summary": [
+            {
+                "horizon_sessions": h,
+                "ict_sweep": summarize([s for s in all_signals if s["signal_type"] == "ict_sweep"], h),
+                "baseline_no_sweep": summarize([s for s in all_signals if s["signal_type"] == "baseline_no_sweep"], h),
+                "comparison_note": "Observational comparison on eligible stock-days; not a causal test or live SAS classification replay.",
+            }
+            for h in horizons
+        ],
         "signals": all_signals,
         "limitations": [
             "Explicit symbol universe may have survivorship/selection bias.",
