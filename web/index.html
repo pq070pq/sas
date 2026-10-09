@@ -63,12 +63,12 @@
     <section class="market-ticker-wrap" aria-label="أسعار الأسواق">
       <div id="marketTicker" class="market-ticker"><div class="loading">جاري تحميل الأسعار...</div></div>
     </section>
-    <nav class="terminal-tabs">
-      <button class="active" data-tab="dashboard" onclick="switchTerminalTab('dashboard')">⌂ الرئيسية</button>
-      <button data-tab="radar" onclick="switchTerminalTab('radar')">📡 الرادار</button>
-      <button data-tab="search" onclick="switchTerminalTab('search')">🔎 بحث</button>
-      <button data-tab="watch" onclick="switchTerminalTab('watch')">★ المحفوظة</button>
-      <button data-tab="account" onclick="switchTerminalTab('account')">👤 الحساب</button>
+    <nav class="terminal-tabs" role="tablist" aria-label="أقسام المنصة">
+      <button class="active" role="tab" aria-selected="true" data-tab="dashboard" onclick="switchTerminalTab('dashboard')">⌂ الرئيسية</button>
+      <button role="tab" aria-selected="false" data-tab="radar" onclick="switchTerminalTab('radar')">📡 الرادار</button>
+      <button role="tab" aria-selected="false" data-tab="search" onclick="switchTerminalTab('search')">🔎 بحث</button>
+      <button role="tab" aria-selected="false" data-tab="watch" onclick="switchTerminalTab('watch')">★ المحفوظة</button>
+      <button role="tab" aria-selected="false" data-tab="account" onclick="switchTerminalTab('account')">👤 الحساب</button>
     </nav>
     <main class="terminal-main">
       <section id="tab-dashboard" class="terminal-tab active">
@@ -266,9 +266,9 @@
   </section>
 </div>
 
-<div id="termsModal" class="modal" hidden>
+<div id="termsModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="termsTitle">
   <div class="modal-card">
-    <div class="modal-head"><b>📋 شروط استخدام SAS PRO</b><button onclick="closeTerms()">×</button></div>
+    <div class="modal-head"><b id="termsTitle">📋 شروط استخدام SAS PRO</b><button aria-label="إغلاق" onclick="closeTerms()">×</button></div>
     <div id="termsText" class="terms-text"></div>
     <label class="terms-check" id="termsAgreeRow"><input id="termsAgree" type="checkbox" onchange="toggleTermsButton()"> <span><b>أوافق على شروط استخدام SAS PRO</b><small>أقر بأنني قرأت الشروط وفهمتها وأوافق عليها قبل بدء التجربة أو الشراء.</small></span></label>
     <div class="modal-actions">
