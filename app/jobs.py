@@ -615,7 +615,7 @@ async def stock_radar_cycle():
             ),
             reverse=True,
         )
-        logger.info("Stock radar scan completed: %d result(s); channel_limit=%s; diagnostics=%s", len(rows), channel_daily_limit or "unlimited", diagnostics)
+        logger.info("Stock radar scan completed: %d result(s); channel_limit=%s; diagnostics=%s", len(rows), (int(settings.radar_channel_daily_limit or 0) or "unlimited"), diagnostics)
 
         # تحقق الشرعية لأفضل المرشحين بالتوازي؛ لا يغيّر ترتيب الرادار ولا بوابة السعر.
         shariah_map = {}
