@@ -9,3 +9,4 @@ python-multipart==0.0.20
 
 google-api-python-client>=2.160.0
 google-auth>=2.37.0
+scrapegraph-py==2.3.1
