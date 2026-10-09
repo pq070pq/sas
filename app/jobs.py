@@ -126,6 +126,41 @@ async def expiry_cycle():
         await db.commit()
 
 
+async def expire_radar_signals(now=None):
+    """Deactivate opportunities after their fixed 24-hour lifetime.
+
+    Signal and outcome rows remain available for historical performance reports.
+    Expiry sends no Telegram message and never changes subscriptions or settings.
+    """
+    now = now or utcnow()
+    expired_count = 0
+    async with SessionLocal() as db:
+        signals = (await db.execute(
+            select(RadarSignal).where(
+                RadarSignal.expires_at.is_not(None),
+                RadarSignal.expires_at <= now,
+            )
+        )).scalars().all()
+        for signal in signals:
+            try:
+                payload = json.loads(signal.payload or "{}")
+            except (TypeError, ValueError):
+                payload = {}
+            if not isinstance(payload, dict):
+                payload = {}
+            changed = bool(payload.get("radar_active")) or payload.get("strategy_status") != "expired"
+            payload["radar_active"] = False
+            payload["strategy_status"] = "expired"
+            payload["strategy_inactive_reason"] = "انتهت صلاحية فرصة الرصد بعد 24 ساعة"
+            signal.payload = json.dumps(payload, ensure_ascii=False)
+            if changed:
+                expired_count += 1
+        await db.commit()
+    if expired_count:
+        logger.info("Radar expiry: deactivated %d opportunity(ies) after 24 hours.", expired_count)
+    return expired_count
+
+
 async def evaluate_radar_outcomes():
     """Evaluate only today's published radar signals with valid upward targets.
 
@@ -137,6 +172,7 @@ async def evaluate_radar_outcomes():
             select(RadarSignal).where(
                 RadarSignal.session_date == today_session,
                 RadarSignal.telegram_message_id.is_not(None),
+                RadarSignal.expires_at > utcnow(),
             )
         )).scalars().all()
         logger.info("Radar outcome evaluation: %d today's published signals.", len(signals))
