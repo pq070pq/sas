@@ -977,6 +977,17 @@ async def stock_radar_cycle():
                     "live_price_source": q.get("source") or row.get("live_price_source"),
                     "fundamentals": tech.get("fundamentals") or {},
                 })
+                tech["channel_gate"] = row.get("channel_gate") or {
+                    "passed": True,
+                    "session": status.get("session"),
+                    "reason": channel_reason,
+                }
+                tech["radar_candidate_status"] = (
+                    "اجتاز بوابة النشر الفنية — لا يضمن نجاح الصفقة"
+                    if classification.get("opportunity_status") == "confirmed" and classification.get("confirmation_ready")
+                    else "مرشح مرصود؛ بعض شروط التأكيد لم تكتمل"
+                )
+                tech["quality_score"] = row.get("quality_score")
                 report = build_report(symbol, q, tech, classification)
 
                 try:
