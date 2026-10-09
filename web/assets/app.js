@@ -562,7 +562,13 @@ const miniAnalysisHtml=
    '<div class="level-grid"><div><small>🟦 الدخول</small><b>&#36;'+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>&#36;'+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>&#36;'+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+rr+'</b></div></div>'+
    '<div class="ai-box"><b>'+(aiAvailable?'⏳ زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+
    '<div class="news-list">'+(newsFromAnalysis.length?newsFromAnalysis.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>')+'</div>'+
-   '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>'; drawChart(chart.candles||[]);
+   '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
+ const chartCandles=Array.isArray(chart.candles)?chart.candles:[];
+ requestAnimationFrame(()=>drawChart(chartCandles));
+ if(!chartCandles.length){
+   const box=el.querySelector('.chart-box');
+   if(box)box.insertAdjacentHTML('beforeend','<div class="chart-status">لا توجد شموع تاريخية مستلمة من الخادم لهذا السهم حاليًا.</div>');
+ }
 }
 async function openPrivateAnalysis(symbol){
  symbol=String(symbol||'').trim().toUpperCase();
@@ -622,11 +628,18 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData){
  '</div>'+
  '<div class="chart-title"><b>📈 شارت السهم</b><small>شموع وحجم تداول • بيانات SAS PRO</small></div><div class="chart-box"><canvas id="stockCanvas" height="260"></canvas></div>'+
  '<div class="news-list">'+(news.length?news.slice(0,5).map(n=>'<a href="'+escHtml(n.url||'#')+'" target="_blank"><b>'+escHtml(n.headline||n.title||'خبر')+'</b><small>'+escHtml(n.source||'مصدر')+'</small></a>').join(''):'')+'</div>';
- if(chart?.available!==false) drawChart(Array.isArray(chart?.candles)?chart.candles:[]);
+ const partialCandles=Array.isArray(chart?.candles)?chart.candles:[];
+ requestAnimationFrame(()=>drawChart(partialCandles));
+ if(!partialCandles.length){
+   const box=el.querySelector('.chart-box');
+   if(box)box.insertAdjacentHTML('beforeend','<div class="chart-status">لم تصل بيانات شموع تاريخية من الخادم؛ السعر المعروض لا يكفي لرسم شارت.</div>');
+ }
 }
-function drawChart(candles){
+function drawChart(candles,attempt=0){
  const canvas=document.getElementById('stockCanvas');if(!canvas)return;
- const dpr=Math.max(1,window.devicePixelRatio||1),w=canvas.clientWidth||600,h=260;
+ const actualWidth=canvas.getBoundingClientRect().width;
+ if(actualWidth<2){if(attempt<10)requestAnimationFrame(()=>drawChart(candles,attempt+1));return;}
+ const dpr=Math.max(1,window.devicePixelRatio||1),w=actualWidth,h=260;
  canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
  const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
  const bg=ctx.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#071a2a');bg.addColorStop(1,'#020b14');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
