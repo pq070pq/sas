@@ -125,21 +125,28 @@ function safeNewsUrl(value){
   return url.href;
  }catch{return '';}
 }
-function renderNewsItems(items,limit=5){
- if(!Array.isArray(items)||!items.length)return '<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>';
- return items.slice(0,limit).map(n=>{
-  n=n&&typeof n==='object'?n:{};
-  const headline=escHtml(n.headline||n.title||'خبر');
-  const source=escHtml(n.source||'مصدر غير محدد');
-  const url=safeNewsUrl(n.url);
-  const aiSummary=String(n.ai_summary||'').trim();
-  const sourceSummary=String(n.summary||'').trim();
-  const summary=aiSummary||sourceSummary;
-  const label=aiSummary?'مختصر AI':sourceSummary?'ملخص المصدر':'الملخص';
-  const basis=aiSummary&&n.ai_summary_basis==='headline_only'?' <small>(من العنوان فقط)</small>':'';
-  const body='<b>'+headline+'</b><small>'+source+'</small><span style="display:block;white-space:normal;margin-top:6px;line-height:1.55"><strong>'+label+':</strong> '+escHtml(summary||'لا يتوفر مختصر لهذا الخبر.')+basis+'</span>';
-  return url?'<a class="news-entry" href="'+escHtml(url)+'" target="_blank" rel="noopener noreferrer">'+body+'</a>':'<div class="news-entry">'+body+'</div>';
- }).join('');
+function renderNewsItems(items,limit=5,translatedItems=[]){
+  if(!Array.isArray(items)||!items.length)return '<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>';
+  const translations=Array.isArray(translatedItems)?translatedItems:[];
+  const byUrl=new Map(translations.filter(x=>x&&typeof x==='object'&&safeNewsUrl(x.url)).map(x=>[safeNewsUrl(x.url),x]));
+  return items.slice(0,limit).map(n=>{
+   n=n&&typeof n==='object'?n:{};
+   const url=safeNewsUrl(n.url);
+   const originalHeadline=String(n.headline||n.title||'خبر');
+   const translated=(url&&byUrl.get(url))||translations.find(x=>x&&typeof x==='object'&&String(x.headline||'').trim()===originalHeadline.trim());
+   const translatedHeadline=String(translated?.translated_headline||'').trim();
+   const headline=escHtml(translatedHeadline||originalHeadline);
+   const originalTitle=translatedHeadline&&translatedHeadline!==originalHeadline?'<small class="news-original-title">العنوان الأصلي: '+escHtml(originalHeadline)+'</small>':'';
+   const source=escHtml(n.source||translated?.source||'مصدر غير محدد');
+   const aiSummary=String(translated?.summary||n.ai_summary||'').trim();
+   const sourceSummary=String(n.summary||'').trim();
+   const summary=aiSummary||sourceSummary;
+   const label=aiSummary?'الملخص بالعربية':sourceSummary?'ملخص المصدر':'الملخص';
+   const basis=(translated?.basis==='headline_only'||n.ai_summary_basis==='headline_only')?' <small>(مبني على العنوان فقط)</small>':'';
+   const untranslated=!translatedHeadline&&!aiSummary?' <small>(الترجمة غير متاحة لهذا الخبر حاليًا)</small>':'';
+   const body='<b>'+headline+'</b>'+originalTitle+'<small>'+source+(url?' • ↗ اضغط لفتح المصدر الأصلي':'')+'</small><span style="display:block;white-space:normal;margin-top:6px;line-height:1.55"><strong>'+label+':</strong> '+escHtml(summary||'لا يتوفر مختصر موثوق لهذا الخبر.')+basis+untranslated+'</span>';
+   return url?'<a class="news-entry" href="'+escHtml(url)+'" target="_blank" rel="noopener noreferrer">'+body+'</a>':'<div class="news-entry">'+body+'</div>';
+  }).join('');
 }
 function money(v){const n=Number(v);return Number.isFinite(n)&&n>0?n.toLocaleString('en-US',{minimumFractionDigits:n<10?2:0,maximumFractionDigits:4}):'—';}
 function pct(v){const n=Number(v);return Number.isFinite(n)?(n>=0?'+':'')+n.toFixed(2)+'%':'—';}
@@ -586,7 +593,7 @@ const miniAnalysisHtml=
    '<div class="chart-title"><b>📈 شارت السهم</b><div class="chart-title-actions"><small>شموع وحجم تداول • بيانات SAS PRO</small><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">↗ فتح GoCharting</a></div></div><div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">📊 البيانات الفنية التاريخية غير متاحة حاليًا<br><small>لم يتم اختلاق هدف أو وقف أو إشارة. سيتم إظهارها عند توفر بيانات الشموع والحجم.</small></div>':'<canvas id="stockCanvas" height="230"></canvas>')+'</div>'+
    '<div class="level-grid"><div><small>🟦 الدخول</small><b>&#36;'+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>&#36;'+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>&#36;'+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+rr+'</b></div></div>'+
    '<div class="ai-box"><b>'+(aiAvailable?'⏳ زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+
-   '<div class="news-list">'+renderNewsItems(newsFromAnalysis,5)+'</div>'+
+   '<div class="news-list">'+renderNewsItems(newsFromAnalysis,5,Array.isArray(ai.news_summaries)?ai.news_summaries:[])+'</div>'+
    '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
  const chartCandles=Array.isArray(chart.candles)?chart.candles:[];
  requestAnimationFrame(()=>drawChart(chartCandles));
