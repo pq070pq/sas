@@ -1160,7 +1160,7 @@ async def stock_radar_cycle():
         # رسالة الحالة تُرسل فقط عند عدم وجود أي سهم يستحق الإرسال للقناة.
         # لا تتكرر في كل دورة: تُعاد فقط عندما تتغير الحالة من "فرصة موجودة"
         # إلى "لا توجد فرصة مؤكدة". وإذا ظهرت فرصة، نعيد تسليح الرسالة للدورة التالية.
-        if channel_gate_passed > 0:
+        if channel_gate_passed > 0 or cycle_stats["sent"] > 0:
             _radar_no_opportunity_announced = False
         elif not _radar_no_opportunity_announced:
             try:
