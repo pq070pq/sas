@@ -601,8 +601,8 @@ async def stock_radar_cycle():
             except Exception:
                 logger.exception("Quality score failed for %s; keeping safe neutral score.", row.get("symbol"))
                 row["quality_score"] = score_quality({})
-        # القناة: نرتب جميع الفرص أولاً ثم نسمح بأفضل 5 إشارات فقط.
-        # التطبيق يستقبل القائمة الكاملة دون هذا القيد.
+        # القناة: ننشر كل سهم أخرجه الرادار؛ الترتيب يحدد الأولوية فقط ولا يخفي بقية المرشحين.
+        # يظهر في التقرير ما تحقق وما لم يتحقق، ولا يعني الرصد أن السهم فرصة مؤكدة.
         rows = sorted(
             rows,
             key=lambda r: (
@@ -615,7 +615,7 @@ async def stock_radar_cycle():
             ),
             reverse=True,
         )
-        logger.info("Stock radar scan completed: %d result(s); channel_limit=5; diagnostics=%s", len(rows), diagnostics)
+        logger.info("Stock radar scan completed: %d result(s); channel_limit=unlimited; diagnostics=%s", len(rows), diagnostics)
 
         # تحقق الشرعية لأفضل المرشحين بالتوازي؛ لا يغيّر ترتيب الرادار ولا بوابة السعر.
         shariah_map = {}
@@ -655,7 +655,7 @@ async def stock_radar_cycle():
             # إذا فقد السهم شروط الرادار يُوسم غير نشط ويخرج من التطبيق،
             # وتدخل فرصة مؤهلة أخرى مكانه.
             daily_app_limit = max(1, int(settings.radar_app_daily_limit or 15))
-            channel_daily_limit = max(1, int(settings.radar_channel_daily_limit or 5))
+            channel_daily_limit = 0  # Publish every detected candidate; no daily channel cap.
             daily_rows = (await db.execute(
                 select(RadarSignal).where(RadarSignal.session_date == session_date)
             )).scalars().all()
@@ -700,8 +700,8 @@ async def stock_radar_cycle():
                 await db.commit()
 
             logger.info(
-                "RADAR_DAILY_LIMITS session=%s app_current_limit=%d channel=%d/%d",
-                session_date, daily_app_limit, daily_channel_sent, channel_daily_limit,
+                "RADAR_DAILY_LIMITS session=%s app_current_limit=%d channel_sent=%d channel_limit=unlimited",
+                session_date, daily_app_limit, daily_channel_sent,
             )
 
             # اجلب الأسعار الحية دفعةً واحدة بالتوازي. السعر الحي شرط نشر، لكنه
@@ -811,117 +811,85 @@ async def stock_radar_cycle():
                     except Exception:
                         await db.rollback()
                         logger.exception("Radar watch candidate persistence failed: %s", symbol)
+                    # Send the detection as a clearly labelled watch report rather than hiding it.
+                    # It is not a confirmed signal; the report lists the gate failure and technical checks.
+                    try:
+                        row["channel_delivery"] = {
+                            "published": True,
+                            "app_visible": False,
+                            "reason": "تم رصد السهم، لكن شروط تأكيد النشر لم تكتمل",
+                        }
+                        tech["channel_gate"] = row["channel_gate"]
+                        tech["radar_candidate_status"] = "مرشح تحت المراقبة — لم يجتز بوابة التأكيد"
+                        tech["quality_score"] = row.get("quality_score")
+                        tech["volume"] = row.get("volume")
+                        tech["shariah"] = shariah_map.get(symbol) or {
+                            "status": "unknown",
+                            "status_ar": "غير واضح / يحتاج تحقق",
+                            "verified": False,
+                            "message": "لم تتوفر نتيجة تحقق موثقة.",
+                            "sources": [],
+                        }
+                        watch_report = build_report(symbol, q, tech, classification)
+                        watch_report += (
+                            "\\n\\n👀 <b>حالة الرادار: مرشح للمراقبة — ليست إشارة مؤكدة</b>"
+                            f"\\n🔎 <b>سبب عدم اكتمال التأكيد:</b> {channel_reason}"
+                            "\\n📋 أُرسل التقرير لإظهار ما تحقق وما لم يتحقق، وليس كتوصية تداول."
+                        )
+                        send_result = await send_message(settings.telegram_channel_id, watch_report)
+                        watch_message_id = send_result.get("message_id") if isinstance(send_result, dict) else None
+                        if watch_message_id:
+                            if existing is not None:
+                                existing.telegram_message_id = int(watch_message_id)
+                                existing.payload = json.dumps(row, ensure_ascii=False)
+                                await db.commit()
+                            cycle_stats["sent"] += 1
+                            daily_channel_sent += 1
+                        else:
+                            cycle_stats["failed"] += 1
+                            delivery_errors[symbol] = "Telegram لم يُرجع message_id لرسالة المراقبة"
+                    except Exception:
+                        await db.rollback()
+                        cycle_stats["failed"] += 1
+                        logger.exception("Radar watch report delivery failed: %s", symbol)
+                    _radar_seen.add(symbol)
                     logger.info(
-                        "Radar channel gate skipped: %s | session=%s | reason=%s",
+                        "Radar candidate sent as watch report: %s | session=%s | gate_reason=%s",
                         symbol, status.get("session"), channel_reason,
                     )
                     continue
 
                 channel_gate_passed += 1
                 confirmation_stats["gate_passed"] += 1
-                # لا نسمح بأكثر من 15 فرصة مؤكدة نشطة في التطبيق.
-                # ترتيب rows تم حسمه مسبقًا حسب جودة الفرصة، لذلك الفرص خارج
-                # أول 15 تبقى مراقبة ولا تظهر كفرص نشطة في التطبيق.
-                if symbol not in app_active_symbols and app_active_count >= daily_app_limit:
-                    row["channel_gate"] = {
-                        "passed": True,
-                        "session": status.get("session"),
-                        "reason": channel_reason,
-                    }
-                    row["radar_active"] = False
-                    row["channel_delivery"] = {
-                        "published": False,
-                        "app_visible": False,
-                        "reason": f"تم الوصول إلى الحد الحالي للتطبيق ({daily_app_limit})",
-                        "limit": daily_app_limit,
-                    }
-                    try:
-                        if existing:
-                            existing.payload = json.dumps(row, ensure_ascii=False)
-                            existing.created_at = utcnow()
-                        else:
-                            existing = RadarSignal(
-                                symbol=symbol,
-                                session_date=session_date,
-                                payload=json.dumps(row, ensure_ascii=False),
-                            )
-                            db.add(existing)
-                        await db.commit()
-                    except Exception:
-                        await db.rollback()
-                        logger.exception("Radar app-cap persistence failed: %s", symbol)
-                    cycle_stats["skipped"] += 1
-                    _radar_seen.add(symbol)
-                    continue
-
-                if symbol not in app_active_symbols:
-                    app_active_symbols.add(symbol)
-                    app_active_count += 1
+                # التطبيق يبقي سقف الفرص النشطة مستقلًا؛ هذا السقف لا يمنع نشر المرشح للقناة.
+                app_cap_reached = (
+                    symbol not in app_active_symbols
+                    and app_active_count >= daily_app_limit
+                )
                 row["channel_gate"] = {
                     "passed": True,
                     "session": status.get("session"),
                     "reason": channel_reason,
                 }
-                row["radar_active"] = True
-
-                # التطبيق يعرض فقط الفرص المؤكدة التي دخلت سقف الـ15 الحالي.
-                if daily_channel_sent >= channel_daily_limit:
-                    channel_app_only += 1
+                row["radar_active"] = not app_cap_reached
+                if app_cap_reached:
                     row["channel_delivery"] = {
-                        "published": False,
-                        "reason": f"تم الوصول إلى الحد اليومي للقناة ({channel_daily_limit})",
-                        "limit": channel_daily_limit,
+                        "published": True,
+                        "app_visible": False,
+                        "reason": f"أُرسل للقناة، لكنه خارج حد الفرص النشطة في التطبيق ({daily_app_limit})",
+                        "limit": daily_app_limit,
                     }
-                    try:
-                        if existing:
-                            existing.payload = json.dumps(row, ensure_ascii=False)
-                            existing.created_at = utcnow()
-                        else:
-                            existing = RadarSignal(
-                                symbol=symbol,
-                                session_date=session_date,
-                                payload=json.dumps(row, ensure_ascii=False),
-                            )
-                            db.add(existing)
-                        await db.commit()
-                    except Exception:
-                        await db.rollback()
-                        logger.exception("Radar app-only candidate persistence failed: %s", symbol)
-                    _radar_seen.add(symbol)
-                    continue
-
-                # هذا السهم أصبح ضمن قائمة فرص اليوم في التطبيق.
-                daily_app_symbols.add(symbol)
-                if daily_channel_sent >= channel_daily_limit:
-                    channel_app_only += 1
+                else:
+                    if symbol not in app_active_symbols:
+                        app_active_symbols.add(symbol)
+                        app_active_count += 1
+                    daily_app_symbols.add(symbol)
                     row["channel_delivery"] = {
-                        "published": False,
-                        "reason": f"تم الوصول إلى الحد اليومي للقناة ({channel_daily_limit})",
-                        "limit": channel_daily_limit,
+                        "published": True,
+                        "app_visible": True,
+                        "rank": daily_channel_sent + 1,
+                        "limit": None,
                     }
-                    try:
-                        if existing:
-                            existing.payload = json.dumps(row, ensure_ascii=False)
-                            existing.created_at = utcnow()
-                        else:
-                            existing = RadarSignal(
-                                symbol=symbol,
-                                session_date=session_date,
-                                payload=json.dumps(row, ensure_ascii=False),
-                            )
-                            db.add(existing)
-                        await db.commit()
-                    except Exception:
-                        await db.rollback()
-                        logger.exception("Radar app-only candidate persistence failed: %s", symbol)
-                    _radar_seen.add(symbol)
-                    continue
-
-                row["channel_delivery"] = {
-                    "published": True,
-                    "rank": daily_channel_sent + 1,
-                    "limit": channel_daily_limit,
-                }
 
                 # AI enrichment runs only after the technical radar has already
                 # selected the candidate. It cannot create a signal, target,
@@ -1010,6 +978,17 @@ async def stock_radar_cycle():
                     "live_price_source": q.get("source") or row.get("live_price_source"),
                     "fundamentals": tech.get("fundamentals") or {},
                 })
+                tech["channel_gate"] = row.get("channel_gate") or {
+                    "passed": True,
+                    "session": status.get("session"),
+                    "reason": channel_reason,
+                }
+                tech["radar_candidate_status"] = (
+                    "اجتاز بوابة النشر الفنية — لا يضمن نجاح الصفقة"
+                    if classification.get("opportunity_status") == "confirmed" and classification.get("confirmation_ready")
+                    else "مرشح مرصود؛ بعض شروط التأكيد لم تكتمل"
+                )
+                tech["quality_score"] = row.get("quality_score")
                 report = build_report(symbol, q, tech, classification)
 
                 try:
@@ -1076,7 +1055,7 @@ async def stock_radar_cycle():
         # رسالة الحالة تُرسل فقط عند عدم وجود أي سهم يستحق الإرسال للقناة.
         # لا تتكرر في كل دورة: تُعاد فقط عندما تتغير الحالة من "فرصة موجودة"
         # إلى "لا توجد فرصة مؤكدة". وإذا ظهرت فرصة، نعيد تسليح الرسالة للدورة التالية.
-        if channel_gate_passed > 0:
+        if channel_gate_passed > 0 or cycle_stats.get("sent", 0) > 0:
             _radar_no_opportunity_announced = False
         elif not _radar_no_opportunity_announced:
             try:
