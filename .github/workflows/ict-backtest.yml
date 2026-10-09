@@ -1,6 +1,8 @@
 name: SAS PRO ICT historical backtest
 
 on:
+  pull_request:
+    branches: [fix/sas-multi-signal-opportunities]
   workflow_dispatch:
     inputs:
       symbols:
