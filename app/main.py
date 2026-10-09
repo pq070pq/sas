@@ -23,6 +23,7 @@ from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
 from .news import company_news, corporate_events, tipranks_analysis
 from .news_translation import translate_stock_news
+from .catalyst_intelligence import enrich_catalyst_news
 from .scheduler import scheduler
 from .market_calendar import market_status, us_market_holidays
 from .holiday_radar import stock_radar_enabled
@@ -2644,7 +2645,13 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         analysis_payload["news_summaries"] = translated_news
     except Exception:
         analysis_payload["news_summaries"] = []
-    targets["news_items"] = news_for_display
+    # Optional structured catalyst extraction from up to three existing news URLs.
+    # SEC filings remain on the official SEC API path; this layer never gates radar signals.
+    try:
+        enriched_news = await enrich_catalyst_news(symbol, news_for_display)
+    except Exception:
+        enriched_news = news_for_display
+    targets["news_items"] = enriched_news
     if isinstance(tipranks_data, dict) and tipranks_data:
         tipranks_data["summary"] = analysis_payload.get("tipranks_summary") or "غير متوفر"
         tipranks_data["signal"] = analysis_payload.get("tipranks_signal") or "غير واضح"
