@@ -811,8 +811,49 @@ async def stock_radar_cycle():
                     except Exception:
                         await db.rollback()
                         logger.exception("Radar watch candidate persistence failed: %s", symbol)
+                    # Send the detection as a clearly labelled watch report rather than hiding it.
+                    # It is not a confirmed signal; the report lists the gate failure and technical checks.
+                    try:
+                        row["channel_delivery"] = {
+                            "published": True,
+                            "app_visible": False,
+                            "reason": "تم رصد السهم، لكن شروط تأكيد النشر لم تكتمل",
+                        }
+                        tech["channel_gate"] = row["channel_gate"]
+                        tech["radar_candidate_status"] = "مرشح تحت المراقبة — لم يجتز بوابة التأكيد"
+                        tech["quality_score"] = row.get("quality_score")
+                        tech["volume"] = row.get("volume")
+                        tech["shariah"] = shariah_map.get(symbol) or {
+                            "status": "unknown",
+                            "status_ar": "غير واضح / يحتاج تحقق",
+                            "verified": False,
+                            "message": "لم تتوفر نتيجة تحقق موثقة.",
+                            "sources": [],
+                        }
+                        watch_report = build_report(symbol, q, tech, classification)
+                        watch_report += (
+                            "\\n\\n👀 <b>حالة الرادار: مرشح للمراقبة — ليست إشارة مؤكدة</b>"
+                            f"\\n🔎 <b>سبب عدم اكتمال التأكيد:</b> {channel_reason}"
+                            "\\n📋 أُرسل التقرير لإظهار ما تحقق وما لم يتحقق، وليس كتوصية تداول."
+                        )
+                        send_result = await send_message(settings.telegram_channel_id, watch_report)
+                        watch_message_id = send_result.get("message_id") if isinstance(send_result, dict) else None
+                        if watch_message_id:
+                            existing.telegram_message_id = int(watch_message_id)
+                            existing.payload = json.dumps(row, ensure_ascii=False)
+                            await db.commit()
+                            cycle_stats["sent"] += 1
+                            daily_channel_sent += 1
+                        else:
+                            cycle_stats["failed"] += 1
+                            delivery_errors[symbol] = "Telegram لم يُرجع message_id لرسالة المراقبة"
+                    except Exception:
+                        await db.rollback()
+                        cycle_stats["failed"] += 1
+                        logger.exception("Radar watch report delivery failed: %s", symbol)
+                    _radar_seen.add(symbol)
                     logger.info(
-                        "Radar channel gate skipped: %s | session=%s | reason=%s",
+                        "Radar candidate sent as watch report: %s | session=%s | gate_reason=%s",
                         symbol, status.get("session"), channel_reason,
                     )
                     continue
