@@ -93,12 +93,19 @@ jobs:
             # لا نعيد بناء PanWatch مع كل تحديث لـ SAS PRO؛ هذا كان يطيل النشر
             # ويضغط الذاكرة على OVH رغم أن أغلب التغييرات تخص تطبيق SAS فقط.
             docker compose build --pull=false saspro
-            docker rm -f saspro-saspro-1 2>/dev/null || true
             docker compose up -d --no-deps saspro
             docker compose ps saspro
-            # انتظر حتى تستقر الحاوية قبل بدء اختبار الإقلاع.
+            # لا نفترض اسم حاوية Compose ثابتًا؛ استخرج المعرف الفعلي من الخدمة.
+            container_id=$(docker compose ps -q saspro)
+            if [ -z "$container_id" ]; then
+              echo "❌ Docker Compose did not return a container ID for saspro."
+              docker compose ps -a saspro || true
+              docker compose logs --tail=120 saspro || true
+              exit 1
+            fi
+            echo "SAS_PRO_CONTAINER_ID=$container_id"
             for i in 1 2 3 4 5 6 7 8 9 10; do
-              status=$(docker inspect -f '{{.State.Status}}' saspro-saspro-1 2>/dev/null || true)
+              status=$(docker inspect -f '{{.State.Status}}' "$container_id" 2>/dev/null || true)
               if [ "$status" = "running" ]; then break; fi
               sleep 2
             done
@@ -113,6 +120,14 @@ jobs:
           script: |
             set -e
             cd /opt/saspro
+            container_id=$(docker compose ps -q saspro)
+            if [ -z "$container_id" ]; then
+              echo "❌ Docker Compose did not return a container ID for saspro."
+              docker compose ps -a saspro || true
+              docker compose logs --tail=200 saspro || true
+              exit 1
+            fi
+            echo "SAS_PRO_CONTAINER_ID=$container_id"
 
             # لا نشغل Python داخل الحاوية أثناء الاختبار؛ إذا كانت الذاكرة
             # منخفضة قد يقتل النظام عملية docker exec نفسها ويظهر الخطأ 137
@@ -120,16 +135,16 @@ jobs:
             set +e
             echo "===== SAS PRO container state ====="
             docker compose ps saspro
-            docker inspect -f 'status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} started={{.State.StartedAt}} finished={{.State.FinishedAt}}' saspro-saspro-1 2>/dev/null || true
+            docker inspect -f 'status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} started={{.State.StartedAt}} finished={{.State.FinishedAt}}' "$container_id" 2>/dev/null || true
             echo "===== OVH memory ====="
             free -h 2>/dev/null || true
             echo "===== SAS PRO stats ====="
-            docker stats --no-stream saspro-saspro-1 2>/dev/null || true
+            docker stats --no-stream "$container_id" 2>/dev/null || true
             echo "===== SAS PRO recent logs ====="
             docker compose logs --tail=160 saspro 2>/dev/null || true
             echo "===== END SAS PRO recent logs ====="
 
-            status=$(docker inspect -f '{{.State.Status}}' saspro-saspro-1 2>/dev/null || echo "missing")
+            status=$(docker inspect -f '{{.State.Status}}' "$container_id" 2>/dev/null || echo "missing")
             if [ "$status" != "running" ]; then
               echo "❌ SAS PRO container is not running."
               exit 1
@@ -155,7 +170,7 @@ jobs:
             if [ "$health_ok" -ne 1 ]; then
               echo "❌ SAS PRO health endpoint failed after readiness window."
               cat /tmp/saspro_health.err 2>/dev/null || true
-              docker inspect -f 'status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}}' saspro-saspro-1 2>/dev/null || true
+              docker inspect -f 'status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}}' "$container_id" 2>/dev/null || true
               docker compose logs --tail=200 saspro 2>/dev/null || true
               exit 1
             fi
