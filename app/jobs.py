@@ -387,8 +387,12 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
     classification = row.get("classification") or {}
     # لا تسمح بوابة القناة أو التطبيق بفرصة "مراقبة" غير مكتملة.
     # يجب أن يعلن scanner.py صراحةً أن الهدف/الوقف/R:R مكتملة.
-    if classification.get("opportunity_status") != "confirmed" or not bool(classification.get("confirmation_ready")):
-        return False, "الفرصة ما زالت تحت المراقبة ولم تكتمل شروط التأكيد"
+    multi_signal_count = int(classification.get("bullish_signal_count") or 0)
+    if (
+        (classification.get("opportunity_status") != "confirmed" or not bool(classification.get("confirmation_ready")))
+        and multi_signal_count < 2
+    ):
+        return False, "الفرصة ما زالت تحت المراقبة ولم تتجمع إشارتان صاعدتان على الأقل"
     targets = row.get("targets") or {}
     price = None
     try:
@@ -428,10 +432,16 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
         or quote_source in {"", "unavailable"}
     ):
         return False, "لا يوجد سعر لحظي موثوق للجلسة الحالية"
-    if classification.get("distribution_risk") or classification.get("bearish_head_shoulders"):
-        return False, "تناقض هابط قوي"
-    if classification.get("chase_risk"):
-        return False, "مطاردة سعرية"
+    # A single technical warning is not a veto when multiple bullish signals agree.
+    # Block only a combined bearish conflict; otherwise retain the warning in the report.
+    if (
+        classification.get("distribution_risk")
+        and classification.get("bearish_head_shoulders")
+        and classification.get("market_structure_bearish")
+    ):
+        return False, "تعارض هابط مركب: توزيع + رأس وكتفين هابط + بنية هابطة"
+    if classification.get("chase_risk") and multi_signal_count < 3:
+        return False, "مطاردة سعرية دون تأكيدات صاعدة كافية"
     # لا نكرر قرار الرادار هنا. scanner.py هو صاحب قرار صلاحية الفرصة.
     # بوابة القناة تتحقق فقط من سلامة بيانات النشر ومخاطر الإرسال، حتى لا
     # تظهر الفرصة في الرادار ثم تختفي بسبب فلتر ثانٍ مختلف.
