@@ -76,12 +76,18 @@ The screenshots below use the English interface; Simplified Chinese is available
 docker run -d \
   --name panwatch \
   --restart unless-stopped \
+  -e TZ=Asia/Shanghai \
   -p 8000:8000 \
   -v panwatch_data:/app/data \
   sunxiao0721/panwatch:latest
 ```
 
 Open `http://localhost:8000` and create your login credentials.
+
+Set `TZ` explicitly for background schedules and notification quiet hours, for example
+`-e TZ=UTC` or `-e TZ=America/New_York`. The image defaults to `Asia/Shanghai` and does
+not detect the host timezone. Interface timestamps and alert expiry inputs use the
+browser timezone. [Timezone policy](docs/timezones.md)
 
 <details>
 <summary>Initial setup</summary>
@@ -101,6 +107,8 @@ services:
   panwatch:
     image: sunxiao0721/panwatch:latest
     container_name: panwatch
+    environment:
+      TZ: "Asia/Shanghai"
     ports:
       - "8000:8000"
     volumes:
@@ -114,6 +122,10 @@ volumes:
 ```bash
 docker compose up -d
 ```
+
+Change `environment.TZ` to your IANA timezone and run `docker compose up -d` to recreate
+the container. Review existing cron and quiet-hour wall times before changing it;
+the same `09:00` schedule will run at a different instant. Keep the data volume.
 
 </details>
 
@@ -153,6 +165,10 @@ Select the brain icon beside a holding to start TradingAgents deep analysis. Fou
 - Published 2026 closures and half-days are bundled locally. Startup warms only the previous 30 and next 90 days, without downloading full history. Unpublished weekdays show a pending calendar and block automatic execution; the bundled annual data must be updated for the next year.
 - Agent Cron/interval settings remain unchanged; execution and schedule previews share calendar filters. Price alerts in “all day” mode still require a trading day.
 - Paper fills require an open session for that stock's market. Paper notifications follow each exchange's local clock, including half-days and U.S. daylight-saving changes.
+- Mainland China paper positions follow T+1 using the Shanghai purchase date: automatic and manual sells are blocked on the purchase date and allowed from the next trading day, without waiting 24 hours. Prices and unrealized P&L continue updating while locked; stop-loss, take-profit and other exit conditions are checked again when selling becomes available, using the then-current quote.
+- Paper cash settlement is separate from sell eligibility: A shares settle T+1 and allow sale proceeds to fund new purchases immediately; HK (T+2) and US (T+1) use a cash account that only buys with settled, unreserved funds. The page shows cash balance, buying power, settled available cash and outstanding sale proceeds. Purchases reserve cash immediately; settlement changes availability without crediting cash or P&L again.
+- Settlement dates use each market's local calendar. HK half-days are non-settlement days; US Columbus Day and Veterans Day also defer settlement even when stocks trade. The simulation releases funds at the start of the due date, rather than modeling intraday clearing batches, withdrawal cutoffs, margin, FX or broker-specific facilities. Existing balances are treated as settled opening funds; historical trades are not retroactively locked. Unknown future calendars keep new outstanding proceeds pending until calendar data is updated.
+- Rule references: [HKEX settlement and half-days](https://www.hkex.com.hk/-/media/HKEX-Market/Services/Circulars-and-Notices/Participant-and-Members-Circulars/SEHK/2025/ce_SEHK_CT_075_2025.pdf), [SEC T+1](https://www.sec.gov/exams/educationhelpguidesfaqs/t1-faq), [DTC 2026 holidays](https://www.dtcc.com/-/media/Files/pdf/2025/10/15/23034-25.pdf).
 
 </details>
 
@@ -186,7 +202,7 @@ Select the brain icon beside a holding to start TradingAgents deep analysis. Fou
 | `AUTH_PASSWORD` | Preconfigured login password | Set on first visit |
 | `JWT_SECRET` | Secret used to sign JWTs | Generated automatically |
 | `DATA_DIR` | Data storage directory | `./data` |
-| `TZ` | Application timezone for Agent schedules; market-calendar times follow the browser timezone | `Asia/Shanghai` |
+| `TZ` | Deployment timezone for Agent schedules and notification quiet hours; interface display/input use the browser timezone | `Asia/Shanghai` |
 | `PLAYWRIGHT_SKIP_BROWSER_INSTALL` | Skip the initial Chromium installation when browser features are not required | Not set |
 | `LOG_LEVEL` | Console log level. `INFO` prints business events and errors; use `DEBUG` for scheduler heartbeats, collection steps, and other diagnostics. The UI log panel always retains the complete log. | `INFO` |
 | `HTTP_PROXY` / `HTTPS_PROXY` / `http_proxy` | Outbound HTTP proxy. Configure it through an external environment variable, `http_proxy=http://host:port` in `.env`, or **Settings → Global HTTP Proxy**. Priority: external environment variables > UI > `.env`. `NO_PROXY` includes `localhost,127.0.0.1` by default. | Not set |
