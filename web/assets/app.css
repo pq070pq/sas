@@ -1945,3 +1945,22 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-countdown-foot{display:block;text-align:center;color:#7f9eaf;font-size:11px;margin-top:9px}
 .sas-countdown-detail{margin-top:12px;padding:11px 13px;border-radius:13px;background:rgba(2,10,19,.58);border:1px solid rgba(108,154,177,.12);color:#a9c5d4;font-size:12px;line-height:1.8}
 @media(max-width:420px){.sas-open-countdown{padding:13px;border-radius:19px}.sas-countdown-cards{gap:8px}.sas-countdown-card{padding:12px 9px}.sas-countdown-card-top{font-size:11px}.sas-countdown-time{font-size:clamp(18px,5vw,24px);letter-spacing:0}.sas-countdown-foot{font-size:10px}.sas-countdown-live{font-size:10px;padding:6px 8px}}
+
+
+/* Unified market status and countdown card */
+#tab-dashboard>.sas-market-strip{grid-template-columns:minmax(0,1.4fr) minmax(0,.8fr) minmax(0,.8fr);overflow:hidden;padding-bottom:0}
+#tab-dashboard>.sas-market-strip>#sasOpenCountdown{grid-column:1/-1;width:auto;min-width:0;margin:4px -16px 0;padding:16px;border:0;border-top:1px solid rgba(69,198,225,.18);border-radius:0;background:linear-gradient(180deg,rgba(3,20,34,.45),rgba(2,12,24,.12));box-shadow:none}
+.sas-open-countdown .sas-countdown-heading h2{font-size:clamp(16px,2.8vw,20px)}
+.sas-open-countdown .sas-countdown-heading{margin-bottom:12px}
+.sas-countdown-icon{display:inline-grid;place-items:center;width:29px;height:29px;flex:none;color:#63e5ff}
+.sas-countdown-icon svg{width:25px;height:25px;display:block}
+.sas-countdown-card-top{gap:7px}
+.sas-countdown-card-top span:first-child{font-size:initial}
+.sas-countdown-detail{margin-bottom:0}
+@media(max-width:680px){
+ #tab-dashboard>.sas-market-strip{grid-template-columns:minmax(0,1fr) minmax(0,auto);gap:10px;padding:14px 14px 0;border-radius:21px}
+ #tab-dashboard>.sas-market-strip .sas-market-main{grid-column:1/-1;grid-row:1}
+ #tab-dashboard>.sas-market-strip .sas-market-clock{grid-column:1;grid-row:2}
+ #tab-dashboard>.sas-market-strip .sas-session-mini{grid-column:2;grid-row:2;text-align:left}
+ #tab-dashboard>.sas-market-strip>#sasOpenCountdown{margin:4px -14px 0;padding:14px;border-radius:0 0 20px 20px}
+}
