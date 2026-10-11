@@ -468,6 +468,7 @@ function renderPerpEquitiesMovers(data){
  if(sourceLink){const adminCanSeeSource=Boolean(me?.admin);sourceLink.hidden=!adminCanSeeSource;sourceLink.setAttribute('aria-hidden',String(!adminCanSeeSource));sourceLink.classList.toggle('admin-source-visible',adminCanSeeSource);}
  const updated=document.getElementById('perpMoversUpdated'),state=document.getElementById('perpMoversState');
  const gainers=document.getElementById('perpMoversGainers'),losers=document.getElementById('perpMoversLosers');
+ const losersPanel=losers?.closest('.sas-perp-movers-side');if(losersPanel)losersPanel.hidden=true;
  const gainersCount=document.getElementById('perpMoversGainersCount'),losersCount=document.getElementById('perpMoversLosersCount');
  if(!gainers||!losers||!data)return;
  const assets=Array.isArray(data.assets)?data.assets:[];
@@ -492,14 +493,14 @@ function renderPerpEquitiesMovers(data){
   const venueRows=venues.length?venues.map(v=>'<div class="sas-perp-detail-venue"><span>'+escHtml(String(v.venue||v.venueName||'منصة'))+'</span><span>'+fmtUsd(v.price??v.mark)+'</span><span>حجم '+fmtUsd(v.volume24hUsd)+'</span></div>').join(''):'<div class="sas-perp-detail-muted">تفاصيل المنصات غير متاحة</div>';
   return '<details class="sas-perp-mover-card '+direction+'"><summary class="sas-perp-mover"><span class="sas-perp-mover-rank">'+(index+1)+'</span><span class="sas-perp-mover-main"><strong class="sas-perp-mover-symbol">'+symbol+'</strong><small>'+name+'</small></span><span class="sas-perp-mover-price">'+price+'</span><b>'+change+'</b><span class="sas-perp-mover-open">⌄</span></summary><div class="sas-perp-mover-details"><div class="sas-perp-detail-grid"><div><small>السعر المرجعي</small><b>'+price+'</b></div><div><small>التغير 24 ساعة</small><b>'+change+'</b></div><div><small>التغير 7 أيام</small><b>'+change7d+'</b></div><div><small>حجم التداول 24 ساعة</small><b>'+volume+'</b></div><div><small>القيمة المفتوحة</small><b>'+oi+'</b></div><div><small>الأسواق النشطة</small><b>'+marketCount+'</b></div></div><div class="sas-perp-detail-venues"><b>المنصات المتاحة</b>'+venueRows+'</div></div></details>';
  }).join(''):'<div class="sas-perp-movers-empty">'+emptyLabel+'</div>';
- const gainersList=Array.isArray(data.gainers)?data.gainers:[],losersList=Array.isArray(data.losers)?data.losers:[];
+ const gainersList=(Array.isArray(data.gainers)?data.gainers:[]).filter(item=>Number(item?.change_pct)>0),losersList=[];
  gainers.innerHTML=makeRows(gainersList,'is-up','لا توجد أسهم رابحة ضمن نطاق السعر');
  losers.innerHTML=makeRows(losersList,'is-down','لا توجد أسهم خاسرة ضمن نطاق السعر');
  if(gainersCount)gainersCount.textContent=gainersList.length.toLocaleString('ar-SA-u-nu-latn')+' سهم';
  if(losersCount)losersCount.textContent=losersList.length.toLocaleString('ar-SA-u-nu-latn')+' سهم';
  if(updated&&data.updated_at){const date=new Date(data.updated_at);updated.textContent='آخر تحديث للبيانات: '+(Number.isFinite(date.getTime())?new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',hour12:true}).format(date)+' بتوقيت الرياض':'—');}
  else if(updated)updated.textContent='وقت التحديث غير متاح';
- if(state)state.textContent=data.stale?'آخر بيانات محفوظة • تحديث متأخر':'تحديث تلقائي كل 5 دقائق • السعر المرجعي $0.50–$15.00';
+ if(state)state.textContent=data.market_session!=='regular'?'يظهر الرصد خلال جلسة السوق الأمريكي الرسمية فقط':(data.stale?'آخر بيانات محفوظة • تحديث متأخر':'الرابحون فقط • تحديث تلقائي كل 5 دقائق • $0.50–$15.00');
 }
 function renderMacro(){
  const wanted=[
