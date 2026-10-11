@@ -1565,3 +1565,78 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
  html{scroll-behavior:auto}
  .terminal-tab,.sas-action-card,.stock-card,.metric-card,.macro-card,.plan-card{animation:none;transition:none}
 }
+
+
+/* SAS PRO V2 — clearly visible market-terminal redesign */
+:root{--sas-neon:#53dcff;--sas-blue:#1689bb;--sas-green:#3ce0a6;--sas-gold:#f4ce78}
+body{background-color:#020810!important;background-image:radial-gradient(ellipse at 50% 10%,rgba(19,120,157,.18),transparent 45%),linear-gradient(180deg,rgba(2,8,15,.15),rgba(2,8,15,.68) 45%,#02060b),url("/assets/sas-pro-home.webp?v=20261011-16-hero")!important;background-position:center top,center top,center top!important;background-size:auto,auto,cover!important;background-attachment:fixed!important}
+.app{max-width:1180px!important}
+.terminal-hero-banner{position:relative!important;border:1px solid rgba(83,220,255,.2)!important;border-radius:0 0 24px 24px!important;overflow:hidden!important;box-shadow:0 18px 50px rgba(0,0,0,.36),0 1px rgba(83,220,255,.14)!important}
+.terminal-hero-banner img{display:block!important;width:100%!important;filter:saturate(1.12) contrast(1.08)!important}
+.hero-shade{background:linear-gradient(90deg,rgba(2,9,17,.12),rgba(2,9,17,.08) 42%,rgba(2,9,17,.72))!important}
+.hero-caption{padding:clamp(18px,3vw,34px)!important}
+.hero-brand-row>span{font-size:clamp(25px,5vw,42px)!important;letter-spacing:3px!important;text-shadow:0 0 28px rgba(83,220,255,.22)!important}
+.market-ticker-wrap{margin:0!important;border-block:1px solid rgba(83,220,255,.24)!important;background:linear-gradient(90deg,rgba(4,16,28,.98),rgba(7,28,42,.97),rgba(4,16,28,.98))!important;box-shadow:0 8px 24px rgba(0,0,0,.24)!important}
+.ticker-item{padding:14px 20px!important;border-inline-start:1px solid rgba(113,187,215,.16)!important}
+.ticker-label{color:#b5cbd9!important;font-size:11px!important;letter-spacing:.7px!important}
+.terminal-tabs{margin:12px 10px!important;padding:8px!important;border:1px solid rgba(83,220,255,.22)!important;border-radius:20px!important;background:rgba(3,13,24,.96)!important;box-shadow:0 12px 30px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.035)!important}
+.terminal-tabs button{min-height:48px!important;border:1px solid transparent!important;border-radius:14px!important;font-size:clamp(11px,1.3vw,14px)!important;font-weight:800!important;color:#a6bdcd!important}
+.terminal-tabs button.active{border-color:rgba(83,220,255,.45)!important;background:linear-gradient(145deg,rgba(19,111,151,.48),rgba(7,39,59,.98))!important;color:#a1edff!important;box-shadow:inset 0 -3px #4ad4ff,0 0 22px rgba(35,174,222,.13)!important}
+.terminal-main{padding:clamp(12px,2.2vw,26px)!important}
+.sas-dashboard-hero{border:1px solid rgba(83,220,255,.3)!important;border-radius:26px!important;background:linear-gradient(125deg,rgba(5,24,39,.98),rgba(3,13,24,.97) 58%,rgba(5,44,56,.94))!important;box-shadow:0 18px 44px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.04)!important}
+.sas-dashboard-hero:before{content:"";position:absolute;top:0;right:8%;width:160px;height:2px;background:linear-gradient(90deg,transparent,#64e3ff,transparent);box-shadow:0 0 18px rgba(83,220,255,.55)}
+.sas-dashboard-copy .eyebrow,.terminal-panel-head .eyebrow{color:#61dffb!important;letter-spacing:2.5px!important;font-size:10px!important;font-weight:900!important}
+.sas-dashboard-copy h1{font-size:clamp(25px,4vw,38px)!important;letter-spacing:-.5px!important}
+.sas-market-status{border:1px solid rgba(83,220,255,.24)!important;border-radius:15px!important;background:rgba(2,12,22,.74)!important;box-shadow:inset 0 1px rgba(255,255,255,.025)!important}
+.sas-action-card{min-height:100px!important;border:1px solid rgba(96,184,220,.23)!important;border-radius:20px!important;background:linear-gradient(120deg,rgba(10,37,57,.98),rgba(4,17,30,.99))!important;box-shadow:0 10px 24px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.04)!important}
+.sas-action-card:hover{border-color:rgba(83,220,255,.58)!important;box-shadow:0 14px 30px rgba(0,0,0,.28),0 0 20px rgba(36,168,212,.09)!important}
+.sas-action-icon{width:62px!important;height:62px!important;display:grid!important;place-items:center!important;border:1px solid rgba(83,220,255,.2)!important;border-radius:18px!important;background:linear-gradient(145deg,rgba(25,68,90,.85),rgba(7,24,39,.98))!important;font-size:26px!important}
+.metric-grid{gap:13px!important;margin-top:18px!important}
+.metric-card{min-height:118px!important;position:relative!important;overflow:hidden!important;border:1px solid rgba(93,178,215,.22)!important;border-radius:21px!important;background:linear-gradient(145deg,rgba(7,25,41,.98),rgba(3,13,24,.99))!important;box-shadow:0 12px 28px rgba(0,0,0,.22)!important;padding:20px!important}
+.metric-card:after{content:"";position:absolute;top:0;right:18px;left:18px;height:2px;background:linear-gradient(90deg,transparent,rgba(83,220,255,.72),transparent)!important}
+.metric-card small,.metric-card .label{color:#91adbf!important}
+.metric-card strong,.metric-card .value{font-size:clamp(22px,3vw,31px)!important;font-variant-numeric:tabular-nums!important;color:#eaf9ff!important}
+.section-title{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;padding:12px 2px 10px!important;margin:24px 0 10px!important;border-bottom:1px solid rgba(83,220,255,.18)!important}
+.section-title b{font-size:15px!important;color:#e6f8ff!important}
+.section-title button{border:1px solid rgba(83,220,255,.23)!important;border-radius:11px!important;background:rgba(8,39,57,.82)!important;color:#84e5ff!important;padding:8px 11px!important}
+.stock-grid{gap:13px!important}
+.stock-card{position:relative!important;overflow:hidden!important;border:1px solid rgba(93,178,215,.22)!important;border-radius:20px!important;background:linear-gradient(145deg,rgba(7,24,40,.99),rgba(3,13,24,.99))!important;box-shadow:0 12px 28px rgba(0,0,0,.2)!important}
+.stock-card:before{content:"";position:absolute;top:0;right:0;left:0;height:2px;background:linear-gradient(90deg,transparent,rgba(83,220,255,.62),transparent)!important}
+.stock-card:hover{transform:translateY(-3px)!important;border-color:rgba(83,220,255,.48)!important}
+.search-terminal{display:grid!important;grid-template-columns:minmax(0,1fr) auto auto!important;gap:10px!important;padding:13px!important;border:1px solid rgba(83,220,255,.25)!important;border-radius:21px!important;background:rgba(4,17,30,.97)!important;box-shadow:0 14px 34px rgba(0,0,0,.25)!important}
+.search-terminal input{min-height:52px!important;border:1px solid rgba(106,182,213,.26)!important;border-radius:14px!important;background:#030d18!important;font-size:16px!important}
+.primary-btn{min-height:48px!important;border:1px solid rgba(83,220,255,.44)!important;border-radius:14px!important;background:linear-gradient(135deg,#117da6,#0a3a59)!important;color:#effbff!important;font-weight:900!important;box-shadow:0 8px 20px rgba(0,87,125,.2)!important}
+.secondary-btn{border:1px solid rgba(106,182,213,.25)!important;border-radius:14px!important;background:linear-gradient(145deg,#0c293e,#061624)!important;color:#c5e3ef!important}
+.symbol-result{margin-top:14px!important;border:1px solid rgba(83,220,255,.22)!important;border-radius:24px!important;background:linear-gradient(145deg,rgba(5,19,32,.99),rgba(2,10,19,.99))!important;box-shadow:0 18px 42px rgba(0,0,0,.26)!important}
+.chart-box,.chart-panel{border:1px solid rgba(83,220,255,.2)!important;border-radius:18px!important;background:rgba(3,13,24,.96)!important;overflow:hidden!important}
+.news-entry,.news-card{border:1px solid rgba(91,173,209,.17)!important;border-radius:16px!important;background:linear-gradient(145deg,rgba(7,23,37,.98),rgba(3,13,24,.98))!important;padding:15px!important;margin-top:10px!important}
+.terminal-disclaimer,.sas-disclaimer-bar{border:1px solid rgba(83,220,255,.22)!important;border-radius:18px!important;background:rgba(3,13,23,.97)!important;box-shadow:0 12px 26px rgba(0,0,0,.18)!important}
+.admin-page{max-width:1240px!important}
+.admin-header{border:1px solid rgba(83,220,255,.3)!important;border-radius:0 0 22px 22px!important;background:linear-gradient(100deg,rgba(3,13,24,.99),rgba(6,27,43,.98))!important;box-shadow:0 14px 35px rgba(0,0,0,.3)!important}
+.admin-brand-mark{width:54px!important;height:54px!important;border-radius:17px!important;border:1px solid rgba(83,220,255,.55)!important;background:linear-gradient(145deg,#126788,#061b2b)!important;color:#9cecff!important;box-shadow:0 0 28px rgba(36,175,219,.17)!important}
+.admin-nav{border:1px solid rgba(83,220,255,.25)!important;border-radius:18px!important;background:rgba(3,13,24,.98)!important}
+.admin-nav button{border-radius:13px!important;min-height:46px!important;font-weight:850!important}
+.admin-nav button.active{border:1px solid rgba(83,220,255,.4)!important;background:linear-gradient(145deg,rgba(19,111,151,.42),rgba(6,30,47,.98))!important;color:#9beaff!important;box-shadow:inset 0 -3px #4ad4ff!important}
+.admin-welcome{border:1px solid rgba(83,220,255,.33)!important;border-radius:24px!important;background:linear-gradient(120deg,rgba(5,25,41,.99),rgba(3,13,24,.98) 65%,rgba(5,42,55,.95))!important;box-shadow:0 18px 40px rgba(0,0,0,.25)!important}
+.admin-panel,.admin-alerts-panel,.owner-card{border:1px solid rgba(93,178,215,.23)!important;border-radius:20px!important;background:linear-gradient(145deg,rgba(7,23,38,.99),rgba(3,13,24,.99))!important;box-shadow:0 12px 28px rgba(0,0,0,.18)!important}
+.admin-stat-card,.admin-stats>*{border:1px solid rgba(83,220,255,.2)!important;border-radius:17px!important;background:linear-gradient(145deg,rgba(9,31,48,.99),rgba(3,14,25,.99))!important}
+.admin-page input,.admin-page select,.admin-page textarea{border:1px solid rgba(106,182,213,.26)!important;border-radius:12px!important;background:#030d18!important;color:#effaff!important}
+.admin-page button{border-radius:12px!important}
+@media(max-width:680px){
+ .terminal-hero-banner{border-radius:0 0 18px 18px!important}
+ .hero-caption{padding:15px!important}
+ .terminal-tabs{margin:8px 6px!important;padding:5px!important;gap:3px!important}
+ .terminal-tabs button{min-height:42px!important;padding:7px 5px!important;font-size:11px!important}
+ .terminal-main{padding:10px!important}
+ .sas-dashboard-hero{padding:16px!important;border-radius:20px!important}
+ .sas-action-card{min-height:84px!important;border-radius:16px!important}
+ .sas-action-icon{width:50px!important;height:50px!important;border-radius:14px!important;font-size:22px!important}
+ .metric-grid{gap:9px!important}
+ .metric-card{min-height:100px!important;padding:15px!important;border-radius:17px!important}
+ .search-terminal{grid-template-columns:1fr 1fr!important;padding:10px!important}
+ .search-terminal input{grid-column:1/-1!important}
+ .search-terminal button{font-size:12px!important;padding:9px 7px!important}
+ .admin-header{position:relative!important;top:auto!important}
+ .admin-nav{top:0!important}
+}
+@media(prefers-reduced-motion:reduce){.stock-card,.sas-action-card,.terminal-tab{transition:none!important;animation:none!important}}
