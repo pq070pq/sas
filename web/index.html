@@ -7,14 +7,14 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>SAS PRO — Market Terminal</title>
-<link rel="stylesheet" href="/assets/app.css?v=20261011-16">
+<link rel="stylesheet" href="/assets/app.css?v=20261011-17">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 </head>
 <body>
 <div class="app" id="app">
   <section id="subscriptionPage" class="subscription-page">
     <div class="poster-wrap">
-      <img src="/assets/sas-pro-home.webp?v=20261011-16-hero" class="poster" alt="SAS PRO">
+      <img src="/assets/sas-pro-home.webp?v=20261011-17-hero" class="poster" alt="SAS PRO">
           </div>
 
     <section class="status-card">
@@ -52,7 +52,7 @@
 
   <section id="terminalPage" class="terminal-page" hidden>
     <section class="terminal-hero-banner" aria-label="SAS PRO">
-      <img src="/assets/sas-pro-home.webp?v=20261011-16-hero" alt="SAS PRO سوق الأسهم" loading="eager">
+      <img src="/assets/sas-pro-home.webp?v=20261011-17-hero" alt="SAS PRO سوق الأسهم" loading="eager">
       <div class="hero-shade"></div>
       <div class="hero-caption">
         <div class="hero-brand-row"><time id="terminalClock" aria-label="الوقت الحالي"><span class="clock-time">—</span><small>🇸🇦 الرياض</small><i aria-hidden="true"></i></time><span>SAS PRO</span></div>
@@ -278,6 +278,83 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261011-16"></script>
+<script src="/assets/app.js?v=20261011-17"></script>
+
+<script>
+/* Presentation-only interactions. Does not modify radar, pricing, API calls, or permissions. */
+(function(){
+  if (window.__sasInteractiveExperienceV1) return;
+  window.__sasInteractiveExperienceV1 = true;
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function enhance(root){
+    root = root || document;
+    root.querySelectorAll('.metric-card,.macro-card,.stock-card,.news-card,.chart-panel,.admin-stat-card,.plan-card,.sas-action-card').forEach(function(el){
+      if (!el.classList.contains('sas-interactive-glow')) el.classList.add('sas-interactive-glow');
+      if (!el.hasAttribute('data-sas-motion')) el.setAttribute('data-sas-motion','1');
+    });
+    if (reduced) return;
+    var revealables = root.querySelectorAll('.metric-card,.macro-card,.stock-card,.news-card,.chart-panel,.admin-panel,.admin-alerts-panel,.owner-card,.sas-action-card');
+    if ('IntersectionObserver' in window) {
+      if (!window.__sasRevealObserver) {
+        window.__sasRevealObserver = new IntersectionObserver(function(entries){
+          entries.forEach(function(entry){
+            if(entry.isIntersecting){
+              entry.target.classList.add('sas-revealed');
+              window.__sasRevealObserver.unobserve(entry.target);
+            }
+          });
+        },{threshold:.08,rootMargin:'0px 0px -24px 0px'});
+      }
+      revealables.forEach(function(el){
+        if(!el.classList.contains('sas-revealed') && !el.classList.contains('sas-reveal')){
+          el.classList.add('sas-reveal');
+          window.__sasRevealObserver.observe(el);
+        }
+      });
+    }
+  }
+  document.addEventListener('pointermove',function(e){
+    if(reduced || e.pointerType==='touch') return;
+    var card=e.target.closest('.sas-interactive-glow');
+    if(!card) return;
+    var rect=card.getBoundingClientRect();
+    card.style.setProperty('--sas-x',(e.clientX-rect.left)+'px');
+    card.style.setProperty('--sas-y',(e.clientY-rect.top)+'px');
+  },{passive:true});
+  document.addEventListener('click',function(e){
+    if(reduced) return;
+    var button=e.target.closest('button');
+    if(!button || button.disabled || button.closest('[hidden]')) return;
+    var rect=button.getBoundingClientRect();
+    var size=Math.max(rect.width,rect.height)*1.25;
+    var ripple=document.createElement('span');
+    ripple.className='sas-ripple';
+    ripple.style.width=size+'px';
+    ripple.style.height=size+'px';
+    ripple.style.left=(e.clientX ? e.clientX-rect.left-size/2 : rect.width/2-size/2)+'px';
+    ripple.style.top=(e.clientY ? e.clientY-rect.top-size/2 : rect.height/2-size/2)+'px';
+    if(getComputedStyle(button).position==='static') button.style.position='relative';
+    button.style.overflow='hidden';
+    button.appendChild(ripple);
+    window.setTimeout(function(){ripple.remove();},650);
+  },true);
+  var queued=false;
+  function scheduleEnhance(){
+    if(queued) return;
+    queued=true;
+    window.requestAnimationFrame(function(){queued=false;enhance(document);});
+  }
+  document.addEventListener('DOMContentLoaded',scheduleEnhance);
+  var observer=new MutationObserver(function(records){
+    if(records.some(function(r){return r.addedNodes.length>0 || r.type==='attributes';})) scheduleEnhance();
+  });
+  observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','class']});
+  document.addEventListener('click',function(e){
+    if(e.target.closest('[data-tab], [data-admin-target]')) window.setTimeout(scheduleEnhance,80);
+  });
+  scheduleEnhance();
+})();
+</script>
+
 </body>
 </html>

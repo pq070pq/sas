@@ -1640,3 +1640,57 @@ body{background-color:#020810!important;background-image:radial-gradient(ellipse
  .admin-nav{top:0!important}
 }
 @media(prefers-reduced-motion:reduce){.stock-card,.sas-action-card,.terminal-tab{transition:none!important;animation:none!important}}
+
+
+/* SAS PRO INTERACTIVE EXPERIENCE — presentation only, preserve business logic */
+:root{--sas-cyan:#5de4ff;--sas-aqua:#19b8ec;--sas-lime:#40e4aa;--sas-violet:#8b8dff}
+body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),transparent 30%),radial-gradient(ellipse at 90% 55%,rgba(0,111,155,.09),transparent 32%),linear-gradient(180deg,rgba(2,8,15,.12),rgba(2,8,15,.72) 70%,#02060c),url("/assets/sas-pro-home.webp?v=20261011-17-hero")!important}
+.terminal-hero-banner{isolation:isolate}
+.terminal-hero-banner:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,transparent 20%,rgba(100,228,255,.08) 42%,transparent 60%);transform:translateX(-120%);animation:sasHeroSweep 9s ease-in-out infinite}
+@keyframes sasHeroSweep{0%,62%{transform:translateX(-120%)}82%,100%{transform:translateX(120%)}}
+.hero-brand-row>span{animation:sasBrandGlow 4.5s ease-in-out infinite}
+@keyframes sasBrandGlow{0%,100%{text-shadow:0 0 0 rgba(83,220,255,0)}50%{text-shadow:0 0 22px rgba(83,220,255,.22)}}
+.market-ticker-wrap{overflow:hidden}
+.market-ticker{position:relative}
+.market-ticker:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(3,12,21,.78),transparent 8%,transparent 92%,rgba(3,12,21,.78))}
+.ticker-item{transition:background .22s,transform .22s}
+.ticker-item:hover{background:rgba(47,182,222,.09);transform:translateY(-1px)}
+.terminal-tabs button{position:relative;overflow:hidden;transition:transform .2s ease,background .25s ease,border-color .25s ease,box-shadow .25s ease}
+.terminal-tabs button:active,.admin-nav button:active,.primary-btn:active,.secondary-btn:active{transform:scale(.97)}
+.terminal-tabs button.active:after{content:"";position:absolute;left:18%;right:18%;bottom:2px;height:2px;border-radius:99px;background:linear-gradient(90deg,transparent,var(--sas-cyan),transparent);box-shadow:0 0 12px var(--sas-cyan)}
+.sas-dashboard-hero{isolation:isolate}
+.sas-dashboard-hero:after{content:"";position:absolute;z-index:-1;width:240px;height:240px;right:-75px;top:-110px;border-radius:50%;border:1px solid rgba(93,228,255,.12);box-shadow:0 0 0 22px rgba(93,228,255,.025),0 0 0 48px rgba(93,228,255,.018);animation:sasRadarHalo 7s ease-in-out infinite}
+@keyframes sasRadarHalo{0%,100%{transform:scale(.94);opacity:.5}50%{transform:scale(1.07);opacity:1}}
+.sas-status-dot{animation:sasStatusPulse 2s ease-out infinite}
+@keyframes sasStatusPulse{0%{box-shadow:0 0 0 0 rgba(64,228,170,.55)}70%{box-shadow:0 0 0 9px rgba(64,228,170,0)}100%{box-shadow:0 0 0 0 rgba(64,228,170,0)}}
+.sas-action-card{position:relative;overflow:hidden;isolation:isolate;transform:translateZ(0)}
+.sas-action-card:before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(112deg,transparent 20%,rgba(93,228,255,.10) 48%,transparent 68%);transform:translateX(-130%);transition:transform .6s ease}
+.sas-action-card:hover:before,.sas-action-card:focus-visible:before{transform:translateX(130%)}
+.sas-action-card:hover .sas-action-icon{transform:rotate(-4deg) scale(1.07);border-color:rgba(93,228,255,.5);box-shadow:0 0 24px rgba(25,184,236,.16)}
+.sas-action-icon{transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease}
+.sas-action-arrow{transition:transform .22s ease,color .22s ease}
+.sas-action-card:hover .sas-action-arrow{transform:translateX(-4px);color:var(--sas-cyan)}
+.metric-card,.macro-card,.stock-card,.news-card,.chart-panel,.admin-stat-card,.plan-card{--sas-x:50%;--sas-y:0%;position:relative;isolation:isolate;overflow:hidden}
+.sas-interactive-glow:before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:0;background:radial-gradient(260px circle at var(--sas-x) var(--sas-y),rgba(67,205,255,.14),transparent 62%);transition:opacity .25s ease}
+.sas-interactive-glow:hover:before{opacity:1}
+.sas-interactive-glow:hover{border-color:rgba(93,228,255,.43)!important;box-shadow:0 15px 34px rgba(0,0,0,.25),0 0 20px rgba(25,184,236,.07)!important}
+.stock-card{transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease!important}
+.stock-card:hover{transform:translateY(-3px)!important}
+.stock-card:after{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(93,228,255,.6),transparent);opacity:.55;pointer-events:none}
+.section-title{position:relative}
+.section-title:after{content:"";position:absolute;bottom:-1px;right:0;width:78px;height:2px;background:linear-gradient(90deg,rgba(93,228,255,0),var(--sas-cyan));box-shadow:0 0 12px rgba(93,228,255,.24)}
+.primary-btn,.secondary-btn,.search-terminal button,.admin-page button{transition:transform .18s ease,filter .2s ease,box-shadow .2s ease,border-color .2s ease}
+.primary-btn:hover{filter:brightness(1.13);box-shadow:0 0 22px rgba(25,184,236,.2)!important}
+.sas-ripple{position:absolute;border-radius:50%;pointer-events:none;transform:scale(0);background:rgba(116,231,255,.32);animation:sasRipple .55s ease-out forwards}
+@keyframes sasRipple{to{transform:scale(1);opacity:0}}
+.sas-reveal{opacity:0;transform:translateY(12px);transition:opacity .45s ease,transform .45s cubic-bezier(.2,.7,.2,1)}
+.sas-reveal.sas-revealed{opacity:1;transform:translateY(0)}
+.terminal-tab.active .sas-reveal{transition-delay:var(--sas-delay,0ms)}
+.admin-panel,.admin-alerts-panel,.owner-card{transition:border-color .22s ease,box-shadow .22s ease}
+.admin-panel:hover,.admin-alerts-panel:hover{border-color:rgba(93,228,255,.3)!important;box-shadow:0 14px 34px rgba(0,0,0,.2),0 0 18px rgba(25,184,236,.045)!important}
+.admin-nav button.active{position:relative;overflow:hidden}
+.admin-nav button.active:after{content:"";position:absolute;bottom:2px;left:18%;right:18%;height:2px;background:var(--sas-cyan);box-shadow:0 0 10px var(--sas-cyan)}
+.terminal-page,.admin-page{animation:sasPageArrival .42s ease both}
+@keyframes sasPageArrival{from{opacity:.55;filter:saturate(.75)}to{opacity:1;filter:saturate(1)}}
+@media(hover:none){.sas-interactive-glow:before{display:none}.stock-card:hover,.sas-action-card:hover{transform:none!important}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.sas-reveal{opacity:1;transform:none}}
