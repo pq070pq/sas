@@ -2874,3 +2874,35 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-firework-burst i{position:absolute;left:0;top:0;width:var(--particle-size);height:var(--particle-size);border-radius:50%;background:var(--particle-color);box-shadow:0 0 7px var(--particle-color),0 0 15px var(--particle-color);opacity:0;animation:sasBurstParticle 1.45s cubic-bezier(.12,.65,.25,1) var(--particle-delay) forwards}
 @keyframes sasBurstParticle{0%{opacity:0;transform:translate(-50%,-50%) scale(.15)}12%{opacity:1}78%{opacity:.95}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(.2)}}
 @media(prefers-reduced-motion:reduce){.sas-firework-burst i{animation:none;display:none}}
+
+
+/* Premium blue motion frame and responsive subscription cards */
+.status-card,.trial-card,.plans,.terms-note{position:relative;isolation:isolate;overflow:hidden}
+.status-card:after,.trial-card:after,.plans:after,.terms-note:after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(125deg,rgba(53,194,255,.05),rgba(53,194,255,.85),rgba(110,94,255,.18),rgba(53,194,255,.62),rgba(53,194,255,.05));background-size:260% 260%;animation:sasBlueEdgeFlow 7s linear infinite;pointer-events:none;z-index:-1}
+.status-card,.trial-card,.plans,.terms-note{border-color:rgba(56,179,255,.3);box-shadow:0 12px 34px rgba(0,9,22,.28),0 0 18px rgba(25,133,255,.045)}
+@keyframes sasBlueEdgeFlow{0%{background-position:0% 50%}100%{background-position:100% 50%}}
+.status-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.status-grid .status-tile{position:relative;min-width:0;transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease;background:linear-gradient(145deg,rgba(6,27,47,.88),rgba(3,13,27,.96));border:1px solid rgba(55,166,255,.16)}
+.status-grid .status-tile:hover{transform:translateY(-2px);border-color:rgba(66,188,255,.6);box-shadow:0 0 18px rgba(33,145,255,.12)}
+.status-grid .status-tile small{display:flex;align-items:center;gap:7px;color:#91adbf;font-size:11px}
+.status-grid .status-tile strong{font-size:14px;overflow-wrap:anywhere}
+.status-icon,.section-title-icon{display:inline-grid;place-items:center;flex:0 0 auto;width:25px;height:25px;border-radius:8px;background:linear-gradient(145deg,rgba(25,126,203,.22),rgba(31,64,128,.12));border:1px solid rgba(63,174,255,.22);font-size:14px;transition:transform .22s ease,filter .22s ease,box-shadow .22s ease}
+.status-tile:hover .status-icon,.status-tile:focus-within .status-icon{transform:translateY(-2px) rotate(-5deg) scale(1.08);filter:brightness(1.2);box-shadow:0 0 13px rgba(50,170,255,.22)}
+.section-title-icon{vertical-align:middle;margin-inline-end:5px}
+.trial-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;margin:18px 14px;padding:25px 20px 22px;text-align:center;border:1px solid rgba(48,194,255,.5);background:radial-gradient(ellipse at 50% 0%,rgba(21,114,191,.22),transparent 65%),linear-gradient(145deg,rgba(5,29,48,.96),rgba(2,12,25,.98));}
+.trial-card:before{content:"";position:absolute;inset:-55% auto auto -20%;width:140%;height:75%;background:linear-gradient(110deg,transparent,rgba(80,197,255,.07),transparent);transform:rotate(-8deg);pointer-events:none;animation:sasTrialSheen 5s ease-in-out infinite}
+.trial-card-content{position:relative;z-index:1;width:100%;display:flex;flex-direction:column;align-items:center;gap:9px}
+.trial-crown{display:grid;place-items:center;width:44px;height:44px;border-radius:15px;color:#b8f1ff;font-size:24px;background:linear-gradient(145deg,rgba(21,131,208,.34),rgba(13,52,102,.32));border:1px solid rgba(73,191,255,.45);box-shadow:0 0 22px rgba(25,150,255,.16);animation:sasTrialFloat 3s ease-in-out infinite}
+.trial-card b{font-size:clamp(18px,4.5vw,22px);color:#e8f8ff;text-shadow:0 0 18px rgba(66,176,255,.13)}
+.trial-card p{max-width:360px;margin:0;color:#9ebbd0;font-size:12px;line-height:1.8}
+.trial-detail{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;color:#6ed8ff;font-size:11px}
+.trial-dot{color:#5e85a2}
+.trial-card button{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:10px;width:min(100%,390px);min-height:56px;white-space:normal;border:1px solid rgba(109,239,255,.85);border-radius:17px;padding:15px 18px;background:linear-gradient(115deg,#20c5e8,#1375d1,#315ce5,#20c5e8);background-size:240% 100%;color:#fff;font-size:15px;font-weight:1000;box-shadow:0 8px 28px rgba(20,135,239,.24),inset 0 1px rgba(255,255,255,.24);transition:transform .2s ease,box-shadow .2s ease,background-position .5s ease;animation:sasTrialButtonGlow 3.8s ease-in-out infinite}
+.trial-card button:hover{transform:translateY(-2px);background-position:100% 50%;box-shadow:0 12px 34px rgba(20,135,239,.36),0 0 0 4px rgba(46,164,255,.08)}
+.trial-card button:active{transform:scale(.985)}
+.trial-card button:focus-visible,.status-tile:focus-visible{outline:2px solid #79dcff;outline-offset:3px}
+@keyframes sasTrialFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes sasTrialSheen{0%,100%{opacity:.2;transform:translateX(-10%) rotate(-8deg)}50%{opacity:.8;transform:translateX(10%) rotate(-8deg)}}
+@keyframes sasTrialButtonGlow{0%,100%{box-shadow:0 8px 28px rgba(20,135,239,.2),inset 0 1px rgba(255,255,255,.24)}50%{box-shadow:0 10px 34px rgba(20,135,239,.36),0 0 20px rgba(36,153,255,.16),inset 0 1px rgba(255,255,255,.3)}}
+@media(max-width:380px){.status-grid{gap:7px}.status-grid .status-tile{padding:10px}.status-grid .status-tile strong{font-size:12px}.trial-card{margin:14px 10px;padding:22px 14px}}
+@media(prefers-reduced-motion:reduce){.status-card:after,.trial-card:after,.plans:after,.terms-note:after,.trial-card:before,.trial-crown,.trial-card button{animation:none}.status-grid .status-tile,.trial-card button{transition:none}.status-grid .status-tile:hover,.trial-card button:hover{transform:none}}
