@@ -1156,9 +1156,9 @@ async function continueTerms(){
   // للمستخدم العادي يجب أن تبدأ التجربة ويُعاد رابط القناة. أما المالك/المشرف
   // فقد لا تُمنح له تجربة، لذلك لا نحول موافقة الشروط الصحيحة إلى خطأ.
   if(action==='trial'){
-   if(accepted.trial_started&&accepted.trial?.channel_link){
+   if(accepted.trial_started){
     closeTerms();
-    // Do not open the channel immediately: show welcome first, then the join prompt.
+    // On approval, enter the app and show welcome immediately; the channel prompt comes later.
     localStorage.removeItem('saspro_channel_onboarding_done');
     localStorage.setItem('saspro_onboarding_pending','1');
     me={...me,terms_accepted:true,pro:true,trial_available:false};
