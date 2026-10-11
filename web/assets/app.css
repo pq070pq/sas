@@ -2644,3 +2644,32 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 
 /* Source link must remain hidden for non-admin users even if other styles set display. */
 .sas-movers-source[hidden],.sas-movers-source:not(.admin-source-visible){display:none!important}
+
+
+/* Dropdown gainers/losers with expandable contract data. */
+.sas-perp-movers-side{display:block;min-width:0;padding:10px;border:1px solid rgba(58,111,133,.23);border-radius:12px;background:rgba(1,10,17,.58)}
+.sas-perp-movers-side>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;list-style:none;cursor:pointer;padding:3px 1px 9px;user-select:none}
+.sas-perp-movers-side>summary::-webkit-details-marker,.sas-perp-mover-card>summary::-webkit-details-marker{display:none}
+.sas-perp-movers-chevron{display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:7px;background:rgba(29,144,179,.12);color:#8adff6;transition:transform .18s}
+.sas-perp-movers-side:not([open]) .sas-perp-movers-chevron{transform:rotate(-90deg)}
+.sas-perp-mover-card{border:1px solid rgba(58,111,133,.2);border-radius:10px;overflow:hidden;background:linear-gradient(100deg,rgba(6,27,38,.8),rgba(3,14,23,.9))}
+.sas-perp-mover-card[open]{border-color:rgba(66,190,218,.42)}
+.sas-perp-mover-card>summary{display:flex;align-items:center;gap:7px;min-width:0;padding:9px 8px;cursor:pointer;list-style:none}
+.sas-perp-mover-rank{flex:0 0 20px;width:20px;height:20px;display:grid;place-items:center;border-radius:6px;background:rgba(66,190,218,.1);color:#82bfd2;font-size:9px}
+.sas-perp-mover-main{flex:1;min-width:0;display:grid;gap:3px}
+.sas-perp-mover-main small{color:#7896a8;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sas-perp-mover-price{color:#d4edf7;font-size:10px;font-weight:800;direction:ltr;white-space:nowrap}
+.sas-perp-mover-card .sas-perp-mover-symbol{font-size:11px}
+.sas-perp-mover-card>summary>b{font-size:10px;white-space:nowrap;direction:ltr}
+.sas-perp-mover-card.is-up>summary>b{color:#55ddb0}.sas-perp-mover-card.is-down>summary>b{color:#ff7f8d}
+.sas-perp-mover-open{color:#6e91a7;font-size:11px;transition:transform .18s}
+.sas-perp-mover-card[open] .sas-perp-mover-open{transform:rotate(180deg)}
+.sas-perp-mover-details{padding:10px;border-top:1px solid rgba(58,111,133,.18);background:rgba(1,9,15,.45)}
+.sas-perp-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.sas-perp-detail-grid>div{display:grid;gap:4px;padding:8px;border:1px solid rgba(58,111,133,.17);border-radius:8px;background:rgba(6,25,36,.58);min-width:0}
+.sas-perp-detail-grid small{font-size:9px;color:#7d9aac}.sas-perp-detail-grid b{font-size:11px;color:#d8f4ff;direction:ltr;text-align:right;overflow-wrap:anywhere}
+.sas-perp-detail-venues{display:grid;gap:6px;margin-top:10px}.sas-perp-detail-venues>b{font-size:10px;color:#a9c7d8}
+.sas-perp-detail-venue{display:grid;grid-template-columns:1fr auto;gap:4px 8px;padding:7px;border-radius:7px;background:rgba(20,46,58,.42);font-size:9px;color:#92b0c1}
+.sas-perp-detail-venue span:last-child{grid-column:1/-1;color:#718fa0}.sas-perp-detail-muted{font-size:9px;color:#7893a3}
+.sas-perp-movers-note{line-height:1.9}
+@media(max-width:420px){.sas-perp-mover-card>summary{gap:5px;padding:8px 5px}.sas-perp-mover-rank{flex-basis:17px;width:17px;height:17px}.sas-perp-mover-price{font-size:9px}.sas-perp-mover-card .sas-perp-mover-symbol{font-size:10px}.sas-perp-mover-card>summary>b{font-size:9px}.sas-perp-detail-grid{gap:5px}.sas-perp-detail-grid>div{padding:6px}}
