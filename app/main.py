@@ -2122,20 +2122,13 @@ async def admin_gift_extend_all(request: Request, user=Depends(telegram_user), d
     failed = 0
     for row, expires_at in extended:
         try:
-            template = await setting_get(db, "gift_message_template", (
-                "🎁 <b>هدية خاصة من {brand}</b>\\n\\n"
-                "🎉 <b>تهانينا!</b> تم تمديد اشتراكك كهدية تقدير لمدة <b>{days} يومًا</b>.\\n"
-                "📅 تاريخ الانتهاء الجديد: <b>{expiry_date}</b>\\n\\n"
-                "شكرًا لثقتك بنا، ونتمنى لك تجربة موفقة مع {brand} 💎"
-            ))
-            # Escape substituted values so user/account data cannot alter Telegram HTML.
-            message = html.escape(str(template), quote=False)
-            message = message.replace("{days}", str(days))
-            message = message.replace("{expiry_date}", html.escape(aware(expires_at).strftime("%d/%m/%Y")))
-            message = message.replace("{brand}", "SAS PRO")
-            # Restore only common formatting tags, so admin can style the message safely.
-            for tag in ("b", "/b", "i", "/i", "u", "/u", "code", "/code"):
-                message = message.replace("&lt;" + tag + "&gt;", "<" + tag + ">")
+            message = (
+                "🎁 هدية اشتراك من SAS PRO\n"
+                "أهلًا بك! 🎉\n"
+                f"تم تمديد اشتراكك كهدية لمدة {days} أيام.\n"
+                f"📅 تاريخ انتهاء اشتراكك الجديد: {aware(expires_at).strftime('%d/%m/%Y')}\n"
+                "شكرًا لثقتك بنا، ونتمنى لك تجربة رائعة مع SAS PRO 💎"
+            )
             await send_message(row.telegram_id, message)
             sent += 1
         except Exception as exc:
