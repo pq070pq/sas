@@ -89,7 +89,6 @@ async function retryAccountLoad(){
 }
 
 let sasWelcomeTimer=null;
-let sasWelcomeTimer=null;
 function showSASWelcome(){
  if(me && !me.pro && !me.trial_available)return;
  const overlay=document.getElementById('sasWelcomeOverlay');
