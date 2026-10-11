@@ -2840,3 +2840,9 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .terms-modal::before,.terms-dialog::before,.terms-card::before,[class*="terms-modal"]::before,
  .terms-modal::after,.terms-dialog::after,.terms-card::after,[class*="terms-modal"]::after{animation:none;box-shadow:0 0 8px rgba(255,36,60,.4)}
 }
+
+
+/* Target the actual SAS PRO terms dialog boundary. */
+#termsModal .modal-card{position:relative;isolation:isolate;border:1px solid rgba(255,55,75,.78)!important;animation:sasTermsRedPulse 2.2s ease-in-out infinite}
+#termsModal .modal-card::after{content:"";position:absolute;inset:-5px;border:1px solid rgba(255,55,75,.42);border-radius:inherit;pointer-events:none;z-index:-1;animation:sasTermsRedHalo 2.2s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){#termsModal .modal-card,#termsModal .modal-card::after{animation:none}}
