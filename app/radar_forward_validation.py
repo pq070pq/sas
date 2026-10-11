@@ -17,14 +17,14 @@ logger = logging.getLogger(__name__)
 NY = ZoneInfo("America/New_York")
 
 
-def _close_map(result):
+def _close_map(result, before_day=None):
     candles = (result or {}).get("candles") or []
     out = {}
     for candle in candles:
         try:
             day = str(candle.get("time") or candle.get("date") or "")[:10]
             close = float(candle["close"])
-            if day and close > 0:
+            if day and close > 0 and (before_day is None or day < str(before_day)[:10]):
                 out[day] = close
         except (TypeError, ValueError, KeyError):
             continue
@@ -100,7 +100,7 @@ async def evaluate_forward_validation(max_signals: int = 40):
         for symbol in symbols:
             try:
                 result = await ohlcv(symbol, days=90, interval="1d")
-                histories[symbol] = (_close_map(result), str((result or {}).get("source") or "unknown"))
+                histories[symbol] = (_close_map(result, before_day=today), str((result or {}).get("source") or "unknown"))
             except Exception:
                 logger.exception("Forward validation OHLCV unavailable for %s", symbol)
                 histories[symbol] = ({}, "unavailable")
