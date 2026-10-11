@@ -90,6 +90,7 @@ async function retryAccountLoad(){
 
 let sasWelcomeTimer=null;
 function showSASWelcome(){
+ if(me && !me.pro && !me.trial_available)return;
  const overlay=document.getElementById('sasWelcomeOverlay');
  const field=overlay?.querySelector('.sas-fireworks');
  if(!overlay||!field)return;
