@@ -1265,6 +1265,11 @@ async function loadSiteMedia(){
    el.classList.remove('has-managed-icon');
    continue;
   }
+  const restoreIcon=()=>{
+   el.innerHTML=el.dataset.mediaOriginalHTML||'';
+   el.classList.remove('has-managed-icon');
+   if(terminalState.siteMedia)delete terminalState.siteMedia[slot];
+  };
   if(el.matches('button')){
    if(!el.dataset.mediaOriginalLabel)el.dataset.mediaOriginalLabel=el.textContent.trim();
    const label=el.dataset.mediaOriginalLabel.replace(/^[^\p{L}\p{N}]+/u,'').trim();
@@ -1272,9 +1277,17 @@ async function loadSiteMedia(){
   }else{
    el.innerHTML='<img class="sas-managed-icon-image" src="'+esc(item.url)+'" alt="" aria-hidden="true">';
   }
+  const managedImage=el.querySelector('img.sas-managed-icon-image,img.sas-managed-tab-icon');
+  if(managedImage){managedImage.loading='lazy';managedImage.addEventListener('error',restoreIcon,{once:true});}
   el.classList.add('has-managed-icon');
  }
  return items;
+}
+let sasMediaRefreshTimer=null;
+function startSASMediaAutoRefresh(){
+ if(sasMediaRefreshTimer)clearInterval(sasMediaRefreshTimer);
+ sasMediaRefreshTimer=setInterval(()=>{if(document.visibilityState==='visible')loadSiteMedia().catch(()=>{});},60000);
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')loadSiteMedia().catch(()=>{});});
 }
 async function loadAdminMedia(){
  const status=document.getElementById('mediaUploadStatus');
@@ -1942,7 +1955,8 @@ async function saveSubscriptionConfig(){
 document.addEventListener('change',e=>{if(e.target?.id==='paidPlansVisible')document.getElementById('plansEditorPanel').hidden=!e.target.checked;});
 load();
 
-// تحميل العلامة البصرية من مساحة التخزين الدائمة؛ لا يتدخل في بيانات الرادار.\nloadSiteMedia().catch(()=>{});\n
+// تحميل العلامة البصرية من مساحة التخزين الدائمة؛ لا يتدخل في بيانات الرادار.\nloadSiteMedia().catch(()=>{});
+startSASMediaAutoRefresh();\n
 
 /* Interactive countdowns use the US exchange timezone, so DST is handled automatically. */
 (function initSasMarketCountdown(){
