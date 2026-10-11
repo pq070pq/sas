@@ -2730,6 +2730,28 @@ async def stock_chart(symbol: str, _: dict = Depends(require_pro)):
         return {"symbol": raw_symbol, "candles": data, "available": len(data) >= 20, "source": "legacy"}
     return {"symbol": raw_symbol, **data}
 
+@app.get("/api/stocks/{symbol}/perpequities")
+async def stock_perpequities_analysis(symbol: str, _: dict = Depends(require_pro)):
+    """Return PerpEquities contract context and canonical chart/research page."""
+    raw_symbol = symbol.upper().strip()
+    if is_crypto_symbol(raw_symbol):
+        return {"symbol": raw_symbol, "available": False, "source": "PerpEquities",
+                "message_ar": "مصدر PerpEquities مخصص لعقود الأسهم وليس لهذا الأصل الرقمي."}
+    try:
+        from .perpequities_provider import get_equity_perpetual
+        context = await asyncio.wait_for(get_equity_perpetual(raw_symbol), timeout=9.0)
+        if not context:
+            return {"symbol": raw_symbol, "available": False, "source": "PerpEquities",
+                    "source_url": "https://perpequities.com/ar",
+                    "message_ar": "لا تتوفر حاليًا بيانات حديثة لهذا السهم في PerpEquities."}
+        return {"symbol": raw_symbol, "available": True, **context,
+                "chart_url": context.get("source_url") or "https://perpequities.com/ar"}
+    except Exception as exc:
+        logger.info("PerpEquities analysis unavailable for %s: %s", raw_symbol, type(exc).__name__)
+        return {"symbol": raw_symbol, "available": False, "source": "PerpEquities",
+                "source_url": "https://perpequities.com/ar",
+                "message_ar": "تعذر تحميل تحليل PerpEquities الآن؛ يمكنك فتح المصدر مباشرة."}
+
 @app.get("/api/stocks/{symbol}/news")
 async def stock_news(symbol: str, _: dict = Depends(require_pro)):
     return await company_news(symbol.upper())

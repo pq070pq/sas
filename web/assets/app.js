@@ -766,19 +766,36 @@ function startStockAnalysisLoader(el,symbol){
  },1000);
 }
 
+function mountPerpEquitiesAnalysis(root,data,symbol){
+ const host=root?.querySelector('#perpEquitiesAnalysis');if(!host)return;
+ const panel=document.createElement('section');panel.className='perp-analysis-panel';
+ const heading=document.createElement('div');heading.className='perp-analysis-heading';
+ const title=document.createElement('div');title.innerHTML='<span class="eyebrow">PERPEQUITIES · LIVE CONTEXT</span><b>📊 شارت وتحليل السهم من المصدر</b>';heading.appendChild(title);
+ const link=document.createElement('a');link.className='perp-analysis-open';link.href=safeNewsUrl(data?.chart_url||data?.source_url)||'https://perpequities.com/ar';link.target='_blank';link.rel='noopener noreferrer';link.textContent='فتح الشارت والتحليل الكامل ↗';heading.appendChild(link);panel.appendChild(heading);
+ if(!data?.available){const msg=document.createElement('p');msg.className='perp-analysis-empty';msg.textContent=data?.message_ar||'بيانات المصدر غير متاحة الآن.';panel.appendChild(msg);host.appendChild(panel);return;}
+ const money=v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))?'$'+Number(v).toLocaleString('en-US',{maximumFractionDigits:4}):'—';
+ const pct=v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))?(Number(v)>=0?'+':'')+(Number(v)*100).toFixed(2)+'%':'—';
+ const metrics=[['السعر المرجعي للعقد',money(data.reference_price)],['التغير 24 ساعة',pct(data.change_24h_fraction)],['التغير 7 أيام',pct(data.change_7d_fraction)],['حجم العقود 24 ساعة',money(data.volume_24h_usd)],['العقود المفتوحة',money(data.open_interest_usd)],['الأسواق الحية',String(data.fresh_live_markets??data.live_markets??'—')]];
+ const grid=document.createElement('div');grid.className='perp-analysis-metrics';metrics.forEach(([label,value])=>{const card=document.createElement('div');card.className='perp-analysis-metric';const small=document.createElement('small');small.textContent=label;const strong=document.createElement('b');strong.textContent=value;card.append(small,strong);grid.appendChild(card);});panel.appendChild(grid);
+ const venues=document.createElement('div');venues.className='perp-analysis-venues';const names=Array.isArray(data.venues)?data.venues.slice(0,5).map(v=>v.venue).filter(Boolean).join(' · '):'';const venueLine=document.createElement('small');venueLine.textContent='المنصات: '+(names||'غير متاحة');venues.appendChild(venueLine);const updateLine=document.createElement('small');const time=data.market_data_at?new Date(data.market_data_at):null;updateLine.textContent='آخر بيانات المصدر: '+(time&&Number.isFinite(time.getTime())?new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',hour12:true}).format(time)+' بتوقيت الرياض':'غير متاح');venues.appendChild(updateLine);panel.appendChild(venues);
+ const embedTitle=document.createElement('div');embedTitle.className='perp-embed-title';embedTitle.innerHTML='<b>الشارت التفاعلي الأصلي</b><span>1D · 7D · 30D · 90D · All</span>';panel.appendChild(embedTitle);
+ const frame=document.createElement('div');frame.className='perp-embed-frame';const iframe=document.createElement('iframe');iframe.title='شارت وتحليل '+symbol+' من PerpEquities';iframe.src=link.href;iframe.loading='lazy';iframe.referrerPolicy='strict-origin-when-cross-origin';iframe.allow='fullscreen';frame.appendChild(iframe);panel.appendChild(frame);
+ const note=document.createElement('p');note.className='perp-analysis-disclaimer';note.textContent='بيانات العقود الدائمة قد تختلف عن سعر السهم الفوري. مصدر البيانات: PerpEquities. البيانات للمعلومات فقط وليست توصية تداول.';panel.appendChild(note);host.appendChild(panel);
+}
 async function analyzeSymbol(){
  const input=document.getElementById('symbolSearch');
  const symbol=(input.value||'').trim().toUpperCase().replace(/[^A-Z.\-]/g,'');
  if(!symbol)return;
  const el=document.getElementById('symbolResult');
  startStockAnalysisLoader(el,symbol);
- const [qR,chartR,newsR,analysisR,miniR,shariahR]=await Promise.allSettled([
+ const [qR,chartR,newsR,analysisR,miniR,shariahR,perpR]=await Promise.allSettled([
    api('/api/stocks/'+encodeURIComponent(symbol)+'/quote'),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/chart'),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/news'),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/analyze',{method:'POST',timeoutMs:30000}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/mini-analysis',{timeoutMs:30000}),
-   api('/api/stocks/'+encodeURIComponent(symbol)+'/shariah',{timeoutMs:12000})
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/shariah',{timeoutMs:12000}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/perpequities',{timeoutMs:10000})
  ]);
  stopStockAnalysisLoader();
  const qRaw=qR.status==='fulfilled'?qR.value:{symbol,price:null,change_pct:null,source:'غير متاح'};
@@ -797,6 +814,7 @@ async function analyzeSymbol(){
    if(Number(q.price)>0||news.length||chart.candles?.length) renderPartialAnalysis(el,symbol,q,chart,news,miniR.status==='fulfilled'?miniR.value:null);
    return;
  }
+ const perp=perpR.status==='fulfilled'&&perpR.value&&typeof perpR.value==='object'?perpR.value:{symbol,available:false,source_url:'https://perpequities.com/ar',message_ar:'تعذر تحميل بيانات PerpEquities.'};
  const tech=analysis.sas_pro?.targets||{};
  const sh=shariah||tech.shariah||{};
  const ai=analysis.analysis||{};
@@ -843,11 +861,12 @@ const miniAnalysisHtml=
    '<div class="quote-line"><strong>&#36;'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
    notice+
    miniAnalysisHtml+
-   '<div class="chart-title"><b>📈 شارت السهم</b><div class="chart-title-actions"><small>شموع وحجم تداول • بيانات SAS PRO</small><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">↗ فتح GoCharting</a></div></div><div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">📊 البيانات الفنية التاريخية غير متاحة حاليًا<br><small>لم يتم اختلاق هدف أو وقف أو إشارة. سيتم إظهارها عند توفر بيانات الشموع والحجم.</small></div>':'<canvas id="stockCanvas" height="230"></canvas>')+'</div>'+
+   '<div class="chart-title"><b>📈 شارت السهم</b><div class="chart-title-actions"><small>شموع وحجم تداول • بيانات SAS PRO</small><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">↗ GoCharting</a><a class="gocharting-link" href="'+escHtml(safeNewsUrl(perp.chart_url||perp.source_url)||'https://perpequities.com/ar')+'" target="_blank" rel="noopener noreferrer">↗ PerpEquities</a></div></div><div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">📊 البيانات الفنية التاريخية غير متاحة حاليًا<br><small>لم يتم اختلاق هدف أو وقف أو إشارة. سيتم إظهارها عند توفر بيانات الشموع والحجم.</small></div>':'<canvas id="stockCanvas" height="230"></canvas>')+'</div><div id="perpEquitiesAnalysis"></div>'+
    '<div class="level-grid"><div><small>🟦 الدخول</small><b>&#36;'+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>&#36;'+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>&#36;'+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+rr+'</b></div></div>'+
    '<div class="ai-box"><b>'+(aiAvailable?'⏳ زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+
    '<div class="news-list">'+renderNewsItems(newsFromAnalysis,5,Array.isArray(ai.news_summaries)?ai.news_summaries:[])+'</div>'+
    '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
+ mountPerpEquitiesAnalysis(el,perp,symbol);
  const chartCandles=Array.isArray(chart.candles)?chart.candles:[];
  requestAnimationFrame(()=>drawChart(chartCandles));
  if(!chartCandles.length){
