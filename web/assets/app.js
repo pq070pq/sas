@@ -548,7 +548,15 @@ function stockCard(x){
  const catalystLabel=catalyst>=75?'🔥 محفز قوي':catalyst>=55?'⚡ محفز متوسط':catalyst>0?'📰 محفز ضعيف':'📰 دون محفز حديث';
  const gate=(ok,label)=>'<i class="'+(ok?'gate-ok':'gate-warn')+'">'+(ok?'✓ ':'⚠️ ')+label+'</i>';
  const recommendation=(Number(rr)<1||warning) ? '🔴 لا تدخل الآن: الربح المتوقع لا يعوض المخاطرة.' : (Number(change)>10 ? '🟡 لا تطارد السهم: ارتفع بسرعة، انتظر هدوء الحركة وتأكيد جديد.' : (Number(score)>=70 ? '🟢 فرصة جيدة للمراقبة: انتظر تأكيد الاختراق والسيولة قبل الدخول.' : '🟡 مراقبة فقط: الإشارة غير قوية بما يكفي للدخول الآن.'));
- const perp=terminalState.perpAssets[raw.toUpperCase()];
+ const perpFromResult=x.perpequities_context&&typeof x.perpequities_context==='object'?{
+  symbol:x.perpequities_context.symbol,
+  price:x.perpequities_context.reference_price,
+  change24h:x.perpequities_context.change_24h_fraction,
+  qualityFilteredVolume24hUsd:x.perpequities_context.volume_24h_usd,
+  openInterestUsd:x.perpequities_context.open_interest_usd,
+  url:x.perpequities_context.source_url||'https://perpequities.com/ar'
+ }:null;
+ const perp=terminalState.perpAssets[raw.toUpperCase()]||perpFromResult;
  const perpPrice=Number(perp?.price);
  const perpChange=perp?.change24h==null?null:Number(perp.change24h);
  const perpVolume=Number(perp?.qualityFilteredVolume24hUsd??perp?.volume24hUsd);
