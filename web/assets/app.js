@@ -326,6 +326,7 @@ function renderDashboard(d){
   const maxMove=Math.max(1,...ranked.map(x=>Math.abs(x._move)));
   movers.innerHTML=ranked.length?ranked.map(x=>'<div class="sas-mover-row"><span class="sas-mover-symbol">'+escHtml(x.symbol||x.ticker||'—')+'</span><span class="sas-mover-track"><i style="width:'+Math.max(4,Math.min(100,Math.abs(x._move)/maxMove*100))+'%"></i></span><strong class="sas-mover-value" style="color:'+(x._move>=0?'#00f5a0':'#ff6078')+'">'+(x._move>0?'+':'')+x._move.toFixed(2)+'%</strong></div>').join(''):'<div class="empty-state">لا توجد بيانات حركة قابلة للعرض ضمن نتائج الرادار الحالية.</div>';
  }
+ const count=document.getElementById('sasRadarCount');if(count)count.textContent=Number(terminalState.radar.length||0).toLocaleString('ar-SA')+' فرصة';
  const el=document.getElementById('dashboardRadar');
  if(terminalState.radar.length) renderCards(el,terminalState.radar.slice(0,6));
  else el.innerHTML='<div class="empty-state">لا توجد إشارات محفوظة من آخر جلسة.</div>';
