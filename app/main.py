@@ -2342,7 +2342,7 @@ def _parse_perpequities_movers(document: str):
     if not target:
         return None
     section_end = min(
-        (h["start"] for h in parser.headings if h["start"] > target["end"] and h["level"] <= target["level"]),
+        (h["start"] for h in parser.headings if h["start"] > target["end"] and h["level"] <= target["level"] and not any(word in clean(h["text"]) for word in ("الرابحون", "الخاسرون"))),
         default=parser.offset + 1,
     )
     changes = []
