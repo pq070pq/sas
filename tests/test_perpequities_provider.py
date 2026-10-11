@@ -51,7 +51,10 @@ def test_normalize_returns_contract_context_and_attribution():
     assert result is not None
     assert result["reference_price"] == 10.18
     assert result["live_markets"] == 1
+    assert result["fresh_live_markets"] == 1
     assert result["venues"][0]["funding_apr"] == -0.02
+    assert result["venues"][0]["fresh"] is True
+    assert result["venues"][0]["updated_age_seconds"] == 60.0
     assert result["is_contract_context_only"] is True
     assert result["attribution"] == "Data: PerpEquities (perpequities.com)"
 
@@ -89,3 +92,25 @@ def test_normalize_keeps_unknown_aggregates_as_none():
     assert result is not None
     assert result["volume_24h_usd"] is None
     assert result["open_interest_usd"] is None
+
+
+def test_stale_or_missing_venue_timestamp_is_marked_not_fresh():
+    payload, now = _payload()
+    payload["data"]["venues"].append({
+        "venue": "old",
+        "status": "trading",
+        "live": True,
+        "volume24hUsd": 1000,
+        "updatedAt": "2026-10-11T11:00:00Z",
+    })
+    payload["data"]["venues"].append({
+        "venue": "unknown-time",
+        "status": "trading",
+        "live": True,
+        "volume24hUsd": 1000,
+    })
+    result = normalize_asset(payload, "OSS", now)
+    assert result is not None
+    assert result["live_markets"] == 3
+    assert result["fresh_live_markets"] == 1
+    assert [v["fresh"] for v in result["venues"]] == [True, False, False]
