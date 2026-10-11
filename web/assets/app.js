@@ -88,52 +88,64 @@ async function retryAccountLoad(){
  await load();
 }
 
+let sasWelcomeTimer=null;
 function showSASWelcome(){
  const overlay=document.getElementById('sasWelcomeOverlay');
  const field=overlay?.querySelector('.sas-fireworks');
  if(!overlay||!field)return;
+ // Once the user has opened the channel invitation, do not show the onboarding popup again.
+ if(localStorage.getItem('saspro_channel_onboarding_done')==='1')return;
  overlay.hidden=false;
- overlay.classList.remove('is-leaving','is-visible');
+ overlay.classList.remove('is-leaving','is-visible','is-join-stage');
+ document.getElementById('sasWelcomeGreeting').hidden=false;
+ document.getElementById('sasWelcomeJoin').hidden=true;
  field.replaceChildren();
  const colors=['#ff405d','#ffd166','#4de4f0','#b69cff','#ffffff','#ff9f43'];
- // Several expanding bursts: each tap on the welcome screen launches a new firework.
  const launch=(x,y)=>{
-  const burst=document.createElement('span');
-  burst.className='sas-firework-burst';
-  burst.style.left=x+'%';burst.style.top=y+'%';
+  const burst=document.createElement('span');burst.className='sas-firework-burst';burst.style.left=x+'%';burst.style.top=y+'%';
   const count=42+Math.floor(Math.random()*20);
   for(let i=0;i<count;i++){
-   const p=document.createElement('i');
-   const angle=(Math.PI*2*i/count)+(Math.random()*.12);
-   const distance=55+Math.random()*105;
-   p.style.setProperty('--dx',(Math.cos(angle)*distance)+'px');
-   p.style.setProperty('--dy',(Math.sin(angle)*distance)+'px');
+   const p=document.createElement('i'),angle=Math.PI*2*i/count+Math.random()*.12,distance=55+Math.random()*105;
+   p.style.setProperty('--dx',Math.cos(angle)*distance+'px');p.style.setProperty('--dy',Math.sin(angle)*distance+'px');
    p.style.setProperty('--particle-color',colors[Math.floor(Math.random()*colors.length)]);
-   p.style.setProperty('--particle-size',(2+Math.random()*3)+'px');
-   p.style.setProperty('--particle-delay',(Math.random()*.12)+'s');
-   burst.appendChild(p);
+   p.style.setProperty('--particle-size',2+Math.random()*3+'px');p.style.setProperty('--particle-delay',Math.random()*.12+'s');burst.appendChild(p);
   }
-  field.appendChild(burst);
-  window.setTimeout(()=>burst.remove(),1800);
+  field.appendChild(burst);window.setTimeout(()=>burst.remove(),1800);
  };
  let count=0;
- const fireTimer=window.setInterval(()=>{
-  launch(12+Math.random()*76,14+Math.random()*54);
-  if(++count>=8)window.clearInterval(fireTimer);
- },310);
- // Interactive bursts follow taps while the greeting is visible.
- const onTap=e=>{
-  const r=overlay.getBoundingClientRect();
-  launch(Math.max(4,Math.min(96,(e.clientX-r.left)/r.width*100)),Math.max(5,Math.min(90,(e.clientY-r.top)/r.height*100)));
- };
+ const fireTimer=window.setInterval(()=>{launch(12+Math.random()*76,14+Math.random()*54);if(++count>=7)window.clearInterval(fireTimer);},310);
+ const onTap=e=>{const r=overlay.getBoundingClientRect();launch(Math.max(4,Math.min(96,(e.clientX-r.left)/r.width*100)),Math.max(5,Math.min(90,(e.clientY-r.top)/r.height*100));};
  overlay.addEventListener('pointerdown',onTap);
  requestAnimationFrame(()=>overlay.classList.add('is-visible'));
- window.setTimeout(()=>{
+ sasWelcomeTimer=window.setTimeout(()=>{
   window.clearInterval(fireTimer);
-  overlay.classList.add('is-leaving');
+  document.getElementById('sasWelcomeGreeting').hidden=true;
+  document.getElementById('sasWelcomeJoin').hidden=false;
+  overlay.classList.add('is-join-stage');
   overlay.removeEventListener('pointerdown',onTap);
-  window.setTimeout(()=>{overlay.hidden=true;overlay.classList.remove('is-visible','is-leaving');field.replaceChildren();},450);
- },3400);
+  field.replaceChildren();
+ },3200);
+}
+function dismissWelcome(){
+ const overlay=document.getElementById('sasWelcomeOverlay');
+ if(sasWelcomeTimer)window.clearTimeout(sasWelcomeTimer);
+ overlay?.classList.add('is-leaving');
+ window.setTimeout(()=>{if(overlay){overlay.hidden=true;overlay.classList.remove('is-visible','is-leaving','is-join-stage');}},350);
+}
+async function joinFromWelcome(){
+ const button=document.getElementById('sasWelcomeJoinBtn');
+ if(button){button.disabled=true;button.textContent='⏳ جارٍ تجهيز رابط الانضمام…';}
+ try{
+  if(!me?.terms_accepted){dismissWelcome();openTerms('trial');return;}
+  if(me?.pro){
+   const d=await api('/api/channel/access');
+   localStorage.setItem('saspro_channel_onboarding_done','1');
+   if(tg?.openTelegramLink)tg.openTelegramLink(d.url);else if(tg?.openLink)tg.openLink(d.url);else window.open(d.url,'_blank');
+   dismissWelcome();return;
+  }
+  dismissWelcome();openTerms('trial');
+ }catch(e){alert(e.message||'تعذر تجهيز رابط القناة.');}
+ finally{if(button){button.disabled=false;button.textContent='🚀 الانضمام للقناة';}}
 }
 
 async function load(){
@@ -171,11 +183,12 @@ async function load(){
   renderTrialCard(cfg.trial_days);
   document.getElementById('paidPlansSection').hidden=!cfg.paid_plans_visible;
   renderPlans(plans.plans||{});
-  // لا يدخل المستخدم الرادار قبل الموافقة على النسخة الحالية من الشروط.
+  // افتح واجهة التطبيق أولًا؛ تظهر دعوة القناة بعد رسالة الترحيب.
   if(!me.terms_accepted){
-   openTerms('trial');
+   showSASWelcome();
    return;
   }
+  showSASWelcome();
  }catch(e){
   clearTimeout(watchdog);
   const msg=e?.message||'تعذر التحقق من Telegram.';
@@ -1110,9 +1123,11 @@ async function continueTerms(){
   if(action==='trial'){
    if(accepted.trial_started&&accepted.trial?.channel_link){
     closeTerms();
+    localStorage.setItem('saspro_channel_onboarding_done','1');
     if(tg?.openTelegramLink)tg.openTelegramLink(accepted.trial.channel_link);
     else if(tg?.openLink)tg.openLink(accepted.trial.channel_link);
     else window.open(accepted.trial.channel_link,'_blank');
+    dismissWelcome();
     setTimeout(()=>{loadStarted=false;load();},900);
     return;
    }
