@@ -1978,6 +1978,35 @@ async def admin_free_extend(telegram_id: int, days: int = 3, user=Depends(telegr
     await audit(int(user["id"]), "free_access_extended", telegram_id, {"days": days, "expires_at": row.trial_expires.isoformat()})
     return {"ok": True, "expires_at": row.trial_expires.isoformat()}
 
+@app.get("/api/admin/gift-candidates")
+async def admin_gift_candidates(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    await require_admin_permission(user, "subscriptions")
+    now = utcnow()
+    rows = (await db.execute(select(User).order_by(User.first_name, User.username))).scalars().all()
+    candidates = []
+    for row in rows:
+        if row.free_access:
+            continue
+        paid = (await db.execute(select(Subscription).where(
+            Subscription.telegram_id == row.telegram_id, Subscription.active == True
+        ).order_by(Subscription.expires_at.desc()))).scalars().first()
+        expiry = None
+        kind = None
+        if paid and aware(paid.expires_at) > now:
+            expiry, kind = aware(paid.expires_at), "مدفوع"
+        elif row.trial_expires and aware(row.trial_expires) > now and row.status == "trial":
+            expiry, kind = aware(row.trial_expires), "تجربة مجانية"
+        if expiry:
+            candidates.append({
+                "telegram_id": row.telegram_id,
+                "name": " ".join(part for part in [row.first_name, row.last_name] if part).strip() or row.username or str(row.telegram_id),
+                "username": row.username,
+                "kind": kind,
+                "expires_at": expiry.isoformat(),
+            })
+    return candidates
+
+
 @app.post("/api/admin/gift-extend-all")
 async def admin_gift_extend_all(request: Request, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     await require_admin_permission(user, "subscriptions")
