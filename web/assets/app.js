@@ -581,8 +581,29 @@ async function runRadar(show=true){
 }
 function renderRadar(){renderCards(document.getElementById('radarGrid'),terminalState.radar);}
 function renderCards(el,rows){
- if(!rows.length){el.innerHTML='<div class="empty-state">لا توجد فرص مكتملة حاليًا. إذا كان السوق مغلقًا ستظهر آخر إشارات محفوظة تلقائيًا.</div>';return;}
+ if(!rows.length){
+  el.innerHTML='<div class="radar-empty-card">'+
+   '<div class="radar-empty-orbit" aria-hidden="true"><span></span><i></i><b></b></div>'+
+   '<div class="radar-empty-content">'+
+    '<span class="radar-empty-kicker">SAS PRO · SMART RADAR</span>'+
+    '<h3>لا توجد فرص مكتملة حاليًا</h3>'+
+    '<p>الرادار لا يعرض إلا الأسهم التي اجتازت شروط الفحص. إذا كان السوق مغلقًا، فسيعرض آخر الإشارات المحفوظة عند توفرها.</p>'+
+    '<div class="radar-empty-status"><span class="radar-empty-dot"></span><span>بانتظار فرصة تستوفي الشروط</span></div>'+
+    '<div class="radar-empty-actions"><button type="button" class="radar-empty-primary" onclick="runRadar()">⟳ ابدأ مسحًا جديدًا</button><button type="button" class="radar-empty-secondary" onclick="toggleRadarEmptyHelp(this)" aria-expanded="false">كيف يعمل الرادار؟ <span>⌄</span></button></div>'+
+    '<div class="radar-empty-help" hidden>يفحص الرادار حركة السعر والسيولة والزخم والشروط الفنية. عدم ظهور فرص لا يعني وجود خطأ؛ بل يعني أن الأسهم المتاحة لم تحقق شروط الرصد في هذه الدورة.</div>'+
+   '</div></div>';
+  return;
+ }
  el.innerHTML=rows.map(stockCard).join('');
+}
+function toggleRadarEmptyHelp(button){
+ const help=button.closest('.radar-empty-content')?.querySelector('.radar-empty-help');
+ if(!help)return;
+ const open=help.hidden;
+ help.hidden=!open;
+ button.setAttribute('aria-expanded',String(open));
+ const label=button.querySelector('span');
+ if(label)label.textContent=open?'⌃':'⌄';
 }
 function stockCard(x){
  const raw=String(x.symbol||'—'), s=escHtml(raw);
