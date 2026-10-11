@@ -1694,3 +1694,37 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @keyframes sasPageArrival{from{opacity:.55;filter:saturate(.75)}to{opacity:1;filter:saturate(1)}}
 @media(hover:none){.sas-interactive-glow:before{display:none}.stock-card:hover,.sas-action-card:hover{transform:none!important}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.sas-reveal{opacity:1;transform:none}}
+
+
+/* SAS PRO visual refinement: clear hero identity + live market-state colors */
+.terminal-hero-banner .hero-shade{
+  background:linear-gradient(180deg,rgba(1,8,14,.015) 0%,rgba(1,8,14,.025) 62%,rgba(1,8,14,.22) 100%)!important;
+}
+.terminal-hero-banner img{filter:saturate(1.1) contrast(1.06) brightness(1.02)!important}
+.hero-caption{
+  right:auto!important;left:clamp(10px,2.8vw,28px)!important;bottom:clamp(10px,2.4vw,22px)!important;
+  align-items:flex-start!important;width:max-content;max-width:calc(100% - 24px);
+  padding:9px 12px!important;border:1px solid rgba(130,224,245,.22);
+  border-radius:14px;background:rgba(2,10,18,.56);backdrop-filter:blur(7px);
+  text-align:left;direction:ltr;
+}
+.hero-caption .hero-brand-row{gap:10px}
+.hero-caption .hero-brand-row>span{font-size:clamp(15px,2.8vw,21px)!important;letter-spacing:2px!important}
+.hero-caption>small{font-size:8px!important;letter-spacing:1.35px!important}
+.sas-market-status{transition:color .25s ease,border-color .25s ease,background .25s ease,box-shadow .25s ease}
+.sas-market-status .sas-status-dot{transition:background .25s ease,box-shadow .25s ease}
+.sas-market-status.is-closed{color:#ff8792!important;border-color:rgba(255,83,104,.52)!important;background:rgba(77,12,24,.46)!important;box-shadow:0 0 22px rgba(255,48,76,.1),inset 0 1px rgba(255,255,255,.025)!important}
+.sas-market-status.is-closed .sas-status-dot{background:#ff5368!important;box-shadow:0 0 0 0 rgba(255,83,104,.6)!important;animation:sasClosedPulse 1.6s ease-out infinite!important}
+.sas-market-status.is-pre{color:#ffd18a!important;border-color:rgba(255,166,64,.48)!important;background:rgba(71,39,7,.43)!important;box-shadow:0 0 20px rgba(255,166,64,.08)!important}
+.sas-market-status.is-pre .sas-status-dot{background:#ffad42!important;box-shadow:0 0 12px rgba(255,166,64,.7)!important}
+.sas-market-status.is-open{color:#78f5b3!important;border-color:rgba(25,239,139,.42)!important;background:rgba(5,65,40,.38)!important;box-shadow:0 0 20px rgba(25,239,139,.08)!important}
+.sas-market-status.is-open .sas-status-dot{background:#19ef8b!important;box-shadow:0 0 12px rgba(25,239,139,.72)!important}
+@keyframes sasClosedPulse{0%{box-shadow:0 0 0 0 rgba(255,83,104,.55)!important}70%{box-shadow:0 0 0 8px rgba(255,83,104,0)!important}100%{box-shadow:0 0 0 0 rgba(255,83,104,0)!important}}
+.stock-card[data-sas-open-analysis="1"]{cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.stock-card[data-sas-open-analysis="1"]:focus-visible{outline:2px solid rgba(83,220,255,.9);outline-offset:3px}
+.stock-card[data-sas-open-analysis="1"]:hover{transform:translateY(-2px)}
+@media(max-width:600px){
+ .hero-caption{left:10px!important;bottom:10px!important;padding:8px 10px!important}
+ .hero-caption .hero-brand-row>span{font-size:15px!important}
+}
+@media(prefers-reduced-motion:reduce){.sas-market-status .sas-status-dot{animation:none!important}.stock-card[data-sas-open-analysis="1"]{transition:none}}
