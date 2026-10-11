@@ -2489,7 +2489,7 @@ def _movers_price_in_range(item, minimum=0.50, maximum=15.00):
     return price >= minimum and price <= maximum
 
 
-def _rank_perpequities_movers(assets, limit=8):
+def _rank_perpequities_movers(assets):
     """Return price-filtered 24h gainers and losers with full available source fields."""
     eligible = []
     for raw in assets if isinstance(assets, list) else []:
@@ -2506,8 +2506,8 @@ def _rank_perpequities_movers(assets, limit=8):
         item["change24h"] = change
         item["change_pct"] = round(change * 100, 4)
         eligible.append(item)
-    gainers = sorted((x for x in eligible if x["change24h"] > 0), key=lambda x: x["change24h"], reverse=True)[:limit]
-    losers = sorted((x for x in eligible if x["change24h"] < 0), key=lambda x: x["change24h"])[:limit]
+    gainers = sorted((x for x in eligible if x["change24h"] > 0), key=lambda x: x["change24h"], reverse=True)
+    losers = sorted((x for x in eligible if x["change24h"] < 0), key=lambda x: x["change24h"])
     return gainers, losers, eligible
 
 

@@ -2673,3 +2673,33 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-perp-detail-venue span:last-child{grid-column:1/-1;color:#718fa0}.sas-perp-detail-muted{font-size:9px;color:#7893a3}
 .sas-perp-movers-note{line-height:1.9}
 @media(max-width:420px){.sas-perp-mover-card>summary{gap:5px;padding:8px 5px}.sas-perp-mover-rank{flex-basis:17px;width:17px;height:17px}.sas-perp-mover-price{font-size:9px}.sas-perp-mover-card .sas-perp-mover-symbol{font-size:10px}.sas-perp-mover-card>summary>b{font-size:9px}.sas-perp-detail-grid{gap:5px}.sas-perp-detail-grid>div{padding:6px}}
+
+
+/* Clear full-width daily gainers/losers lists; prevent side-by-side text collisions. */
+.sas-perp-movers-grid{grid-template-columns:minmax(0,1fr);align-items:start}
+.sas-perp-movers-side{width:100%;box-sizing:border-box}
+.sas-perp-movers-side>summary{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.sas-perp-count{margin-inline-start:auto;padding:4px 8px;border-radius:999px;background:rgba(93,166,190,.12);border:1px solid rgba(93,166,190,.22);color:#a9d7e7;font-size:10px;font-weight:800;white-space:nowrap}
+.sas-perp-movers-list{width:100%;min-width:0;box-sizing:border-box;grid-template-columns:minmax(0,1fr)}
+.sas-perp-mover-card{width:100%;min-width:0;box-sizing:border-box}
+.sas-perp-mover-card>summary{display:grid;grid-template-columns:24px minmax(0,1fr) minmax(62px,auto) minmax(58px,auto) 14px;align-items:center;gap:9px}
+.sas-perp-mover-main{min-width:0;overflow:hidden}
+.sas-perp-mover-main strong,.sas-perp-mover-main small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sas-perp-mover-price,.sas-perp-mover-card>summary>b{white-space:nowrap;text-align:end}
+.sas-perp-detail-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.sas-perp-detail-venue{grid-template-columns:minmax(0,1fr) auto}
+@media(max-width:560px){
+ .sas-perp-movers-grid{grid-template-columns:minmax(0,1fr);gap:10px}
+ .sas-perp-movers-side{padding:9px}
+ .sas-perp-mover-card>summary{grid-template-columns:20px minmax(0,1fr) minmax(56px,auto) minmax(50px,auto) 12px;gap:5px;padding:10px 7px}
+ .sas-perp-mover-main strong{font-size:11px}
+ .sas-perp-mover-main small{font-size:9px}
+ .sas-perp-mover-price{font-size:10px}
+ .sas-perp-mover-card>summary>b{font-size:10px}
+ .sas-perp-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:360px){
+ .sas-perp-mover-card>summary{grid-template-columns:18px minmax(0,1fr) auto auto 10px;gap:4px;padding:8px 5px}
+ .sas-perp-mover-price{font-size:9px}
+ .sas-perp-mover-card>summary>b{font-size:9px}
+}
