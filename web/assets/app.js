@@ -1892,3 +1892,47 @@ load();
  document.querySelectorAll('[data-countdown]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.countdown;paint();}));
  paint();setInterval(paint,1000);
 })();
+
+
+/* Editable gift notification template managed by SAS ADMIN. */
+const DEFAULT_GIFT_MESSAGE_TEMPLATE = "🎁 <b>هدية خاصة من {brand}</b>\\n\\n🎉 <b>تهانينا!</b> تم تمديد اشتراكك كهدية تقدير لمدة <b>{days} يومًا</b>.\\n📅 تاريخ الانتهاء الجديد: <b>{expiry_date}</b>\\n\\nشكرًا لثقتك بنا، ونتمنى لك تجربة موفقة مع {brand} 💎";
+function renderGiftMessagePreview(){
+ const field=document.getElementById('giftMessageTemplate');
+ const preview=document.getElementById('giftMessagePreview');
+ if(!field||!preview)return;
+ const sample=field.value||'';
+ const rendered=sample.replaceAll('{days}','7').replaceAll('{expiry_date}','31/12/2026').replaceAll('{brand}','SAS PRO');
+ preview.innerHTML='<b>👀 معاينة الرسالة</b><div class="gift-message-preview-body">'+escHtml(rendered).replace(/\n/g,'<br>')+'</div>';
+}
+async function loadGiftMessageTemplate(){
+ const field=document.getElementById('giftMessageTemplate');
+ const status=document.getElementById('giftMessageSaveStatus');
+ if(!field)return;
+ try{
+  const d=await api('/api/admin/gift-message');
+  field.value=String(d.template||DEFAULT_GIFT_MESSAGE_TEMPLATE);
+  if(status)status.textContent='تم تحميل الرسالة المحفوظة.';
+ }catch(e){
+  if(!field.value)field.value=DEFAULT_GIFT_MESSAGE_TEMPLATE;
+  if(status)status.textContent='تعذر تحميل المحفوظة: '+(e.message||'خطأ');
+ }
+ renderGiftMessagePreview();
+}
+async function saveGiftMessageTemplate(){
+ const field=document.getElementById('giftMessageTemplate');
+ const button=document.getElementById('saveGiftMessageBtn');
+ const status=document.getElementById('giftMessageSaveStatus');
+ const template=String(field?.value||'').trim();
+ if(!template){alert('اكتب نص رسالة الهدية أولًا.');return;}
+ if(template.length>2500){alert('الرسالة طويلة جدًا؛ الحد الأقصى 2500 حرف.');return;}
+ if(button){button.disabled=true;button.textContent='⏳ جارٍ الحفظ…';}
+ if(status)status.textContent='';
+ try{
+  const d=await api('/api/admin/gift-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({template})});
+  field.value=String(d.template||template);
+  if(status)status.textContent='✅ تم حفظ الرسالة. ستُستخدم في الهدايا القادمة.';
+  renderGiftMessagePreview();
+ }catch(e){if(status)status.textContent='تعذر الحفظ: '+(e.message||'خطأ');}
+ finally{if(button){button.disabled=false;button.textContent='💾 حفظ رسالة الهدية';}}
+}
+document.addEventListener('input',event=>{if(event.target?.id==='giftMessageTemplate')renderGiftMessagePreview();});
