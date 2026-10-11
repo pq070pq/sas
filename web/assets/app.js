@@ -87,6 +87,36 @@ async function retryAccountLoad(){
  const trial=document.getElementById('trialBtn');if(trial)trial.disabled=true;
  await load();
 }
+
+function showSASWelcome(){
+ const overlay=document.getElementById('sasWelcomeOverlay');
+ if(!overlay||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
+ overlay.hidden=false;
+ overlay.classList.remove('is-leaving');
+ // Confetti/firework particles are decorative only; the greeting dismisses automatically.
+ const field=overlay.querySelector('.sas-fireworks');
+ if(field){
+  field.replaceChildren();
+  const colors=['#ff4d6d','#ffd166','#4de4f0','#a78bfa','#ffffff'];
+  for(let i=0;i<44;i++){
+   const p=document.createElement('i');
+   p.className='sas-firework-particle';
+   p.style.setProperty('--x',(Math.random()*100)+'%');
+   p.style.setProperty('--y',(Math.random()*75)+'%');
+   p.style.setProperty('--delay',(Math.random()*.8)+'s');
+   p.style.setProperty('--duration',(1.4+Math.random()*1.2)+'s');
+   p.style.setProperty('--turn',(Math.random()*720-360)+'deg');
+   p.style.setProperty('--particle-color',colors[i%colors.length]);
+   field.appendChild(p);
+  }
+ }
+ requestAnimationFrame(()=>overlay.classList.add('is-visible'));
+ window.setTimeout(()=>{
+  overlay.classList.add('is-leaving');
+  window.setTimeout(()=>{overlay.hidden=true;overlay.classList.remove('is-visible','is-leaving');},500);
+ },2600);
+}
+
 async function load(){
  if(loadStarted)return;
  loadStarted=true;
@@ -106,12 +136,13 @@ async function load(){
    document.getElementById('subscriptionPage').hidden=true;
    document.getElementById('adminPage').hidden=false;
    if((me.admin_permissions||[]).includes('admins')){document.getElementById('staffPanel').hidden=false;await loadStaff();}
-   await adminRefresh();return;
+   await adminRefresh();showSASWelcome();return;
   }
   if(me.pro){
    document.getElementById('subscriptionPage').hidden=true;
    document.getElementById('terminalPage').hidden=false;
    await initTerminal();
+   showSASWelcome();
    return;
   }
   document.getElementById('userName').textContent=me.user?.first_name||me.user?.username||'مستخدم SAS PRO';
