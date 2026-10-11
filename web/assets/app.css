@@ -2579,3 +2579,26 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-label{padding:6px 8px!important;border-radius:8px!important}
  .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon{flex-basis:48px!important}
 }
+
+
+/* Tighten only the gap between the alert label and icon. */
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge{
+  gap:3px!important;
+  padding-left:3px!important;
+  padding-right:3px!important;
+}
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge > span:not(.disclaimer-icon),
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-label{
+  margin-inline-end:0!important;
+  margin-inline-start:0!important;
+  padding-inline:9px!important;
+}
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon{
+  margin-inline-start:0!important;
+  margin-inline-end:0!important;
+}
+@media(max-width:600px){
+ .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge{gap:2px!important;padding-left:2px!important;padding-right:2px!important}
+ .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge > span:not(.disclaimer-icon),
+ .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-label{padding-inline:7px!important}
+}
