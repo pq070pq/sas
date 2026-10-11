@@ -1388,3 +1388,37 @@ filter:blur(.2px);
 #radarScanProgress .radar-scan-elapsed{display:block;color:#8bc8d8;font-size:11px;font-variant-numeric:tabular-nums}
 @media(max-width:600px){.terminal-panel-head{gap:10px;align-items:center}.terminal-panel-head>div{min-width:0;flex:1}.terminal-panel-head h2{font-size:20px;line-height:1.45}.terminal-panel-head small{line-height:1.7}#radarScanBtn{width:154px;min-width:140px;padding:10px 11px;font-size:12px}}
 @media(max-width:380px){.terminal-panel-head{flex-wrap:wrap}.terminal-panel-head>div{width:100%}#radarScanBtn{width:170px;margin-inline:auto}}
+
+
+/* Interactive stock-analysis loader — SAS PRO dark trading visual */
+.stock-analysis-loader{position:relative;overflow:hidden;margin:8px 0 16px;padding:20px 17px 16px;border:1px solid rgba(75,190,230,.34);border-radius:22px;background:linear-gradient(145deg,rgba(5,22,36,.98),rgba(3,12,23,.98) 65%,rgba(4,31,44,.95));box-shadow:0 16px 42px rgba(0,0,0,.26),inset 0 1px rgba(170,235,255,.06);color:var(--text);isolation:isolate}
+.stock-analysis-loader:before{content:"";position:absolute;inset:-60% -20%;z-index:-1;background:conic-gradient(from 90deg,transparent,rgba(41,183,231,.08),transparent 28%);animation:salGlow 7s linear infinite;pointer-events:none}
+.sal-loader-top{display:flex;align-items:center;gap:13px;margin-bottom:22px}
+.sal-orbit{width:58px;height:58px;flex:0 0 58px;border-radius:18px;display:grid;place-items:center;position:relative;background:radial-gradient(circle,rgba(52,194,242,.2),rgba(9,43,62,.72));border:1px solid rgba(93,215,255,.38);box-shadow:0 0 24px rgba(26,170,221,.12)}
+.sal-orbit:before,.sal-orbit:after{content:"";position:absolute;inset:5px;border:1px solid rgba(86,205,244,.28);border-radius:50%;animation:salOrbit 3s linear infinite}
+.sal-orbit:after{inset:-4px;border-color:rgba(86,205,244,.12);animation-direction:reverse;animation-duration:5s}
+.sal-orbit span{font-size:25px;filter:drop-shadow(0 0 8px rgba(80,212,255,.45))}
+.sal-loader-title{display:flex;flex-direction:column;gap:5px;min-width:0}
+.sal-loader-title .eyebrow{font-size:9px;letter-spacing:1.8px;color:#7cd9f3}
+.sal-loader-title>b{font-size:17px;line-height:1.6;color:#edf9ff}
+.sal-loader-title>b strong{color:#79dfff;letter-spacing:1px}
+.sal-loader-title small{font-size:11px;line-height:1.7;color:var(--muted)}
+.sal-progress-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px;font-size:12px;color:#c7e8f3}
+.sal-progress-head b{font-variant-numeric:tabular-nums;color:#86e4ff;font-size:13px}
+.sal-progress-track{height:7px;border-radius:99px;overflow:hidden;background:rgba(119,179,203,.12);border:1px solid rgba(119,206,231,.1)}
+.sal-progress-track span{display:block;width:8%;height:100%;border-radius:99px;background:linear-gradient(90deg,#168bc7,#6be7ff,#9ff4dc);box-shadow:0 0 16px rgba(76,209,248,.4);transition:width .8s ease}
+.sal-loader-meta{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-top:10px;font-size:10px;line-height:1.8;color:var(--muted)}
+.sal-loader-meta>span:first-child{flex:1}
+.sal-timer{white-space:nowrap;color:#a4c9d9;font-variant-numeric:tabular-nums}
+.sal-timer b{color:#e6f8ff}
+.sal-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:19px 0 15px}
+.sal-step{display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 3px;border-radius:10px;background:rgba(110,159,182,.06);border:1px solid rgba(125,185,207,.1);font-size:10px;color:#718e9e;transition:all .25s}
+.sal-step i{width:18px;height:18px;display:grid;place-items:center;border-radius:50%;font-size:9px;font-style:normal;background:rgba(125,185,207,.1)}
+.sal-step.active{color:#c8f5ff;border-color:rgba(74,200,239,.28);background:rgba(28,139,181,.12)}
+.sal-step.active i{color:#04121d;background:#7de5ff;box-shadow:0 0 12px rgba(77,212,255,.2)}
+.sal-loader-tip{display:flex;align-items:flex-start;gap:8px;padding:11px 12px;border:1px solid rgba(109,172,198,.13);border-radius:12px;background:rgba(91,152,180,.06);color:#9ebdcb;font-size:10px;line-height:1.8}
+.sal-loader-tip>span:first-child{font-size:14px}
+@keyframes salOrbit{to{transform:rotate(360deg) scale(.95)}}
+@keyframes salGlow{to{transform:rotate(360deg)}}
+@media(max-width:420px){.stock-analysis-loader{padding:16px 12px;border-radius:18px}.sal-orbit{width:50px;height:50px;flex-basis:50px}.sal-loader-title>b{font-size:15px}.sal-step{font-size:9px;gap:3px}.sal-step i{width:16px;height:16px}}
+@media(prefers-reduced-motion:reduce){.sal-orbit:before,.sal-orbit:after,.stock-analysis-loader:before{animation:none}.sal-progress-track span{transition:none}}
