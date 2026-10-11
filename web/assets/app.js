@@ -1069,7 +1069,8 @@ const SITE_MEDIA_MANAGED_ITEMS=[
  {slot:'icon-live-movers',label:'أيقونة بطاقة أعلى الأسهم حركة',fallback:'📈',target:'.sas-insight-grid .sas-insight-panel .sas-insight-title > span'},
  {slot:'icon-perp-movers',label:'أيقونة بطاقة الأكثر تحركًا خلال 24 ساعة',fallback:'↕️',target:'.sas-perp-movers-panel .sas-insight-title > span'},
  {slot:'icon-bitcoin',label:'أيقونة البتكوين — مؤشرات السوق',fallback:'₿',target:'.macro-card[data-macro-label="btc"] .macro-card-icon'},
- {slot:'icon-gold',label:'أيقونة الذهب — مؤشرات السوق',fallback:'🪙',target:'.macro-card[data-macro-label="gold"] .macro-card-icon'}
+ {slot:'icon-gold',label:'أيقونة الذهب — مؤشرات السوق',fallback:'🪙',target:'.macro-card[data-macro-label="gold"] .macro-card-icon'},
+ {slot:'icon-market-indicators',label:'أيقونة عنوان مؤشرات السوق',fallback:'📊',target:'.section-title .market-indicators-icon'}
 ];
 const SITE_MEDIA_ICON_TARGETS=Object.fromEntries(SITE_MEDIA_MANAGED_ITEMS.map(item=>[item.slot,item.target]));
 function renderMediaAdminCards(items={}){
