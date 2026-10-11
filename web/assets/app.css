@@ -2340,3 +2340,32 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .disclaimer-badge .disclaimer-icon{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-inline-end:3px;line-height:1}
 .disclaimer-badge .disclaimer-icon.has-managed-icon{width:1.2em;height:1.2em}
 .disclaimer-badge .disclaimer-icon .sas-managed-icon-image{width:1.2em;height:1.2em;object-fit:contain;display:block}
+
+
+/* SAS PRO unified compact icon scale: keep icons legible without oversized artwork */
+.sas-managed-icon-image{
+  width:22px!important;height:22px!important;max-width:22px!important;max-height:22px!important;
+  min-width:0!important;min-height:0!important;object-fit:contain!important;padding:0!important;
+  margin:auto!important;border:0!important;border-radius:0!important;background:transparent!important;
+  box-shadow:none!important;filter:none!important;
+}
+.sas-action-icon.has-managed-icon,.macro-card-icon.has-managed-icon,.market-indicators-icon.has-managed-icon,
+.sas-insight-title>span.has-managed-icon,.sas-perp-movers-panel .sas-insight-title>span.has-managed-icon,
+.radar-icon.has-managed-icon,.channel-icon.has-managed-icon{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+}
+.sas-action-icon.has-managed-icon .sas-managed-icon-image{width:23px!important;height:23px!important;max-width:23px!important;max-height:23px!important}
+.macro-card-icon.has-managed-icon .sas-managed-icon-image{width:25px!important;height:25px!important;max-width:25px!important;max-height:25px!important}
+.market-indicators-icon.has-managed-icon .sas-managed-icon-image,
+.sas-insight-title>span.has-managed-icon .sas-managed-icon-image,
+.sas-perp-movers-panel .sas-insight-title>span.has-managed-icon .sas-managed-icon-image{width:21px!important;height:21px!important;max-width:21px!important;max-height:21px!important}
+.radar-icon.has-managed-icon .sas-managed-icon-image,.channel-icon.has-managed-icon .sas-managed-icon-image{width:22px!important;height:22px!important;max-width:22px!important;max-height:22px!important}
+.disclaimer-badge .disclaimer-icon .sas-managed-icon-image{width:15px!important;height:15px!important;max-width:15px!important;max-height:15px!important}
+.sas-managed-tab-icon{width:16px!important;height:16px!important;max-width:16px!important;max-height:16px!important}
+@media(max-width:600px){
+ .sas-action-icon.has-managed-icon .sas-managed-icon-image{width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important}
+ .macro-card-icon.has-managed-icon .sas-managed-icon-image{width:22px!important;height:22px!important;max-width:22px!important;max-height:22px!important}
+ .market-indicators-icon.has-managed-icon .sas-managed-icon-image,
+ .sas-insight-title>span.has-managed-icon .sas-managed-icon-image,
+ .sas-perp-movers-panel .sas-insight-title>span.has-managed-icon .sas-managed-icon-image{width:19px!important;height:19px!important;max-width:19px!important;max-height:19px!important}
+}
