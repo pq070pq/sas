@@ -19,6 +19,7 @@ from .shariah import check_shariah
 from .maintenance import cleanup_old_data
 from .quality_score import score_quality
 from .quality_backtest import summarize_quality_outcomes
+from .radar_state import is_confirmed_opportunity, mark_opportunity_inactive
 from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
@@ -799,10 +800,7 @@ async def stock_radar_cycle():
                 existing = existing_map.get(symbol)
                 q = live_quotes.get(symbol) or {"symbol": symbol, "price": None, "source": "unavailable"}
                 classification = row.get("classification") or {}
-                current_confirmed = (
-                    classification.get("opportunity_status") == "confirmed"
-                    and bool(classification.get("confirmation_ready"))
-                )
+                current_confirmed = is_confirmed_opportunity(row)
                 channel_ok, channel_reason = _radar_channel_gate(status, row, q, learning_profile)
 
                 # القاعدة الحاسمة: السجل المحفوظ يبقى نشطًا فقط إذا ظل السهم
@@ -818,15 +816,12 @@ async def stock_radar_cycle():
                             "فقد شروط الفرصة المؤكدة في دورة الرادار الحالية"
                             if not current_confirmed else channel_reason
                         )
-                        inactive_payload = {**previous, **row}
-                        inactive_payload["radar_active"] = False
-                        inactive_payload["strategy_status"] = "inactive"
-                        inactive_payload["strategy_inactive_reason"] = inactive_reason
-                        inactive_payload["channel_gate"] = {
-                            "passed": False,
-                            "session": status.get("session"),
-                            "reason": inactive_reason,
-                        }
+                        inactive_payload = mark_opportunity_inactive(
+                            {**previous, **row}, inactive_reason, status.get("session")
+                        )
+                        if symbol in app_active_symbols:
+                            app_active_symbols.discard(symbol)
+                            app_active_count = max(0, app_active_count - 1)
                         existing.payload = json.dumps(inactive_payload, ensure_ascii=False)
                         existing.created_at = utcnow()
                         try:
@@ -862,11 +857,16 @@ async def stock_radar_cycle():
                             "session": status.get("session"),
                             "reason": channel_reason,
                         }
-                        row["channel_delivery"] = previous.get("channel_delivery") or {
-                            "published": True,
-                            "app_visible": bool(can_activate),
-                            "reason": "تقرير سابق محفوظ؛ لا يوجد تغير يستدعي إعادة الإرسال",
-                        }
+                        previous_delivery = previous.get("channel_delivery")
+                        row["channel_delivery"] = (
+                            dict(previous_delivery)
+                            if isinstance(previous_delivery, dict)
+                            else {
+                                "published": True,
+                                "app_visible": bool(can_activate),
+                                "reason": "تقرير سابق محفوظ؛ لا يوجد تغير يستدعي إعادة الإرسال",
+                            }
+                        )
                         if can_activate and symbol not in app_active_symbols:
                             app_active_symbols.add(symbol)
                             app_active_count += 1
