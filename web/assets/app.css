@@ -2641,3 +2641,6 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @keyframes radarHelpIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:600px){.radar-empty-card{min-height:0;flex-direction:column;gap:16px;padding:24px 16px;border-radius:17px}.radar-empty-orbit{flex-basis:78px;width:78px;height:78px;background:repeating-radial-gradient(circle,transparent 0 12px,rgba(41,190,229,.13) 13px 14px)}.radar-empty-content p{font-size:12px;line-height:1.85}.radar-empty-actions{display:grid;grid-template-columns:1fr;width:100%}.radar-empty-actions button{width:100%}}
 @media(prefers-reduced-motion:reduce){.radar-empty-dot,.radar-empty-orbit span{animation:none!important}.radar-empty-actions button{transition:none!important}}
+
+/* Source link must remain hidden for non-admin users even if other styles set display. */
+.sas-movers-source[hidden],.sas-movers-source:not(.admin-source-visible){display:none!important}
