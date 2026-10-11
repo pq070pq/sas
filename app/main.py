@@ -1984,50 +1984,65 @@ async def admin_gift_extend_all(request: Request, user=Depends(telegram_user), d
     body = await request.json()
     try:
         days = int(body.get("days", 7))
+        telegram_id = int(body.get("telegram_id", 0) or 0)
     except (TypeError, ValueError):
-        raise HTTPException(400, "أدخل عدد أيام صحيحًا")
+        raise HTTPException(400, "تحقق من رقم المستخدم وعدد أيام الهدية")
     if days < 1 or days > 365:
         raise HTTPException(400, "مدة الهدية يجب أن تكون بين يوم واحد و365 يومًا")
     now = utcnow()
-    users = (await db.execute(select(User).order_by(User.telegram_id))).scalars().all()
+    query = select(User).order_by(User.telegram_id)
+    if telegram_id:
+        query = select(User).where(User.telegram_id == telegram_id)
+    users = (await db.execute(query)).scalars().all()
+    if telegram_id and not users:
+        raise HTTPException(404, "لم يتم العثور على مستخدم بهذا الرقم")
     extended = []
+    skipped = 0
     for row in users:
         if row.free_access:
+            skipped += 1
             continue
         paid = (await db.execute(select(Subscription).where(
             Subscription.telegram_id == row.telegram_id, Subscription.active == True
         ).order_by(Subscription.expires_at.desc()))).scalars().first()
         if paid and aware(paid.expires_at) > now:
-            base = aware(paid.expires_at)
-            paid.expires_at = base + timedelta(days=days)
+            paid.expires_at = aware(paid.expires_at) + timedelta(days=days)
             row.subscription_expires = paid.expires_at
             row.updated_at = now
-            extended.append((row, paid.expires_at, "paid"))
+            extended.append((row, paid.expires_at))
             continue
         if row.trial_expires and aware(row.trial_expires) > now and row.status == "trial":
             row.trial_expires = aware(row.trial_expires) + timedelta(days=days)
             row.updated_at = now
-            extended.append((row, row.trial_expires, "trial"))
+            extended.append((row, row.trial_expires))
+            continue
+        skipped += 1
+    if not extended:
+        raise HTTPException(400, "لا يوجد اشتراك فعّال قابل للتمديد لهذا الاختيار")
     await db.commit()
     sent = 0
     failed = 0
-    for row, expires_at, kind in extended:
+    for row, expires_at in extended:
         try:
             await send_message(
                 row.telegram_id,
-                "🎁 <b>هدية من SAS PRO</b>\n\n"
-                f"🎉 تهانينا! تم تمديد اشتراكك من قبل <b>SAS PRO</b> لمدة <b>{days} أيام</b>.\n"
-                f"📅 تاريخ الانتهاء الجديد: <b>{aware(expires_at).strftime('%d/%m/%Y')}</b>\n\n"
-                "شكرًا لكونك جزءًا من مجتمع SAS PRO 💎"
+                "🎁 <b>هدية خاصة من SAS PRO</b>\\n\\n"
+                f"🎉 <b>تهانينا!</b> تم تمديد اشتراكك من قبل <b>SAS PRO</b> كهدية تقدير لمدة <b>{days} يومًا</b>.\\n"
+                f"📅 تاريخ الانتهاء الجديد: <b>{aware(expires_at).strftime('%d/%m/%Y')}</b>\\n\\n"
+                "شكرًا لثقتك بنا، ونتمنى لك تجربة موفقة مع SAS PRO 💎"
             )
             sent += 1
         except Exception as exc:
             failed += 1
             logger.warning("Gift extension notification failed for %s: %s", row.telegram_id, exc)
-    await audit(int(user["id"]), "gift_extend_all_subscriptions", None, {
-        "days": days, "extended": len(extended), "notifications_sent": sent, "notifications_failed": failed
+    action = "gift_extend_single_subscription" if telegram_id else "gift_extend_all_subscriptions"
+    await audit(int(user["id"]), action, telegram_id or None, {
+        "days": days, "extended": len(extended), "skipped": skipped,
+        "notifications_sent": sent, "notifications_failed": failed
     })
-    return {"ok": True, "days": days, "extended": len(extended), "notifications_sent": sent, "notifications_failed": failed}
+    return {"ok": True, "days": days, "target": "single" if telegram_id else "all",
+            "extended": len(extended), "skipped": skipped,
+            "notifications_sent": sent, "notifications_failed": failed}
 
 
 @app.post("/api/admin/revoke/{telegram_id}")
