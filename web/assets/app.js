@@ -1731,21 +1731,39 @@ async function adminSearch(){try{const q=document.getElementById('adminSearch').
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
 async function adminFreeExtend(id,d){try{await api('/api/admin/free-extend/'+id+'?days='+d,{method:'POST'});await adminRefresh();alert('تم تمديد المجاني للمستخدم.');}catch(e){alert(e.message);}}
 async function adminGrant(id,d){try{await api('/api/admin/grant/'+id+'?days='+encodeURIComponent(d),{method:'POST'});await adminRefresh();}catch(e){alert(e.message);}}
+let giftMode='single';
+function setGiftMode(mode){
+ giftMode=mode==='all'?'all':'single';
+ const single=giftMode==='single';
+ const target=document.getElementById('giftSingleTarget');
+ const singleBtn=document.getElementById('giftModeSingle');
+ const allBtn=document.getElementById('giftModeAll');
+ const action=document.getElementById('giftExtendAllBtn');
+ if(target)target.hidden=!single;
+ if(singleBtn){singleBtn.classList.toggle('active',single);singleBtn.setAttribute('aria-pressed',String(single));}
+ if(allBtn){allBtn.classList.toggle('active',!single);allBtn.setAttribute('aria-pressed',String(!single));}
+ if(action)action.textContent=single?'🎁 إرسال الهدية وتمديد الاشتراك':'🎁 إرسال الهدية وتمديد اشتراكات الجميع';
+ const result=document.getElementById('giftExtendResult');if(result)result.hidden=true;
+}
 async function adminGiftExtendAll(){
  const input=document.getElementById('giftExtendDays');
+ const targetInput=document.getElementById('giftExtendTelegramId');
  const result=document.getElementById('giftExtendResult');
  const button=document.getElementById('giftExtendAllBtn');
  const days=Number(input?.value);
+ const telegramId=Number(targetInput?.value);
  if(!Number.isInteger(days)||days<1||days>365){alert('أدخل مدة هدية من يوم إلى 365 يومًا.');return;}
- if(!confirm('تأكيد تمديد اشتراكات جميع المشتركين الفعّالين '+days+' يومًا وإرسال رسالة هدية لكل واحد؟'))return;
- button.disabled=true;button.textContent='⏳ جارٍ تمديد الاشتراكات وإرسال الهدايا…';
- result.hidden=true;
+ if(giftMode==='single'&&(!Number.isSafeInteger(telegramId)||telegramId<1)){alert('أدخل رقم Telegram الصحيح للمستفيد.');return;}
+ const scope=giftMode==='single'?'للمستخدم '+telegramId:'لجميع المشتركين الفعّالين';
+ if(!confirm('تأكيد إرسال هدية '+days+' يومًا '+scope+'؟'))return;
+ button.disabled=true;button.textContent='⏳ جارٍ تنفيذ الهدية…';result.hidden=true;
  try{
-  const d=await api('/api/admin/gift-extend-all',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({days})});
+  const payload={days};if(giftMode==='single')payload.telegram_id=telegramId;
+  const d=await api('/api/admin/gift-extend-all',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   result.hidden=false;
-  result.innerHTML='<b>🎉 اكتملت الهدية الجماعية</b><br>تمديد الاشتراكات: '+Number(d.extended||0)+'<br>رسائل وصلت إلى Telegram: '+Number(d.notifications_sent||0)+'<br>تعذر إرسالها: '+Number(d.notifications_failed||0);
+  result.innerHTML='<b>🎉 اكتملت الهدية</b><br>الاشتراكات الممددة: '+Number(d.extended||0)+'<br>رسائل تيليجرام المرسلة: '+Number(d.notifications_sent||0)+'<br>تعذر إرسالها: '+Number(d.notifications_failed||0)+(d.skipped?'<br>تم تجاوزها: '+Number(d.skipped):'');
   button.textContent='✅ تم تنفيذ الهدية';
- }catch(e){alert(e.message||'تعذر تنفيذ الهدية الجماعية.');button.textContent='🎁 إرسال الهدية وتمديد اشتراكات الجميع';}
+ }catch(e){alert(e.message||'تعذر تنفيذ الهدية.');button.textContent=giftMode==='single'?'🎁 إرسال الهدية وتمديد الاشتراك':'🎁 إرسال الهدية وتمديد اشتراكات الجميع';}
  finally{button.disabled=false;}
 }
 async function adminRevoke(id){if(!confirm('إلغاء وصول هذا المستخدم؟'))return;try{await api('/api/admin/revoke/'+id,{method:'POST'});await adminRefresh();}catch(e){alert(e.message);}}
