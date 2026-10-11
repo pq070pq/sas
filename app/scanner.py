@@ -8,6 +8,7 @@ from .config import settings
 from .panwatch import technical_targets, _stooq_ohlcv
 from .news import company_news, select_catalyst, score_catalyst, earnings_calendar_window
 from .market import quote
+from .perpequities_provider import get_equity_perpetuals
 from .twelve_guard import call as twelve_call
 from .smart_memory import SmartMemory
 
@@ -2623,13 +2624,39 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
                     "reason": f"{type(exc).__name__}: {exc}",
                 }
 
+    # Optional PerpEquities context is fetched in parallel. It never blocks or filters
+    # the radar, and contract metrics never replace spot price / stock liquidity.
+    perp_context_task = asyncio.create_task(
+        get_equity_perpetuals([str(row.get("symbol") or "") for row in shortlist])
+    )
     analyzed = await asyncio.gather(
         *(analyze_candidate(row) for row in shortlist),
         return_exceptions=False,
     )
+    perp_contexts = {}
+    if perp_context_task.done() and not perp_context_task.cancelled():
+        try:
+            perp_contexts = perp_context_task.result()
+        except Exception:
+            perp_contexts = {}
 
     for result, diagnostic in analyzed:
         if result:
+            context = perp_contexts.get(str(result.get("symbol") or "").upper())
+            if context:
+                result["perpequities_context"] = {
+                    "symbol": context.get("symbol"),
+                    "reference_price": context.get("reference_price"),
+                    "change_24h_fraction": context.get("change_24h_fraction"),
+                    "volume_24h_usd": context.get("volume_24h_usd"),
+                    "open_interest_usd": context.get("open_interest_usd"),
+                    "live_markets": context.get("live_markets"),
+                    "fresh_live_markets": context.get("fresh_live_markets"),
+                    "market_data_at": context.get("market_data_at"),
+                    "source": "PerpEquities",
+                    "source_url": context.get("source_url"),
+                    "is_contract_context_only": True,
+                }
             results.append(result)
         if diagnostic:
             diagnostics.append(diagnostic)

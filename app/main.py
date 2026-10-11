@@ -2726,7 +2726,16 @@ async def stock_quote(symbol: str, _: dict = Depends(require_pro)):
             return await binance_quote(raw_symbol)
         except Exception as exc:
             return {"symbol": normalize_crypto_symbol(raw_symbol), "price": None, "change_pct": None, "source": "Binance Spot", "market": "crypto_spot", "error": f"{type(exc).__name__}: {str(exc)[:180]}"}
-    return await quote(raw_symbol)
+    result = await quote(raw_symbol)
+    # Only attach already-cached PerpEquities context: do not delay live spot quotes.
+    try:
+        from .perpequities_provider import get_cached_equity_perpetual
+        context = get_cached_equity_perpetual(raw_symbol)
+        if context and isinstance(result, dict):
+            result["perpequities_context"] = context
+    except Exception:
+        pass
+    return result
 
 @app.get("/api/stocks/{symbol}/shariah")
 async def stock_shariah(symbol: str, _: dict = Depends(require_pro)):
