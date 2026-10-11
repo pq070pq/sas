@@ -1006,9 +1006,9 @@ function renderPlans(p){
  const names={monthly:'شهري','3month':'3 أشهر','6month':'6 أشهر',yearly:'سنة'};
  const icons={monthly:'🟢','3month':'🔷','6month':'💎',yearly:'👑'};
  document.getElementById('plans').innerHTML=Object.entries(p).filter(([k,x])=>x.visible!==false).map(([k,x])=>
-  '<article class="plan"><div class="plan-icon">'+(icons[k]||'💠')+'</div><b>'+names[k]+'</b><strong>'+x.sar+' ريال</strong><span>'+x.days+' يوم</span>'+
-  '<em>'+(x.stars>0?x.stars+' ⭐':'سعر Stars غير مضبوط')+'</em>'+
-  '<button '+(x.stars>0?'':'disabled')+' onclick="buyPlan(\''+k+'\')">الدفع عبر Stars</button></article>'
+  '<article class="plan sas-plan-card"><div class="plan-icon">'+(icons[k]||'💠')+'</div><b>'+names[k]+'</b><strong>'+Number(x.sar).toLocaleString('ar-SA')+' ريال سعودي</strong><span>'+Number(x.days).toLocaleString('ar-SA')+' يوم</span>'+
+  '<small class="plan-payment-note">دفع آمن عبر Telegram Stars</small>'+
+  '<button '+(x.stars>0?'':'disabled')+' onclick="buyPlan(\\''+k+'\\')">اشترك الآن ←</button></article>'
  ).join('');
 }
 
