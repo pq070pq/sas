@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>SAS PRO — Market Terminal</title>
-<link rel="stylesheet" href="/assets/app.css?v=20261011-43">
+<link rel="stylesheet" href="/assets/app.css?v=20261011-44">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 </head>
 <body>
@@ -87,7 +87,7 @@
 
   </div>
 </div>
-    <section class="sas-market-strip is-closed" aria-label="حالة السوق الأمريكي"><div class="sas-market-main"><span class="sas-market-live-dot"></span><div><strong id="sasMarketHeadline">جاري التحقق من حالة السوق</strong><small id="sasMarketSubline">توقيت الرياض • حالة مباشرة من النظام</small></div></div><div class="sas-market-clock"><button type="button" id="sasClockToggle" class="sas-clock-toggle" aria-label="تبديل الساعة بين الرياض ونيويورك" aria-pressed="false"><span class="sas-market-clock-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span class="sas-clock-copy"><small id="sasClockZoneLabel">الوقت في الرياض</small><strong id="sasMarketClock" dir="ltr">—</strong><small class="sas-clock-secondary"><span id="sasOtherClockLabel">نيويورك</span><b id="sasOtherClock" dir="ltr">—</b></small></span><span class="sas-clock-switch" aria-hidden="true">⇄</span></button></div><div class="sas-session-mini"><span>الجلسة الأمريكية</span><strong id="sasSessionLabel">—</strong></div><span id="radarStatusText" hidden>جاري التحقق من حالة السوق والرصد...</span>
+    <section class="sas-market-strip is-closed" data-market-state="closed" aria-label="حالة السوق الأمريكي"><div class="sas-market-main"><span class="sas-market-live-dot"></span><div><strong id="sasMarketHeadline">جاري التحقق من حالة السوق</strong><small id="sasMarketSubline">توقيت الرياض • حالة مباشرة من النظام</small></div></div><div class="sas-market-clock"><button type="button" id="sasClockToggle" class="sas-clock-toggle" aria-label="تبديل الساعة بين الرياض ونيويورك" aria-pressed="false"><span class="sas-market-clock-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span class="sas-clock-copy"><small id="sasClockZoneLabel">الوقت في الرياض</small><strong id="sasMarketClock" dir="ltr">—</strong><small class="sas-clock-secondary"><span id="sasOtherClockLabel">نيويورك</span><b id="sasOtherClock" dir="ltr">—</b></small></span><span class="sas-clock-switch" aria-hidden="true">⇄</span></button></div><div class="sas-session-mini"><span>الجلسة الأمريكية</span><strong id="sasSessionLabel">—</strong></div><span id="radarStatusText" hidden>جاري التحقق من حالة السوق والرصد...</span>
         <section id="sasOpenCountdown" class="sas-open-countdown" aria-label="العد التنازلي لافتتاح السوق الأمريكي">
           <div class="sas-countdown-heading"><div><span class="eyebrow">SAS PRO • MARKET OPEN</span><h2>العد التنازلي لافتتاح السوق</h2><small id="sasCountdownDate">موعد الجلسة القادمة بتوقيت الرياض</small></div><span class="sas-countdown-live"><i></i> تحديث مباشر</span></div>
           <div class="sas-countdown-cards">
@@ -104,7 +104,7 @@
               <span class="sas-countdown-foot" id="sasRegularCountdownWhen">09:30 صباحًا بتوقيت نيويورك</span>
             </button>
           </div>
-          <div class="sas-countdown-detail" id="sasCountdownDetail" aria-live="polite">اختر أحد العدّادين لعرض تفاصيل موعد الافتتاح.</div>
+
         </section>
         </section>
         <div class="metric-grid" id="dashboardMetrics"></div>
