@@ -297,13 +297,20 @@
     </section>
 
     <section class="admin-panel" id="giftExtendPanel">
-      <div class="section-head"><b>🎁 هدية جماعية للمشتركين</b><span>تمديد الاشتراكات الفعّالة دفعة واحدة</span></div>
+      <div class="section-head"><b>🎁 هدية اشتراك</b><span>إهداء تمديد لشخص محدد أو للجميع</span></div>
       <div class="subscription-controls">
-        <label class="trial-days-row"><span>مدة الهدية</span><input id="giftExtendDays" type="number" min="1" max="365" value="7"><small>يوم — تُضاف إلى المدة المتبقية لكل اشتراك فعّال.</small></label>
-        <div class="gift-message-preview"><b>✨ معاينة رسالة الهدية</b><p>🎁 هدية من SAS PRO</p><p>🎉 تهانينا! تم تمديد اشتراكك من قبل SAS PRO.</p><small>سيظهر تاريخ الانتهاء الجديد في رسالة خاصة لكل مشترك.</small></div>
-        <button class="save-btn" id="giftExtendAllBtn" onclick="adminGiftExtendAll()">🎁 إرسال الهدية وتمديد اشتراكات الجميع</button>
+        <div class="gift-mode-switch" role="group" aria-label="نطاق الهدية">
+          <button type="button" id="giftModeSingle" class="active" aria-pressed="true" onclick="setGiftMode('single')">👤 شخص محدد</button>
+          <button type="button" id="giftModeAll" aria-pressed="false" onclick="setGiftMode('all')">👥 بشكل جماعي</button>
+        </div>
+        <div id="giftSingleTarget">
+          <label class="trial-days-row"><span>رقم Telegram للمستفيد</span><input id="giftExtendTelegramId" type="number" min="1" step="1" placeholder="أدخل Telegram ID"><small>يمكنك نسخ الرقم من قائمة المشتركين.</small></label>
+        </div>
+        <label class="trial-days-row"><span>مدة الهدية</span><input id="giftExtendDays" type="number" min="1" max="365" value="7"><small>يوم — تُضاف إلى المدة المتبقية للاشتراك الفعّال.</small></label>
+        <div class="gift-message-preview"><b>✨ معاينة رسالة الهدية</b><p>🎁 هدية خاصة من SAS PRO</p><p>🎉 تهانينا! تم تمديد اشتراكك من قبل SAS PRO كهدية تقدير.</p><small>سيظهر تاريخ الانتهاء الجديد في رسالة خاصة للمستفيد.</small></div>
+        <button class="save-btn" id="giftExtendAllBtn" onclick="adminGiftExtendAll()">🎁 إرسال الهدية وتمديد الاشتراك</button>
         <div id="giftExtendResult" class="subscriber-status-summary" hidden aria-live="polite"></div>
-        <small>سيشمل المشتركين باشتراكات مدفوعة فعّالة والتجارب المجانية السارية. لا يشمل الاشتراكات المنتهية أو الوصول الدائم.</small>
+        <small>يشمل الاشتراكات المدفوعة الفعّالة والتجارب المجانية السارية. لا يشمل الاشتراكات المنتهية أو الوصول الدائم.</small>
       </div>
     </section>
 
