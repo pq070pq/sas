@@ -23,11 +23,11 @@ class Settings(BaseSettings):
     licensed_market_data_timeout_seconds: int = 10
     panwatch_base_url: str = "http://panwatch:8000"
     panwatch_timeout_seconds: int = 180
-    pro_monthly_stars: int = 2250
+    pro_monthly_stars: int = 2100
     pro_3month_stars: int = 6075
     pro_6month_stars: int = 10800
     pro_yearly_stars: int = 18900
-    monthly_sar: int = 150
+    monthly_sar: int = 100
     three_month_sar: int = 405
     six_month_sar: int = 720
     yearly_sar: int = 1260
