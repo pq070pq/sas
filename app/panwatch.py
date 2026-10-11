@@ -143,10 +143,21 @@ async def technical_targets(symbol: str):
         except Exception:
             pass
 
-        # If PanWatch responded but returned no/insufficient candles, still use
-        # the observed Stooq history; otherwise the Mini App shows empty targets.
+        # Use the same multi-provider history fallback as the chart endpoint.
+        # This tries Twelve Data / Finnhub / Stooq as configured, rather than
+        # relying on Stooq alone when PanWatch returns too few candles.
         if len(rows) < 20:
-            rows = await _stooq_ohlcv(symbol, 90)
+            history = await ohlcv(symbol, days=90, interval="1d")
+            history_rows = history.get("candles", []) if isinstance(history, dict) else []
+            if len(history_rows) >= 20:
+                rows = [{
+                    "date": row.get("time"),
+                    "datetime": row.get("time"),
+                    "high": row.get("high"),
+                    "low": row.get("low"),
+                    "close": row.get("close"),
+                    "volume": row.get("volume") or 0,
+                } for row in history_rows]
 
     candles = []
     for row in rows:
