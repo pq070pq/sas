@@ -2337,7 +2337,7 @@ class _PerpEquitiesMoversParser(HTMLParser):
 def _parse_perpequities_movers(document: str):
     parser = _PerpEquitiesMoversParser()
     parser.feed(document)
-    clean = lambda value: re.sub(r"[\\u064B-\\u065F\\u0670\\u200e\\u200f\\u202a-\\u202e]", "", value or "").strip()
+    clean = lambda value: re.sub(r"[\u064B-\u065F\u0670\u200e\u200f\u202a-\u202e]", "", value or "").strip()
     target = next((h for h in parser.headings if "الأكثر تحركًا خلال 24 ساعة" in clean(h["text"]) or "الأكثر تحركا خلال 24 ساعة" in clean(h["text"])), None)
     if not target:
         return None
@@ -2351,8 +2351,8 @@ def _parse_perpequities_movers(document: str):
         if not (target["end"] <= anchor["start"] < section_end):
             continue
         label = clean(anchor.get("text", "")).replace("−", "-").replace("–", "-")
-        match_change = re.search(r"([+\\-]?\\s*\\d+(?:[.,]\\d+)?)\\s*[%٪]", label)
-        match_symbol = re.match(r"\\$?([A-Z][A-Z0-9.-]{0,11})", label)
+        match_change = re.search(r"([+\-]?\s*\d+(?:[.,]\d+)?)\s*[%٪]", label)
+        match_symbol = re.match(r"\$?([A-Z][A-Z0-9.-]{0,11})", label)
         if not match_change or not match_symbol:
             continue
         symbol = match_symbol.group(1).upper()
