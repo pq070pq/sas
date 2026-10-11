@@ -2867,3 +2867,10 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @keyframes sasFirework{0%{opacity:0;transform:translate3d(0,25px,0) rotate(0) scale(.4)}15%{opacity:1}75%{opacity:.9}100%{opacity:0;transform:translate3d(30px,-120px,0) rotate(var(--turn)) scale(.7)}}
 @keyframes sasWelcomeProgress{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 @media(prefers-reduced-motion:reduce){.sas-welcome-overlay,.sas-welcome-card{transition:none}.sas-firework-particle,.sas-welcome-progress i{animation:none;display:none}}
+
+/* Interactive particle-burst fireworks for SAS PRO welcome; no static S emblem. */
+.sas-welcome-card{padding-top:30px}
+.sas-firework-burst{position:absolute;width:1px;height:1px;pointer-events:none}
+.sas-firework-burst i{position:absolute;left:0;top:0;width:var(--particle-size);height:var(--particle-size);border-radius:50%;background:var(--particle-color);box-shadow:0 0 7px var(--particle-color),0 0 15px var(--particle-color);opacity:0;animation:sasBurstParticle 1.45s cubic-bezier(.12,.65,.25,1) var(--particle-delay) forwards}
+@keyframes sasBurstParticle{0%{opacity:0;transform:translate(-50%,-50%) scale(.15)}12%{opacity:1}78%{opacity:.95}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(.2)}}
+@media(prefers-reduced-motion:reduce){.sas-firework-burst i{animation:none;display:none}}
