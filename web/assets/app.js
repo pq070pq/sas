@@ -925,20 +925,28 @@ async function loadSiteMedia(){
  const data=await api('/api/site-media');
  const items=data?.items||{};
  const hero=document.querySelector('.terminal-hero-banner > img');
- if(hero&&items.hero?.url)hero.src=items.hero.url;
+ if(hero){
+  if(!hero.dataset.mediaOriginalSrc)hero.dataset.mediaOriginalSrc=hero.getAttribute('src')||'/assets/saspro-banner.webp';
+  hero.src=items.hero?.url||hero.dataset.mediaOriginalSrc;
+ }
  for(const [slot,selector] of Object.entries(SITE_MEDIA_ICON_TARGETS)){
-  const item=items[slot];
   const el=document.querySelector(selector);
-  if(!el||!item?.url)continue;
+  if(!el)continue;
+  if(!el.dataset.mediaOriginalHTML)el.dataset.mediaOriginalHTML=el.innerHTML;
+  const item=items[slot];
+  if(!item?.url){
+   el.innerHTML=el.dataset.mediaOriginalHTML;
+   el.classList.remove('has-managed-icon');
+   continue;
+  }
   if(el.matches('button')){
    if(!el.dataset.mediaOriginalLabel)el.dataset.mediaOriginalLabel=el.textContent.trim();
    const label=el.dataset.mediaOriginalLabel.replace(/^[^\p{L}\p{N}]+/u,'').trim();
    el.innerHTML='<img class="sas-managed-tab-icon" src="'+esc(item.url)+'" alt="" aria-hidden="true"><span>'+esc(label)+'</span>';
-   el.classList.add('has-managed-icon');
   }else{
    el.innerHTML='<img class="sas-managed-icon-image" src="'+esc(item.url)+'" alt="" aria-hidden="true">';
-   el.classList.add('has-managed-icon');
   }
+  el.classList.add('has-managed-icon');
  }
  return items;
 }
@@ -968,8 +976,7 @@ async function deleteSiteMedia(slot){
   await api('/api/admin/site-media/'+encodeURIComponent(slot),{method:'DELETE',timeoutMs:15000});
   if(status)status.textContent='تم حذف '+label+' والعودة إلى الرمز الافتراضي.';
   await loadAdminMedia();
-  // Clear the rendered override so the built-in icon/hero appears immediately.
-  window.location.reload();
+  // Restore defaults in place; do not reload the Telegram Mini App or lose the admin session.
  }catch(e){
   if(status)status.textContent='تعذر حذف الصورة: '+(e.message||'خطأ غير معروف');
   alert('تعذر حذف الصورة: '+(e.message||'حدث خطأ'));
