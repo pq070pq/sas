@@ -729,7 +729,9 @@ async def stock_radar_cycle():
                 str(x.symbol).upper()
                 for x in daily_rows
                 if str(x.symbol or "").upper() in current_confirmed_symbols
-                and bool((json.loads(x.payload or "{}") if x.payload else {}).get("radar_active"))
+                and is_current_active_opportunity(
+                    json.loads(x.payload or "{}") if x.payload else {}
+                )
             }
             app_active_count = len(app_active_symbols)
 
@@ -811,9 +813,55 @@ async def stock_radar_cycle():
                     volume_jump = previous_volume > 0 and current_volume >= previous_volume * 2.0
                     price_jump = abs(current_change - previous_change) >= 5.0
                     if not (volume_jump or price_jump):
+                        # حتى عند منع تكرار رسالة القناة، حدّث حالة السهم المحفوظ حسب شروطه الحالية.
+                        q = live_quotes.get(symbol) or {"symbol": symbol, "price": None, "source": "unavailable"}
+                        classification = row.get("classification") or {}
+                        channel_ok, channel_reason = _radar_channel_gate(status, row, q, learning_profile)
+                        confirmed_now = bool(
+                            classification.get("opportunity_status") == "confirmed"
+                            and classification.get("confirmation_ready")
+                            and channel_ok
+                        )
+                        app_cap_reached = (
+                            symbol not in app_active_symbols
+                            and app_active_count >= daily_app_limit
+                        )
+                        row["channel_gate"] = {
+                            "passed": bool(channel_ok),
+                            "session": status.get("session"),
+                            "reason": channel_reason,
+                        }
+                        row["radar_active"] = bool(confirmed_now and not app_cap_reached)
+                        row["channel_delivery"] = {
+                            "published": True,
+                            "app_visible": bool(row["radar_active"]),
+                            "reason": (
+                                "فرصة مؤكدة وما زالت مستوفية للشروط"
+                                if row["radar_active"]
+                                else "فقد السهم شروط الفرصة المؤكدة أو حدّ التطبيق"
+                            ),
+                        }
+                        if row["radar_active"]:
+                            if symbol not in app_active_symbols:
+                                app_active_symbols.add(symbol)
+                                app_active_count += 1
+                            daily_app_symbols.add(symbol)
+                        elif symbol in app_active_symbols:
+                            app_active_symbols.discard(symbol)
+                            app_active_count = max(0, app_active_count - 1)
+                        try:
+                            existing.payload = json.dumps(row, ensure_ascii=False)
+                            existing.created_at = utcnow()
+                            await db.commit()
+                        except Exception:
+                            await db.rollback()
+                            logger.exception("Radar duplicate state refresh failed: %s", symbol)
                         cycle_stats["skipped"] += 1
                         _radar_seen.add(symbol)
-                        logger.info("Radar duplicate skipped: %s | reason=existing_signal_same_session volume_jump=%s price_jump=%s", symbol, volume_jump, price_jump)
+                        logger.info(
+                            "Radar duplicate skipped: %s | reason=existing_signal_same_session volume_jump=%s price_jump=%s active=%s",
+                            symbol, volume_jump, price_jump, row["radar_active"],
+                        )
                         continue
                     cycle_stats["reanalyzed"] += 1
                     logger.info("Radar reanalysis triggered: %s | volume_jump=%s price_jump=%s", symbol, volume_jump, price_jump)
