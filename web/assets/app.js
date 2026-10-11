@@ -574,12 +574,12 @@ function stockCard(x){
  '<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
  '<div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div>'+
  '<div class="stock-gates">'+gate(gates.sas_core!==false,'SAS Core')+gate(gates.liquidity!==false,'السيولة')+gate(gates.target!==false,'الهدف')+gate(gates.live_levels!==false,'المستويات')+'</div>'+
- ' <div class="stock-shariah '+shClass+'">🕌 <b>الشرعية:</b> '+escHtml(shLabel)+'</div>'+
- '<div class="stock-recommendation">📌 <b>القراءة:</b> '+escHtml(recommendation)+'</div>'+
+ ' <button type="button" class="stock-shariah stock-shariah-action '+shClass+'" onclick="event.stopPropagation();openShariah(\''+raw+'\')"><span>🕌 <b>الشرعية</b></span><strong>'+(shClass==='sh-unknown'?'اضغط للتحقق':escHtml(shLabel))+'</strong><span class="shariah-action-arrow">‹</span></button>'+
+
  '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+'<span>'+catalystLabel+(catalyst>0?' '+catalyst+'/100':'')+'</span>'+(x.live_price_source?'<span>📡 '+escHtml(x.live_price_source)+'</span>':'')+'</div>'+
  perpContext+
  '<div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||cls.reason||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div>'+
- '<div class="stock-actions"><button onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">📈 الشارت والتوصية</button><button onclick="event.stopPropagation();toggleWatch(\''+raw+'\')">'+(terminalState.watch.includes(raw)?'★ محفوظ':'☆ حفظ')+'</button></div></article>';
+ '<div class="stock-actions"><button class="stock-chart-action" onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">📈 الشارت والتحليل الكامل</button><button onclick="event.stopPropagation();toggleWatch(\''+raw+'\')">'+(terminalState.watch.includes(raw)?'★ محفوظ':'☆ حفظ')+'</button></div></article>';
 }
 function toggleWatch(symbol){symbol=symbol.toUpperCase();terminalState.watch=terminalState.watch.includes(symbol)?terminalState.watch.filter(x=>x!==symbol):[...terminalState.watch,symbol];localStorage.setItem('saspro_watchlist',JSON.stringify(terminalState.watch));renderWatchlist();renderRadar();}
 async function renderWatchlist(){
@@ -588,7 +588,8 @@ async function renderWatchlist(){
  const rows=await Promise.all(terminalState.watch.slice(0,20).map(async s=>{try{return await api('/api/stocks/'+encodeURIComponent(s)+'/quote');}catch(e){return {symbol:s};}}));
  el.innerHTML=rows.map(x=>stockCard(x)).join('');
 }
-function openSymbol(symbol,focusChart=false){document.getElementById('symbolSearch').value=symbol;switchTerminalTab('search');analyzeSymbol().then(()=>{if(focusChart){const detail=document.getElementById('symbolResult');const chart=detail?.querySelector('.chart-title');if(chart){chart.scrollIntoView({behavior:'smooth',block:'start'});chart.classList.add('chart-focus');setTimeout(()=>chart.classList.remove('chart-focus'),1800);}}});}
+function openSymbol(symbol,focusChart=false){document.getElementById('symbolSearch').value=symbol;switchTerminalTab('search');analyzeSymbol().then(()=>{if(focusChart){const detail=document.getElementById('symbolResult');const chart=detail?.querySelector('.chart-title')||detail?.querySelector('canvas')||detail?.querySelector('.quote-line');if(chart){chart.scrollIntoView({behavior:'smooth',block:'start'});chart.classList.add('chart-focus');setTimeout(()=>chart.classList.remove('chart-focus'),1800);}}});}
+function openShariah(symbol){const input=document.getElementById('symbolSearch');if(input)input.value=String(symbol||'').toUpperCase();switchTerminalTab('search');const result=document.getElementById('shariahSearchResult');if(result)result.hidden=false;searchShariah();setTimeout(()=>{const target=document.getElementById('shariahSearchResult');target?.scrollIntoView({behavior:'smooth',block:'center'});},120);}
 async function searchShariah(){
  const input=document.getElementById('symbolSearch');
  const symbol=(input.value||'').trim().toUpperCase().replace(/[^A-Z.\-]/g,'');
