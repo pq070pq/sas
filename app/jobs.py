@@ -110,13 +110,11 @@ async def expiry_cycle():
             user.updated_at = now
             if settings.telegram_channel_id:
                 try:
-                    await bot_api("banChatMember", {
-                        "chat_id": settings.telegram_channel_id,
-                        "user_id": user.telegram_id,
-                        "revoke_messages": False,
-                    })
+                    # Remove from channel without leaving a permanent ban.
+                    from .main import set_channel_access
+                    await set_channel_access(user.telegram_id, allow=False)
                 except Exception:
-                    pass
+                    logger.exception("Could not remove expired trial user %s from channel.", user.telegram_id)
             try:
                 await send_message(user.telegram_id,
                     "⏳ <b>انتهت تجربتك المجانية في SAS PRO</b>\n\n"
