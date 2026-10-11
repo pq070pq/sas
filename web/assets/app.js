@@ -92,19 +92,39 @@ let sasWelcomeTimer=null;
 function showSASWelcome(){
  if(me && !me.pro && !me.trial_available)return;
  const overlay=document.getElementById('sasWelcomeOverlay');
- if(!overlay)return;
- // Enter the app immediately. Show only the channel invitation after 10 seconds.
- if(localStorage.getItem('saspro_channel_onboarding_done')==='1')return;
+ const field=overlay?.querySelector('.sas-fireworks');
+ if(!overlay||!field||localStorage.getItem('saspro_channel_onboarding_done')==='1')return;
  if(sasWelcomeTimer)window.clearTimeout(sasWelcomeTimer);
+ overlay.hidden=false;
+ overlay.classList.remove('is-leaving','is-join-stage','is-visible');
+ const greeting=document.getElementById('sasWelcomeGreeting');
+ const join=document.getElementById('sasWelcomeJoin');
+ if(greeting)greeting.hidden=false;
+ if(join)join.hidden=true;
+ field.replaceChildren();
+ const colors=['#ff405d','#ffd166','#4de4f0','#b69cff','#ffffff','#ff9f43'];
+ const launch=(x,y)=>{
+  const burst=document.createElement('span');burst.className='sas-firework-burst';burst.style.left=x+'%';burst.style.top=y+'%';
+  const count=42+Math.floor(Math.random()*20);
+  for(let i=0;i<count;i++){
+   const p=document.createElement('i'),angle=Math.PI*2*i/count+Math.random()*.12,distance=55+Math.random()*105;
+   p.style.setProperty('--dx',Math.cos(angle)*distance+'px');p.style.setProperty('--dy',Math.sin(angle)*distance+'px');
+   p.style.setProperty('--particle-color',colors[Math.floor(Math.random()*colors.length)]);
+   p.style.setProperty('--particle-size',2+Math.random()*3+'px');p.style.setProperty('--particle-delay',Math.random()*.12+'s');burst.appendChild(p);
+  }
+  field.appendChild(burst);window.setTimeout(()=>burst.remove(),1800);
+ };
+ let bursts=0;
+ const fireTimer=window.setInterval(()=>{launch(12+Math.random()*76,14+Math.random()*54);if(++bursts>=7)window.clearInterval(fireTimer);},300);
+ const onTap=e=>{const r=overlay.getBoundingClientRect();launch(Math.max(4,Math.min(96,(e.clientX-r.left)/r.width*100)),Math.max(5,Math.min(90,(e.clientY-r.top)/r.height*100)));};
+ overlay.addEventListener('pointerdown',onTap);
+ requestAnimationFrame(()=>overlay.classList.add('is-visible'));
+ // Welcome appears only after terms have been accepted; channel prompt follows after 10 seconds.
  sasWelcomeTimer=window.setTimeout(()=>{
-  if(localStorage.getItem('saspro_channel_onboarding_done')==='1')return;
-  const greeting=document.getElementById('sasWelcomeGreeting');
-  const join=document.getElementById('sasWelcomeJoin');
+  window.clearInterval(fireTimer);overlay.removeEventListener('pointerdown',onTap);field.replaceChildren();
   if(greeting)greeting.hidden=true;
   if(join)join.hidden=false;
-  overlay.classList.remove('is-leaving','is-visible');
   overlay.classList.add('is-join-stage');
-  overlay.hidden=false;
   requestAnimationFrame(()=>overlay.classList.add('is-visible'));
  },10000);
 }
@@ -168,9 +188,9 @@ async function load(){
   renderTrialCard(cfg.trial_days);
   document.getElementById('paidPlansSection').hidden=!cfg.paid_plans_visible;
   renderPlans(plans.plans||{});
-  // افتح واجهة التطبيق أولًا؛ تظهر دعوة القناة بعد رسالة الترحيب.
+  // الشروط أولًا؛ بعد الموافقة يبدأ الترحيب ثم تظهر دعوة القناة.
   if(!me.terms_accepted){
-   showSASWelcome();
+   openTerms('trial');
    return;
   }
   showSASWelcome();
@@ -1108,12 +1128,13 @@ async function continueTerms(){
   if(action==='trial'){
    if(accepted.trial_started&&accepted.trial?.channel_link){
     closeTerms();
-    localStorage.setItem('saspro_channel_onboarding_done','1');
-    if(tg?.openTelegramLink)tg.openTelegramLink(accepted.trial.channel_link);
-    else if(tg?.openLink)tg.openLink(accepted.trial.channel_link);
-    else window.open(accepted.trial.channel_link,'_blank');
-    dismissWelcome();
-    setTimeout(()=>{loadStarted=false;load();},900);
+    // Do not open the channel immediately: show welcome first, then the join prompt.
+    localStorage.removeItem('saspro_channel_onboarding_done');
+    me={...me,terms_accepted:true,pro:true,trial_available:false};
+    document.getElementById('subscriptionPage').hidden=true;
+    document.getElementById('terminalPage').hidden=false;
+    await initTerminal();
+    showSASWelcome();
     return;
    }
    if(accepted.ok){
