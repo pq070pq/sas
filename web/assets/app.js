@@ -366,6 +366,8 @@ function toggleSasMetric(id){
 }
 
 function renderPerpEquitiesMovers(data){
+ const sourceLink=document.querySelector('.sas-movers-source');
+ if(sourceLink)sourceLink.hidden=!Boolean(me?.admin);
  const updated=document.getElementById('perpMoversUpdated');
  const state=document.getElementById('perpMoversState');
  const gainers=document.getElementById('perpMoversGainers');
@@ -1046,13 +1048,37 @@ async function buyPlan(k){
  }catch(e){alert(e.message);}
 }
 
-const SITE_MEDIA_ICON_TARGETS={
- 'icon-radar':'.radar-icon',
- 'icon-channel':'.channel-icon',
- 'icon-search':'button[data-tab="search"]',
- 'icon-watch':'button[data-tab="watch"]',
- 'icon-account':'button[data-tab="account"]'
-};
+const SITE_MEDIA_MANAGED_ITEMS=[
+ {slot:'icon-radar',label:'أيقونة زر الرادار',fallback:'📡',target:'.radar-icon'},
+ {slot:'icon-channel',label:'أيقونة زر القناة',fallback:'✈️',target:'.channel-icon'},
+ {slot:'icon-home',label:'أيقونة تبويب الرئيسية',fallback:'⌂',target:'.terminal-tabs button[data-tab="dashboard"]'},
+ {slot:'icon-tab-radar',label:'أيقونة تبويب الرادار',fallback:'📡',target:'.terminal-tabs button[data-tab="radar"]'},
+ {slot:'icon-search',label:'أيقونة تبويب البحث',fallback:'🔎',target:'.terminal-tabs button[data-tab="search"]'},
+ {slot:'icon-watch',label:'أيقونة تبويب المحفوظات',fallback:'★',target:'.terminal-tabs button[data-tab="watch"]'},
+ {slot:'icon-account',label:'أيقونة تبويب الحساب',fallback:'👤',target:'.terminal-tabs button[data-tab="account"]'},
+ {slot:'icon-dock-home',label:'أيقونة الشريط السفلي: الرئيسية',fallback:'⌂',target:'.sas-mobile-dock button:nth-child(1) span'},
+ {slot:'icon-dock-radar',label:'أيقونة الشريط السفلي: الرادار',fallback:'▥',target:'.sas-mobile-dock button:nth-child(2) span'},
+ {slot:'icon-dock-search',label:'أيقونة الشريط السفلي: البحث',fallback:'⌕',target:'.sas-mobile-dock button:nth-child(3) span'},
+ {slot:'icon-dock-watch',label:'أيقونة الشريط السفلي: المفضلة',fallback:'★',target:'.sas-mobile-dock button:nth-child(4) span'},
+ {slot:'icon-dock-account',label:'أيقونة الشريط السفلي: حسابي',fallback:'♙',target:'.sas-mobile-dock button:nth-child(5) span'},
+ {slot:'icon-live-movers',label:'أيقونة بطاقة أعلى الأسهم حركة',fallback:'📈',target:'.sas-insight-grid .sas-insight-panel .sas-insight-title > span'},
+ {slot:'icon-perp-movers',label:'أيقونة بطاقة الأكثر تحركًا خلال 24 ساعة',fallback:'↕️',target:'.sas-perp-movers-panel .sas-insight-title > span'}
+];
+const SITE_MEDIA_ICON_TARGETS=Object.fromEntries(SITE_MEDIA_MANAGED_ITEMS.map(item=>[item.slot,item.target]));
+function renderMediaAdminCards(items={}){
+ const grid=document.getElementById('mediaIconsAdminGrid');
+ if(!grid)return;
+ grid.innerHTML=SITE_MEDIA_MANAGED_ITEMS.map(item=>{
+  const current=items[item.slot]?.url;
+  const slot=esc(item.slot),label=esc(item.label),fallback=esc(item.fallback);
+  return '<article class="media-admin-card" data-media-card="'+slot+'">'+
+   '<div class="media-admin-preview"><img id="mediaPreview-'+slot+'" alt="معاينة '+label+'" '+(current?'':'hidden')+(current?' src="'+esc(current)+'"':'')+'><span id="mediaEmpty-'+slot+'" '+(current?'hidden':'')+'>'+fallback+'</span></div>'+
+   '<b>'+label+'</b><small>تتغير مباشرة في الواجهة</small>'+
+   '<label class="media-upload-btn">رفع أيقونة<input type="file" accept="image/webp,image/png,image/jpeg" onchange="uploadSiteMedia(\''+slot+'\',this)"></label>'+
+   '<button type="button" class="media-delete-btn" onclick="deleteSiteMedia(\''+slot+'\')">🗑️ حذف والعودة للأصل</button>'+
+  '</article>';
+ }).join('');
+}
 async function loadSiteMedia(){
  const data=await api('/api/site-media');
  const items=data?.items||{};
@@ -1086,19 +1112,17 @@ async function loadAdminMedia(){
  const status=document.getElementById('mediaUploadStatus');
  try{
   const items=await loadSiteMedia();
-  for(const slot of ['hero','icon-radar','icon-channel','icon-search','icon-watch','icon-account']){
-   const preview=document.getElementById('mediaPreview-'+slot);
-   const empty=document.getElementById('mediaEmpty-'+slot);
-   const url=items[slot]?.url;
-   if(preview){preview.hidden=!url;if(url)preview.src=url;}
-   if(empty)empty.hidden=!!url;
-  }
-  if(status)status.textContent='تم تحديث معاينات الصور والأيقونات.';
+  const hero=items.hero?.url;
+  const heroPreview=document.getElementById('mediaPreview-hero');
+  const heroEmpty=document.getElementById('mediaEmpty-hero');
+  if(heroPreview){heroPreview.hidden=!hero;if(hero)heroPreview.src=hero;}
+  if(heroEmpty)heroEmpty.hidden=!!hero;
+  renderMediaAdminCards(items);
+  if(status)status.textContent='تم تحديث معاينات الصور والأيقونات ('+SITE_MEDIA_MANAGED_ITEMS.length+' موضعًا).';
  }catch(e){if(status)status.textContent='تعذر تحميل الصور: '+(e.message||'خطأ غير معروف');}
 }
 async function deleteSiteMedia(slot){
- const labels={'hero':'صورة الواجهة الرئيسية','icon-radar':'أيقونة الرادار','icon-channel':'أيقونة القناة','icon-search':'أيقونة البحث','icon-watch':'أيقونة المحفوظات','icon-account':'أيقونة الحساب'};
- const label=labels[slot]||'الصورة';
+ const label=slot==='hero'?'صورة الواجهة الرئيسية':(SITE_MEDIA_MANAGED_ITEMS.find(item=>item.slot===slot)?.label||'الأيقونة');
  if(!confirm('هل تريد حذف '+label+' والعودة إلى الشكل الافتراضي؟'))return;
  const status=document.getElementById('mediaUploadStatus');
  const buttons=document.querySelectorAll('#mediaPanel .media-delete-btn, #mediaPanel input[type="file"]');

@@ -119,11 +119,20 @@ SITE_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 SITE_MEDIA_CONFIG = SITE_MEDIA_DIR / "media.json"
 SITE_MEDIA_SLOTS = {
     "hero": {"label": "صورة الواجهة الرئيسية", "kind": "image"},
-    "icon-radar": {"label": "أيقونة الرادار", "kind": "icon"},
-    "icon-channel": {"label": "أيقونة القناة", "kind": "icon"},
+    "icon-radar": {"label": "أيقونة زر الرادار", "kind": "icon"},
+    "icon-channel": {"label": "أيقونة زر القناة", "kind": "icon"},
+    "icon-home": {"label": "أيقونة الرئيسية", "kind": "icon"},
+    "icon-tab-radar": {"label": "أيقونة تبويب الرادار", "kind": "icon"},
     "icon-search": {"label": "أيقونة البحث", "kind": "icon"},
     "icon-watch": {"label": "أيقونة المحفوظات", "kind": "icon"},
     "icon-account": {"label": "أيقونة الحساب", "kind": "icon"},
+    "icon-dock-home": {"label": "أيقونة الرئيسية السفلية", "kind": "icon"},
+    "icon-dock-radar": {"label": "أيقونة الرادار السفلية", "kind": "icon"},
+    "icon-dock-search": {"label": "أيقونة البحث السفلية", "kind": "icon"},
+    "icon-dock-watch": {"label": "أيقونة المحفوظات السفلية", "kind": "icon"},
+    "icon-dock-account": {"label": "أيقونة الحساب السفلية", "kind": "icon"},
+    "icon-live-movers": {"label": "أيقونة أعلى الأسهم حركة", "kind": "icon"},
+    "icon-perp-movers": {"label": "أيقونة الأكثر تحركًا خلال 24 ساعة", "kind": "icon"},
 }
 SITE_MEDIA_MIMES = {
     "image/webp": (".webp", lambda b: len(b) >= 12 and b[:4] == b"RIFF" and b[8:12] == b"WEBP"),
