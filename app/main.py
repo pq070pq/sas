@@ -847,13 +847,21 @@ async def set_channel_access(telegram_id: int, allow: bool, expires_at=None):
         return {"ok": False, "reason": "telegram_channel_id_not_configured"}
 
     if not allow:
+        # Telegram has no standalone "kick" method: briefly ban, then immediately
+        # unban. This removes the member from the channel without leaving a ban,
+        # so they can rejoin after renewing their subscription.
         try:
             await bot_api("banChatMember", {
                 "chat_id": settings.telegram_channel_id,
                 "user_id": telegram_id,
                 "revoke_messages": False,
             })
-            return {"ok": True, "action": "banned"}
+            await bot_api("unbanChatMember", {
+                "chat_id": settings.telegram_channel_id,
+                "user_id": telegram_id,
+                "only_if_banned": True,
+            })
+            return {"ok": True, "action": "kicked_unbanned"}
         except Exception as exc:
             return {"ok": False, "reason": str(exc)}
 
