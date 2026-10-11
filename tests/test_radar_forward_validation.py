@@ -1,4 +1,4 @@
-from app.radar_forward_validation import _close_map, _pct
+from app.radar_forward_validation import _close_map, _pct, _aligned_forward_days
 
 
 def test_close_map_uses_real_daily_close_and_ignores_bad_rows():
@@ -19,3 +19,9 @@ def test_pct_calculates_forward_return():
 
 def test_missing_history_is_empty_not_a_win():
     assert _close_map({"candles": []}) == {}
+
+
+def test_forward_sessions_are_aligned_between_stock_and_spy():
+    stock = {"2026-10-02": 11, "2026-10-05": 12, "2026-10-06": 13}
+    spy = {"2026-10-02": 101, "2026-10-06": 103, "2026-10-07": 104}
+    assert _aligned_forward_days(stock, spy, "2026-10-01") == ["2026-10-02", "2026-10-06"]
