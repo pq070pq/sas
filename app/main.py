@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import math
 import logging
 import time
 import re
@@ -2477,52 +2478,62 @@ async def _fetch_perpequities_assets():
         }
 
 
+def _movers_price_in_range(item, minimum=0.50, maximum=15.00):
+    """Only include assets whose published reference price is inside the requested band."""
+    if not isinstance(item, dict):
+        return False
+    try:
+        price = float(item.get("price"))
+    except (TypeError, ValueError):
+        return False
+    return price >= minimum and price <= maximum
+
+
+def _rank_perpequities_movers(assets, limit=8):
+    """Return price-filtered 24h gainers and losers with full available source fields."""
+    eligible = []
+    for raw in assets if isinstance(assets, list) else []:
+        if not _movers_price_in_range(raw):
+            continue
+        try:
+            change = float(raw.get("change24h"))
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(change):
+            continue
+        item = dict(raw)
+        item["price"] = float(item["price"])
+        item["change24h"] = change
+        item["change_pct"] = round(change * 100, 4)
+        eligible.append(item)
+    gainers = sorted((x for x in eligible if x["change24h"] > 0), key=lambda x: x["change24h"], reverse=True)[:limit]
+    losers = sorted((x for x in eligible if x["change24h"] < 0), key=lambda x: x["change24h"])[:limit]
+    return gainers, losers, eligible
+
+
 @app.get("/api/market/movers")
 async def perpequities_market_movers(_: dict = Depends(require_pro)):
-    """Return live perpetual-equity context and movers, without using it as spot-price truth."""
+    """Return automatically refreshed 24h movers filtered to the $0.50-$15 reference-price band."""
     assets_payload = await _fetch_perpequities_assets()
     assets = assets_payload.get("assets") or []
-    if assets:
-        ranked = [x for x in assets if isinstance(x.get("change24h"), (int, float))]
-        gainers = sorted((x for x in ranked if x["change24h"] > 0), key=lambda x: x["change24h"], reverse=True)[:8]
-        losers = sorted((x for x in ranked if x["change24h"] < 0), key=lambda x: x["change24h"])[:8]
+    gainers, losers, eligible = _rank_perpequities_movers(assets)
+    if eligible:
         return {
-            **assets_payload,
-            "gainers": [{**x, "change_pct": round(float(x["change24h"]) * 100, 4)} for x in gainers],
-            "losers": [{**x, "change_pct": round(float(x["change24h"]) * 100, 4)} for x in losers],
-            "available": True,
+            **assets_payload, "assets": eligible, "gainers": gainers, "losers": losers,
+            "available": True, "price_min": 0.50, "price_max": 15.00,
+            "refresh_interval_seconds": _PERPEQUITIES_API_CACHE_TTL,
+            "price_basis": "PerpEquities reference price for perpetual equity contracts",
+            "message_ar": None,
         }
+    # Do not use the page-only fallback because it contains no prices to validate against the strict range.
+    return {
+        **assets_payload, "assets": [], "gainers": [], "losers": [], "available": False,
+        "price_min": 0.50, "price_max": 15.00,
+        "refresh_interval_seconds": _PERPEQUITIES_API_CACHE_TTL,
+        "price_basis": "PerpEquities reference price for perpetual equity contracts",
+        "message_ar": assets_payload.get("message_ar") or "لا توجد بيانات أسعار موثوقة ضمن نطاق 0.50 إلى 15 دولارًا حاليًا.",
+    }
 
-    now = time.monotonic()
-    cached = _PERPEQUITIES_MOVERS_CACHE.get("payload")
-    if cached and now - _PERPEQUITIES_MOVERS_CACHE.get("fetched_at", 0.0) < _PERPEQUITIES_CACHE_TTL:
-        return {**cached, "stale": True}
-    try:
-        async with httpx.AsyncClient(
-            timeout=10.0, follow_redirects=True,
-            headers={"User-Agent": "Mozilla/5.0 (compatible; SASPRO-MarketDashboard/1.0)", "Accept-Language": "ar,en;q=0.8"},
-        ) as client:
-            response = await client.get(_PERPEQUITIES_URL)
-            response.raise_for_status()
-        parsed = _parse_perpequities_movers(response.text)
-        if not parsed or not parsed.get("available"):
-            raise ValueError("PerpEquities homepage movers could not be parsed.")
-        payload = {
-            **parsed, "assets": [], "source": "PerpEquities",
-            "source_url": _PERPEQUITIES_URL, "updated_at": utcnow().isoformat(),
-            "stale": False, "available": True,
-            "message_ar": "عرض قائمة التحركات من صفحة الموقع؛ تفاصيل العقود غير متاحة الآن.",
-        }
-        _PERPEQUITIES_MOVERS_CACHE.update({"fetched_at": time.monotonic(), "payload": payload})
-        return payload
-    except Exception as exc:
-        logger.warning("PerpEquities movers fallback failed: %s", exc)
-        if cached:
-            return {**cached, "stale": True}
-        return {
-            **assets_payload, "gainers": [], "losers": [], "available": False,
-            "message_ar": assets_payload.get("message_ar") or "تعذر جلب بيانات الحركة من PerpEquities حاليًا.",
-        }
 
 @app.get("/api/market/ticker")
 async def market_ticker(_: dict = Depends(require_pro)):

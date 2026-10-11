@@ -125,10 +125,10 @@
           <div class="sas-insight-title"><span>↕️</span><div><b>الأكثر تحركًا خلال 24 ساعة</b><small>رابحون وخاسرون خلال 24 ساعة</small></div><a class="sas-movers-source" hidden href="https://perpequities.com/ar" target="_blank" rel="noopener noreferrer">المصدر ↗</a></div>
           <div class="sas-perp-movers-meta"><span id="perpMoversUpdated">جاري جلب بيانات المصدر…</span><span id="perpMoversState">—</span></div>
           <div class="sas-perp-movers-grid">
-            <div class="sas-perp-movers-side"><b class="sas-perp-movers-side-title is-up">▲ الرابحون</b><div id="perpMoversGainers" class="sas-perp-movers-list"><div class="loading">جاري التحميل…</div></div></div>
-            <div class="sas-perp-movers-side"><b class="sas-perp-movers-side-title is-down">▼ الخاسرون</b><div id="perpMoversLosers" class="sas-perp-movers-list"><div class="loading">جاري التحميل…</div></div></div>
+            <details class="sas-perp-movers-side" open><summary class="sas-perp-movers-side-title is-up"><span>▲ الرابحون</span><span class="sas-perp-movers-chevron">⌄</span></summary><div id="perpMoversGainers" class="sas-perp-movers-list"><div class="loading">جاري التحميل…</div></div></details>
+            <details class="sas-perp-movers-side" open><summary class="sas-perp-movers-side-title is-down"><span>▼ الخاسرون</span><span class="sas-perp-movers-chevron">⌄</span></summary><div id="perpMoversLosers" class="sas-perp-movers-list"><div class="loading">جاري التحميل…</div></div></details>
           </div>
-          <p class="sas-perp-movers-note">هذه تحركات عقود الأسهم الدائمة المعروضة في المصدر خلال 24 ساعة، وقد تختلف عن سعر السهم الفوري. ليست توصية تداول.</p>
+          <p class="sas-perp-movers-note">نطاق السعر المرجعي المعروض: 0.50–15.00 دولار فقط. البيانات لعقود الأسهم الدائمة وقد تختلف عن السعر الفوري للسهم. تتحدث تلقائيًا مع تحديث المصدر، وليست توصية تداول.</p>
         </section>
         <div class="section-title"><b><span class="market-indicators-icon" aria-hidden="true">📊</span> مؤشرات السوق</b><span>الأسعار المتاحة من مزود البيانات</span></div>
         <div id="macroGrid" class="macro-grid"></div>
@@ -330,7 +330,7 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261011-59"></script>
+<script src="/assets/app.js?v=20261011-60"></script>
 
 <script>
 /* Presentation-only interactions. Does not modify radar, pricing, API calls, or permissions. */
