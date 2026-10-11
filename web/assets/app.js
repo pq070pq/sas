@@ -1583,7 +1583,7 @@ load();
    if(rw)rw.textContent=arDate(regular)+' • '+arTime(regular)+' الرياض';
    const date=document.getElementById('sasCountdownDate');if(date)date.textContent='موعد الجلسة القادمة • '+arDate(pre)+' • جميع الأوقات بتوقيت الرياض';
    const detail=document.getElementById('sasCountdownDetail');
-   if(detail)detail.textContent=selected==='pre'?'🌅 يبدأ التداول قبل الافتتاح الساعة '+arTime(pre)+' يوم '+arDate(pre)+' بتوقيت الرياض. يمكنك متابعة الأسهم وتجهيز قائمة الرصد قبل الجلسة الرسمية.':'🔔 يبدأ التداول الرسمي الساعة '+arTime(regular)+' يوم '+arDate(regular)+' بتوقيت الرياض، ويبدأ الرادار متابعة الجلسة حسب إعدادات النظام.';
+   if(detail)detail.textContent=selected==='pre'?'يبدأ التداول قبل الافتتاح الساعة '+arTime(pre)+' يوم '+arDate(pre)+' بتوقيت الرياض. يمكنك متابعة الأسهم وتجهيز قائمة الرصد قبل الجلسة الرسمية.':'يبدأ التداول الرسمي الساعة '+arTime(regular)+' يوم '+arDate(regular)+' بتوقيت الرياض، ويبدأ الرادار متابعة الجلسة حسب إعدادات النظام.';
    document.querySelectorAll('[data-countdown]').forEach(b=>{const active=b.dataset.countdown===selected;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));});
  }
  document.querySelectorAll('[data-countdown]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.countdown;paint();}));
