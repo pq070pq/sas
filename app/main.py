@@ -2041,6 +2041,27 @@ async def admin_upload_site_media(slot: str, request: Request, user=Depends(tele
     }
 
 
+@app.delete("/api/admin/site-media/{slot}")
+async def admin_delete_site_media(slot: str, user=Depends(telegram_user)):
+    await require_admin_permission(user, "settings")
+    if slot not in SITE_MEDIA_SLOTS:
+        raise HTTPException(404, "موضع الصورة غير معروف")
+    configured = _read_site_media_config()
+    filename = configured.get(slot)
+    try:
+        # Only remove files belonging to this known slot; never accept a client path.
+        if isinstance(filename, str) and Path(filename).name == filename:
+            target = SITE_MEDIA_DIR / filename
+            if target.parent == SITE_MEDIA_DIR and target.is_file():
+                target.unlink()
+        configured.pop(slot, None)
+        SITE_MEDIA_CONFIG.write_text(json.dumps(configured, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        logger.exception("Could not delete admin-managed site media for slot %s", slot)
+        raise HTTPException(500, "تعذر حذف الصورة من مساحة التخزين الدائمة")
+    return {"ok": True, "slot": slot, "deleted": bool(filename)}
+
+
 async def require_admin_permission(user, permission: str):
     if not await has_permission(int(user["id"]), permission):
         raise HTTPException(403, "لا تملك هذه الصلاحية")

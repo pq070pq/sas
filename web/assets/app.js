@@ -956,6 +956,27 @@ async function loadAdminMedia(){
   if(status)status.textContent='تم تحديث معاينات الصور والأيقونات.';
  }catch(e){if(status)status.textContent='تعذر تحميل الصور: '+(e.message||'خطأ غير معروف');}
 }
+async function deleteSiteMedia(slot){
+ const labels={'hero':'صورة الواجهة الرئيسية','icon-radar':'أيقونة الرادار','icon-channel':'أيقونة القناة','icon-search':'أيقونة البحث','icon-watch':'أيقونة المحفوظات','icon-account':'أيقونة الحساب'};
+ const label=labels[slot]||'الصورة';
+ if(!confirm('هل تريد حذف '+label+' والعودة إلى الشكل الافتراضي؟'))return;
+ const status=document.getElementById('mediaUploadStatus');
+ const buttons=document.querySelectorAll('#mediaPanel .media-delete-btn, #mediaPanel input[type="file"]');
+ buttons.forEach(el=>el.disabled=true);
+ if(status)status.textContent='جاري حذف '+label+'...';
+ try{
+  await api('/api/admin/site-media/'+encodeURIComponent(slot),{method:'DELETE',timeoutMs:15000});
+  if(status)status.textContent='تم حذف '+label+' والعودة إلى الرمز الافتراضي.';
+  await loadAdminMedia();
+  // Clear the rendered override so the built-in icon/hero appears immediately.
+  window.location.reload();
+ }catch(e){
+  if(status)status.textContent='تعذر حذف الصورة: '+(e.message||'خطأ غير معروف');
+  alert('تعذر حذف الصورة: '+(e.message||'حدث خطأ'));
+ }finally{
+  buttons.forEach(el=>el.disabled=false);
+ }
+}
 async function uploadSiteMedia(slot,input){
  const file=input?.files?.[0];
  if(!file)return;

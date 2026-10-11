@@ -237,31 +237,37 @@
           <div class="media-admin-preview media-admin-preview-hero"><img id="mediaPreview-hero" alt="معاينة صورة الواجهة" hidden><span id="mediaEmpty-hero">الصورة الحالية من الموقع</span></div>
           <b>صورة الواجهة الرئيسية</b><small>تظهر أعلى شاشة الرادار</small>
           <label class="media-upload-btn">اختيار صورة الواجهة<input type="file" accept="image/webp,image/png,image/jpeg" onchange="uploadSiteMedia('hero',this)"></label>
+          <button type="button" class="media-delete-btn" onclick="deleteSiteMedia('hero')">🗑️ حذف الصورة</button>
         </article>
         <article class="media-admin-card">
           <div class="media-admin-preview"><img id="mediaPreview-icon-radar" alt="معاينة أيقونة الرادار" hidden><span id="mediaEmpty-icon-radar">📡</span></div>
           <b>أيقونة الرادار</b><small>أيقونة فتح بيانات الرادار</small>
           <label class="media-upload-btn">رفع أيقونة<input type="file" accept="image/webp,image/png,image/jpeg" onchange="uploadSiteMedia('icon-radar',this)"></label>
+          <button type="button" class="media-delete-btn" onclick="deleteSiteMedia('icon-radar')">🗑️ حذف الصورة</button>
         </article>
         <article class="media-admin-card">
           <div class="media-admin-preview"><img id="mediaPreview-icon-channel" alt="معاينة أيقونة القناة" hidden><span id="mediaEmpty-icon-channel">✈️</span></div>
           <b>أيقونة القناة</b><small>أيقونة قناة SAS PRO</small>
           <label class="media-upload-btn">رفع أيقونة<input type="file" accept="image/webp,image/png,image/jpeg" onchange="uploadSiteMedia('icon-channel',this)"></label>
+          <button type="button" class="media-delete-btn" onclick="deleteSiteMedia('icon-channel')">🗑️ حذف الصورة</button>
         </article>
         <article class="media-admin-card">
           <div class="media-admin-preview"><img id="mediaPreview-icon-search" alt="معاينة أيقونة البحث" hidden><span id="mediaEmpty-icon-search">🔎</span></div>
           <b>أيقونة البحث</b><small>تبويب البحث</small>
           <label class="media-upload-btn">رفع أيقونة<input type="file" accept="image/webp,image/png,image/jpeg" onchange="uploadSiteMedia('icon-search',this)"></label>
+          <button type="button" class="media-delete-btn" onclick="deleteSiteMedia('icon-search')">🗑️ حذف الصورة</button>
         </article>
         <article class="media-admin-card">
           <div class="media-admin-preview"><img id="mediaPreview-icon-watch" alt="معاينة أيقونة المحفوظات" hidden><span id="mediaEmpty-icon-watch">★</span></div>
           <b>أيقونة المحفوظات</b><small>تبويب الأسهم المحفوظة</small>
           <label class="media-upload-btn">رفع أيقونة<input type="file" accept="image/webp,image/png,image/jpeg" onchange="uploadSiteMedia('icon-watch',this)"></label>
+          <button type="button" class="media-delete-btn" onclick="deleteSiteMedia('icon-watch')">🗑️ حذف الصورة</button>
         </article>
         <article class="media-admin-card">
           <div class="media-admin-preview"><img id="mediaPreview-icon-account" alt="معاينة أيقونة الحساب" hidden><span id="mediaEmpty-icon-account">👤</span></div>
           <b>أيقونة الحساب</b><small>تبويب الحساب</small>
           <label class="media-upload-btn">رفع أيقونة<input type="file" accept="image/webp,image/png,image/jpeg" onchange="uploadSiteMedia('icon-account',this)"></label>
+          <button type="button" class="media-delete-btn" onclick="deleteSiteMedia('icon-account')">🗑️ حذف الصورة</button>
         </article>
       </div>
       <div id="mediaUploadStatus" class="media-upload-status" role="status">الصور المحفوظة تظهر هنا بعد التحميل.</div>
