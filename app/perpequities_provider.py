@@ -54,6 +54,15 @@ def _signed_number(value: Any) -> float | None:
     return number if abs(number) < float("inf") else None
 
 
+def _freshness(value: Any, current: datetime) -> tuple[str | None, float | None, bool]:
+    parsed = _parse_time(value)
+    if parsed is None:
+        return None, None, False
+    age = (current - parsed).total_seconds()
+    fresh = -60 <= age <= MAX_DATA_AGE_SECONDS
+    return parsed.isoformat(), round(age, 2), fresh
+
+
 def normalize_asset(payload: Any, requested_symbol: str, now: datetime | None = None) -> dict[str, Any] | None:
     """Validate and normalize an asset from either a single-asset or bulk response."""
     if not isinstance(payload, dict):
@@ -88,9 +97,13 @@ def normalize_asset(payload: Any, requested_symbol: str, now: datetime | None = 
     if not isinstance(venues, list):
         venues = []
     live_venues = []
+    fresh_live_markets = 0
     for venue in venues:
         if not isinstance(venue, dict) or venue.get("live") is not True or venue.get("status") != "trading":
             continue
+        updated_at, venue_age, venue_fresh = _freshness(venue.get("updatedAt"), current)
+        if venue_fresh:
+            fresh_live_markets += 1
         live_venues.append({
             "venue": str(venue.get("venue") or ""),
             "volume_24h_usd": _number(venue.get("volume24hUsd")),
@@ -98,7 +111,9 @@ def normalize_asset(payload: Any, requested_symbol: str, now: datetime | None = 
             "spread_bps": _number(venue.get("spreadBps")),
             "depth_1pct_usd": _number(venue.get("depth1PctUsd")),
             "funding_apr": _signed_number(venue.get("fundingApr")),
-            "updated_at": venue.get("updatedAt"),
+            "updated_at": updated_at,
+            "updated_age_seconds": venue_age,
+            "fresh": venue_fresh,
         })
 
     quality = data.get("quality") if isinstance(data.get("quality"), dict) else {}
@@ -112,6 +127,7 @@ def normalize_asset(payload: Any, requested_symbol: str, now: datetime | None = 
         "volume_24h_usd": _number(data.get("qualityFilteredVolume24hUsd")),
         "open_interest_usd": _number(data.get("openInterestUsd")),
         "live_markets": len(live_venues),
+        "fresh_live_markets": fresh_live_markets,
         "venues": live_venues,
         "volume_observed_markets": volume_quality.get("observedMarkets"),
         "volume_total_markets": volume_quality.get("totalMarkets"),
