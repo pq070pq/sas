@@ -2335,3 +2335,8 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .market-indicators-icon{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-inline-end:5px;min-width:1.15em;min-height:1.15em;line-height:1}
 .market-indicators-icon.has-managed-icon{min-width:25px;min-height:25px}
 .market-indicators-icon .sas-managed-icon-image{display:block;width:1.35em;height:1.35em;object-fit:contain;filter:drop-shadow(0 2px 5px rgba(0,0,0,.25))}
+
+/* Editable legal disclaimer alert icon */
+.disclaimer-badge .disclaimer-icon{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-inline-end:3px;line-height:1}
+.disclaimer-badge .disclaimer-icon.has-managed-icon{width:1.2em;height:1.2em}
+.disclaimer-badge .disclaimer-icon .sas-managed-icon-image{width:1.2em;height:1.2em;object-fit:contain;display:block}
