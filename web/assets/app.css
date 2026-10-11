@@ -2602,3 +2602,11 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge > span:not(.disclaimer-icon),
  .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-label{padding-inline:7px!important}
 }
+
+
+/* Editable Shariah icon and concise stock analysis action */
+.stock-shariah-icon-label{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:0}
+.stock-shariah-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;line-height:1}
+.stock-shariah-icon .sas-managed-icon-image{display:block;width:1.25em;height:1.25em;min-width:1.25em;min-height:1.25em;max-width:1.25em;max-height:1.25em;object-fit:contain}
+.stock-chart-action{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+@media(max-width:600px){.stock-shariah-icon-label{gap:5px}.stock-shariah-icon .sas-managed-icon-image{width:1.3em;height:1.3em;min-width:1.3em;min-height:1.3em;max-width:1.3em;max-height:1.3em}}
