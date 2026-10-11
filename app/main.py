@@ -25,6 +25,7 @@ from .config import settings
 from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, RadarRun, AccessRequest, Setting, Invite, AdminRole, get_session, init_db
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
+from .twelve_guard import call as twelve_call
 from .panwatch import analyze, technical_targets, ohlcv
 from .news import company_news, corporate_events, tipranks_analysis
 from .news_translation import translate_stock_news
@@ -2653,83 +2654,126 @@ async def _fetch_perpequities_assets():
         }
 
 
-def _movers_price_in_range(item, minimum=0.50, maximum=15.00):
-    """Only include assets whose published reference price is inside the requested band."""
-    if not isinstance(item, dict):
-        return False
+_US_STOCK_MOVERS_CACHE = {"fetched_at": 0.0, "payload": None}
+_US_STOCK_MOVERS_CACHE_TTL = 300
+
+
+async def _fetch_us_stock_movers():
+    """Fetch US stock gainers from Twelve Data, cached to protect API credits."""
+    now = time.monotonic()
+    cached = _US_STOCK_MOVERS_CACHE.get("payload")
+    if cached and now - _US_STOCK_MOVERS_CACHE.get("fetched_at", 0.0) < _US_STOCK_MOVERS_CACHE_TTL:
+        return cached
+    if not (getattr(settings, "twelve_data_api_key", "") or getattr(settings, "twelve_data_api_keys", "")):
+        return {
+            "available": False, "assets": [], "gainers": [],
+            "message_ar": "مصدر الأسهم الأمريكية غير مهيأ حاليًا.",
+        }
+
     try:
-        price = float(item.get("price"))
-    except (TypeError, ValueError):
-        return False
-    return price >= minimum and price <= maximum
+        async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
+            response = await twelve_call(
+                client.get,
+                "https://api.twelvedata.com/market_movers/stocks",
+                params={
+                    "direction": "gainers",
+                    "outputsize": 50,
+                    "country": "USA",
+                    "price_greater_than": "0.49",
+                    "dp": 4,
+                },
+            )
+            response.raise_for_status()
+            body = response.json()
+        values = body.get("values") if isinstance(body, dict) else None
+        if not isinstance(values, list):
+            raise ValueError("Twelve Data returned an unexpected market movers payload.")
 
-
-def _rank_perpequities_movers(assets):
-    """Return positive movers only; exclude crypto-like assets and require the regular US session."""
-    status = market_status()
-    if status.get("session") != "regular":
-        return [], [], []
-
-    crypto_name_terms = (
-        "crypto", "cryptocurrency", "stablecoin", "bitcoin", "ethereum",
-        "token", "coinbase wrapped", "wrapped bitcoin", "usd coin",
-    )
-    eligible = []
-    for raw in assets if isinstance(assets, list) else []:
-        if not _movers_price_in_range(raw):
-            continue
-        symbol = str(raw.get("symbol") or "").strip().upper()
-        name = str(raw.get("name") or "").strip().lower()
-        if not symbol or is_crypto_symbol(symbol) or any(term in name for term in crypto_name_terms):
-            continue
-        try:
-            change = float(raw.get("change24h"))
-        except (TypeError, ValueError):
-            continue
-        if not math.isfinite(change) or change <= 0:
-            continue
-        item = dict(raw)
-        item["price"] = float(item["price"])
-        item["change24h"] = change
-        item["change_pct"] = round(change * 100, 4)
-        eligible.append(item)
-    gainers = sorted(eligible, key=lambda x: x["change24h"], reverse=True)
-    return gainers, [], eligible
+        crypto_terms = ("bitcoin", "ethereum", "crypto", "cryptocurrency", "stablecoin", "token", "digital currency")
+        eligible = []
+        seen = set()
+        for raw in values:
+            if not isinstance(raw, dict):
+                continue
+            symbol = str(raw.get("symbol") or "").strip().upper()
+            name = str(raw.get("name") or "").strip()
+            exchange = str(raw.get("exchange") or "").strip()
+            mic_code = str(raw.get("mic_code") or "").strip().upper()
+            try:
+                price = float(raw.get("last"))
+                change_pct = float(raw.get("percent_change"))
+            except (TypeError, ValueError):
+                continue
+            if (
+                not symbol or symbol in seen or not exchange or not mic_code
+                or not math.isfinite(price) or not math.isfinite(change_pct)
+                or price < 0.50 or price > 15.00 or change_pct <= 0
+                or any(term in name.lower() for term in crypto_terms)
+            ):
+                continue
+            seen.add(symbol)
+            eligible.append({
+                "symbol": symbol,
+                "name": name or symbol,
+                "price": price,
+                "change24h": change_pct / 100.0,
+                "change_pct": round(change_pct, 4),
+                "change7d": None,
+                "volume24hUsd": raw.get("volume"),
+                "qualityFilteredVolume24hUsd": raw.get("volume"),
+                "openInterestUsd": None,
+                "venueCount": 1,
+                "liveMarkets": 1,
+                "exchange": exchange,
+                "mic_code": mic_code,
+                "url": "https://twelvedata.com/docs",
+                "venues": [],
+            })
+        eligible.sort(key=lambda item: item["change_pct"], reverse=True)
+        payload = {
+            "available": bool(eligible),
+            "assets": eligible,
+            "gainers": eligible,
+            "losers": [],
+            "source": "Twelve Data US Stocks",
+            "source_url": "https://twelvedata.com/docs",
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "price_min": 0.50,
+            "price_max": 15.00,
+            "refresh_interval_seconds": _US_STOCK_MOVERS_CACHE_TTL,
+            "price_basis": "US-listed stock market movers",
+            "message_ar": None if eligible else "لا توجد أسهم أمريكية رابحة ضمن نطاق 0.50–15 دولارًا في لقطة المصدر الحالية.",
+        }
+        _US_STOCK_MOVERS_CACHE.update({"fetched_at": time.monotonic(), "payload": payload})
+        return payload
+    except Exception as exc:
+        logger.warning("US stock movers refresh failed: %s", type(exc).__name__)
+        if cached:
+            return {**cached, "stale": True, "message_ar": "تعذر تحديث الأسهم الأمريكية؛ نعرض آخر بيانات محفوظة."}
+        return {
+            "available": False, "assets": [], "gainers": [], "losers": [],
+            "source": "Twelve Data US Stocks", "source_url": "https://twelvedata.com/docs",
+            "updated_at": None, "price_min": 0.50, "price_max": 15.00,
+            "refresh_interval_seconds": _US_STOCK_MOVERS_CACHE_TTL,
+            "message_ar": "تعذر جلب بيانات الأسهم الأمريكية حاليًا.",
+        }
 
 
 @app.get("/api/market/movers")
 async def perpequities_market_movers(_: dict = Depends(require_pro)):
-    """Return positive movers during the regular US session, excluding crypto-like assets."""
-    assets_payload = await _fetch_perpequities_assets()
+    """Show actual US stock gainers only during the regular US trading session."""
     status = market_status()
-    assets = assets_payload.get("assets") or []
-    gainers, losers, eligible = _rank_perpequities_movers(assets)
     if status.get("session") != "regular":
         return {
-            **assets_payload, "assets": [], "gainers": [], "losers": [], "available": False,
-            "price_min": 0.50, "price_max": 15.00,
-            "refresh_interval_seconds": _PERPEQUITIES_API_CACHE_TTL,
-            "price_basis": "PerpEquities reference price for perpetual equity contracts",
+            "available": False, "assets": [], "gainers": [], "losers": [],
+            "source": "Twelve Data US Stocks", "source_url": "https://twelvedata.com/docs",
+            "updated_at": None, "price_min": 0.50, "price_max": 15.00,
+            "refresh_interval_seconds": _US_STOCK_MOVERS_CACHE_TTL,
             "market_session": status.get("session"),
-            "message_ar": "تظهر الأسهم الرابحة أثناء جلسة السوق الأمريكي الرسمية فقط.",
+            "message_ar": "تظهر الأسهم الأمريكية الرابحة أثناء جلسة السوق الرسمية فقط.",
         }
-    if eligible:
-        return {
-            **assets_payload, "assets": eligible, "gainers": gainers, "losers": [],
-            "available": True, "price_min": 0.50, "price_max": 15.00,
-            "refresh_interval_seconds": _PERPEQUITIES_API_CACHE_TTL,
-            "price_basis": "PerpEquities reference price for perpetual equity contracts",
-            "market_session": status.get("session"),
-            "message_ar": None,
-        }
-    return {
-        **assets_payload, "assets": [], "gainers": [], "losers": [], "available": False,
-        "price_min": 0.50, "price_max": 15.00,
-        "refresh_interval_seconds": _PERPEQUITIES_API_CACHE_TTL,
-        "price_basis": "PerpEquities reference price for perpetual equity contracts",
-        "market_session": status.get("session"),
-        "message_ar": assets_payload.get("message_ar") or "لا توجد أسهم رابحة ببيانات موثوقة ضمن النطاق المحدد حاليًا.",
-    }
+    payload = await _fetch_us_stock_movers()
+    return {**payload, "market_session": status.get("session")}
 
 
 @app.get("/api/market/ticker")
