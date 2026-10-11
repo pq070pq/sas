@@ -2044,25 +2044,30 @@ async def admin_gift_candidates(user=Depends(telegram_user), db: AsyncSession = 
 async def admin_get_gift_message(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     await require_admin_permission(user, "subscriptions")
     default_template = (
-        "🎁 <b>هدية خاصة من {brand}</b>\\n\\n"
-        "🎉 <b>تهانينا!</b> تم تمديد اشتراكك كهدية تقدير لمدة <b>{days} يومًا</b>.\\n"
-        "📅 تاريخ الانتهاء الجديد: <b>{expiry_date}</b>\\n\\n"
-        "شكرًا لثقتك بنا، ونتمنى لك تجربة موفقة مع {brand} 💎"
+        "🎁 هدية اشتراك من {brand}\\n\\n"
+        "أهلًا بك! 🎉\\n"
+        "تم تمديد اشتراكك كهدية لمدة {days} يومًا.\\n"
+        "تاريخ انتهاء اشتراكك الجديد: {expiry_date} 📅\\n\\n"
+        "شكرًا لثقتك بنا، ونتمنى لك تجربة رائعة مع {brand} 💎"
     )
-    return {"template": await setting_get(db, "gift_message_template", default_template)}
+    template = await setting_get(db, "gift_message_template", default_template)
+    template = str(template).replace("\\\\n", "\\n")
+    template = re.sub(r"</?(?:b|i|u|code)>", "", template, flags=re.IGNORECASE)
+    return {"template": template}
 
 
 @app.post("/api/admin/gift-message")
 async def admin_save_gift_message(request: Request, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     await require_admin_permission(user, "subscriptions")
     body = await request.json()
-    template = str(body.get("template") or "").strip()
+    template = str(body.get("template") or "").replace("\\\\n", "\\n").strip()
+    template = re.sub(r"</?(?:b|i|u|code)>", "", template, flags=re.IGNORECASE)
     if not template:
         raise HTTPException(400, "اكتب نص رسالة الهدية")
     if len(template) > 2500:
         raise HTTPException(400, "الحد الأقصى لرسالة الهدية 2500 حرف")
     allowed = {"days", "expiry_date", "brand"}
-    placeholders = set(re.findall(r"\\{([a-zA-Z_]+)\\}", template))
+    placeholders = set(re.findall(r"\{([a-zA-Z_]+)\}", template))
     if placeholders - allowed:
         raise HTTPException(400, "متغير غير معروف: " + ", ".join(sorted(placeholders - allowed)))
     await setting_set(db, "gift_message_template", template)
