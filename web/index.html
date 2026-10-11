@@ -7,14 +7,14 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>SAS PRO — Market Terminal</title>
-<link rel="stylesheet" href="/assets/app.css?v=20261011-17">
+<link rel="stylesheet" href="/assets/app.css?v=20261011-18">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 </head>
 <body>
 <div class="app" id="app">
   <section id="subscriptionPage" class="subscription-page">
     <div class="poster-wrap">
-      <img src="/assets/sas-pro-home.webp?v=20261011-17-hero" class="poster" alt="SAS PRO">
+      <img src="/assets/sas-pro-home.webp?v=20261011-18-hero" class="poster" alt="SAS PRO">
           </div>
 
     <section class="status-card">
@@ -52,7 +52,7 @@
 
   <section id="terminalPage" class="terminal-page" hidden>
     <section class="terminal-hero-banner" aria-label="SAS PRO">
-      <img src="/assets/sas-pro-home.webp?v=20261011-17-hero" alt="SAS PRO سوق الأسهم" loading="eager">
+      <img src="/assets/sas-pro-home.webp?v=20261011-18-hero" alt="SAS PRO سوق الأسهم" loading="eager">
       <div class="hero-shade"></div>
       <div class="hero-caption">
         <div class="hero-brand-row"><time id="terminalClock" aria-label="الوقت الحالي"><span class="clock-time">—</span><small>🇸🇦 الرياض</small><i aria-hidden="true"></i></time><span>SAS PRO</span></div>
@@ -278,7 +278,7 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261011-17"></script>
+<script src="/assets/app.js?v=20261011-18"></script>
 
 <script>
 /* Presentation-only interactions. Does not modify radar, pricing, API calls, or permissions. */
@@ -353,6 +353,70 @@
     if(e.target.closest('[data-tab], [data-admin-target]')) window.setTimeout(scheduleEnhance,80);
   });
   scheduleEnhance();
+})();
+</script>
+
+
+<script>
+/* Functional finishing layer: live market state + stock-card navigation. */
+(function(){
+  function classifyMarketStatus(){
+    var box=document.querySelector('.sas-market-status');
+    var textNode=document.getElementById('radarStatusText');
+    if(!box||!textNode)return;
+    var value=(textNode.textContent||'').toLowerCase();
+    box.classList.remove('is-closed','is-pre','is-open');
+    if(/pre-market|premarket|قبل الافتتاح|ما قبل الافتتاح|فحص حي/.test(value)){
+      box.classList.add('is-pre');
+      box.setAttribute('aria-label','حالة السوق: ما قبل الافتتاح');
+    }else if(/السوق مفتوح|market open|الجلسة مفتوحة|التداول مفتوح|regular session/.test(value)){
+      box.classList.add('is-open');
+      box.setAttribute('aria-label','حالة السوق: مفتوح');
+    }else if(/السوق مغلق|market closed|مغلق|إجازة|عطلة|بعد الإغلاق|after hours/.test(value)){
+      box.classList.add('is-closed');
+      box.setAttribute('aria-label','حالة السوق: مغلق');
+    }
+  }
+  function enhanceStockCards(){
+    document.querySelectorAll('.stock-card').forEach(function(card){
+      if(card.dataset.sasOpenAnalysis==='1')return;
+      var symbol=card.querySelector('.stock-head b');
+      if(!symbol)return;
+      card.dataset.sasOpenAnalysis='1';
+      card.tabIndex=0;
+      card.setAttribute('role','link');
+      card.setAttribute('aria-label','فتح تحليل السهم '+symbol.textContent.trim());
+    });
+  }
+  function openStockAnalysis(card){
+    var symbol=card&&card.querySelector('.stock-head b');
+    if(!symbol)return;
+    var input=document.getElementById('symbolSearch');
+    if(!input||typeof window.analyzeSymbol!=='function')return;
+    if(typeof window.switchTerminalTab==='function')window.switchTerminalTab('search');
+    input.value=symbol.textContent.trim();
+    window.analyzeSymbol();
+  }
+  document.addEventListener('click',function(e){
+    var card=e.target.closest('.stock-card[data-sas-open-analysis="1"]');
+    if(!card||e.target.closest('button,a,input,select,textarea,label'))return;
+    openStockAnalysis(card);
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Enter'&&e.key!==' ')return;
+    var card=e.target.closest&&e.target.closest('.stock-card[data-sas-open-analysis="1"]');
+    if(!card||e.target!==card)return;
+    e.preventDefault();openStockAnalysis(card);
+  });
+  var observer=new MutationObserver(function(){classifyMarketStatus();enhanceStockCards();});
+  function start(){
+    classifyMarketStatus();enhanceStockCards();
+    var status=document.getElementById('radarStatusText');
+    if(status)observer.observe(status,{childList:true,subtree:true,characterData:true});
+    var targets=['dashboardRadar','radarGrid'];
+    targets.forEach(function(id){var el=document.getElementById(id);if(el)observer.observe(el,{childList:true,subtree:true});});
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
 </script>
 
