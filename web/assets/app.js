@@ -796,7 +796,7 @@ async function analyzeSymbol(){
  if(!analysis){
    const errors=[qR,chartR,newsR,analysisR].filter(x=>x.status==='rejected').map(x=>x.reason?.message).filter(Boolean);
    el.innerHTML='<div class="fatal">⚠️ تعذر إكمال التحليل الكامل<br><small>لكن تم إبقاء البيانات التي نجح تحميلها.</small>'+(errors.length?'<br><small>'+escHtml(errors[0])+'</small>':'')+'</div>';
-   if(Number(q.price)>0||news.length||chart.candles?.length) renderPartialAnalysis(el,symbol,q,chart,news,miniR.status==='fulfilled'?miniR.value:null);
+   if(Number(q.price)>0||news.length||chart.candles?.length) renderPartialAnalysis(el,symbol,q,chart,news,miniR.status==='fulfilled'?miniR.value:null,perpContext);
    return;
  }
  const tech=analysis.sas_pro?.targets||{};
@@ -905,7 +905,7 @@ function renderPerpEquitiesStockContext(context,symbol){
  const marketTime=context.market_data_at?new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',hour12:true}).format(new Date(context.market_data_at))+' بتوقيت الرياض':'وقت المصدر غير متاح';
  return '<div class="perpequities-stats"><div><small>السعر المرجعي للعقد</small><b>'+price+'</b></div><div><small>التغير 24 ساعة</small><b class="'+(Number(context.change_24h_fraction)>=0?'up':'down')+'">'+pctValue(context.change_24h_fraction)+'</b></div><div><small>التغير 7 أيام</small><b class="'+(Number(context.change_7d_fraction)>=0?'up':'down')+'">'+pctValue(context.change_7d_fraction)+'</b></div><div><small>حجم 24 ساعة</small><b>'+fmt(context.volume_24h_usd,0)+'</b></div><div><small>العقود المفتوحة</small><b>'+fmt(context.open_interest_usd,0)+'</b></div><div><small>الأسواق الحية</small><b>'+Number(context.fresh_live_markets||0).toLocaleString('en-US')+'</b></div></div><div class="perpequities-venues"><small>المنصات: '+venueText+'</small><small>'+escHtml(marketTime)+'</small></div><div class="perpequities-frame-wrap"><iframe class="perpequities-frame" src="'+escHtml(href)+'" title="شارت PerpEquities التفاعلي — '+escHtml(symbol)+'" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe></div><div class="perpequities-footnote">السعر المعروض لعقد سهم دائم وليس بالضرورة سعر السهم الفوري. البيانات مرجعية وقد تكون متأخرة أو غير مكتملة. <a href="https://perpequities.com/data" target="_blank" rel="noopener noreferrer">مصدر البيانات وتوثيقها</a></div>';
 }
-function renderPartialAnalysis(el,symbol,q,chart,news,miniData){
+function renderPartialAnalysis(el,symbol,q,chart,news,miniData,perpContext){
  const fallbackQuote=miniData?.quote&&typeof miniData.quote==='object'?miniData.quote:{};
  const displayQuote=(Number(q?.price)>0||Number.isFinite(Number(q?.change_pct)))?q:fallbackQuote;
  const price=Number(displayQuote?.price);
