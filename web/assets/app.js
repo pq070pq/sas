@@ -1061,11 +1061,11 @@ const SITE_MEDIA_MANAGED_ITEMS=[
  {slot:'icon-search',label:'أيقونة تبويب البحث',fallback:'🔎',target:'.terminal-tabs button[data-tab="search"]'},
  {slot:'icon-watch',label:'أيقونة تبويب المحفوظات',fallback:'★',target:'.terminal-tabs button[data-tab="watch"]'},
  {slot:'icon-account',label:'أيقونة تبويب الحساب',fallback:'👤',target:'.terminal-tabs button[data-tab="account"]'},
- {slot:'icon-dock-home',label:'أيقونة الشريط السفلي: الرئيسية',fallback:'⌂',target:'.sas-mobile-dock button:nth-child(1) span'},
- {slot:'icon-dock-radar',label:'أيقونة الشريط السفلي: الرادار',fallback:'▥',target:'.sas-mobile-dock button:nth-child(2) span'},
- {slot:'icon-dock-search',label:'أيقونة الشريط السفلي: البحث',fallback:'⌕',target:'.sas-mobile-dock button:nth-child(3) span'},
- {slot:'icon-dock-watch',label:'أيقونة الشريط السفلي: المفضلة',fallback:'★',target:'.sas-mobile-dock button:nth-child(4) span'},
- {slot:'icon-dock-account',label:'أيقونة الشريط السفلي: حسابي',fallback:'♙',target:'.sas-mobile-dock button:nth-child(5) span'},
+
+
+
+
+
  {slot:'icon-live-movers',label:'أيقونة بطاقة أعلى الأسهم حركة',fallback:'📈',target:'.sas-insight-grid .sas-insight-panel .sas-insight-title > span'},
  {slot:'icon-perp-movers',label:'أيقونة بطاقة الأكثر تحركًا خلال 24 ساعة',fallback:'↕️',target:'.sas-perp-movers-panel .sas-insight-title > span'},
  {slot:'icon-bitcoin',label:'أيقونة البتكوين — مؤشرات السوق',fallback:'₿',target:'.macro-card[data-macro-label="btc"] .macro-card-icon'},
