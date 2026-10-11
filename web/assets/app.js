@@ -208,12 +208,6 @@ async function refreshTerminal(){
  if(terminalState.refreshing)return;
  terminalState.refreshing=true;
  try{
- const clock=document.getElementById('terminalClock');
- if(clock){
-  const now=new Date();
-  clock.innerHTML='<span class="clock-time">'+enDigits(now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}))+'</span><small>🇸🇦 الرياض</small><i aria-hidden="true"></i>';
-  clock.title='آخر تحديث للواجهة: '+enDigits(now.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit',second:'2-digit'}));
- }
  const results=await Promise.allSettled([
   api('/api/market/radar-status'),
   api('/api/dashboard/home'),
@@ -302,7 +296,7 @@ function renderDashboard(d){
  const subline=document.getElementById('sasMarketSubline');
  const sessionLabelEl=document.getElementById('sasSessionLabel');
  const marketClockEl=document.getElementById('sasMarketClock');
- const nowRiyadh=new Date().toLocaleTimeString('en-GB',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+ const nowRiyadh=new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
  if(marketClockEl)marketClockEl.textContent=nowRiyadh;
  if(headline)headline.textContent=session==='regular'?'السوق الأمريكي مفتوح':premarket?'السوق قبل الافتتاح':session==='afterhours'?'التداول بعد الإغلاق':session==='night'?'التداول الليلي':nightPending?'التداول الليلي يفتح قريبًا':'السوق الأمريكي مغلق';
  if(subline)subline.textContent=statusText.replace(/^[🟢🟡🟠🟣🌙🔴 ]+/,'').slice(0,105)||'توقيت الرياض • حالة مباشرة من النظام';
