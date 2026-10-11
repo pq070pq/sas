@@ -2367,8 +2367,18 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-insight-title>span.has-managed-icon,.sas-perp-movers-panel .sas-insight-title>span.has-managed-icon{min-width:30px!important;min-height:30px!important}
 .radar-icon.has-managed-icon,.channel-icon.has-managed-icon{min-width:30px!important;min-height:30px!important}
 .radar-icon.has-managed-icon .sas-managed-icon-image,.channel-icon.has-managed-icon .sas-managed-icon-image{width:28px!important;height:28px!important;max-width:28px!important;max-height:28px!important}
-.disclaimer-badge .disclaimer-icon.has-managed-icon{width:21px!important;height:21px!important;min-width:21px!important;min-height:21px!important}
-.disclaimer-badge .disclaimer-icon .sas-managed-icon-image{width:20px!important;height:20px!important;max-width:20px!important;max-height:20px!important}
+/* The alert icon needs its own visible size, independent of the small badge text. */
+.disclaimer-badge{display:inline-flex!important;align-items:center!important;gap:7px!important}
+.disclaimer-badge .disclaimer-icon.has-managed-icon{
+ display:inline-flex!important;align-items:center!important;justify-content:center!important;
+ width:36px!important;height:36px!important;min-width:36px!important;min-height:36px!important;
+ flex:0 0 36px!important;overflow:visible!important
+}
+.disclaimer-badge .disclaimer-icon .sas-managed-icon-image{
+ display:block!important;width:34px!important;height:34px!important;
+ max-width:34px!important;max-height:34px!important;min-width:34px!important;min-height:34px!important;
+ object-fit:contain!important;overflow:visible!important;transform:scale(1.08);transform-origin:center
+}
 .sas-managed-tab-icon{display:inline-block!important;width:25px!important;height:25px!important;max-width:25px!important;max-height:25px!important;object-fit:contain!important;flex:0 0 auto!important}
 @media(max-width:600px){
  .sas-managed-icon-image{width:25px!important;height:25px!important;max-width:25px!important;max-height:25px!important}
@@ -2383,7 +2393,8 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .sas-insight-title>span.has-managed-icon,.sas-perp-movers-panel .sas-insight-title>span.has-managed-icon{min-width:27px!important;min-height:27px!important}
  .radar-icon.has-managed-icon,.channel-icon.has-managed-icon{min-width:27px!important;min-height:27px!important}
  .radar-icon.has-managed-icon .sas-managed-icon-image,.channel-icon.has-managed-icon .sas-managed-icon-image{width:25px!important;height:25px!important;max-width:25px!important;max-height:25px!important}
- .disclaimer-badge .disclaimer-icon.has-managed-icon{width:20px!important;height:20px!important;min-width:20px!important;min-height:20px!important}
- .disclaimer-badge .disclaimer-icon .sas-managed-icon-image{width:19px!important;height:19px!important;max-width:19px!important;max-height:19px!important}
+ .disclaimer-badge{gap:5px!important}
+ .disclaimer-badge .disclaimer-icon.has-managed-icon{width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;flex-basis:30px!important}
+ .disclaimer-badge .disclaimer-icon .sas-managed-icon-image{width:29px!important;height:29px!important;max-width:29px!important;max-height:29px!important;min-width:29px!important;min-height:29px!important;transform:scale(1.08)}
  .sas-managed-tab-icon{width:23px!important;height:23px!important;max-width:23px!important;max-height:23px!important}
 }
