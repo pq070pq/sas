@@ -295,11 +295,35 @@ function renderDashboard(d){
        : '🟢 الرصد الآلي يعمل — يبحث عن الأسهم التي تستوفي بوابة SAS PRO.')
      : (historical ? '🟡 هذه آخر بيانات رصد محفوظة من الجلسة السابقة.'
        : '🔴 الرصد متوقف حاليًا خارج جلسات الرصد.');
+ const statusText=document.getElementById('radarStatusText')?.textContent||'';
+ const strip=document.querySelector('.sas-market-strip');
+ const headline=document.getElementById('sasMarketHeadline');
+ const subline=document.getElementById('sasMarketSubline');
+ const sessionLabelEl=document.getElementById('sasSessionLabel');
+ const marketClockEl=document.getElementById('sasMarketClock');
+ const nowRiyadh=new Date().toLocaleTimeString('en-GB',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+ if(marketClockEl)marketClockEl.textContent=nowRiyadh;
+ if(headline)headline.textContent=session==='regular'?'السوق الأمريكي مفتوح':premarket?'السوق قبل الافتتاح':session==='afterhours'?'التداول بعد الإغلاق':session==='night'?'التداول الليلي':nightPending?'التداول الليلي يفتح قريبًا':'السوق الأمريكي مغلق';
+ if(subline)subline.textContent=statusText.replace(/^[🟢🟡🟠🟣🌙🔴 ]+/,'').slice(0,105)||'توقيت الرياض • حالة مباشرة من النظام';
+ if(sessionLabelEl)sessionLabelEl.textContent=sessionLabel|| (preopen?'مغلق':'جارٍ التحقق');
+ const preEl=document.getElementById('sasPremarketTime'),regularEl=document.getElementById('sasRegularTime'),afterEl=document.getElementById('sasAfterHoursTime');
+ if(preEl)preEl.textContent=nextPremarket;
+ if(regularEl)regularEl.textContent=regularOpen+' – '+regularClose;
+ if(afterEl)afterEl.textContent='حتى '+afterClose;
+ if(strip){strip.classList.remove('is-open','is-pre','is-closed');strip.classList.add(session==='regular'?'is-open':premarket?'is-pre':'is-closed');}
+ const dock=document.querySelector('.sas-mobile-dock');
+ if(dock){dock.querySelectorAll('button').forEach(b=>b.classList.remove('is-active'));const active=dock.querySelector('button[onclick*="'+(terminalState.tab||'dashboard')+'"]');if(active)active.classList.add('is-active');}
  document.getElementById('dashboardMetrics').innerHTML=
   '<div><small>'+(historical?'آخر جلسة':'فرص اليوم')+'</small><strong>'+Number(r.opportunities||terminalState.radar.length||0)+'</strong></div>'+
   '<div><small>أعلى حركة</small><strong>'+pct(r.top_move_pct)+'</strong></div>'+
   '<div><small>أعلى حجم</small><strong>'+(r.top_volume?Number(r.top_volume).toLocaleString('en-US'):'—')+'</strong></div>'+
   '<div><small>آخر إشارة</small><strong>'+formatDateTime(r.last_signal_at)+'</strong></div>';
+ const movers=document.getElementById('liveMovers');
+ if(movers){
+  const ranked=[...terminalState.radar].map(x=>({...x,_move:Number(x.change_pct??x.change??x.change_percent??x.day_change_pct)})).filter(x=>Number.isFinite(x._move)).sort((a,b)=>b._move-a._move).slice(0,5);
+  const maxMove=Math.max(1,...ranked.map(x=>Math.abs(x._move)));
+  movers.innerHTML=ranked.length?ranked.map(x=>'<div class="sas-mover-row"><span class="sas-mover-symbol">'+escHtml(x.symbol||x.ticker||'—')+'</span><span class="sas-mover-track"><i style="width:'+Math.max(4,Math.min(100,Math.abs(x._move)/maxMove*100))+'%"></i></span><strong class="sas-mover-value" style="color:'+(x._move>=0?'#00f5a0':'#ff6078')+'">'+(x._move>0?'+':'')+x._move.toFixed(2)+'%</strong></div>').join(''):'<div class="empty-state">لا توجد بيانات حركة قابلة للعرض ضمن نتائج الرادار الحالية.</div>';
+ }
  const el=document.getElementById('dashboardRadar');
  if(terminalState.radar.length) renderCards(el,terminalState.radar.slice(0,6));
  else el.innerHTML='<div class="empty-state">لا توجد إشارات محفوظة من آخر جلسة.</div>';
