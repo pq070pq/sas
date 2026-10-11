@@ -1978,6 +1978,58 @@ async def admin_free_extend(telegram_id: int, days: int = 3, user=Depends(telegr
     await audit(int(user["id"]), "free_access_extended", telegram_id, {"days": days, "expires_at": row.trial_expires.isoformat()})
     return {"ok": True, "expires_at": row.trial_expires.isoformat()}
 
+@app.post("/api/admin/gift-extend-all")
+async def admin_gift_extend_all(request: Request, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    await require_admin_permission(user, "subscriptions")
+    body = await request.json()
+    try:
+        days = int(body.get("days", 7))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "أدخل عدد أيام صحيحًا")
+    if days < 1 or days > 365:
+        raise HTTPException(400, "مدة الهدية يجب أن تكون بين يوم واحد و365 يومًا")
+    now = utcnow()
+    users = (await db.execute(select(User).order_by(User.telegram_id))).scalars().all()
+    extended = []
+    for row in users:
+        if row.free_access:
+            continue
+        paid = (await db.execute(select(Subscription).where(
+            Subscription.telegram_id == row.telegram_id, Subscription.active == True
+        ).order_by(Subscription.expires_at.desc()))).scalars().first()
+        if paid and aware(paid.expires_at) > now:
+            base = aware(paid.expires_at)
+            paid.expires_at = base + timedelta(days=days)
+            row.subscription_expires = paid.expires_at
+            row.updated_at = now
+            extended.append((row, paid.expires_at, "paid"))
+            continue
+        if row.trial_expires and aware(row.trial_expires) > now and row.status == "trial":
+            row.trial_expires = aware(row.trial_expires) + timedelta(days=days)
+            row.updated_at = now
+            extended.append((row, row.trial_expires, "trial"))
+    await db.commit()
+    sent = 0
+    failed = 0
+    for row, expires_at, kind in extended:
+        try:
+            await send_message(
+                row.telegram_id,
+                "🎁 <b>هدية من SAS PRO</b>\n\n"
+                f"🎉 تهانينا! تم تمديد اشتراكك من قبل <b>SAS PRO</b> لمدة <b>{days} أيام</b>.\n"
+                f"📅 تاريخ الانتهاء الجديد: <b>{aware(expires_at).strftime('%d/%m/%Y')}</b>\n\n"
+                "شكرًا لكونك جزءًا من مجتمع SAS PRO 💎"
+            )
+            sent += 1
+        except Exception as exc:
+            failed += 1
+            logger.warning("Gift extension notification failed for %s: %s", row.telegram_id, exc)
+    await audit(int(user["id"]), "gift_extend_all_subscriptions", None, {
+        "days": days, "extended": len(extended), "notifications_sent": sent, "notifications_failed": failed
+    })
+    return {"ok": True, "days": days, "extended": len(extended), "notifications_sent": sent, "notifications_failed": failed}
+
+
 @app.post("/api/admin/revoke/{telegram_id}")
 async def admin_revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     await require_admin_permission(user, "subscriptions")
