@@ -1964,3 +1964,27 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  #tab-dashboard>.sas-market-strip .sas-session-mini{grid-column:2;grid-row:2;text-align:left}
  #tab-dashboard>.sas-market-strip>#sasOpenCountdown{margin:4px -14px 0;padding:14px;border-radius:0 0 20px 20px}
 }
+
+/* Clear, interactive dashboard metrics */
+.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+.metric-grid .sas-metric-card{position:relative;display:flex;flex-direction:column;align-items:stretch;min-width:0;width:100%;min-height:122px;padding:13px 14px;text-align:right;direction:rtl;gap:10px;border:1px solid rgba(64,150,181,.24);border-radius:19px;background:linear-gradient(145deg,rgba(4,25,39,.97),rgba(2,13,24,.98));color:#eaf7ff;cursor:pointer;overflow:hidden;transition:border-color .18s,box-shadow .18s,transform .18s}
+.metric-grid .sas-metric-card:hover,.metric-grid .sas-metric-card.is-active{border-color:rgba(66,211,245,.75);box-shadow:inset 0 0 0 1px rgba(66,211,245,.12),0 7px 22px rgba(0,0,0,.12)}
+.metric-grid .sas-metric-card:focus-visible{outline:2px solid #56dcfa;outline-offset:2px}
+.sas-metric-top{display:flex;align-items:center;gap:8px;min-width:0}
+.sas-metric-icon{width:31px;height:31px;flex:none;display:grid;place-items:center;border:1px solid rgba(78,206,238,.22);border-radius:10px;background:rgba(20,91,117,.18);color:#67dff8}
+.sas-metric-icon svg{width:19px;height:19px}
+.sas-metric-label{flex:1;min-width:0;color:#9ab6c6;font-size:12px;font-weight:750;line-height:1.5;white-space:normal}
+.sas-metric-chevron{flex:none;color:#6b9fb4;font-size:17px;transition:transform .18s}
+.sas-metric-card.is-active .sas-metric-chevron{transform:rotate(180deg)}
+.sas-metric-value{display:flex;flex-direction:column;gap:3px;min-width:0;font-size:clamp(19px,4vw,27px);line-height:1.45;font-weight:900;letter-spacing:.1px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;color:#f0f8ff}
+.sas-metric-value .metric-date{font-size:clamp(13px,2.7vw,17px);line-height:1.7;font-weight:800;overflow-wrap:anywhere}
+.sas-metric-value .metric-time{font-size:13px;font-weight:650;color:#6dddf7;line-height:1.5}
+.sas-metric-hint{margin-top:auto;color:#64899c;font-size:10px;line-height:1.4}
+.sas-metric-detail{grid-column:1/-1;display:flex;align-items:flex-start;gap:10px;padding:13px 14px;border:1px solid rgba(71,201,232,.25);border-radius:15px;background:rgba(3,20,32,.96);color:#a9c6d5;font-size:12px;line-height:1.8}
+.sas-metric-detail[hidden]{display:none}
+.sas-metric-detail-icon{display:grid;place-items:center;flex:none;width:25px;height:25px;border-radius:8px;background:rgba(67,201,236,.12);color:#63ddf6;font-weight:900}
+.sas-metric-detail>div{flex:1;min-width:0}
+.sas-metric-detail strong{color:#e7f7ff;font-size:13px}
+.sas-metric-detail p{margin:3px 0 0;overflow-wrap:anywhere}
+.sas-metric-detail button{border:0;background:transparent;color:#9bb6c8;font-size:22px;cursor:pointer;padding:0 4px}
+@media(max-width:360px){.metric-grid{gap:7px}.metric-grid .sas-metric-card{padding:10px;min-height:118px}.sas-metric-label{font-size:11px}.sas-metric-value{font-size:18px}.sas-metric-value .metric-date{font-size:12px}}
