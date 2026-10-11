@@ -367,7 +367,7 @@ function toggleSasMetric(id){
 
 function renderPerpEquitiesMovers(data){
  const sourceLink=document.querySelector('.sas-movers-source');
- if(sourceLink){sourceLink.hidden=false;sourceLink.removeAttribute('aria-hidden');sourceLink.classList.remove('admin-source-visible');}
+ if(sourceLink){const adminCanSeeSource=Boolean(me?.admin);sourceLink.hidden=!adminCanSeeSource;sourceLink.setAttribute('aria-hidden',String(!adminCanSeeSource));sourceLink.classList.toggle('admin-source-visible',adminCanSeeSource);}
  const updated=document.getElementById('perpMoversUpdated'),state=document.getElementById('perpMoversState');
  const gainers=document.getElementById('perpMoversGainers'),losers=document.getElementById('perpMoversLosers');
  const gainersCount=document.getElementById('perpMoversGainersCount'),losersCount=document.getElementById('perpMoversLosersCount');
@@ -655,7 +655,7 @@ function stockCard(x){
   '<span>24 ساعة <b class="'+(perpChange===null?'':(perpChange>=0?'up':'down'))+'" dir="ltr">'+(perpChange===null?'—':pct(perpChange*100))+'</b></span>',
   '<span>حجم العقود <b>$'+(Number.isFinite(perpVolume)&&perpVolume>0?escHtml(perpVolume.toLocaleString('en-US',{notation:'compact',maximumFractionDigits:1})):'—')+'</b></span>',
   '<span>الفائدة المفتوحة <b>$'+(Number.isFinite(perpOi)&&perpOi>0?escHtml(perpOi.toLocaleString('en-US',{notation:'compact',maximumFractionDigits:1})):'—')+'</b></span>',
-  '</div><a href="'+escHtml(safeNewsUrl(perp.url)||'https://perpequities.com/ar')+'" target="_blank" rel="noopener noreferrer">تفاصيل العقود والمنصات ↗</a></div>'
+  '</div>'+(me?.admin ? '<a href="'+escHtml(safeNewsUrl(perp.url)||'https://perpequities.com/ar')+'" target="_blank" rel="noopener noreferrer">تفاصيل العقود والمنصات ↗</a>' : '')+'</div>'
  ].join(''):'';
  return '<article class="stock-card"><div class="stock-head"><div><b>'+s+'</b><small>'+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • '+formatTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+
  '<strong>$'+money(price)+'</strong>'+
@@ -771,7 +771,7 @@ function mountPerpEquitiesAnalysis(root,data,symbol){
  const panel=document.createElement('section');panel.className='perp-analysis-panel';
  const heading=document.createElement('div');heading.className='perp-analysis-heading';
  const title=document.createElement('div');title.innerHTML='<span class="eyebrow">PERPEQUITIES · LIVE CONTEXT</span><b>📊 شارت وتحليل السهم من المصدر</b>';heading.appendChild(title);
- const link=document.createElement('a');link.className='perp-analysis-open';link.href=safeNewsUrl(data?.chart_url||data?.source_url)||'https://perpequities.com/ar';link.target='_blank';link.rel='noopener noreferrer';link.textContent='فتح الشارت والتحليل الكامل ↗';heading.appendChild(link);panel.appendChild(heading);
+ if(me?.admin){const link=document.createElement('a');link.className='perp-analysis-open';link.href=safeNewsUrl(data?.chart_url||data?.source_url)||'https://perpequities.com/ar';link.target='_blank';link.rel='noopener noreferrer';link.textContent='فتح الشارت والتحليل الكامل ↗';heading.appendChild(link);}panel.appendChild(heading);
  if(!data?.available){const msg=document.createElement('p');msg.className='perp-analysis-empty';msg.textContent=data?.message_ar||'بيانات المصدر غير متاحة الآن.';panel.appendChild(msg);host.appendChild(panel);return;}
  const money=v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))?'$'+Number(v).toLocaleString('en-US',{maximumFractionDigits:4}):'—';
  const pct=v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))?(Number(v)>=0?'+':'')+(Number(v)*100).toFixed(2)+'%':'—';
