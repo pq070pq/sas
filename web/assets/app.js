@@ -1955,7 +1955,8 @@ async function saveSubscriptionConfig(){
 document.addEventListener('change',e=>{if(e.target?.id==='paidPlansVisible')document.getElementById('plansEditorPanel').hidden=!e.target.checked;});
 load();
 
-// تحميل العلامة البصرية من مساحة التخزين الدائمة؛ لا يتدخل في بيانات الرادار.\nloadSiteMedia().catch(()=>{});
+// تحميل العلامة البصرية من مساحة التخزين الدائمة؛ لا يتدخل في بيانات الرادار.
+loadSiteMedia().catch(()=>{});
 startSASMediaAutoRefresh();\n
 
 /* Interactive countdowns use the US exchange timezone, so DST is handled automatically. */
