@@ -1870,8 +1870,41 @@ async def admin_users(q: str = "", user=Depends(telegram_user), db: AsyncSession
         "trial_expires": aware(u.trial_expires).isoformat() if u.trial_expires else None,
         "subscription_start": aware(u.subscription_start).isoformat() if u.subscription_start else None,
         "subscription_expires": aware(u.subscription_expires).isoformat() if u.subscription_expires else None,
-        "plan": u.plan, "free_access": u.free_access, "terms_accepted_at": aware(u.terms_accepted_at).isoformat() if u.terms_accepted_at else None,
+        "plan": u.plan, "free_access": u.free_access, "status": u.status,
+        "trial_used_at": aware(u.trial_used_at).isoformat() if u.trial_used_at else None,
+        "terms_accepted_at": aware(u.terms_accepted_at).isoformat() if u.terms_accepted_at else None,
     } for u in rows]
+
+@app.post("/api/admin/users/{telegram_id}/reset-for-test")
+async def admin_reset_user_for_test(telegram_id: int, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    """Reset one selected account to the subscription entry screen for owner testing."""
+    await require_admin_permission(user, "subscriptions")
+    row = (await db.execute(select(User).where(User.telegram_id == telegram_id))).scalars().first()
+    if not row:
+        raise HTTPException(404, "لم يتم العثور على المستخدم")
+    await db.execute(update(Subscription).where(
+        Subscription.telegram_id == telegram_id, Subscription.active == True
+    ).values(active=False))
+    now = utcnow()
+    row.status = "new"
+    row.free_access = False
+    row.trial_start = None
+    row.trial_expires = None
+    row.trial_used_at = None
+    row.subscription_start = None
+    row.subscription_expires = None
+    row.plan = None
+    row.warning_sent_at = None
+    row.channel_join_requested_at = None
+    row.updated_at = now
+    await db.commit()
+    try:
+        await set_channel_access(telegram_id, allow=False)
+    except Exception:
+        logger.exception("Could not revoke channel access during test reset for %s", telegram_id)
+    await audit(int(user["id"]), "reset_user_for_subscription_test", telegram_id, {"reset_at": now.isoformat()})
+    return {"ok": True, "telegram_id": telegram_id, "status": "new"}
+
 
 @app.get("/api/subscription/config")
 async def subscription_config(user=Depends(telegram_user)):
