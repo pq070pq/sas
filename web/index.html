@@ -304,7 +304,7 @@
           <button type="button" id="giftModeAll" aria-pressed="false" onclick="setGiftMode('all')">👥 بشكل جماعي</button>
         </div>
         <div id="giftSingleTarget">
-          <label class="trial-days-row"><span>رقم Telegram للمستفيد</span><input id="giftExtendTelegramId" type="number" min="1" step="1" placeholder="أدخل Telegram ID"><small>يمكنك نسخ الرقم من قائمة المشتركين.</small></label>
+          <label class="trial-days-row"><span>اختر المشترك</span><select id="giftExtendTelegramId" class="gift-subscriber-select"><option value="">جاري تحميل المشتركين...</option></select><small>تظهر هنا الاشتراكات الفعّالة والتجارب المجانية السارية.</small></label>
         </div>
         <label class="trial-days-row"><span>مدة الهدية</span><input id="giftExtendDays" type="number" min="1" max="365" value="7"><small>يوم — تُضاف إلى المدة المتبقية للاشتراك الفعّال.</small></label>
         <div class="gift-message-preview"><b>✨ معاينة رسالة الهدية</b><p>🎁 هدية خاصة من SAS PRO</p><p>🎉 تهانينا! تم تمديد اشتراكك من قبل SAS PRO كهدية تقدير.</p><small>سيظهر تاريخ الانتهاء الجديد في رسالة خاصة للمستفيد.</small></div>
