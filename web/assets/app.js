@@ -114,7 +114,7 @@ async function load(){
  }
 }
 
-const terminalState={ticker:[],radar:[],watch:JSON.parse(localStorage.getItem('saspro_watchlist')||'[]'),timer:null,tab:'dashboard',refreshing:false,radarScanning:false};
+const terminalState={ticker:[],radar:[],perpAssets:{},watch:JSON.parse(localStorage.getItem('saspro_watchlist')||'[]'),timer:null,tab:'dashboard',refreshing:false,radarScanning:false};
 function escHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 function safeNewsUrl(value){
  try{
@@ -350,6 +350,7 @@ function renderPerpEquitiesMovers(data){
  const gainers=document.getElementById('perpMoversGainers');
  const losers=document.getElementById('perpMoversLosers');
  if(!gainers||!losers||!data)return;
+ if(Array.isArray(data.assets))terminalState.perpAssets=Object.fromEntries(data.assets.map(x=>[String(x?.symbol||'').toUpperCase(),x]));
  if(!data.available){
   if(updated&&!gainers.querySelector('.sas-perp-mover'))updated.textContent=data.message_ar||'بيانات المصدر غير متاحة حاليًا';
   if(state&&!gainers.querySelector('.sas-perp-mover'))state.textContent='تعذر التحديث';
@@ -370,7 +371,7 @@ function renderPerpEquitiesMovers(data){
    updated.textContent='آخر جلب: '+(Number.isFinite(date.getTime())?new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',hour12:true}).format(date)+' بتوقيت الرياض':'—');
   }else updated.textContent='وقت التحديث غير متاح';
  }
- if(state)state.textContent=data.stale?'آخر بيانات محفوظة • المصدر متعذر مؤقتًا':'تحديث المصدر';
+ if(state)state.textContent=data.stale?'آخر بيانات محفوظة • المصدر متعذر مؤقتًا':(data.market_data_at?'بيانات العقود الدائمة • مصدر مباشر':'تحديث المصدر');
 }
 function renderMacro(){
  const wanted=[
@@ -547,6 +548,19 @@ function stockCard(x){
  const catalystLabel=catalyst>=75?'🔥 محفز قوي':catalyst>=55?'⚡ محفز متوسط':catalyst>0?'📰 محفز ضعيف':'📰 دون محفز حديث';
  const gate=(ok,label)=>'<i class="'+(ok?'gate-ok':'gate-warn')+'">'+(ok?'✓ ':'⚠️ ')+label+'</i>';
  const recommendation=(Number(rr)<1||warning) ? '🔴 لا تدخل الآن: الربح المتوقع لا يعوض المخاطرة.' : (Number(change)>10 ? '🟡 لا تطارد السهم: ارتفع بسرعة، انتظر هدوء الحركة وتأكيد جديد.' : (Number(score)>=70 ? '🟢 فرصة جيدة للمراقبة: انتظر تأكيد الاختراق والسيولة قبل الدخول.' : '🟡 مراقبة فقط: الإشارة غير قوية بما يكفي للدخول الآن.'));
+ const perp=terminalState.perpAssets[raw.toUpperCase()];
+ const perpPrice=Number(perp?.price);
+ const perpChange=perp?.change24h==null?null:Number(perp.change24h);
+ const perpVolume=Number(perp?.qualityFilteredVolume24hUsd??perp?.volume24hUsd);
+ const perpOi=Number(perp?.openInterestUsd);
+ const perpContext=perp&&Number.isFinite(perpPrice)&&perpPrice>0?[
+  '<div class="sas-perp-context"><div class="sas-perp-context-head"><b>↗ PerpEquities</b><span>سعر عقد دائم • ليس سعر السهم الفوري</span></div><div class="sas-perp-context-metrics">',
+  '<span>العقد <b dir="ltr">$'+money(perpPrice)+'</b></span>',
+  '<span>24 ساعة <b class="'+(perpChange===null?'':(perpChange>=0?'up':'down'))+'" dir="ltr">'+(perpChange===null?'—':pct(perpChange*100))+'</b></span>',
+  '<span>حجم العقود <b>$'+(Number.isFinite(perpVolume)&&perpVolume>0?escHtml(perpVolume.toLocaleString('en-US',{notation:'compact',maximumFractionDigits:1})):'—')+'</b></span>',
+  '<span>الفائدة المفتوحة <b>$'+(Number.isFinite(perpOi)&&perpOi>0?escHtml(perpOi.toLocaleString('en-US',{notation:'compact',maximumFractionDigits:1})):'—')+'</b></span>',
+  '</div><a href="'+escHtml(safeNewsUrl(perp.url)||'https://perpequities.com/ar')+'" target="_blank" rel="noopener noreferrer">تفاصيل العقود والمنصات ↗</a></div>'
+ ].join(''):'';
  return '<article class="stock-card"><div class="stock-head"><div><b>'+s+'</b><small>'+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • '+formatTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+
  '<strong>$'+money(price)+'</strong>'+
  '<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
@@ -555,6 +569,7 @@ function stockCard(x){
  ' <div class="stock-shariah '+shClass+'">🕌 <b>الشرعية:</b> '+escHtml(shLabel)+'</div>'+
  '<div class="stock-recommendation">📌 <b>القراءة:</b> '+escHtml(recommendation)+'</div>'+
  '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+'<span>'+catalystLabel+(catalyst>0?' '+catalyst+'/100':'')+'</span>'+(x.live_price_source?'<span>📡 '+escHtml(x.live_price_source)+'</span>':'')+'</div>'+
+ perpContext+
  '<div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||cls.reason||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div>'+
  '<div class="stock-actions"><button onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">📈 الشارت والتوصية</button><button onclick="event.stopPropagation();toggleWatch(\''+raw+'\')">'+(terminalState.watch.includes(raw)?'★ محفوظ':'☆ حفظ')+'</button></div></article>';
 }
