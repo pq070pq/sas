@@ -499,19 +499,6 @@
 </script>
 
 
-<script>
-/* Interactive market-hours card; reads the app's existing Riyadh session times and leaves radar data untouched. */
-(function(){
- if(window.__sasMarketHoursCardV1)return;window.__sasMarketHoursCardV1=true;
- const $=id=>document.getElementById(id);let selected='pre';
- const fmt=n=>String(n).padStart(2,'0');
- function parseTime(value){const m=(value||'').match(/(\\d{1,2}):(\\d{2})/);if(!m)return null;return {h:+m[1],m:+m[2]};}
- function atRiyadh(h,m,base){const d=new Date(base);d.setHours(h,m,0,0);return d;}
- function tick(){
-  const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Riyadh'}));
-  if($('sasHoursClock'))$('sasHoursClock').textContent=now.toLocaleTimeString('en-GB',{hour12:false});
-  const pre=parseTime($('sasPremarketTime')?.textContent||'11:00'),reg=parseTime(($('sasRegularTime')?.textContent||'16:30').split(/[–—-]/)[0]),close=parseTime(($('sasRegularTime')?.textContent||'23:00').split(/[–—-]/).slice(-1)[0]),after=parseTime($('sasAfterHoursTime')?.textContent||'03:00');
-  if(!pre||!reg||!close||!after)return;
-  const day=now.getDay(),weekday=day>=1&&day<=5;let phase='closed',phaseLabel='السوق مغلق';
-  const mins=now.getHours()*60+now.getMinutes(),p=pre.h*60+pre.m,r=reg.h*60+reg.m,c=close.h*60+close.m,a=after.h*60+after.m;
-  if(weekday&&mins>=r&&mins<c){phase='regular';phaseLabel='الجلسة الرسمية مفتوحة';}else if(weekday&&((mins>=p&&mins<r)||(mins>=c&&mins>=p))){phase=mins>=c?'after':'pre';phaseLabel=phase==='pre'?'ما قبل الافتتاح':'التداول بعد الإغل
+
+</body>
+</html>
