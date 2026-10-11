@@ -2681,7 +2681,36 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     try:
         translated_news = await translate_stock_news(symbol, news_for_display)
         analysis_payload["news_summaries"] = translated_news
+
+        # The Mini App renders targets["news_items"], not ai_analysis.news_summaries.
+        # Merge translations into the actual display payload while retaining the
+        # original headline and source URL for traceability.
+        translations_by_story = {
+            (str(row.get("url") or "").strip(), str(row.get("headline") or "").strip()): row
+            for row in translated_news
+            if isinstance(row, dict) and row.get("url") and row.get("headline")
+        }
+        for display_item in news_for_display:
+            if not isinstance(display_item, dict):
+                continue
+            original_headline = str(display_item.get("headline") or "").strip()
+            story_key = (str(display_item.get("url") or "").strip(), original_headline)
+            translated = translations_by_story.get(story_key)
+            if not translated:
+                continue
+            arabic_headline = str(translated.get("translated_headline") or "").strip()
+            arabic_summary = str(translated.get("summary") or "").strip()
+            if arabic_headline:
+                display_item["original_headline"] = original_headline
+                display_item["translated_headline"] = arabic_headline
+                display_item["headline"] = arabic_headline
+            if arabic_summary:
+                display_item["original_summary"] = str(display_item.get("ai_summary") or display_item.get("summary") or "")
+                display_item["summary"] = arabic_summary
+                display_item["ai_summary"] = arabic_summary
+            display_item["translation_basis"] = translated.get("basis") or "article_or_headline"
     except Exception:
+        logger.exception("Failed to attach Arabic stock-news translations for %s", symbol)
         analysis_payload["news_summaries"] = []
     targets["news_items"] = news_for_display
     if isinstance(tipranks_data, dict) and tipranks_data:
