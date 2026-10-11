@@ -2940,3 +2940,18 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-welcome-join button:disabled{opacity:.7}
 .sas-welcome-join .sas-welcome-skip{background:transparent;border-color:rgba(111,176,202,.22);box-shadow:none;color:#9cb8ca;font-size:13px;font-weight:600}
 @keyframes sasJoinRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+
+/* Delayed, non-blocking channel invitation: app stays usable underneath. */
+#sasWelcomeOverlay.is-join-stage{position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-end;justify-content:center;padding:16px 14px calc(18px + env(safe-area-inset-bottom));background:transparent;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .28s ease,visibility .28s ease}
+#sasWelcomeOverlay.is-join-stage.is-visible{opacity:1;visibility:visible}
+#sasWelcomeOverlay.is-join-stage .sas-fireworks{display:none}
+#sasWelcomeOverlay.is-join-stage .sas-welcome-card{width:min(100%,390px);padding:22px 18px 18px;border-radius:24px;pointer-events:auto;box-shadow:0 18px 55px rgba(0,0,0,.48),0 0 25px rgba(31,155,255,.18);transform:translateY(18px) scale(.98)}
+#sasWelcomeOverlay.is-join-stage.is-visible .sas-welcome-card{transform:translateY(0) scale(1)}
+#sasWelcomeOverlay.is-join-stage .sas-welcome-join{gap:10px}
+#sasWelcomeOverlay.is-join-stage .sas-welcome-join-icon{width:58px;height:58px;border-radius:18px;font-size:30px}
+#sasWelcomeOverlay.is-join-stage .sas-welcome-join h2{font-size:20px}
+#sasWelcomeOverlay.is-join-stage .sas-welcome-join p{font-size:13px;line-height:1.7}
+#sasWelcomeOverlay.is-join-stage .sas-welcome-join button{min-height:48px;padding:12px 14px}
+#sasWelcomeOverlay.is-join-stage .sas-welcome-skip{min-height:38px!important}
+@media(prefers-reduced-motion:reduce){#sasWelcomeOverlay.is-join-stage,#sasWelcomeOverlay.is-join-stage .sas-welcome-card{transition:none}}
