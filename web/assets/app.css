@@ -2703,3 +2703,22 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .sas-perp-mover-price{font-size:9px}
  .sas-perp-mover-card>summary>b{font-size:9px}
 }
+
+
+/* PerpEquities interactive stock chart + clearly attributed derivatives context. */
+.perpequities-panel{margin:12px 0;border:1px solid rgba(47,190,224,.25);border-radius:14px;background:linear-gradient(155deg,rgba(5,25,38,.96),rgba(2,11,20,.98));overflow:hidden}
+.perpequities-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border-bottom:1px solid rgba(47,190,224,.16)}
+.perpequities-panel-head>div{display:grid;gap:5px;min-width:0}
+.perpequities-panel-head>div>b{font-size:12px}
+.perpequities-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;padding:10px}
+.perpequities-stats>div{min-width:0;padding:9px 7px;border:1px solid rgba(69,126,151,.2);border-radius:9px;background:rgba(5,19,30,.88)}
+.perpequities-stats small{display:block;color:#7594a9;font-size:9px;line-height:1.5}
+.perpequities-stats b{display:block;margin-top:5px;color:#d9effa;font-size:11px;direction:ltr;text-align:right;overflow-wrap:anywhere}
+.perpequities-venues{display:flex;flex-direction:column;gap:5px;padding:0 11px 10px;color:#7e9bad}
+.perpequities-venues small{font-size:9px;line-height:1.5;overflow-wrap:anywhere}
+.perpequities-frame-wrap{height:520px;max-height:68vh;min-height:360px;overflow:hidden;border-top:1px solid rgba(47,190,224,.16);background:#fff}
+.perpequities-frame{display:block;width:100%;height:100%;border:0;background:#fff}
+.perpequities-footnote{padding:9px 11px;color:#8099aa;font-size:9px;line-height:1.7}
+.perpequities-footnote a{color:#5ec9ff;text-decoration:underline}
+.perpequities-unavailable{padding:12px;color:#9bb0c0;font-size:10px;line-height:1.7}
+@media(max-width:420px){.perpequities-panel-head{padding:10px}.perpequities-stats{gap:5px;padding:7px}.perpequities-stats>div{padding:7px 5px}.perpequities-stats small{font-size:8px}.perpequities-stats b{font-size:10px}.perpequities-frame-wrap{height:460px;min-height:330px}}
