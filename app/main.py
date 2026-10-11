@@ -2665,48 +2665,70 @@ def _movers_price_in_range(item, minimum=0.50, maximum=15.00):
 
 
 def _rank_perpequities_movers(assets):
-    """Return price-filtered 24h gainers and losers with full available source fields."""
+    """Return positive movers only; exclude crypto-like assets and require the regular US session."""
+    status = market_status()
+    if status.get("session") != "regular":
+        return [], [], []
+
+    crypto_name_terms = (
+        "crypto", "cryptocurrency", "stablecoin", "bitcoin", "ethereum",
+        "token", "coinbase wrapped", "wrapped bitcoin", "usd coin",
+    )
     eligible = []
     for raw in assets if isinstance(assets, list) else []:
         if not _movers_price_in_range(raw):
+            continue
+        symbol = str(raw.get("symbol") or "").strip().upper()
+        name = str(raw.get("name") or "").strip().lower()
+        if not symbol or is_crypto_symbol(symbol) or any(term in name for term in crypto_name_terms):
             continue
         try:
             change = float(raw.get("change24h"))
         except (TypeError, ValueError):
             continue
-        if not math.isfinite(change):
+        if not math.isfinite(change) or change <= 0:
             continue
         item = dict(raw)
         item["price"] = float(item["price"])
         item["change24h"] = change
         item["change_pct"] = round(change * 100, 4)
         eligible.append(item)
-    gainers = sorted((x for x in eligible if x["change24h"] > 0), key=lambda x: x["change24h"], reverse=True)
-    losers = sorted((x for x in eligible if x["change24h"] < 0), key=lambda x: x["change24h"])
-    return gainers, losers, eligible
+    gainers = sorted(eligible, key=lambda x: x["change24h"], reverse=True)
+    return gainers, [], eligible
 
 
 @app.get("/api/market/movers")
 async def perpequities_market_movers(_: dict = Depends(require_pro)):
-    """Return automatically refreshed 24h movers filtered to the $0.50-$15 reference-price band."""
+    """Return positive movers during the regular US session, excluding crypto-like assets."""
     assets_payload = await _fetch_perpequities_assets()
+    status = market_status()
     assets = assets_payload.get("assets") or []
     gainers, losers, eligible = _rank_perpequities_movers(assets)
+    if status.get("session") != "regular":
+        return {
+            **assets_payload, "assets": [], "gainers": [], "losers": [], "available": False,
+            "price_min": 0.50, "price_max": 15.00,
+            "refresh_interval_seconds": _PERPEQUITIES_API_CACHE_TTL,
+            "price_basis": "PerpEquities reference price for perpetual equity contracts",
+            "market_session": status.get("session"),
+            "message_ar": "تظهر الأسهم الرابحة أثناء جلسة السوق الأمريكي الرسمية فقط.",
+        }
     if eligible:
         return {
-            **assets_payload, "assets": eligible, "gainers": gainers, "losers": losers,
+            **assets_payload, "assets": eligible, "gainers": gainers, "losers": [],
             "available": True, "price_min": 0.50, "price_max": 15.00,
             "refresh_interval_seconds": _PERPEQUITIES_API_CACHE_TTL,
             "price_basis": "PerpEquities reference price for perpetual equity contracts",
+            "market_session": status.get("session"),
             "message_ar": None,
         }
-    # Do not use the page-only fallback because it contains no prices to validate against the strict range.
     return {
         **assets_payload, "assets": [], "gainers": [], "losers": [], "available": False,
         "price_min": 0.50, "price_max": 15.00,
         "refresh_interval_seconds": _PERPEQUITIES_API_CACHE_TTL,
         "price_basis": "PerpEquities reference price for perpetual equity contracts",
-        "message_ar": assets_payload.get("message_ar") or "لا توجد بيانات أسعار موثوقة ضمن نطاق 0.50 إلى 15 دولارًا حاليًا.",
+        "market_session": status.get("session"),
+        "message_ar": assets_payload.get("message_ar") or "لا توجد أسهم رابحة ببيانات موثوقة ضمن النطاق المحدد حاليًا.",
     }
 
 
