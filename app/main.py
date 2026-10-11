@@ -125,8 +125,8 @@ SITE_MEDIA_SLOTS = {
 }
 SITE_MEDIA_MIMES = {
     "image/webp": (".webp", lambda b: len(b) >= 12 and b[:4] == b"RIFF" and b[8:12] == b"WEBP"),
-    "image/png": (".png", lambda b: b.startswith(b"\\x89PNG\\r\\n\\x1a\\n")),
-    "image/jpeg": (".jpg", lambda b: b.startswith(b"\\xff\\xd8\\xff")),
+    "image/png": (".png", lambda b: b.startswith(b"\x89PNG\r\n\x1a\n")),
+    "image/jpeg": (".jpg", lambda b: b.startswith(b"\xff\xd8\xff")),
 }
 app.mount("/media", StaticFiles(directory=str(SITE_MEDIA_DIR)), name="site-media")
 
