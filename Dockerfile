@@ -6,7 +6,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY web ./web
 # Fail the image build immediately on Python syntax/indentation errors.
-RUN python -m compileall -q app
+RUN python -m compileall -q app && find /app/app -type d -name __pycache__ -prune -exec rm -rf {} + && find /app/app -type f -name '*.pyc' -delete
 RUN rm -f /app/web/assets/sas-pro-home.png
 COPY .env.example ./.env.example
 RUN mkdir -p /app/data
