@@ -89,12 +89,14 @@ async function retryAccountLoad(){
 }
 
 let sasWelcomeTimer=null;
+let sasChannelInviteTimer=null;
 function showSASWelcome(){
  if(me && !me.pro && !me.trial_available)return;
  const overlay=document.getElementById('sasWelcomeOverlay');
  const field=overlay?.querySelector('.sas-fireworks');
  if(!overlay||!field||localStorage.getItem('saspro_channel_onboarding_done')==='1')return;
  if(sasWelcomeTimer)window.clearTimeout(sasWelcomeTimer);
+ if(sasChannelInviteTimer)window.clearTimeout(sasChannelInviteTimer);
  overlay.hidden=false;
  overlay.classList.remove('is-leaving','is-join-stage','is-visible');
  const greeting=document.getElementById('sasWelcomeGreeting');
@@ -119,24 +121,50 @@ function showSASWelcome(){
  const onTap=e=>{const r=overlay.getBoundingClientRect();launch(Math.max(4,Math.min(96,(e.clientX-r.left)/r.width*100)),Math.max(5,Math.min(90,(e.clientY-r.top)/r.height*100)));};
  overlay.addEventListener('pointerdown',onTap);
  requestAnimationFrame(()=>overlay.classList.add('is-visible'));
- // Welcome appears only after terms have been accepted; channel prompt follows after 10 seconds.
- sasWelcomeTimer=window.setTimeout(()=>{
-  window.clearInterval(fireTimer);overlay.removeEventListener('pointerdown',onTap);field.replaceChildren();
-  if(greeting)greeting.hidden=true;
-  if(join)join.hidden=false;
-  overlay.classList.add('is-join-stage');
-  requestAnimationFrame(()=>overlay.classList.add('is-visible'));
- },10000);
+ // Welcome lasts 5 seconds; the channel invitation appears 10 seconds after it disappears.
+ sasWelcomeTimer=window.setTimeout(()=>finishSASWelcome(onTap,fireTimer),5000);
 }
-
+function finishSASWelcome(onTap=null,fireTimer=null){
+ const overlay=document.getElementById('sasWelcomeOverlay');
+ const field=overlay?.querySelector('.sas-fireworks');
+ const greeting=document.getElementById('sasWelcomeGreeting');
+ if(fireTimer)window.clearInterval(fireTimer);
+ if(onTap&&overlay)overlay.removeEventListener('pointerdown',onTap);
+ if(field)field.replaceChildren();
+ if(greeting)greeting.hidden=true;
+ if(overlay){overlay.classList.add('is-leaving');window.setTimeout(()=>{overlay.hidden=true;overlay.classList.remove('is-visible','is-leaving');},350);}
+ if(sasChannelInviteTimer)window.clearTimeout(sasChannelInviteTimer);
+ sasChannelInviteTimer=window.setTimeout(showSASChannelInvite,10000);
+}
+function skipSASWelcome(){
+ if(sasWelcomeTimer)window.clearTimeout(sasWelcomeTimer);
+ const overlay=document.getElementById('sasWelcomeOverlay');
+ const field=overlay?.querySelector('.sas-fireworks');
+ finishSASWelcome(null,null);
+ if(field)field.replaceChildren();
+}
+function showSASChannelInvite(){
+ if(localStorage.getItem('saspro_channel_onboarding_done')==='1')return;
+ const overlay=document.getElementById('sasWelcomeOverlay');
+ const greeting=document.getElementById('sasWelcomeGreeting');
+ const join=document.getElementById('sasWelcomeJoin');
+ if(!overlay||!join)return;
+ if(greeting)greeting.hidden=true;
+ join.hidden=false;
+ overlay.hidden=false;
+ overlay.classList.remove('is-leaving');
+ overlay.classList.add('is-join-stage');
+ requestAnimationFrame(()=>overlay.classList.add('is-visible'));
+}
 function dismissWelcome(){
  localStorage.setItem('saspro_channel_onboarding_done','1');
  if(sasWelcomeTimer)window.clearTimeout(sasWelcomeTimer);
+ if(sasChannelInviteTimer)window.clearTimeout(sasChannelInviteTimer);
  const overlay=document.getElementById('sasWelcomeOverlay');
- if(sasWelcomeTimer)window.clearTimeout(sasWelcomeTimer);
  overlay?.classList.add('is-leaving');
  window.setTimeout(()=>{if(overlay){overlay.hidden=true;overlay.classList.remove('is-visible','is-leaving','is-join-stage');}},350);
 }
+
 async function joinFromWelcome(){
  const button=document.getElementById('sasWelcomeJoinBtn');
  if(button){button.disabled=true;button.textContent='⏳ جارٍ تجهيز رابط الانضمام…';}
