@@ -2087,3 +2087,13 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-perp-movers-empty{padding:12px 4px;color:#7790a1;font-size:10px;text-align:center}
 .sas-perp-movers-note{margin:10px 0 0;color:#71899a;font-size:9px;line-height:1.8}
 @media(max-width:420px){.sas-perp-movers-panel{padding:10px}.sas-perp-movers-grid{gap:7px}.sas-perp-movers-side{padding:7px}.sas-perp-mover{padding:8px 6px;gap:4px}.sas-perp-mover-symbol,.sas-perp-mover b{font-size:10px}.sas-movers-source{font-size:9px;padding:6px}}
+
+/* PerpEquities context is secondary data, never a replacement for the spot quote. */
+.sas-perp-context{margin:10px 0;padding:10px;border:1px solid rgba(63,190,220,.24);border-radius:11px;background:linear-gradient(120deg,rgba(5,30,42,.78),rgba(3,13,22,.9))}
+.sas-perp-context-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.sas-perp-context-head b{font-size:11px;color:#75ddf2}
+.sas-perp-context-head span{font-size:9px;color:#7d96a6}
+.sas-perp-context-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.sas-perp-context-metrics>span{display:flex;justify-content:space-between;align-items:center;gap:5px;padding:7px;border:1px solid rgba(60,120,144,.18);border-radius:7px;color:#91a9b8;font-size:9px}
+.sas-perp-context-metrics b{color:#e0f3fb;font-size:10px;font-variant-numeric:tabular-nums}
+.sas-perp-context>a{display:inline-block;margin-top:8px;color:#7eddf3;font-size:9px;text-decoration:none}
