@@ -1812,3 +1812,59 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .terminal-tabs button.has-managed-icon span{display:inline}
 @media(max-width:700px){.media-admin-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.media-admin-card{padding:9px}.media-admin-preview{height:92px}.media-admin-preview-hero{height:105px}.media-admin-card>b{font-size:11px}.media-upload-btn{font-size:9px}}
 @media(max-width:360px){.media-admin-grid{grid-template-columns:1fr}.media-admin-preview{height:105px}.media-admin-preview-hero{height:125px}}
+
+
+/* SAS PRO visual refinement — frameless icons + animated radar field */
+.sas-action-card{isolation:isolate;position:relative;overflow:hidden}
+.sas-action-icon{
+  flex:0 0 48px!important;width:48px!important;height:48px!important;
+  border:0!important;border-radius:0!important;
+  background:transparent!important;box-shadow:none!important;
+  font-size:27px!important;filter:drop-shadow(0 0 9px rgba(45,214,255,.24));
+  transform:none;
+}
+.sas-action-icon.has-managed-icon{padding:0!important}
+.sas-action-icon img{display:block;width:100%;height:100%;object-fit:contain;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+.sas-action-card:hover .sas-action-icon,.sas-action-card:focus-visible .sas-action-icon{
+  transform:translateY(-2px) scale(1.08)!important;
+  filter:drop-shadow(0 0 12px rgba(45,224,255,.55));
+}
+.sas-action-card:before{z-index:0!important;pointer-events:none}
+.sas-action-card>*{position:relative;z-index:1}
+.sas-dashboard-hero{isolation:isolate;position:relative;overflow:hidden}
+.sas-dashboard-hero:before{
+  content:"";position:absolute;z-index:0;pointer-events:none;
+  width:min(78vw,520px);height:min(78vw,520px);aspect-ratio:1;
+  top:50%;right:-17%;left:auto;inset-block-start:50%;inset-inline-end:-17%;
+  border-radius:50%;opacity:.68;
+  background:
+    repeating-radial-gradient(circle,rgba(76,220,255,.14) 0 1px,transparent 1px 27px),
+    conic-gradient(from 0deg,transparent 0deg,rgba(49,220,255,.02) 295deg,rgba(49,220,255,.25) 330deg,rgba(49,220,255,.02) 350deg,transparent 360deg);
+  -webkit-mask-image:radial-gradient(circle,transparent 0 7%,#000 8% 72%,transparent 73%);
+  mask-image:radial-gradient(circle,transparent 0 7%,#000 8% 72%,transparent 73%);
+  transform:translateY(-50%);transform-origin:center;
+  animation:sasRadarSweepBehind 18s linear infinite;
+}
+.sas-dashboard-hero:after{
+  content:"";position:absolute;z-index:0;pointer-events:none;
+  width:min(78vw,520px);height:min(78vw,520px);right:-17%;top:50%;
+  border:1px solid rgba(70,222,255,.13);border-radius:50%;
+  box-shadow:0 0 0 24px rgba(70,222,255,.025),0 0 0 52px rgba(70,222,255,.018),inset 0 0 35px rgba(40,202,255,.04);
+  transform:translateY(-50%);animation:sasRadarPulseBehind 5.5s ease-in-out infinite;
+}
+.sas-dashboard-copy,.sas-dashboard-actions{z-index:2!important}
+@keyframes sasRadarSweepBehind{
+  from{transform:translateY(-50%) rotate(0deg)}
+  to{transform:translateY(-50%) rotate(360deg)}
+}
+@keyframes sasRadarPulseBehind{
+  0%,100%{opacity:.42;scale:.98}
+  50%{opacity:.95;scale:1.025}
+}
+@media(max-width:680px){
+  .sas-action-icon{flex-basis:36px!important;width:36px!important;height:36px!important;font-size:23px!important}
+  .sas-dashboard-hero:before,.sas-dashboard-hero:after{right:-34%;opacity:.5}
+}
+@media(prefers-reduced-motion:reduce){
+  .sas-dashboard-hero:before,.sas-dashboard-hero:after{animation:none!important}
+}
