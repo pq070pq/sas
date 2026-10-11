@@ -1868,3 +1868,26 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @media(prefers-reduced-motion:reduce){
   .sas-dashboard-hero:before,.sas-dashboard-hero:after{animation:none!important}
 }
+
+
+/* User-requested compact hero status: neutral text below greeting, no gold banner */
+.sas-dashboard-copy .sas-market-status{
+ display:flex!important;align-items:center!important;gap:8px!important;width:fit-content;max-width:100%;
+ margin:8px 0 0!important;padding:0!important;border:0!important;border-radius:0!important;
+ background:transparent!important;box-shadow:none!important;color:#b9d7e1!important;
+ font-size:12px!important;line-height:1.7!important;
+}
+.sas-dashboard-copy .sas-market-status .sas-status-dot{
+ flex:0 0 7px!important;width:7px!important;height:7px!important;border-radius:50%!important;
+ background:#8198a5!important;box-shadow:0 0 8px currentColor!important;
+}
+.sas-dashboard-copy .sas-market-status.is-open{color:#a9e8d0!important}
+.sas-dashboard-copy .sas-market-status.is-open .sas-status-dot{background:#36dba4!important}
+.sas-dashboard-copy .sas-market-status.is-pre{color:#d4dce3!important}
+.sas-dashboard-copy .sas-market-status.is-pre .sas-status-dot{background:#a6b5c0!important}
+.sas-dashboard-copy .sas-market-status.is-closed{color:#b9c8d1!important}
+.sas-dashboard-copy .sas-market-status.is-closed .sas-status-dot{background:#8294a0!important}
+.hero-brand-row{display:flex;justify-content:flex-start;align-items:center;min-height:0}
+.admin-user-back{min-width:38px!important;width:38px!important;height:38px!important;padding:0!important;display:grid!important;place-items:center!important;font-size:21px!important;border-radius:12px!important}
+.admin-user-back[hidden]{display:none!important}
+.sas-market-clock strong{font-variant-numeric:tabular-nums;direction:rtl}
