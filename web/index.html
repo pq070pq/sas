@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>SAS PRO — Market Terminal</title>
-<link rel="stylesheet" href="/assets/app.css?v=20261011-27">
+<link rel="stylesheet" href="/assets/app.css?v=20261011-28">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 </head>
 <body>
@@ -54,13 +54,9 @@
     <section class="terminal-hero-banner" aria-label="SAS PRO">
       <img src="/assets/saspro-banner.webp?v=20261011-23" alt="SAS سوق الأسهم الأمريكي" loading="eager">
       <div class="hero-shade"></div>
-      <div class="hero-caption">
-        <div class="hero-brand-row"><button id="adminBackBtn" class="secondary-btn admin-user-back" aria-label="العودة إلى الإدارة" title="العودة إلى الإدارة" hidden onclick="returnToAdminView()">↩</button></div>
-        <small>US MARKET • SMART RADAR</small>
-        <button id="adminBackBtn" class="secondary-btn admin-user-back" hidden onclick="returnToAdminView()">🛠️ العودة إلى الإدارة</button>
-      </div>
+      <button id="adminBackBtn" class="secondary-btn admin-user-back" aria-label="العودة إلى الإدارة" title="العودة إلى الإدارة" hidden onclick="returnToAdminView()">↩</button>
     </section>
-    <section class="sas-market-strip is-closed" aria-label="حالة السوق الأمريكي"><div class="sas-market-main"><span class="sas-market-live-dot"></span><div><strong id="sasMarketHeadline">جاري التحقق من حالة السوق</strong><small id="sasMarketSubline">توقيت الرياض • حالة مباشرة من النظام</small></div></div><div class="sas-market-clock"><span class="sas-market-clock-icon">◷</span><div><small>الوقت في الرياض</small><strong id="sasMarketClock">—</strong></div></div><div class="sas-session-mini"><span>الجلسة الأمريكية</span><strong id="sasSessionLabel">—</strong></div></section><section class="market-ticker-wrap" aria-label="أسعار الأسواق">
+<section class="market-ticker-wrap" aria-label="أسعار الأسواق">
       <div id="marketTicker" class="market-ticker"><div class="loading">جاري تحميل الأسعار...</div></div>
     </section>
     <nav class="terminal-tabs">
@@ -88,10 +84,10 @@
   <div class="sas-dashboard-copy">
     <span class="eyebrow">SAS PRO RADAR</span>
     <h1 id="terminalGreeting">مرحباً</h1>
-    <div class="sas-market-status"><span class="sas-status-dot"></span><span id="radarStatusText">جاري التحقق من حالة السوق والرصد...</span></div>
-    <small class="sas-time-note">بتوقيت الرياض</small>
+
   </div>
 </div>
+    <section class="sas-market-strip is-closed" aria-label="حالة السوق الأمريكي"><div class="sas-market-main"><span class="sas-market-live-dot"></span><div><strong id="sasMarketHeadline">جاري التحقق من حالة السوق</strong><small id="sasMarketSubline">توقيت الرياض • حالة مباشرة من النظام</small></div></div><div class="sas-market-clock"><span class="sas-market-clock-icon">◷</span><div><small>الوقت في الرياض</small><strong id="sasMarketClock">—</strong></div></div><div class="sas-session-mini"><span>الجلسة الأمريكية</span><strong id="sasSessionLabel">—</strong></div><span id="radarStatusText" hidden>جاري التحقق من حالة السوق والرصد...</span></section>
         <div class="metric-grid" id="dashboardMetrics"></div>
         <div class="sas-feature-head"><div><span class="eyebrow">SAS PRO RADAR</span><h2>أهم الفرص اليوم</h2><small>الأسهم المعروضة من نتائج الرادار الفعلية فقط</small></div><button class="sas-view-all" onclick="switchTerminalTab('radar')">كل النتائج <span>←</span></button></div><div class="sas-quick-filters" aria-label="اختصارات الرادار"><button class="is-active" onclick="switchTerminalTab('radar')"><span>💎</span> فرص اليوم</button><button onclick="switchTerminalTab('radar')"><span>🔥</span> أعلى حركة</button><button onclick="switchTerminalTab('radar')"><span>🚀</span> الاختراقات</button><button onclick="switchTerminalTab('radar')"><span>📊</span> الأسهم الواعدة</button><button onclick="switchTerminalTab('search')"><span>📰</span> بحث وتحليل</button></div><div class="section-title"><b>🔥 أحدث الفرص / آخر رصد محفوظ</b><button onclick="switchTerminalTab('radar')">عرض كل الرصد</button></div>
         <div id="dashboardRadar" class="stock-grid"><div class="loading">جاري التحميل...</div></div>
@@ -224,7 +220,7 @@
       <div id="deployStatus" class="deploy-status"><div class="loading">جاري فحص حالة النشر...</div></div>
       <div class="deploy-actions">
         <button onclick="loadDeployStatus()">↻ تحديث الحالة</button>
-        <button onclick="openDeployActions()">⚙️ فتح GitHub Actions</button>
+        <button onclick="openDeployActions()">🧰 فتح GitHub Actions</button>
       </div>
       <div class="deploy-note">أي تعديل على فرع <b>main</b> يُنشر تلقائيًا إلى OVH عبر GitHub Actions. لا تظهر مفاتيح SSH داخل التطبيق.</div>
     </section>
@@ -323,7 +319,7 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261011-26"></script>
+<script src="/assets/app.js?v=20261011-27"></script>
 
 <script>
 /* Presentation-only interactions. Does not modify radar, pricing, API calls, or permissions. */
