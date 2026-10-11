@@ -2955,3 +2955,7 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 #sasWelcomeOverlay.is-join-stage .sas-welcome-join button{min-height:48px;padding:12px 14px}
 #sasWelcomeOverlay.is-join-stage .sas-welcome-skip{min-height:38px!important}
 @media(prefers-reduced-motion:reduce){#sasWelcomeOverlay.is-join-stage,#sasWelcomeOverlay.is-join-stage .sas-welcome-card{transition:none}}
+
+/* Welcome stage has a visible skip action; channel invite is delayed after welcome closes. */
+#sasWelcomeGreeting .sas-welcome-skip{display:block;position:relative;z-index:5;margin:18px auto 0;padding:8px 20px;border:1px solid rgba(102,190,230,.35);border-radius:999px;background:rgba(3,23,38,.75);color:#c2d9e9;font:inherit;font-size:13px;cursor:pointer;pointer-events:auto}
+#sasWelcomeGreeting .sas-welcome-skip:hover{border-color:rgba(71,190,255,.8);color:#fff}
