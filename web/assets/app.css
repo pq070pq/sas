@@ -2212,3 +2212,65 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  #tab-dashboard>.sas-market-strip .sas-countdown-heading{ align-items:center!important; }
  #tab-dashboard>.sas-market-strip .sas-countdown-detail{ align-items:center; }
 }
+
+/* Separate clock modules, remove redundant detail panel, and make market state visible */
+#tab-dashboard>.sas-market-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px;border-radius:24px;overflow:hidden;position:relative;transition:border-color .3s,box-shadow .3s,background .3s}
+#tab-dashboard>.sas-market-strip .sas-market-main{grid-column:1/-1;grid-row:1;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;text-align:center;padding:4px 0 14px}
+#tab-dashboard>.sas-market-strip .sas-market-live-dot{width:12px;height:12px}
+#tab-dashboard>.sas-market-strip .sas-market-main>div{display:grid;gap:5px;justify-items:center;text-align:center}
+#tab-dashboard>.sas-market-strip .sas-market-main strong{font-size:clamp(17px,3.8vw,23px);font-weight:900;line-height:1.55;text-align:center}
+#tab-dashboard>.sas-market-strip .sas-market-main small{font-size:clamp(11px,2.5vw,13px);line-height:1.9;text-align:center;max-width:36rem}
+#tab-dashboard>.sas-market-strip .sas-market-clock{grid-column:1;grid-row:2;justify-content:center;padding:0;border:0;min-width:0}
+#tab-dashboard>.sas-market-strip .sas-clock-toggle{width:100%;min-height:102px;flex-direction:column;justify-content:center;gap:7px;padding:12px 8px;border-radius:17px;background:rgba(5,12,20,.36);border-color:rgba(164,181,195,.2);text-align:center}
+#tab-dashboard>.sas-market-strip .sas-clock-copy{justify-items:center;text-align:center}
+#tab-dashboard>.sas-market-strip .sas-clock-copy>strong{font-size:clamp(18px,4vw,25px)}
+#tab-dashboard>.sas-market-strip .sas-clock-secondary{justify-content:center;flex-wrap:wrap}
+#tab-dashboard>.sas-market-strip .sas-clock-switch{display:none}
+#tab-dashboard>.sas-market-strip .sas-session-mini{grid-column:2;grid-row:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px 8px;border:1px solid rgba(164,181,195,.2);border-radius:17px;background:rgba(5,12,20,.36);text-align:center}
+#tab-dashboard>.sas-market-strip .sas-session-mini span{font-size:11px}
+#tab-dashboard>.sas-market-strip .sas-session-mini strong{font-size:clamp(12px,2.8vw,16px);line-height:1.8;text-align:center}
+#tab-dashboard>.sas-market-strip #radarStatusText{display:none}
+#tab-dashboard>.sas-market-strip>#sasOpenCountdown{grid-column:1/-1;margin:0 -2px;padding:17px 0 0;border:0;border-top:1px solid var(--sas-neutral-line);border-radius:0;background:transparent;box-shadow:none}
+#tab-dashboard>.sas-market-strip .sas-countdown-heading{display:flex;flex-direction:column;align-items:center;gap:9px;text-align:center;margin-bottom:14px}
+#tab-dashboard>.sas-market-strip .sas-countdown-heading>div{display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px}
+#tab-dashboard>.sas-market-strip .sas-countdown-heading h2{text-align:center;font-size:clamp(18px,4vw,23px)!important;line-height:1.55}
+#tab-dashboard>.sas-market-strip .sas-countdown-heading small{text-align:center;line-height:1.9}
+#tab-dashboard>.sas-market-strip .sas-countdown-live{align-self:center}
+#tab-dashboard>.sas-market-strip .sas-countdown-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+#tab-dashboard>.sas-market-strip .sas-countdown-card{display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:10px;min-height:225px;padding:15px 10px;text-align:center}
+#tab-dashboard>.sas-market-strip .sas-countdown-card-top{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;text-align:center;line-height:1.8}
+#tab-dashboard>.sas-market-strip .sas-countdown-time{margin:5px 0!important}
+#tab-dashboard>.sas-market-strip .sas-countdown-label,#tab-dashboard>.sas-market-strip .sas-countdown-foot{text-align:center;line-height:1.9}
+#tab-dashboard>.sas-market-strip.is-open{border-color:rgba(84,194,137,.82)!important;box-shadow:0 0 0 1px rgba(84,194,137,.14),0 0 26px rgba(84,194,137,.13),inset 0 0 30px rgba(84,194,137,.05)!important;animation:sasMarketOpenPulse 2.8s ease-in-out infinite}
+#tab-dashboard>.sas-market-strip.is-open .sas-market-live-dot{background:#58d68d!important;box-shadow:0 0 0 6px rgba(88,214,141,.13),0 0 18px rgba(88,214,141,.72)!important}
+#tab-dashboard>.sas-market-strip.is-open .sas-market-main strong{color:#a9edc4}
+#tab-dashboard>.sas-market-strip.is-closed{border-color:rgba(235,91,111,.8)!important;box-shadow:0 0 0 1px rgba(235,91,111,.13),0 0 27px rgba(235,91,111,.12),inset 0 0 30px rgba(235,91,111,.045)!important;animation:sasMarketClosedPulse 2.1s ease-in-out infinite}
+#tab-dashboard>.sas-market-strip.is-closed .sas-market-live-dot{background:#f05b72!important;box-shadow:0 0 0 6px rgba(240,91,114,.15),0 0 18px rgba(240,91,114,.75)!important}
+#tab-dashboard>.sas-market-strip.is-closed .sas-market-main strong{color:#f0c0c8}
+#tab-dashboard>.sas-market-strip.is-pre{border-color:rgba(190,171,128,.55)!important;box-shadow:0 0 22px rgba(190,171,128,.07)!important;animation:none!important}
+#tab-dashboard>.sas-market-strip.is-pre .sas-market-live-dot{background:#c9b58a!important;box-shadow:0 0 0 5px rgba(201,181,138,.12),0 0 14px rgba(201,181,138,.55)!important}
+#tab-dashboard>.sas-market-strip.is-after{border-color:rgba(141,163,181,.42)!important;box-shadow:0 0 18px rgba(141,163,181,.06)!important;animation:none!important}
+@keyframes sasMarketClosedPulse{0%,100%{box-shadow:0 0 0 1px rgba(235,91,111,.10),0 0 18px rgba(235,91,111,.08),inset 0 0 24px rgba(235,91,111,.025)}50%{box-shadow:0 0 0 1px rgba(235,91,111,.24),0 0 32px rgba(235,91,111,.20),inset 0 0 36px rgba(235,91,111,.07)}}
+@keyframes sasMarketOpenPulse{0%,100%{box-shadow:0 0 0 1px rgba(84,194,137,.10),0 0 18px rgba(84,194,137,.08),inset 0 0 24px rgba(84,194,137,.025)}50%{box-shadow:0 0 0 1px rgba(84,194,137,.24),0 0 32px rgba(84,194,137,.18),inset 0 0 36px rgba(84,194,137,.06)}}
+@media(max-width:680px){
+ #tab-dashboard>.sas-market-strip{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;padding:13px!important;border-radius:21px}
+ #tab-dashboard>.sas-market-strip .sas-market-main{grid-column:1/-1!important;grid-row:1!important;padding-bottom:11px}
+ #tab-dashboard>.sas-market-strip .sas-market-clock{grid-column:1!important;grid-row:2!important}
+ #tab-dashboard>.sas-market-strip .sas-session-mini{grid-column:2!important;grid-row:2!important;align-self:stretch}
+ #tab-dashboard>.sas-market-strip .sas-clock-toggle{min-height:110px;padding:10px 5px}
+ #tab-dashboard>.sas-market-strip .sas-clock-copy>strong{font-size:clamp(16px,4.3vw,21px)}
+ #tab-dashboard>.sas-market-strip .sas-clock-secondary b{font-size:10px}
+ #tab-dashboard>.sas-market-strip>#sasOpenCountdown{padding-top:14px}
+ #tab-dashboard>.sas-market-strip .sas-countdown-cards{gap:8px}
+ #tab-dashboard>.sas-market-strip .sas-countdown-card{min-height:225px;padding:12px 7px;gap:8px}
+ #tab-dashboard>.sas-market-strip .sas-countdown-card-top{font-size:11px!important}
+ #tab-dashboard>.sas-market-strip .sas-countdown-time{font-size:clamp(20px,5.5vw,27px)!important}
+ #tab-dashboard>.sas-market-strip .sas-countdown-label{font-size:11px!important}
+}
+@media(max-width:350px){
+ #tab-dashboard>.sas-market-strip .sas-countdown-cards{grid-template-columns:minmax(0,1fr)}
+ #tab-dashboard>.sas-market-strip .sas-countdown-card{min-height:195px}
+}
+@media(prefers-reduced-motion:reduce){
+ #tab-dashboard>.sas-market-strip.is-open,#tab-dashboard>.sas-market-strip.is-closed{animation:none!important}
+}
