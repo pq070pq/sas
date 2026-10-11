@@ -2928,3 +2928,15 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 #trialDescription{max-width:420px!important;margin:0 auto!important;text-align:center!important;font-size:14px!important;line-height:2!important;color:#b6ccdf!important}
 .trial-card button{margin-inline:auto;max-width:100%;text-align:center}
 @media(prefers-reduced-motion:reduce){.trial-gift-icon{animation:none}}
+
+
+/* Post-welcome channel invitation stage */
+.sas-welcome-join{width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;animation:sasJoinRise .45s ease both}
+.sas-welcome-join[hidden],#sasWelcomeGreeting[hidden]{display:none!important}
+.sas-welcome-join-icon{width:74px;height:74px;display:grid;place-items:center;border-radius:23px;font-size:37px;background:linear-gradient(145deg,rgba(21,143,209,.3),rgba(4,42,73,.72));border:1px solid rgba(92,218,255,.65);box-shadow:0 0 28px rgba(36,176,255,.2)}
+.sas-welcome-join h2{margin:3px 0;color:#e9faff;font-size:clamp(20px,5vw,25px);text-align:center}
+.sas-welcome-join p{max-width:330px;margin:0 0 7px;color:#a6c4d7;font-size:14px;line-height:1.9;text-align:center}
+.sas-welcome-join button{width:100%;max-width:330px;border:1px solid rgba(102,225,255,.8);border-radius:15px;padding:14px 16px;background:linear-gradient(110deg,#1bc2e3,#1678d7);color:#fff;font:inherit;font-weight:900;box-shadow:0 8px 25px rgba(15,137,222,.24);cursor:pointer}
+.sas-welcome-join button:disabled{opacity:.7}
+.sas-welcome-join .sas-welcome-skip{background:transparent;border-color:rgba(111,176,202,.22);box-shadow:none;color:#9cb8ca;font-size:13px;font-weight:600}
+@keyframes sasJoinRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
