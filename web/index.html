@@ -307,7 +307,15 @@
           <label class="trial-days-row"><span>اختر المشترك</span><select id="giftExtendTelegramId" class="gift-subscriber-select"><option value="">جاري تحميل المشتركين...</option></select><small>تظهر هنا الاشتراكات الفعّالة والتجارب المجانية السارية.</small></label>
         </div>
         <label class="trial-days-row"><span>مدة الهدية</span><input id="giftExtendDays" type="number" min="1" max="365" value="7"><small>يوم — تُضاف إلى المدة المتبقية للاشتراك الفعّال.</small></label>
-        <div class="gift-message-preview"><b>✨ معاينة رسالة الهدية</b><p>🎁 هدية خاصة من SAS PRO</p><p>🎉 تهانينا! تم تمديد اشتراكك من قبل SAS PRO كهدية تقدير.</p><small>سيظهر تاريخ الانتهاء الجديد في رسالة خاصة للمستفيد.</small></div>
+        <div class="gift-message-editor">
+          <div class="gift-message-editor-head"><b>✍️ تخصيص رسالة الهدية</b><span>تُحفظ وتُستخدم في كل هدية جديدة</span></div>
+          <label for="giftMessageTemplate">نص الرسالة</label>
+          <textarea id="giftMessageTemplate" rows="7" maxlength="2500" placeholder="اكتب رسالة الهدية هنا..."></textarea>
+          <small class="gift-template-help">المتغيرات المتاحة: <code>{days}</code> مدة الهدية، <code>{expiry_date}</code> تاريخ الانتهاء، <code>{brand}</code> اسم SAS PRO. يمكنك ترتيبها كما تريد.</small>
+          <div class="gift-message-preview" id="giftMessagePreview" aria-live="polite"><b>👀 معاينة الرسالة</b><p>جاري تحميل الرسالة...</p></div>
+          <div class="gift-message-editor-actions"><button type="button" class="admin-close-list" onclick="loadGiftMessageTemplate()">↻ استرجاع المحفوظ</button><button type="button" class="save-btn" id="saveGiftMessageBtn" onclick="saveGiftMessageTemplate()">💾 حفظ رسالة الهدية</button></div>
+          <div id="giftMessageSaveStatus" class="gift-message-save-status" role="status" aria-live="polite"></div>
+        </div>
         <button class="save-btn" id="giftExtendAllBtn" onclick="adminGiftExtendAll()">🎁 إرسال الهدية وتمديد الاشتراك</button>
         <div id="giftExtendResult" class="subscriber-status-summary" hidden aria-live="polite"></div>
         <small>يشمل الاشتراكات المدفوعة الفعّالة والتجارب المجانية السارية. لا يشمل الاشتراكات المنتهية أو الوصول الدائم.</small>
