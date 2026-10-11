@@ -2730,6 +2730,23 @@ async def stock_chart(symbol: str, _: dict = Depends(require_pro)):
         return {"symbol": raw_symbol, "candles": data, "available": len(data) >= 20, "source": "legacy"}
     return {"symbol": raw_symbol, **data}
 
+@app.get("/api/stocks/{symbol}/perpequities")
+async def stock_perpequities_context(symbol: str, _: dict = Depends(require_pro)):
+    """Optional PerpEquities context for stock analysis; never substitute perpetual prices for spot quotes."""
+    raw_symbol = symbol.upper().strip()
+    if is_crypto_symbol(raw_symbol):
+        return {"available": False, "symbol": raw_symbol, "message_ar": "بيانات PerpEquities مخصصة للأسهم والعقود الدائمة المرتبطة بها."}
+    try:
+        from .perpequities_provider import get_equity_perpetual
+        context = await asyncio.wait_for(get_equity_perpetual(raw_symbol), timeout=9.0)
+        if not context:
+            return {"available": False, "symbol": raw_symbol, "message_ar": "لا تتوفر بيانات حديثة لهذا السهم في PerpEquities حاليًا."}
+        return {"available": True, **context}
+    except Exception as exc:
+        logger.info("PerpEquities stock context unavailable for %s: %s", raw_symbol, type(exc).__name__)
+        return {"available": False, "symbol": raw_symbol, "message_ar": "تعذر جلب بيانات PerpEquities الآن؛ بقية التحليل مستمرة."}
+
+
 @app.get("/api/stocks/{symbol}/news")
 async def stock_news(symbol: str, _: dict = Depends(require_pro)):
     return await company_news(symbol.upper())
