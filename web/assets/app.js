@@ -367,7 +367,7 @@ function toggleSasMetric(id){
 
 function renderPerpEquitiesMovers(data){
  const sourceLink=document.querySelector('.sas-movers-source');
- if(sourceLink){const adminCanSeeSource=Boolean(me?.admin);sourceLink.classList.toggle('admin-source-visible',adminCanSeeSource);sourceLink.hidden=!adminCanSeeSource;sourceLink.setAttribute('aria-hidden',String(!adminCanSeeSource));}
+ if(sourceLink){sourceLink.hidden=false;sourceLink.removeAttribute('aria-hidden');sourceLink.classList.remove('admin-source-visible');}
  const updated=document.getElementById('perpMoversUpdated'),state=document.getElementById('perpMoversState');
  const gainers=document.getElementById('perpMoversGainers'),losers=document.getElementById('perpMoversLosers');
  const gainersCount=document.getElementById('perpMoversGainersCount'),losersCount=document.getElementById('perpMoversLosersCount');
