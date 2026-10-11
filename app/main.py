@@ -7,6 +7,8 @@ import base64
 import hashlib
 import hmac
 import html
+import os
+from pathlib import Path
 import httpx
 from urllib.parse import urlsplit
 from datetime import date, datetime, timedelta, timezone
@@ -107,6 +109,26 @@ async def telegram_webhook_logging(request: Request, call_next):
     return response
 
 app.mount("/assets", StaticFiles(directory="web/assets"), name="assets")
+
+# Uploaded branding files live in /app/data, which is backed by the saspro_data
+# Docker volume, so they survive container rebuilds and redeployments.
+SITE_MEDIA_DIR = Path(os.getenv("SAS_MEDIA_DIR", "data/site_media"))
+SITE_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+SITE_MEDIA_CONFIG = SITE_MEDIA_DIR / "media.json"
+SITE_MEDIA_SLOTS = {
+    "hero": {"label": "صورة الواجهة الرئيسية", "kind": "image"},
+    "icon-radar": {"label": "أيقونة الرادار", "kind": "icon"},
+    "icon-channel": {"label": "أيقونة القناة", "kind": "icon"},
+    "icon-search": {"label": "أيقونة البحث", "kind": "icon"},
+    "icon-watch": {"label": "أيقونة المحفوظات", "kind": "icon"},
+    "icon-account": {"label": "أيقونة الحساب", "kind": "icon"},
+}
+SITE_MEDIA_MIMES = {
+    "image/webp": (".webp", lambda b: len(b) >= 12 and b[:4] == b"RIFF" and b[8:12] == b"WEBP"),
+    "image/png": (".png", lambda b: b.startswith(b"\\x89PNG\\r\\n\\x1a\\n")),
+    "image/jpeg": (".jpg", lambda b: b.startswith(b"\\xff\\xd8\\xff")),
+}
+app.mount("/media", StaticFiles(directory=str(SITE_MEDIA_DIR)), name="site-media")
 
 def webapp_url() -> str:
     base = (settings.app_base_url or "").strip()
@@ -1955,6 +1977,68 @@ async def admin_revoke(telegram_id: int, user=Depends(telegram_user), db: AsyncS
     await set_channel_access(telegram_id, allow=False)
     return {"ok": True}
 
+
+
+def _read_site_media_config():
+    try:
+        value = json.loads(SITE_MEDIA_CONFIG.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else {}
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+@app.get("/api/site-media")
+async def site_media_config():
+    configured = _read_site_media_config()
+    items = {}
+    for slot, meta in SITE_MEDIA_SLOTS.items():
+        filename = configured.get(slot)
+        path = SITE_MEDIA_DIR / filename if isinstance(filename, str) else None
+        if path and path.parent == SITE_MEDIA_DIR and path.is_file():
+            items[slot] = {
+                "url": f"/media/{path.name}?v={path.stat().st_mtime_ns}",
+                "label": meta["label"],
+                "kind": meta["kind"],
+            }
+    return {"ok": True, "items": items}
+
+
+@app.post("/api/admin/site-media/{slot}")
+async def admin_upload_site_media(slot: str, request: Request, user=Depends(telegram_user)):
+    await require_admin_permission(user, "settings")
+    if slot not in SITE_MEDIA_SLOTS:
+        raise HTTPException(404, "موضع الصورة غير معروف")
+    content_type = (request.headers.get("content-type") or "").split(";", 1)[0].strip().lower()
+    spec = SITE_MEDIA_MIMES.get(content_type)
+    if not spec:
+        raise HTTPException(415, "ارفع صورة بصيغة WebP أو PNG أو JPEG فقط")
+    payload = await request.body()
+    if not payload:
+        raise HTTPException(400, "ملف الصورة فارغ")
+    if len(payload) > 5 * 1024 * 1024:
+        raise HTTPException(413, "الحد الأقصى لحجم الصورة 5 ميغابايت")
+    extension, signature_check = spec
+    if not signature_check(payload):
+        raise HTTPException(415, "محتوى الملف لا يطابق نوع الصورة")
+    filename = f"{slot}{extension}"
+    target = SITE_MEDIA_DIR / filename
+    try:
+        for old in SITE_MEDIA_DIR.glob(f"{slot}.*"):
+            if old.is_file() and old.name != filename:
+                old.unlink()
+        target.write_bytes(payload)
+        configured = _read_site_media_config()
+        configured[slot] = filename
+        SITE_MEDIA_CONFIG.write_text(json.dumps(configured, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        logger.exception("Could not persist admin-uploaded site media for slot %s", slot)
+        raise HTTPException(500, "تعذر حفظ الصورة على مساحة التخزين الدائمة")
+    return {
+        "ok": True,
+        "slot": slot,
+        "url": f"/media/{filename}?v={target.stat().st_mtime_ns}",
+        "label": SITE_MEDIA_SLOTS[slot]["label"],
+    }
 
 
 async def require_admin_permission(user, permission: str):
