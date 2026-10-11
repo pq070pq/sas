@@ -154,6 +154,7 @@ function switchTerminalTab(tab){
  terminalState.tab=tab;
  document.querySelectorAll('.terminal-tab').forEach(x=>x.classList.toggle('active',x.id==='tab-'+tab));
  document.querySelectorAll('.terminal-tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
+ document.querySelectorAll('.sas-mobile-dock button').forEach(x=>x.classList.toggle('is-active',x.getAttribute('onclick')?.includes("'"+tab+"'")));
  if(tab==='radar')renderRadar();
  if(tab==='watch')renderWatchlist();
 }
