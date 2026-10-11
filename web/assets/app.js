@@ -299,8 +299,9 @@ function renderDashboard(d){
  const subline=document.getElementById('sasMarketSubline');
  const sessionLabelEl=document.getElementById('sasSessionLabel');
  const marketClockEl=document.getElementById('sasMarketClock');
- const nowRiyadh=new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
- if(marketClockEl)marketClockEl.textContent=nowRiyadh;
+ const clockZone=window.__sasClockZone||'Asia/Riyadh';
+ const clockLocaleTime=(zone)=>new Date().toLocaleTimeString('en-GB',{timeZone:zone,hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+ if(marketClockEl)marketClockEl.textContent=clockLocaleTime(clockZone);
  if(headline)headline.textContent=session==='regular'?'السوق الأمريكي مفتوح':premarket?'السوق قبل الافتتاح':session==='afterhours'?'التداول بعد الإغلاق':session==='night'?'التداول الليلي':nightPending?'التداول الليلي يفتح قريبًا':'السوق الأمريكي مغلق';
  if(subline)subline.textContent=statusText.replace(/^[🟢🟡🟠🟣🌙🔴 ]+/,'').slice(0,105)||'توقيت الرياض • حالة مباشرة من النظام';
  if(sessionLabelEl)sessionLabelEl.textContent=sessionLabel|| (preopen?'مغلق':'جارٍ التحقق');
