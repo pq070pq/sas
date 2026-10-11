@@ -797,12 +797,52 @@ async def stock_radar_cycle():
                     continue
 
                 existing = existing_map.get(symbol)
-                # لا نكرر نفس السهم بلا سبب.
-                if existing and existing.telegram_message_id:
+                q = live_quotes.get(symbol) or {"symbol": symbol, "price": None, "source": "unavailable"}
+                classification = row.get("classification") or {}
+                current_confirmed = (
+                    classification.get("opportunity_status") == "confirmed"
+                    and bool(classification.get("confirmation_ready"))
+                )
+                channel_ok, channel_reason = _radar_channel_gate(status, row, q, learning_profile)
+
+                # القاعدة الحاسمة: السجل المحفوظ يبقى نشطًا فقط إذا ظل السهم
+                # فرصة مؤكدة واجتاز بوابة القناة في الدورة الحالية. نحتفظ بالتاريخ
+                # ولا نعيد إرسال تقرير قديم لمجرد أن السهم فقد شروطه.
+                if existing:
                     try:
                         previous = json.loads(existing.payload or "{}")
                     except Exception:
                         previous = {}
+                    if not current_confirmed or not channel_ok:
+                        inactive_reason = (
+                            "فقد شروط الفرصة المؤكدة في دورة الرادار الحالية"
+                            if not current_confirmed else channel_reason
+                        )
+                        inactive_payload = {**previous, **row}
+                        inactive_payload["radar_active"] = False
+                        inactive_payload["strategy_status"] = "inactive"
+                        inactive_payload["strategy_inactive_reason"] = inactive_reason
+                        inactive_payload["channel_gate"] = {
+                            "passed": False,
+                            "session": status.get("session"),
+                            "reason": inactive_reason,
+                        }
+                        existing.payload = json.dumps(inactive_payload, ensure_ascii=False)
+                        existing.created_at = utcnow()
+                        try:
+                            await db.commit()
+                        except Exception:
+                            await db.rollback()
+                            logger.exception("Radar inactive-state persistence failed: %s", symbol)
+                        cycle_stats["skipped"] += 1
+                        _radar_seen.add(symbol)
+                        logger.info("Radar active opportunity removed: %s | reason=%s", symbol, inactive_reason)
+                        continue
+
+                # لا نكرر التقرير إذا بقيت الفرصة مؤكدة والبوابة الحالية ناجحة.
+                # لكن لا نسمح للتخطي بسبب التكرار بأن يعطّل سهمًا مؤهلًا أو
+                # أن يبقي سهمًا فقد التأكيد ضمن المحفوظات النشطة.
+                if existing and existing.telegram_message_id:
                     previous_volume = float(previous.get("volume") or 0)
                     current_volume = float(row.get("volume") or 0)
                     previous_change = float(previous.get("change_pct") or 0)
@@ -810,9 +850,41 @@ async def stock_radar_cycle():
                     volume_jump = previous_volume > 0 and current_volume >= previous_volume * 2.0
                     price_jump = abs(current_change - previous_change) >= 5.0
                     if not (volume_jump or price_jump):
+                        previous_active = bool(previous.get("radar_active"))
+                        can_activate = (
+                            previous_active
+                            or symbol in app_active_symbols
+                            or app_active_count < daily_app_limit
+                        )
+                        row["radar_active"] = bool(can_activate)
+                        row["channel_gate"] = {
+                            "passed": True,
+                            "session": status.get("session"),
+                            "reason": channel_reason,
+                        }
+                        row["channel_delivery"] = previous.get("channel_delivery") or {
+                            "published": True,
+                            "app_visible": bool(can_activate),
+                            "reason": "تقرير سابق محفوظ؛ لا يوجد تغير يستدعي إعادة الإرسال",
+                        }
+                        if can_activate and symbol not in app_active_symbols:
+                            app_active_symbols.add(symbol)
+                            app_active_count += 1
+                        if not can_activate:
+                            row["channel_delivery"]["app_visible"] = False
+                        try:
+                            existing.payload = json.dumps({**previous, **row}, ensure_ascii=False)
+                            existing.created_at = utcnow()
+                            await db.commit()
+                        except Exception:
+                            await db.rollback()
+                            logger.exception("Radar duplicate state refresh failed: %s", symbol)
                         cycle_stats["skipped"] += 1
                         _radar_seen.add(symbol)
-                        logger.info("Radar duplicate skipped: %s | reason=existing_signal_same_session volume_jump=%s price_jump=%s", symbol, volume_jump, price_jump)
+                        logger.info(
+                            "Radar duplicate skipped: %s | still_confirmed=true active=%s volume_jump=%s price_jump=%s",
+                            symbol, can_activate, volume_jump, price_jump,
+                        )
                         continue
                     cycle_stats["reanalyzed"] += 1
                     logger.info("Radar reanalysis triggered: %s | volume_jump=%s price_jump=%s", symbol, volume_jump, price_jump)
@@ -820,12 +892,10 @@ async def stock_radar_cycle():
                     cycle_stats["reanalyzed"] += 1
                     logger.info("Radar pending candidate rechecked: %s", symbol)
 
-                q = live_quotes.get(symbol) or {"symbol": symbol, "price": None, "source": "unavailable"}
                 # لا نستخدم لقطة الاكتشاف كبديل للسعر الحي عند النشر.
                 if q.get("price") is None:
                     logger.warning("Radar live quote unavailable; keeping candidate in watchlist: %s source=%s", symbol, q.get("source"))
-                classification = row.get("classification") or {}
-                if classification.get("opportunity_status") == "confirmed" and bool(classification.get("confirmation_ready")):
+                if current_confirmed:
                     confirmation_stats["confirmed"] += 1
                 else:
                     confirmation_stats["watch"] += 1
@@ -838,7 +908,6 @@ async def stock_radar_cycle():
                     "market_session_code": status.get("session"),
                 }
 
-                channel_ok, channel_reason = _radar_channel_gate(status, row, q, learning_profile)
                 if not channel_ok:
                     confirmation_stats["gate_rejected"] += 1
                     gate_rejections[channel_reason] = int(gate_rejections.get(channel_reason, 0)) + 1
