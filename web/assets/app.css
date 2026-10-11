@@ -1988,3 +1988,22 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-metric-detail p{margin:3px 0 0;overflow-wrap:anywhere}
 .sas-metric-detail button{border:0;background:transparent;color:#9bb6c8;font-size:22px;cursor:pointer;padding:0 4px}
 @media(max-width:360px){.metric-grid{gap:7px}.metric-grid .sas-metric-card{padding:10px;min-height:118px}.sas-metric-label{font-size:11px}.sas-metric-value{font-size:18px}.sas-metric-value .metric-date{font-size:12px}}
+
+/* RTL/LTR hardening: keep dates, times and countdown units on separate lines */
+.sas-countdown-time{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:2px;direction:ltr;white-space:normal!important;line-height:1.25}
+.sas-countdown-days{display:block;direction:rtl;unicode-bidi:isolate;font-size:.56em;line-height:1.5;color:#c5f4ff;letter-spacing:0}
+.sas-countdown-clock{display:block;direction:ltr;unicode-bidi:isolate;white-space:nowrap;font-size:1em;line-height:1.25;font-variant-numeric:tabular-nums}
+.sas-countdown-label{min-height:2.8em;display:flex;align-items:center;justify-content:center}
+.sas-countdown-foot,.sas-open-countdown #sasCountdownDate{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;line-height:1.7;white-space:normal;overflow-wrap:anywhere}
+.sas-opening-date{display:block;max-width:100%;direction:rtl;unicode-bidi:isolate;white-space:normal;overflow-wrap:anywhere;line-height:1.8}
+.sas-opening-time{display:block;max-width:100%;direction:rtl;unicode-bidi:isolate;white-space:normal;overflow-wrap:anywhere;line-height:1.8;color:#82a9bc}
+.sas-countdown-detail{display:flex;align-items:flex-start;gap:11px;text-align:right;direction:rtl;line-height:1.9;overflow-wrap:anywhere}
+.sas-countdown-detail>div{min-width:0;flex:1}
+.sas-countdown-detail strong{display:block;color:#dff7ff;margin-bottom:4px}
+.sas-countdown-detail p{margin:5px 0 0}
+.sas-detail-icon{display:grid;place-items:center;flex:none;width:30px;height:30px;border-radius:10px;background:rgba(68,208,241,.12);color:#62e0fa;font-size:20px}
+.sas-metric-value .metric-date{display:block!important;direction:rtl;unicode-bidi:isolate;white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.75;text-align:right}
+.sas-metric-value .metric-date bdi{display:block;unicode-bidi:isolate}
+.sas-metric-value .metric-time{display:block!important;direction:ltr;unicode-bidi:isolate;text-align:right;white-space:normal;line-height:1.7;overflow-wrap:anywhere}
+.sas-metric-value .metric-time bdi{display:block;unicode-bidi:isolate}
+@media(max-width:420px){.sas-countdown-time{font-size:clamp(20px,5vw,28px)}.sas-countdown-foot,.sas-open-countdown #sasCountdownDate{font-size:11px}.sas-countdown-card{min-width:0}.sas-metric-value .metric-date{font-size:13px;line-height:1.8}.sas-metric-value .metric-time{font-size:12px}}
