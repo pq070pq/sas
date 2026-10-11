@@ -1,0 +1,27 @@
+name: PerpEquities Live Coverage Diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/perpequities-provider-pilot
+    paths:
+      - "scripts/diagnose_perpequities_coverage.py"
+      - ".github/workflows/perpequities-live-coverage.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  live-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check live API coverage
+        run: python scripts/diagnose_perpequities_coverage.py
