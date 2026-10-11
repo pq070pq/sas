@@ -2466,3 +2466,56 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @media(prefers-reduced-motion:reduce){
   .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon{animation:none!important}
 }
+
+
+/* SAS PRO: full-width red animated disclaimer strip, with a prominent alert icon */
+.sas-disclaimer-footer .sas-disclaimer-bar{
+  position:relative!important;
+  border:1px solid rgba(255,63,83,.78)!important;
+  border-radius:18px!important;
+  background:linear-gradient(100deg,rgba(42,5,14,.98) 0%,rgba(82,8,22,.96) 48%,rgba(39,5,14,.98) 100%)!important;
+  box-shadow:0 0 0 1px rgba(255,48,70,.10),0 0 24px rgba(255,30,58,.20),inset 0 0 28px rgba(255,45,68,.09)!important;
+  animation:sasFullRedBarPulse 2.4s ease-in-out infinite!important;
+}
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge{
+  background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;
+  color:#ffbdc5!important;padding:3px 8px!important;gap:8px!important;min-height:0!important;
+}
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon{
+  width:64px!important;height:64px!important;min-width:64px!important;min-height:64px!important;flex:0 0 64px!important;
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  border:2px solid rgba(255,85,105,.90)!important;border-radius:50%!important;
+  background:radial-gradient(circle,rgba(255,35,63,.26),rgba(255,30,55,.06) 70%,transparent 72%)!important;
+  box-shadow:0 0 14px rgba(255,35,60,.35),inset 0 0 12px rgba(255,40,65,.18)!important;
+  animation:sasAlertPulse 1.35s ease-out infinite!important;
+}
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon .sas-managed-icon-image{
+  width:54px!important;height:54px!important;min-width:54px!important;min-height:54px!important;
+  max-width:54px!important;max-height:54px!important;object-fit:contain!important;
+  transform:scale(1.08)!important;filter:drop-shadow(0 0 7px rgba(255,45,65,.75))!important;
+}
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon:not(.has-managed-icon){
+  font-size:38px!important;line-height:1!important;color:#ff5268!important;
+}
+.sas-disclaimer-footer .sas-disclaimer-bar .sas-disclaimer-track span{
+  color:#fff0f2!important;text-shadow:0 0 8px rgba(255,65,83,.20)!important;
+}
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-live{color:#ff9eaa!important}
+@keyframes sasFullRedBarPulse{
+  0%,100%{box-shadow:0 0 0 1px rgba(255,48,70,.10),0 0 18px rgba(255,30,58,.16),inset 0 0 24px rgba(255,45,68,.06)}
+  50%{box-shadow:0 0 0 2px rgba(255,48,70,.18),0 0 34px rgba(255,30,58,.34),inset 0 0 32px rgba(255,45,68,.13)}
+}
+@media(max-width:600px){
+ .sas-disclaimer-footer .sas-disclaimer-bar{border-radius:15px!important}
+ .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge{gap:5px!important;padding:2px 4px!important;font-size:10px!important}
+ .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon{
+  width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;flex-basis:48px!important;border-width:1.5px!important
+ }
+ .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon .sas-managed-icon-image{
+  width:42px!important;height:42px!important;min-width:42px!important;min-height:42px!important;max-width:42px!important;max-height:42px!important
+ }
+ .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon:not(.has-managed-icon){font-size:30px!important}
+}
+@media(prefers-reduced-motion:reduce){
+ .sas-disclaimer-footer .sas-disclaimer-bar,.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon{animation:none!important}
+}
