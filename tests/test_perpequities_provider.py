@@ -16,7 +16,6 @@ def _payload(**overrides):
             "volume": {"observedMarkets": 1, "totalMarkets": 2},
             "openInterest": {"observedMarkets": 1, "totalMarkets": 2},
         },
-        "marketDataAt": "2026-10-11T11:59:00Z",
         "url": "https://perpequities.com/stocks/oss-perp",
         "venues": [{
             "venue": "example",
@@ -31,7 +30,11 @@ def _payload(**overrides):
         }],
     }
     data.update(overrides.pop("data", {}))
-    payload = {"generatedAt": "2026-10-11T12:00:00Z", "data": data}
+    payload = {
+        "generatedAt": "2026-10-11T12:00:00Z",
+        "marketDataAt": "2026-10-11T11:59:00Z",
+        "data": data,
+    }
     payload.update(overrides)
     return payload, now
 
@@ -47,13 +50,23 @@ def test_normalize_returns_contract_context_and_attribution():
     assert result["attribution"] == "Data: PerpEquities (perpequities.com)"
 
 
+def test_normalize_finds_symbol_in_bulk_snapshot():
+    payload, now = _payload(data=[
+        {"ticker": "AAPL", "price": 200},
+        _payload()[0]["data"],
+    ])
+    result = normalize_asset(payload, "OSS", now)
+    assert result is not None
+    assert result["symbol"] == "OSS"
+
+
 def test_normalize_rejects_wrong_ticker():
     payload, now = _payload(data={"ticker": "AAPL"})
     assert normalize_asset(payload, "OSS", now) is None
 
 
 def test_normalize_rejects_missing_market_timestamp():
-    payload, now = _payload(data={"marketDataAt": None})
+    payload, now = _payload(marketDataAt=None)
     assert normalize_asset(payload, "OSS", now) is None
 
 
@@ -63,7 +76,7 @@ def test_normalize_rejects_stale_snapshot():
 
 
 def test_normalize_rejects_old_market_data():
-    payload, now = _payload(data={"marketDataAt": "2026-10-11T11:00:00Z"})
+    payload, now = _payload(marketDataAt="2026-10-11T11:00:00Z")
     assert normalize_asset(payload, "OSS", now) is None
 
 
