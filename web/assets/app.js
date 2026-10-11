@@ -1895,7 +1895,7 @@ load();
 
 
 /* Editable gift notification template managed by SAS ADMIN. */
-const DEFAULT_GIFT_MESSAGE_TEMPLATE = "🎁 <b>هدية خاصة من {brand}</b>\\n\\n🎉 <b>تهانينا!</b> تم تمديد اشتراكك كهدية تقدير لمدة <b>{days} يومًا</b>.\\n📅 تاريخ الانتهاء الجديد: <b>{expiry_date}</b>\\n\\nشكرًا لثقتك بنا، ونتمنى لك تجربة موفقة مع {brand} 💎";
+const DEFAULT_GIFT_MESSAGE_TEMPLATE = "🎁 هدية اشتراك من {brand}\\n\\nأهلًا بك! 🎉\\nتم تمديد اشتراكك كهدية لمدة {days} يومًا.\\nتاريخ انتهاء اشتراكك الجديد: {expiry_date} 📅\\n\\nشكرًا لثقتك بنا، ونتمنى لك تجربة رائعة مع {brand} 💎";
 function renderGiftMessagePreview(){
  const field=document.getElementById('giftMessageTemplate');
  const preview=document.getElementById('giftMessagePreview');
