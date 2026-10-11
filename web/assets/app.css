@@ -2007,3 +2007,44 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-metric-value .metric-time{display:block!important;direction:ltr;unicode-bidi:isolate;text-align:right;white-space:normal;line-height:1.7;overflow-wrap:anywhere}
 .sas-metric-value .metric-time bdi{display:block;unicode-bidi:isolate}
 @media(max-width:420px){.sas-countdown-time{font-size:clamp(20px,5vw,28px)}.sas-countdown-foot,.sas-open-countdown #sasCountdownDate{font-size:11px}.sas-countdown-card{min-width:0}.sas-metric-value .metric-date{font-size:13px;line-height:1.8}.sas-metric-value .metric-time{font-size:12px}}
+
+
+/* Single interactive radar showcase followed by the opportunity cards */
+.sas-radar-showcase{display:grid;grid-template-columns:minmax(130px,.72fr) minmax(0,1.6fr);align-items:center;gap:clamp(14px,3vw,28px);margin:24px 0 14px;padding:clamp(16px,3vw,24px);border:1px solid rgba(45,190,222,.32);border-radius:25px;background:radial-gradient(ellipse at 15% 45%,rgba(0,139,171,.13),transparent 48%),linear-gradient(145deg,rgba(4,25,40,.96),rgba(1,13,25,.98));box-shadow:inset 0 0 28px rgba(22,157,189,.06),0 14px 34px rgba(0,0,0,.12);overflow:hidden}
+.sas-radar-visual-wrap{display:grid;place-items:center;min-width:0}
+.sas-radar-visual{position:relative;isolation:isolate;display:block;width:min(100%,210px);aspect-ratio:1;border:1px solid rgba(72,216,247,.35);border-radius:50%;background:radial-gradient(circle,rgba(15,113,143,.24) 0%,rgba(2,30,47,.84) 67%,rgba(1,15,27,.98) 100%);color:#64e3ff;overflow:hidden;cursor:pointer;box-shadow:0 0 24px rgba(27,184,220,.12),inset 0 0 22px rgba(29,189,226,.1);transition:transform .2s,border-color .2s}
+.sas-radar-visual:hover{transform:scale(1.025);border-color:#61e4ff}
+.sas-radar-visual:focus-visible,.sas-radar-scan-btn:focus-visible{outline:2px solid #72e9ff;outline-offset:3px}
+.sas-radar-ring{position:absolute;border:1px solid rgba(81,214,246,.3);border-radius:50%;inset:14%}
+.sas-radar-ring.ring-two{inset:29%;border-color:rgba(81,214,246,.32)}
+.sas-radar-ring.ring-three{inset:44%;border-color:rgba(81,214,246,.35)}
+.sas-radar-cross{position:absolute;background:rgba(81,214,246,.19)}
+.sas-radar-cross.cross-h{height:1px;left:0;right:0;top:50%}
+.sas-radar-cross.cross-v{width:1px;top:0;bottom:0;left:50%}
+.sas-radar-sweep{position:absolute;z-index:1;inset:0;border-radius:50%;background:conic-gradient(from 0deg,transparent 0deg,transparent 286deg,rgba(45,217,255,.02) 302deg,rgba(45,217,255,.32) 350deg,rgba(45,217,255,.05) 360deg);animation:sasRadarSweep 4s linear infinite;transform-origin:center}
+.sas-radar-center{position:absolute;z-index:3;inset:40%;display:grid;place-items:center;border-radius:50%;background:rgba(21,164,198,.12);box-shadow:0 0 18px rgba(61,223,255,.15)}
+.sas-radar-center svg{width:100%;height:100%;padding:5px}
+.sas-radar-dot{position:absolute;z-index:2;width:7px;height:7px;border-radius:50%;background:#70f4c8;box-shadow:0 0 10px #3de8c4;animation:sasRadarPulse 1.8s ease-in-out infinite}
+.sas-radar-dot.dot-one{top:28%;left:63%}.sas-radar-dot.dot-two{top:63%;left:28%;animation-delay:.55s}.sas-radar-dot.dot-three{top:72%;left:70%;animation-delay:1.05s}
+.sas-radar-copy{min-width:0;text-align:right;direction:rtl}
+.sas-radar-copy .eyebrow{color:#56d8f5;letter-spacing:2px;font-size:11px;font-weight:850}
+.sas-radar-copy h2{margin:7px 0 5px;font-size:clamp(21px,4vw,30px);line-height:1.45;color:#effaff}
+.sas-radar-copy p{margin:0;color:#8eafc1;font-size:13px;line-height:1.9}
+.sas-radar-status{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;color:#80a9bb;font-size:12px}
+.sas-radar-status i{width:8px;height:8px;flex:none;border-radius:50%;background:#31e4ae;box-shadow:0 0 11px rgba(49,228,174,.65);animation:sasRadarPulse 1.6s ease-in-out infinite}
+.sas-radar-status b{margin-inline-start:auto;color:#e4f9ff;font-size:13px}
+.sas-radar-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:14px}
+.sas-radar-scan-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:9px 13px;border:1px solid rgba(70,211,242,.42);border-radius:12px;background:rgba(6,88,111,.27);color:#a8efff;font-weight:750;font-size:12px;cursor:pointer;transition:background .2s,border-color .2s}
+.sas-radar-scan-btn:hover{background:rgba(6,118,145,.4);border-color:#5de5ff}
+.sas-radar-scan-btn span{font-size:18px;line-height:1}
+.sas-radar-actions .sas-view-all{min-height:40px;padding:8px 12px;font-size:12px}
+#dashboardRadar{scroll-margin-top:20px}
+#dashboardRadar .stock-card{animation:sasOpportunityReveal .45s ease both}
+#dashboardRadar .stock-card:nth-child(2){animation-delay:.07s}
+#dashboardRadar .stock-card:nth-child(3){animation-delay:.14s}
+#dashboardRadar .stock-card:nth-child(4){animation-delay:.21s}
+@keyframes sasRadarSweep{to{transform:rotate(360deg)}}
+@keyframes sasRadarPulse{0%,100%{opacity:.55;transform:scale(.85)}50%{opacity:1;transform:scale(1.18)}}
+@keyframes sasOpportunityReveal{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:520px){.sas-radar-showcase{grid-template-columns:96px minmax(0,1fr);gap:13px;padding:14px;border-radius:20px}.sas-radar-visual{width:96px}.sas-radar-ring{inset:12%}.sas-radar-ring.ring-two{inset:29%}.sas-radar-ring.ring-three{inset:45%}.sas-radar-copy h2{font-size:20px}.sas-radar-copy p{font-size:11px;line-height:1.7}.sas-radar-copy .eyebrow{font-size:9px;letter-spacing:1px}.sas-radar-actions{gap:6px}.sas-radar-scan-btn,.sas-radar-actions .sas-view-all{font-size:10px;min-height:35px;padding:7px 9px}.sas-radar-status{font-size:10px;gap:6px}.sas-radar-status b{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.sas-radar-sweep,.sas-radar-dot,.sas-radar-status i,#dashboardRadar .stock-card{animation:none!important}}
