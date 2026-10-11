@@ -420,7 +420,12 @@ function renderMacro(){
  }).filter(Boolean);
  const cards=rows.map(x=>{
   const valid=Number(x.price)>0;
-  return '<div class="macro-card '+(valid?'':'macro-unavailable')+'"><span>'+escHtml(x.label)+'</span><b>'+ (valid?money(x.price):'غير متاح') +'</b><em class="'+(Number(x.change_pct)>=0?'up':'down')+'">'+pct(x.change_pct)+'</em><small class="macro-source">'+escHtml(x.source||'غير متوفر')+'</small>'+(x.diagnostic?'<small class="macro-diagnostic">'+escHtml(x.diagnostic)+'</small>':'')+'</div>';
+  const labelKey=String(x.label||'').toLowerCase();
+  const iconSlot=labelKey==='btc'?'icon-bitcoin':labelKey==='gold'?'icon-gold':null;
+  const iconFallback=labelKey==='btc'?'₿':labelKey==='gold'?'🪙':'';
+  const iconUrl=iconSlot?terminalState.siteMedia?.[iconSlot]?.url:null;
+  const iconHtml=iconSlot?'<span class="macro-card-icon" aria-hidden="true">'+(iconUrl?'<img src="'+esc(iconUrl)+'" alt="">':iconFallback)+'</span>':'';
+  return '<div class="macro-card '+(valid?'':'macro-unavailable')+'"'+(iconSlot?' data-macro-label="'+labelKey+'"':'')+'>'+iconHtml+'<span>'+escHtml(x.label)+'</span><b>'+ (valid?money(x.price):'غير متاح') +'</b><em class="'+(Number(x.change_pct)>=0?'up':'down')+'">'+pct(x.change_pct)+'</em><small class="macro-source">'+escHtml(x.source||'غير متوفر')+'</small>'+(x.diagnostic?'<small class="macro-diagnostic">'+escHtml(x.diagnostic)+'</small>':'')+'</div>';
  }).join('');
  document.getElementById('macroGrid').innerHTML=cards || '<div class="empty-state">لا تتوفر بيانات السوق حاليًا.</div>';
  const ticker=document.getElementById('marketTicker');
@@ -1062,7 +1067,9 @@ const SITE_MEDIA_MANAGED_ITEMS=[
  {slot:'icon-dock-watch',label:'أيقونة الشريط السفلي: المفضلة',fallback:'★',target:'.sas-mobile-dock button:nth-child(4) span'},
  {slot:'icon-dock-account',label:'أيقونة الشريط السفلي: حسابي',fallback:'♙',target:'.sas-mobile-dock button:nth-child(5) span'},
  {slot:'icon-live-movers',label:'أيقونة بطاقة أعلى الأسهم حركة',fallback:'📈',target:'.sas-insight-grid .sas-insight-panel .sas-insight-title > span'},
- {slot:'icon-perp-movers',label:'أيقونة بطاقة الأكثر تحركًا خلال 24 ساعة',fallback:'↕️',target:'.sas-perp-movers-panel .sas-insight-title > span'}
+ {slot:'icon-perp-movers',label:'أيقونة بطاقة الأكثر تحركًا خلال 24 ساعة',fallback:'↕️',target:'.sas-perp-movers-panel .sas-insight-title > span'},
+ {slot:'icon-bitcoin',label:'أيقونة البتكوين — مؤشرات السوق',fallback:'₿',target:'.macro-card[data-macro-label="btc"] .macro-card-icon'},
+ {slot:'icon-gold',label:'أيقونة الذهب — مؤشرات السوق',fallback:'🪙',target:'.macro-card[data-macro-label="gold"] .macro-card-icon'}
 ];
 const SITE_MEDIA_ICON_TARGETS=Object.fromEntries(SITE_MEDIA_MANAGED_ITEMS.map(item=>[item.slot,item.target]));
 function renderMediaAdminCards(items={}){
@@ -1082,6 +1089,7 @@ function renderMediaAdminCards(items={}){
 async function loadSiteMedia(){
  const data=await api('/api/site-media');
  const items=data?.items||{};
+ terminalState.siteMedia=items;
  const hero=document.querySelector('.terminal-hero-banner > img');
  if(hero){
   if(!hero.dataset.mediaOriginalSrc)hero.dataset.mediaOriginalSrc=hero.getAttribute('src')||'/assets/saspro-banner.webp';
