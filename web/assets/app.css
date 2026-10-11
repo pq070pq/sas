@@ -2519,3 +2519,16 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @media(prefers-reduced-motion:reduce){
  .sas-disclaimer-footer .sas-disclaimer-bar,.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon{animation:none!important}
 }
+
+
+/* Remove the circular ring behind the disclaimer icon; keep the full red bar and large icon. */
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon{
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  animation:none!important;
+}
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon .sas-managed-icon-image{
+  filter:drop-shadow(0 0 8px rgba(255,45,65,.72))!important;
+}
