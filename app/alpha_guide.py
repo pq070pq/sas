@@ -50,9 +50,13 @@ def _completed_daily_rows(candles, now=None):
             if stamp.date() == now.date() and now.time() < time(16, 15):
                 rows.pop()
         except (TypeError, ValueError, OverflowError):
-            # Do not guess timestamp formats; downstream will identify the data
-            # as timestamp-unverified rather than inventing a completed bar.
             pass
+    else:
+        # If the feed omits timestamps, conservatively exclude its last bar
+        # during regular trading hours rather than treating an in-progress
+        # daily candle as a completed signal.
+        if now.weekday() < 5 and time(9, 30) <= now.time() < time(16, 15):
+            rows.pop()
     return rows
 
 
