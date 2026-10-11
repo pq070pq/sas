@@ -57,6 +57,13 @@ async def scheduler():
             await evaluate_radar_outcomes()
 
             try:
+                from .radar_forward_validation import evaluate_forward_validation
+                forward_stats = await evaluate_forward_validation()
+                logger.info("Radar forward validation: %s", forward_stats)
+            except Exception:
+                logger.exception("Radar forward validation failed; live radar continues.")
+
+            try:
                 learning_profile = await learn_radar_profile()
                 logger.info(
                     "Radar self-learning: samples=%s win_rate=%.1f%% rvol_floor=%.2f change_floor=%.2f",
