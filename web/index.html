@@ -88,6 +88,24 @@
   </div>
 </div>
     <section class="sas-market-strip is-closed" aria-label="حالة السوق الأمريكي"><div class="sas-market-main"><span class="sas-market-live-dot"></span><div><strong id="sasMarketHeadline">جاري التحقق من حالة السوق</strong><small id="sasMarketSubline">توقيت الرياض • حالة مباشرة من النظام</small></div></div><div class="sas-market-clock"><span class="sas-market-clock-icon">◷</span><div><small>الوقت في الرياض</small><strong id="sasMarketClock">—</strong></div></div><div class="sas-session-mini"><span>الجلسة الأمريكية</span><strong id="sasSessionLabel">—</strong></div><span id="radarStatusText" hidden>جاري التحقق من حالة السوق والرصد...</span></section>
+        <section id="sasOpenCountdown" class="sas-open-countdown" aria-label="العد التنازلي لافتتاح السوق الأمريكي">
+          <div class="sas-countdown-heading"><div><span class="eyebrow">SAS PRO • MARKET OPEN</span><h2>العد التنازلي لافتتاح السوق</h2><small id="sasCountdownDate">موعد الجلسة القادمة بتوقيت الرياض</small></div><span class="sas-countdown-live"><i></i> تحديث مباشر</span></div>
+          <div class="sas-countdown-cards">
+            <button type="button" class="sas-countdown-card is-selected" data-countdown="pre" aria-pressed="true">
+              <span class="sas-countdown-card-top"><span>🌅</span><span>السوق قبل الافتتاح</span></span>
+              <strong class="sas-countdown-time" id="sasPreCountdown">--:--:--</strong>
+              <span class="sas-countdown-label" id="sasPreCountdownLabel">حتى يبدأ التداول قبل الافتتاح</span>
+              <span class="sas-countdown-foot" id="sasPreCountdownWhen">04:00 صباحًا بتوقيت نيويورك</span>
+            </button>
+            <button type="button" class="sas-countdown-card" data-countdown="regular" aria-pressed="false">
+              <span class="sas-countdown-card-top"><span>🔔</span><span>الافتتاح الرسمي</span></span>
+              <strong class="sas-countdown-time" id="sasRegularCountdown">--:--:--</strong>
+              <span class="sas-countdown-label" id="sasRegularCountdownLabel">حتى افتتاح الجلسة الرسمية</span>
+              <span class="sas-countdown-foot" id="sasRegularCountdownWhen">09:30 صباحًا بتوقيت نيويورك</span>
+            </button>
+          </div>
+          <div class="sas-countdown-detail" id="sasCountdownDetail" aria-live="polite">اختر أحد العدّادين لعرض تفاصيل موعد الافتتاح.</div>
+        </section>
         <div class="metric-grid" id="dashboardMetrics"></div>
         <div class="sas-feature-head"><div><span class="eyebrow">SAS PRO RADAR</span><h2>أهم الفرص اليوم</h2><small>الأسهم المعروضة من نتائج الرادار الفعلية فقط</small></div><button class="sas-view-all" onclick="switchTerminalTab('radar')">كل النتائج <span>←</span></button></div><div class="sas-quick-filters" aria-label="اختصارات الرادار"><button class="is-active" onclick="switchTerminalTab('radar')"><span>💎</span> فرص اليوم</button><button onclick="switchTerminalTab('radar')"><span>🔥</span> أعلى حركة</button><button onclick="switchTerminalTab('radar')"><span>🚀</span> الاختراقات</button><button onclick="switchTerminalTab('radar')"><span>📊</span> الأسهم الواعدة</button><button onclick="switchTerminalTab('search')"><span>📰</span> بحث وتحليل</button></div><div class="section-title"><b>🔥 أحدث الفرص / آخر رصد محفوظ</b><button onclick="switchTerminalTab('radar')">عرض كل الرصد</button></div>
         <div id="dashboardRadar" class="stock-grid"><div class="loading">جاري التحميل...</div></div>
