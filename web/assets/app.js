@@ -1164,8 +1164,8 @@ async function continueTerms(){
     me={...me,terms_accepted:true,pro:true,trial_available:false};
     document.getElementById('subscriptionPage').hidden=true;
     document.getElementById('terminalPage').hidden=false;
-    await initTerminal();
     showSASWelcome();
+    await initTerminal();
     return;
    }
    if(accepted.ok){
