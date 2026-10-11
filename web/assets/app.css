@@ -2288,3 +2288,26 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @keyframes sasScanProgress{from{width:18%;transform:translateX(0)}to{width:78%;transform:translateX(24%)}}
 @keyframes sasScanAppear{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.sas-radar-showcase .radar-scan-progress,.sas-radar-showcase .radar-scan-progress-track i{animation:none!important}}
+
+/* Clear account verification states: never leave the user staring at placeholder dashes */
+.account-loading{display:inline-flex;align-items:center;justify-content:flex-start;gap:8px;color:#a9c3cd!important}
+.account-loading i{display:inline-block;width:9px;height:9px;flex:0 0 9px;border-radius:50%;background:#59d7e8;box-shadow:0 0 0 4px rgba(89,215,232,.12),0 0 12px rgba(89,215,232,.5);animation:sasAccountPulse 1.25s ease-in-out infinite}
+.status-grid[aria-busy="true"]{opacity:.72;transition:opacity .2s}
+.account-load-error{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;padding:12px 13px;border:1px solid rgba(210,165,111,.3);border-radius:14px;background:rgba(68,47,25,.19);color:#d8c5ad;font-size:12px;line-height:1.8}
+.account-load-error[hidden]{display:none}
+.account-load-error button{flex:0 0 auto;border:1px solid rgba(147,190,201,.35);border-radius:11px;padding:8px 11px;background:rgba(100,154,170,.11);color:#dff8fc;font:inherit;font-weight:800}
+.account-load-error button:active{transform:scale(.98)}
+.status-grid strong{overflow-wrap:anywhere;line-height:1.65}
+.status-grid strong.ok{color:#8ee0b3}
+.status-grid strong.bad{color:#c9dbe0}
+@keyframes sasAccountPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(.82)}}
+@media(max-width:540px){
+ .section-head{align-items:flex-start}
+ .section-head span{max-width:60%;text-align:left;line-height:1.8}
+ .status-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .status-grid div{min-width:0;padding:12px 11px}
+ .status-grid strong{font-size:12px}
+ .account-load-error{align-items:stretch;flex-direction:column;text-align:center}
+ .account-load-error button{width:100%}
+}
+@media(prefers-reduced-motion:reduce){.account-loading i{animation:none}}
