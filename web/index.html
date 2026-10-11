@@ -28,25 +28,27 @@
           </div>
 
     <section class="status-card">
-      <div class="section-head"><b>👤 حسابك</b><span id="userName" class="account-loading" role="status" aria-live="polite"><i aria-hidden="true"></i> جارٍ التحقق من حسابك</span></div>
+      <div class="section-head"><b><span class="section-title-icon" aria-hidden="true">👤</span> حسابك</b><span id="userName" class="account-loading" role="status" aria-live="polite"><i aria-hidden="true"></i> جارٍ التحقق من حسابك</span></div>
       <div id="accountLoadError" class="account-load-error" hidden role="alert"><span id="accountLoadErrorText">تعذر تحميل بيانات الحساب.</span><button id="accountRetryBtn" type="button" onclick="retryAccountLoad()">إعادة المحاولة ↻</button></div>
       <div class="status-grid" id="subscriptionStatusGrid" aria-busy="true">
-        <div><small>حالة الاشتراك</small><strong id="subStatus">—</strong></div>
-        <div><small>الباقة</small><strong id="subPlan">—</strong></div>
-        <div><small>البداية</small><strong id="subStart">—</strong></div>
-        <div><small>الانتهاء</small><strong id="subEnd">—</strong></div>
-        <div><small>المتبقي</small><strong id="subDays">—</strong></div>
-        <div><small>التجربة</small><strong id="trialState">—</strong></div>
+        <div class="status-tile"><small><span class="status-icon" aria-hidden="true">🔐</span> حالة الاشتراك</small><strong id="subStatus">—</strong></div>
+        <div class="status-tile"><small><span class="status-icon" aria-hidden="true">💎</span> الباقة</small><strong id="subPlan">—</strong></div>
+        <div class="status-tile"><small><span class="status-icon" aria-hidden="true">🚀</span> البداية</small><strong id="subStart">—</strong></div>
+        <div class="status-tile"><small><span class="status-icon" aria-hidden="true">📅</span> الانتهاء</small><strong id="subEnd">—</strong></div>
+        <div class="status-tile"><small><span class="status-icon" aria-hidden="true">⏳</span> المتبقي</small><strong id="subDays">—</strong></div>
+        <div class="status-tile"><small><span class="status-icon" aria-hidden="true">🎁</span> التجربة</small><strong id="trialState">—</strong></div>
       </div>
       <div class="access-actions"><button id="channelBtn" class="channel-btn" hidden onclick="openChannel()">📡 دخول مباشر إلى قناة SAS PRO</button></div>
     </section>
 
-    <section class="trial-card" id="trialCard">
-      <div>
-        <b>🎁 ابدأ تجربتك المجانية</b>
-        <p>3 أيام • انضمام للقناة بطلب دخول • تتم الموافقة تلقائيًا عند تفعيل التجربة.</p>
+    <section class="trial-card" id="trialCard" aria-labelledby="trialTitle">
+      <div class="trial-card-content">
+        <span class="trial-crown" aria-hidden="true">✦</span>
+        <b id="trialTitle">🎁 ابدأ تجربتك المجانية</b>
+        <p>اكتشف أدوات SAS PRO مجانًا، ثم قرر الباقة المناسبة لك.</p>
+        <span class="trial-detail"><span aria-hidden="true">⚡</span> <span id="trialDurationLabel">3 أيام تجريبية</span> <span class="trial-dot">•</span> تفعيل بعد الموافقة على الشروط</span>
       </div>
-      <button id="trialBtn" onclick="openTerms('trial')">ابدأ التجربة المجانية</button>
+      <button id="trialBtn" onclick="openTerms('trial')"><span aria-hidden="true">🚀</span> ابدأ تجربتك المجانية <span aria-hidden="true">←</span></button>
     </section>
 
     <section class="plans" id="paidPlansSection">
