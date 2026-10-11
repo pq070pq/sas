@@ -14,11 +14,20 @@
 <div id="sasWelcomeOverlay" class="sas-welcome-overlay" hidden aria-live="polite" role="status">
   <div class="sas-fireworks" aria-hidden="true"></div>
   <div class="sas-welcome-card">
-    <div class="sas-welcome-kicker">WELCOME TO</div>
-    <h1>SAS PRO</h1>
-    <p>أهلًا بك في عالم الرصد الذكي</p>
-    <span>فرص السوق بين يديك 📡</span>
-    <div class="sas-welcome-progress"><i></i></div>
+    <div id="sasWelcomeGreeting">
+      <div class="sas-welcome-kicker">WELCOME TO</div>
+      <h1>SAS PRO</h1>
+      <p>أهلًا بك في عالم الرصد الذكي</p>
+      <span>فرص السوق بين يديك 📡</span>
+      <div class="sas-welcome-progress"><i></i></div>
+    </div>
+    <div id="sasWelcomeJoin" class="sas-welcome-join" hidden>
+      <div class="sas-welcome-join-icon" aria-hidden="true">📡</div>
+      <h2>انضم إلى قناة SAS PRO</h2>
+      <p>تابع التنبيهات والفرص وتحديثات الرادار مباشرة عبر القناة.</p>
+      <button type="button" id="sasWelcomeJoinBtn" onclick="joinFromWelcome()">🚀 الانضمام للقناة</button>
+      <button type="button" class="sas-welcome-skip" onclick="dismissWelcome()">المتابعة إلى التطبيق</button>
+    </div>
   </div>
 </div>
 <div class="app" id="app">
