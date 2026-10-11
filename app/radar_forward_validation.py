@@ -37,6 +37,14 @@ def _pct(entry, close):
     return (float(close) / float(entry) - 1.0) * 100.0
 
 
+def _aligned_forward_days(stock_closes, spy_closes, signal_day):
+    """Return dates present in both series, after the signal session."""
+    return sorted(
+        day for day in (set(stock_closes) & set(spy_closes))
+        if day > str(signal_day)[:10]
+    )
+
+
 async def evaluate_forward_validation(max_signals: int = 40):
     """Update 3/5/10-session returns once per NY trading date.
 
@@ -102,8 +110,9 @@ async def evaluate_forward_validation(max_signals: int = 40):
             stock, source = histories.get(signal.symbol.upper(), ({}, "unavailable"))
             spy, _ = histories.get("SPY", ({}, "unavailable"))
             signal_day = str(signal.session_date)[:10]
-            stock_days = sorted(day for day in stock if day > signal_day)
-            spy_days = sorted(day for day in spy if day > signal_day)
+            # Compare stock and SPY on exactly the same completed trading dates.
+            # Independent date lists can drift when one provider misses a candle.
+            aligned_days = _aligned_forward_days(stock, spy, signal_day)
             if row.entry_spy_close is None:
                 row.entry_spy_close = spy.get(signal_day)
             row.data_source = source
@@ -113,10 +122,14 @@ async def evaluate_forward_validation(max_signals: int = 40):
                 spy_ret_field = f"spy_return_{horizon}_pct"
                 excess_field = f"excess_{horizon}_pct"
                 # Count only actual completed trading dates after the signal date.
-                if getattr(row, close_field) is not None or len(stock_days) < horizon or len(spy_days) < horizon:
+                if getattr(row, close_field) is not None or len(aligned_days) < horizon:
                     continue
-                stock_close = stock.get(stock_days[horizon - 1])
-                spy_close = spy.get(spy_days[horizon - 1])
+                if row.entry_spy_close is None:
+                    # Do not report excess return unless the benchmark baseline is real.
+                    continue
+                checkpoint_day = aligned_days[horizon - 1]
+                stock_close = stock.get(checkpoint_day)
+                spy_close = spy.get(checkpoint_day)
                 stock_ret = _pct(row.entry_price, stock_close)
                 spy_ret = _pct(row.entry_spy_close, spy_close)
                 if stock_ret is None or spy_ret is None:
