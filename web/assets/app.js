@@ -369,7 +369,7 @@ function renderMacro(){
  document.getElementById('macroGrid').innerHTML=cards || '<div class="empty-state">لا تتوفر بيانات السوق حاليًا.</div>';
  const ticker=document.getElementById('marketTicker');
  if(ticker){
-   ticker.innerHTML=rows.map(x=>{
+   const tickerItems=rows.map(x=>{
      const valid=Number(x.price)>0;
      const cls=Number(x.change_pct)>=0?'up':'down';
      const cachedKey='saspro_macro_'+String(x.label).replace(/\s+/g,'_');
@@ -387,12 +387,18 @@ function renderMacro(){
        }catch(e){}
      }
      return '<div class="ticker-item"><span class="ticker-label">'+escHtml(x.label)+'</span><b>'+displayPrice+'</b><em class="'+cls+'">'+displayChange+'</em></div>';
-   }).join('') || '<div class="empty-state">لا تتوفر أسعار السوق حاليًا.</div>';
+   }).join('');
+   // Duplicate the ticker run to keep the ribbon continuously filled while scrolling.
+   ticker.innerHTML=tickerItems
+     ? '<div class="ticker-run">'+tickerItems+'</div><div class="ticker-run" aria-hidden="true">'+tickerItems+'</div>'
+     : '<div class="empty-state">لا تتوفر أسعار السوق حاليًا.</div>';
+   ticker.classList.toggle('ticker-empty',!tickerItems);
  }
 }
 async function runRadar(show=true){
  if(terminalState.radarScanning)return;
  terminalState.radarScanning=true;
+ document.querySelectorAll('.sas-radar-showcase,.sas-radar-visual,.terminal-page').forEach(el=>el.classList.add('sas-radar-scanning'));
  const button=document.getElementById('radarScanBtn');
  const grid=document.getElementById('radarGrid');
  const startedAt=Date.now();
@@ -477,6 +483,7 @@ async function runRadar(show=true){
    document.getElementById('radarScanProgress')?.remove();
    if(button){button.disabled=false;button.textContent='🔎 مسح الأسهم';}
    terminalState.radarScanning=false;
+   document.querySelectorAll('.sas-radar-showcase,.sas-radar-visual,.terminal-page').forEach(el=>el.classList.remove('sas-radar-scanning'));
  }
 }
 function renderRadar(){renderCards(document.getElementById('radarGrid'),terminalState.radar);}

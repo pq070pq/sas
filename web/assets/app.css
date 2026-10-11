@@ -2048,3 +2048,21 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @keyframes sasOpportunityReveal{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:520px){.sas-radar-showcase{grid-template-columns:96px minmax(0,1fr);gap:13px;padding:14px;border-radius:20px}.sas-radar-visual{width:96px}.sas-radar-ring{inset:12%}.sas-radar-ring.ring-two{inset:29%}.sas-radar-ring.ring-three{inset:45%}.sas-radar-copy h2{font-size:20px}.sas-radar-copy p{font-size:11px;line-height:1.7}.sas-radar-copy .eyebrow{font-size:9px;letter-spacing:1px}.sas-radar-actions{gap:6px}.sas-radar-scan-btn,.sas-radar-actions .sas-view-all{font-size:10px;min-height:35px;padding:7px 9px}.sas-radar-status{font-size:10px;gap:6px}.sas-radar-status b{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.sas-radar-sweep,.sas-radar-dot,.sas-radar-status i,#dashboardRadar .stock-card{animation:none!important}}
+
+/* Continuous market ribbon: duplicate tracks prevent blank gaps while scrolling. */
+.market-ticker{animation:none;min-width:0;width:max-content;gap:0;will-change:transform}
+.market-ticker .ticker-run{display:flex;flex:0 0 auto;align-items:center;gap:0;white-space:nowrap;animation:marketTickerSeamless 32s linear infinite}
+.market-ticker .ticker-run[aria-hidden="true"]{pointer-events:none}
+.market-ticker-wrap:hover .ticker-run{animation-play-state:paused}
+@keyframes marketTickerSeamless{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+.market-ticker.ticker-empty{width:100%;animation:none}
+.market-ticker.ticker-empty .ticker-run{animation:none}
+@media(prefers-reduced-motion:reduce){.market-ticker .ticker-run{animation-duration:90s}}
+/* The existing radar becomes a live visual progress indicator during scanning. */
+.sas-radar-showcase.sas-radar-scanning{border-color:rgba(71,225,255,.8);box-shadow:0 0 0 1px rgba(39,204,239,.12),0 0 34px rgba(25,197,239,.18),inset 0 0 32px rgba(22,157,189,.12)}
+.sas-radar-scanning .sas-radar-sweep{animation-duration:1.15s;background:conic-gradient(from 0deg,transparent 0deg,transparent 265deg,rgba(45,217,255,.06) 285deg,rgba(45,217,255,.62) 350deg,rgba(45,217,255,.1) 360deg)}
+.sas-radar-scanning .sas-radar-dot{animation-duration:.65s;box-shadow:0 0 14px #3de8ff}
+.sas-radar-scanning .sas-radar-status i{background:#45f4ff;box-shadow:0 0 12px #45f4ff}
+.radar-scan-progress{border:1px solid rgba(63,218,255,.34);border-radius:14px;background:linear-gradient(120deg,rgba(4,42,60,.96),rgba(2,15,27,.98));color:#e5faff;box-shadow:0 0 24px rgba(31,189,226,.1)}
+.radar-scan-progress .radar-scan-stage{display:inline-block;margin-top:9px;color:#69e8ff;font-weight:800}
+.radar-scan-progress .radar-scan-elapsed{display:inline-block;margin-top:5px;color:#9cb8cb}
