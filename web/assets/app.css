@@ -2532,3 +2532,50 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon .sas-managed-icon-image{
   filter:drop-shadow(0 0 8px rgba(255,45,65,.72))!important;
 }
+
+
+/* Compact outlined label beside the alert icon; never overlay or cover the icon. */
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge{
+  display:inline-flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:10px!important;
+  padding:4px 8px!important;
+  min-width:max-content!important;
+  white-space:nowrap!important;
+  overflow:visible!important;
+}
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge > span:not(.disclaimer-icon),
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-label{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  position:relative!important;
+  z-index:2!important;
+  padding:7px 12px!important;
+  border:1px solid rgba(255,104,122,.72)!important;
+  border-radius:10px!important;
+  background:rgba(48,8,18,.72)!important;
+  color:#ffd3d9!important;
+  line-height:1.25!important;
+  flex:0 0 auto!important;
+}
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon{
+  position:relative!important;
+  z-index:3!important;
+  flex:0 0 64px!important;
+  margin:0!important;
+  inset:auto!important;
+}
+.sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon .sas-managed-icon-image{
+  position:relative!important;
+  z-index:3!important;
+  display:block!important;
+}
+@media(max-width:600px){
+ .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge{gap:7px!important;padding:3px 5px!important}
+ .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge > span:not(.disclaimer-icon),
+ .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-label{padding:6px 8px!important;border-radius:8px!important}
+ .sas-disclaimer-footer .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon{flex-basis:48px!important}
+}
