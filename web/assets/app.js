@@ -91,10 +91,12 @@ async function retryAccountLoad(){
 let sasWelcomeTimer=null;
 let sasChannelInviteTimer=null;
 function showSASWelcome(){
- if(me && !me.pro && !me.trial_available)return;
+ if(localStorage.getItem('saspro_onboarding_pending')!=='1')return;
+ if(me && !me.pro)return;
  const overlay=document.getElementById('sasWelcomeOverlay');
  const field=overlay?.querySelector('.sas-fireworks');
  if(!overlay||!field||localStorage.getItem('saspro_channel_onboarding_done')==='1')return;
+ localStorage.removeItem('saspro_onboarding_pending');
  if(sasWelcomeTimer)window.clearTimeout(sasWelcomeTimer);
  if(sasChannelInviteTimer)window.clearTimeout(sasChannelInviteTimer);
  overlay.hidden=false;
@@ -1158,6 +1160,7 @@ async function continueTerms(){
     closeTerms();
     // Do not open the channel immediately: show welcome first, then the join prompt.
     localStorage.removeItem('saspro_channel_onboarding_done');
+    localStorage.setItem('saspro_onboarding_pending','1');
     me={...me,terms_accepted:true,pro:true,trial_available:false};
     document.getElementById('subscriptionPage').hidden=true;
     document.getElementById('terminalPage').hidden=false;
@@ -1177,7 +1180,7 @@ async function continueTerms(){
    const plan=action.slice(4);
    const d=await api('/api/subscription/invoice/'+encodeURIComponent(plan),{method:'POST'});
    closeTerms();
-   if(tg?.openInvoice)tg.openInvoice(d.invoice_link,()=>setTimeout(()=>{loadStarted=false;load();},1200));
+   if(tg?.openInvoice)tg.openInvoice(d.invoice_link,(status)=>{if(status==='paid')localStorage.setItem('saspro_onboarding_pending','1');setTimeout(()=>{loadStarted=false;load();},1200);});
    else if(tg?.openLink)tg.openLink(d.invoice_link);
    else throw new Error('لا يمكن فتح نافذة الدفع داخل Telegram.');
    return;
@@ -1202,7 +1205,7 @@ async function buyPlan(k){
  if(!me.terms_accepted){openTerms('buy:'+k);return;}
  try{
   const d=await api('/api/subscription/invoice/'+encodeURIComponent(k),{method:'POST'});
-  if(tg?.openInvoice)tg.openInvoice(d.invoice_link,()=>setTimeout(load,1200));
+  if(tg?.openInvoice)tg.openInvoice(d.invoice_link,(status)=>{if(status==='paid')localStorage.setItem('saspro_onboarding_pending','1');setTimeout(load,1200);});
   else if(tg?.openLink)tg.openLink(d.invoice_link);
  }catch(e){alert(e.message);}
 }
