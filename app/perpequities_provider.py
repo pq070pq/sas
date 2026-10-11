@@ -190,3 +190,27 @@ def clear_cache() -> None:
     """Clear the in-process snapshot cache; intended for tests and diagnostics."""
     global _snapshot
     _snapshot = None
+
+
+
+async def get_equity_perpetuals(symbols: list[str] | tuple[str, ...]) -> dict[str, dict[str, Any]]:
+    """Return optional PerpEquities context for matching symbols from one cached snapshot."""
+    payload = await _get_snapshot()
+    if payload is None:
+        return {}
+    result: dict[str, dict[str, Any]] = {}
+    for raw_symbol in symbols:
+        symbol = str(raw_symbol or "").strip().upper()
+        if not symbol or symbol in result:
+            continue
+        item = normalize_asset(payload, symbol)
+        if item is not None:
+            result[symbol] = item
+    return result
+
+
+def get_cached_equity_perpetual(symbol: str) -> dict[str, Any] | None:
+    """Read a still-valid in-process snapshot without making a network request."""
+    if _snapshot is None or time.monotonic() - _snapshot[0] >= CACHE_TTL_SECONDS:
+        return None
+    return normalize_asset(_snapshot[1], str(symbol or "").strip().upper())
