@@ -2736,3 +2736,6 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .gift-mode-switch button{min-height:44px;border:1px solid var(--border,rgba(130,170,190,.25));border-radius:12px;background:rgba(255,255,255,.025);color:var(--text,#eaf5fb);font:inherit;font-weight:700;cursor:pointer}
 .gift-mode-switch button.active{border-color:rgba(45,244,255,.65);background:linear-gradient(135deg,rgba(45,244,255,.14),rgba(45,244,255,.04));box-shadow:inset 0 0 0 1px rgba(45,244,255,.1)}
 #giftSingleTarget[hidden]{display:none}
+
+.gift-subscriber-select{width:100%;min-height:46px;padding:10px 12px;border-radius:12px;border:1px solid var(--border,rgba(130,170,190,.25));background:var(--panel,#071a25);color:var(--text,#eaf5fb);font:inherit}
+.gift-subscriber-select option{background:#071a25;color:#eaf5fb}
