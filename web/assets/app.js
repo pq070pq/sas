@@ -89,45 +89,30 @@ async function retryAccountLoad(){
 }
 
 let sasWelcomeTimer=null;
+let sasWelcomeTimer=null;
 function showSASWelcome(){
  if(me && !me.pro && !me.trial_available)return;
  const overlay=document.getElementById('sasWelcomeOverlay');
- const field=overlay?.querySelector('.sas-fireworks');
- if(!overlay||!field)return;
- // Once the user has opened the channel invitation, do not show the onboarding popup again.
+ if(!overlay)return;
+ // Enter the app immediately. Show only the channel invitation after 10 seconds.
  if(localStorage.getItem('saspro_channel_onboarding_done')==='1')return;
- overlay.hidden=false;
- overlay.classList.remove('is-leaving','is-visible','is-join-stage');
- document.getElementById('sasWelcomeGreeting').hidden=false;
- document.getElementById('sasWelcomeJoin').hidden=true;
- field.replaceChildren();
- const colors=['#ff405d','#ffd166','#4de4f0','#b69cff','#ffffff','#ff9f43'];
- const launch=(x,y)=>{
-  const burst=document.createElement('span');burst.className='sas-firework-burst';burst.style.left=x+'%';burst.style.top=y+'%';
-  const count=42+Math.floor(Math.random()*20);
-  for(let i=0;i<count;i++){
-   const p=document.createElement('i'),angle=Math.PI*2*i/count+Math.random()*.12,distance=55+Math.random()*105;
-   p.style.setProperty('--dx',Math.cos(angle)*distance+'px');p.style.setProperty('--dy',Math.sin(angle)*distance+'px');
-   p.style.setProperty('--particle-color',colors[Math.floor(Math.random()*colors.length)]);
-   p.style.setProperty('--particle-size',2+Math.random()*3+'px');p.style.setProperty('--particle-delay',Math.random()*.12+'s');burst.appendChild(p);
-  }
-  field.appendChild(burst);window.setTimeout(()=>burst.remove(),1800);
- };
- let count=0;
- const fireTimer=window.setInterval(()=>{launch(12+Math.random()*76,14+Math.random()*54);if(++count>=7)window.clearInterval(fireTimer);},310);
- const onTap=e=>{const r=overlay.getBoundingClientRect();launch(Math.max(4,Math.min(96,(e.clientX-r.left)/r.width*100)),Math.max(5,Math.min(90,(e.clientY-r.top)/r.height*100)));};
- overlay.addEventListener('pointerdown',onTap);
- requestAnimationFrame(()=>overlay.classList.add('is-visible'));
+ if(sasWelcomeTimer)window.clearTimeout(sasWelcomeTimer);
  sasWelcomeTimer=window.setTimeout(()=>{
-  window.clearInterval(fireTimer);
-  document.getElementById('sasWelcomeGreeting').hidden=true;
-  document.getElementById('sasWelcomeJoin').hidden=false;
+  if(localStorage.getItem('saspro_channel_onboarding_done')==='1')return;
+  const greeting=document.getElementById('sasWelcomeGreeting');
+  const join=document.getElementById('sasWelcomeJoin');
+  if(greeting)greeting.hidden=true;
+  if(join)join.hidden=false;
+  overlay.classList.remove('is-leaving','is-visible');
   overlay.classList.add('is-join-stage');
-  overlay.removeEventListener('pointerdown',onTap);
-  field.replaceChildren();
- },3200);
+  overlay.hidden=false;
+  requestAnimationFrame(()=>overlay.classList.add('is-visible'));
+ },10000);
 }
+
 function dismissWelcome(){
+ localStorage.setItem('saspro_channel_onboarding_done','1');
+ if(sasWelcomeTimer)window.clearTimeout(sasWelcomeTimer);
  const overlay=document.getElementById('sasWelcomeOverlay');
  if(sasWelcomeTimer)window.clearTimeout(sasWelcomeTimer);
  overlay?.classList.add('is-leaving');
