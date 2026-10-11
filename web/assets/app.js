@@ -1957,7 +1957,7 @@ load();
 
 // تحميل العلامة البصرية من مساحة التخزين الدائمة؛ لا يتدخل في بيانات الرادار.
 loadSiteMedia().catch(()=>{});
-startSASMediaAutoRefresh();\n
+startSASMediaAutoRefresh();
 
 /* Interactive countdowns use the US exchange timezone, so DST is handled automatically. */
 (function initSasMarketCountdown(){
