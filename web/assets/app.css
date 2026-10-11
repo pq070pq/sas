@@ -2906,3 +2906,15 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @keyframes sasTrialButtonGlow{0%,100%{box-shadow:0 8px 28px rgba(20,135,239,.2),inset 0 1px rgba(255,255,255,.24)}50%{box-shadow:0 10px 34px rgba(20,135,239,.36),0 0 20px rgba(36,153,255,.16),inset 0 1px rgba(255,255,255,.3)}}
 @media(max-width:380px){.status-grid{gap:7px}.status-grid .status-tile{padding:10px}.status-grid .status-tile strong{font-size:12px}.trial-card{margin:14px 10px;padding:22px 14px}}
 @media(prefers-reduced-motion:reduce){.status-card:after,.trial-card:after,.plans:after,.terms-note:after,.trial-card:before,.trial-crown,.trial-card button{animation:none}.status-grid .status-tile,.trial-card button{transition:none}.status-grid .status-tile:hover,.trial-card button:hover{transform:none}}
+
+
+/* Keep the animated blue gradient on the perimeter only, above the card background. */
+.status-card:after,.trial-card:after,.plans:after,.terms-note:after{
+ z-index:4;padding:1px;border-radius:inherit;
+ background:linear-gradient(125deg,rgba(53,194,255,.12),rgba(53,194,255,.96),rgba(110,94,255,.25),rgba(53,194,255,.8),rgba(53,194,255,.12));
+ background-size:260% 260%;
+ -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+ -webkit-mask-composite:xor;mask-composite:exclude;
+}
+.status-card .section-head,.status-card .status-grid,.status-card .access-actions,
+.trial-card .trial-card-content,.trial-card button{position:relative;z-index:5}
