@@ -367,7 +367,7 @@ function toggleSasMetric(id){
 
 function renderPerpEquitiesMovers(data){
  const sourceLink=document.querySelector('.sas-movers-source');
- if(sourceLink)sourceLink.hidden=!Boolean(me?.admin);
+ if(sourceLink){sourceLink.hidden=true;sourceLink.style.display='none';sourceLink.setAttribute('aria-hidden','true');if(me?.admin){sourceLink.hidden=false;sourceLink.style.display='inline-flex';sourceLink.removeAttribute('aria-hidden');}}
  const updated=document.getElementById('perpMoversUpdated');
  const state=document.getElementById('perpMoversState');
  const gainers=document.getElementById('perpMoversGainers');
@@ -394,7 +394,7 @@ function renderPerpEquitiesMovers(data){
    updated.textContent='آخر جلب: '+(Number.isFinite(date.getTime())?new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',hour12:true}).format(date)+' بتوقيت الرياض':'—');
   }else updated.textContent='وقت التحديث غير متاح';
  }
- if(state)state.textContent=data.stale?'آخر بيانات محفوظة • المصدر متعذر مؤقتًا':(data.market_data_at?'بيانات العقود الدائمة • مصدر مباشر':'تحديث المصدر');
+ if(state){state.textContent=me?.admin?(data.stale?'آخر بيانات محفوظة • المصدر متعذر مؤقتًا':(data.market_data_at?'بيانات العقود الدائمة • مصدر مباشر':'تحديث المصدر')):(data.stale?'آخر بيانات محفوظة • تحديث متأخر':(data.market_data_at?'بيانات العقود الدائمة':'جارٍ تحديث البيانات'));}
 }
 function renderMacro(){
  const wanted=[
