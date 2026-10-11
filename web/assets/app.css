@@ -2177,3 +2177,38 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .sas-countdown-label{font-size:11px!important}
 }
 @media(prefers-reduced-motion:reduce){.sas-clock-toggle{transition:none}}
+
+/* SAS PRO — centered, balanced market card typography */
+#tab-dashboard>.sas-market-strip{ text-align:center; }
+#tab-dashboard>.sas-market-strip .sas-market-main{ justify-content:center; text-align:center; }
+#tab-dashboard>.sas-market-strip .sas-market-main>div{ justify-items:center; text-align:center; }
+#tab-dashboard>.sas-market-strip .sas-market-main strong{ text-align:center; max-width:100%; }
+#tab-dashboard>.sas-market-strip .sas-market-main small{ text-align:center; line-height:1.9; }
+#tab-dashboard>.sas-market-strip .sas-market-clock{ justify-content:center; border-inline-start:0; padding-inline-start:0; }
+#tab-dashboard>.sas-market-strip .sas-clock-toggle{ justify-content:center; text-align:center; }
+#tab-dashboard>.sas-market-strip .sas-clock-copy{ justify-items:center; text-align:center; }
+#tab-dashboard>.sas-market-strip .sas-clock-secondary{ justify-content:center; }
+#tab-dashboard>.sas-market-strip .sas-session-mini{ justify-items:center; text-align:center; border-inline-start:0; padding-inline-start:0; }
+#tab-dashboard>.sas-market-strip .sas-session-mini strong{ text-align:center; }
+#tab-dashboard>.sas-market-strip>#sasOpenCountdown{ text-align:center; }
+#tab-dashboard>.sas-market-strip .sas-countdown-heading{ justify-content:center; flex-direction:column; align-items:center; text-align:center; gap:9px; }
+#tab-dashboard>.sas-market-strip .sas-countdown-heading>div{ display:flex; flex-direction:column; align-items:center; text-align:center; }
+#tab-dashboard>.sas-market-strip .sas-countdown-heading h2,
+#tab-dashboard>.sas-market-strip .sas-countdown-heading small{ text-align:center; }
+#tab-dashboard>.sas-market-strip .sas-countdown-cards{ align-items:stretch; }
+#tab-dashboard>.sas-market-strip .sas-countdown-card{ text-align:center; }
+#tab-dashboard>.sas-market-strip .sas-countdown-card-top{ justify-content:center; text-align:center; }
+#tab-dashboard>.sas-market-strip .sas-countdown-label,
+#tab-dashboard>.sas-market-strip .sas-countdown-foot{ text-align:center; }
+#tab-dashboard>.sas-market-strip .sas-countdown-detail{ justify-content:center; text-align:center; }
+#tab-dashboard>.sas-market-strip .sas-countdown-detail>div{ display:flex; flex-direction:column; align-items:center; text-align:center; }
+#tab-dashboard>.sas-market-strip .sas-countdown-detail p{ text-align:center; max-width:44rem; }
+#tab-dashboard>.sas-market-strip .sas-countdown-detail .sas-opening-date,
+#tab-dashboard>.sas-market-strip .sas-countdown-detail .sas-opening-time{ text-align:center; }
+@media(max-width:680px){
+ #tab-dashboard>.sas-market-strip .sas-market-main{ grid-column:1/-1; }
+ #tab-dashboard>.sas-market-strip .sas-market-clock{ grid-column:1/-1!important; grid-row:auto!important; justify-content:center; }
+ #tab-dashboard>.sas-market-strip .sas-session-mini{ grid-column:1/-1!important; grid-row:auto!important; justify-content:center; padding:9px 0 0; border-top:1px solid var(--sas-neutral-line); }
+ #tab-dashboard>.sas-market-strip .sas-countdown-heading{ align-items:center!important; }
+ #tab-dashboard>.sas-market-strip .sas-countdown-detail{ align-items:center; }
+}
