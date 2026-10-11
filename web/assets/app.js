@@ -1551,3 +1551,41 @@ document.addEventListener('change',e=>{if(e.target?.id==='paidPlansVisible')docu
 load();
 
 // تحميل العلامة البصرية من مساحة التخزين الدائمة؛ لا يتدخل في بيانات الرادار.\nloadSiteMedia().catch(()=>{});\n
+
+/* Interactive countdowns use the US exchange timezone, so DST is handled automatically. */
+(function initSasMarketCountdown(){
+ const zone='America/New_York';
+ let selected='pre';
+ const fmtParts=(date)=>{const p=new Intl.DateTimeFormat('en-US',{timeZone:zone,year:'numeric',month:'numeric',day:'numeric',weekday:'short',hour:'numeric',minute:'numeric',second:'numeric',hourCycle:'h23'}).formatToParts(date);const o={};for(const x of p)if(x.type!=='literal')o[x.type]=x.value;return o;};
+ function zonedTimeToUtc(y,m,d,h,min){
+   const wanted=Date.UTC(y,m-1,d,h,min,0);let guess=wanted;
+   for(let i=0;i<4;i++){const p=fmtParts(new Date(guess));const actual=Date.UTC(Number(p.year),Number(p.month)-1,Number(p.day),Number(p.hour),Number(p.minute),Number(p.second));const diff=wanted-actual;guess+=diff;if(Math.abs(diff)<1000)break;}
+   return guess;
+ }
+ function nextOpening(now,hour,minute){
+   const p=fmtParts(now);const base=Date.UTC(Number(p.year),Number(p.month)-1,Number(p.day));
+   for(let n=0;n<12;n++){const d=new Date(base+n*86400000);const dow=d.getUTCDay();if(dow===0||dow===6)continue;const target=zonedTimeToUtc(d.getUTCFullYear(),d.getUTCMonth()+1,d.getUTCDate(),hour,minute);if(target>now.getTime())return target;}
+   return now.getTime()+86400000;
+ }
+ function dur(ms){let s=Math.max(0,Math.floor(ms/1000));const days=Math.floor(s/86400);s%=86400;const hh=Math.floor(s/3600);s%=3600;const mm=Math.floor(s/60),ss=s%60;const pad=n=>String(n).padStart(2,'0');return days?days+' يوم '+pad(hh)+':'+pad(mm)+':'+pad(ss):pad(hh)+':'+pad(mm)+':'+pad(ss);}
+ function arDate(ms){return new Intl.DateTimeFormat('ar-SA',{timeZone:'Asia/Riyadh',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(ms));}
+ function arTime(ms){return new Intl.DateTimeFormat('ar-SA',{timeZone:'Asia/Riyadh',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(ms));}
+ function paint(){
+   const now=new Date(), pre=nextOpening(now,4,0), regular=nextOpening(now,9,30);
+   const pe=document.getElementById('sasPreCountdown'),re=document.getElementById('sasRegularCountdown');
+   if(!pe||!re)return;
+   pe.textContent=dur(pre-now.getTime());re.textContent=dur(regular-now.getTime());
+   const pd=document.getElementById('sasPreCountdownLabel'),rd=document.getElementById('sasRegularCountdownLabel');
+   if(pd)pd.textContent=pre-now.getTime()<1000?'بدأ وقت ما قبل الافتتاح':'متبقي على بداية ما قبل الافتتاح';
+   if(rd)rd.textContent=regular-now.getTime()<1000?'بدأت الجلسة الرسمية':'متبقي على افتتاح الجلسة الرسمية';
+   const pw=document.getElementById('sasPreCountdownWhen'),rw=document.getElementById('sasRegularCountdownWhen');
+   if(pw)pw.textContent=arDate(pre)+' • '+arTime(pre)+' الرياض';
+   if(rw)rw.textContent=arDate(regular)+' • '+arTime(regular)+' الرياض';
+   const date=document.getElementById('sasCountdownDate');if(date)date.textContent='موعد الجلسة القادمة • '+arDate(pre)+' • جميع الأوقات بتوقيت الرياض';
+   const detail=document.getElementById('sasCountdownDetail');
+   if(detail)detail.textContent=selected==='pre'?'🌅 يبدأ التداول قبل الافتتاح الساعة '+arTime(pre)+' يوم '+arDate(pre)+' بتوقيت الرياض. يمكنك متابعة الأسهم وتجهيز قائمة الرصد قبل الجلسة الرسمية.':'🔔 يبدأ التداول الرسمي الساعة '+arTime(regular)+' يوم '+arDate(regular)+' بتوقيت الرياض، ويبدأ الرادار متابعة الجلسة حسب إعدادات النظام.';
+   document.querySelectorAll('[data-countdown]').forEach(b=>{const active=b.dataset.countdown===selected;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));});
+ }
+ document.querySelectorAll('[data-countdown]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.countdown;paint();}));
+ paint();setInterval(paint,1000);
+})();
