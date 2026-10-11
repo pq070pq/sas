@@ -66,14 +66,34 @@ const fmtDays=(a,b)=>{if(!a||!b)return'—';const n=Math.ceil((new Date(b)-new D
 let me=null,plans=null,termAction=null;
 let loadStarted=false;
 
+function showAccountLoadError(message){
+ const name=document.getElementById('userName');
+ const error=document.getElementById('accountLoadError');
+ const text=document.getElementById('accountLoadErrorText');
+ const grid=document.getElementById('subscriptionStatusGrid');
+ if(name){name.textContent='تعذر التحقق';name.classList.remove('account-loading');}
+ if(text)text.textContent=String(message||'تعذر تحميل بيانات الحساب.').slice(0,240);
+ if(error)error.hidden=false;
+ if(grid)grid.setAttribute('aria-busy','false');
+ const trial=document.getElementById('trialBtn');if(trial)trial.disabled=true;
+}
+async function retryAccountLoad(){
+ if(loadStarted)return;
+ const name=document.getElementById('userName');
+ const error=document.getElementById('accountLoadError');
+ if(name){name.innerHTML='<i aria-hidden="true"></i> جارٍ التحقق من حسابك';name.classList.add('account-loading');}
+ if(error)error.hidden=true;
+ const grid=document.getElementById('subscriptionStatusGrid');if(grid)grid.setAttribute('aria-busy','true');
+ const trial=document.getElementById('trialBtn');if(trial)trial.disabled=true;
+ await load();
+}
 async function load(){
  if(loadStarted)return;
  loadStarted=true;
  const watchdog=setTimeout(()=>{
   if(!loadStarted)return;
-  loadStarted=false;
-  document.body.innerHTML='<div class="fatal"><b>⚠️ تعذر فتح SAS PRO</b><br><small>الخادم لم يُرجع نتيجة التحقق خلال 8 ثوانٍ. المشكلة في اتصال Mini App بالخادم وليست في الاشتراك.</small><br><button onclick="location.reload()">إعادة المحاولة</button></div>';
- },8500);
+  showAccountLoadError('تأخر رد الخادم أثناء التحقق. تحقق من الاتصال ثم أعد المحاولة.');
+ },12000);
  try{
   refreshTelegramWebApp();
   if(!tg)throw new Error('تعذر الوصول إلى Telegram WebApp. افتح SAS PRO من داخل Telegram.');
@@ -108,9 +128,9 @@ async function load(){
   }
  }catch(e){
   clearTimeout(watchdog);
-  loadStarted=false;
   const msg=e?.message||'تعذر التحقق من Telegram.';
-  document.body.innerHTML='<div class="fatal"><b>⚠️ تعذر فتح SAS PRO</b><br><small>'+escHtml(msg)+'</small><br><button onclick="location.reload()">إعادة المحاولة</button></div>';
+  showAccountLoadError(msg);
+  loadStarted=false;
  }
 }
 
@@ -904,23 +924,28 @@ function renderTrialCard(days){
 function renderStatus(x){
  const active=!!x.pro;
  const source=x.access?.source||null;
- const expiry=x.expires_at||null;
- const start=x.trial_start||x.subscription_start||null;
- document.getElementById('subStatus').textContent=active?'🟢 فعال':'🔒 غير مشترك';
- document.getElementById('subStatus').className=active?'ok':'bad';
- document.getElementById('subPlan').textContent=source==='trial'?'🎁 تجربة مجانية':(active?(x.plan||x.user?.plan||'اشتراك'):'—');
- document.getElementById('subStart').textContent=start?fmtDate(start):'—';
- document.getElementById('subEnd').textContent=expiry?fmtDate(expiry):(source==='free'?'غير محدد':'—');
- document.getElementById('subDays').textContent=expiry?fmtDays(new Date(),expiry):(source==='free'?'غير محدد':'—');
+ const expiry=x.expires_at||x.subscription_expires||x.trial_expires||null;
+ const start=source==='trial'?(x.trial_start||null):(x.subscription_start||x.trial_start||null);
+ const byId=id=>document.getElementById(id);
+ byId('userName').textContent=x.user?.first_name||x.user?.username||'تم التحقق من الحساب';
+ byId('userName').classList.remove('account-loading');
+ byId('accountLoadError').hidden=true;
+ byId('subscriptionStatusGrid').setAttribute('aria-busy','false');
+ byId('subStatus').textContent=active?'🟢 اشتراك فعّال':'🔒 غير مشترك';
+ byId('subStatus').className=active?'ok':'bad';
+ byId('subPlan').textContent=source==='trial'?'🎁 تجربة مجانية':(active?(x.plan||x.user?.plan||'اشتراك فعّال'):'لا توجد باقة فعّالة');
+ byId('subStart').textContent=start?fmtDate(start):(source==='trial'?'لم يبدأ التسجيل':'—');
+ byId('subEnd').textContent=expiry?fmtDate(expiry):(source==='free'?'مفتوح':'لا يوجد موعد');
+ byId('subDays').textContent=expiry?fmtDays(new Date(),expiry):(source==='free'?'مفتوح':'—');
  if(source==='trial'&&expiry){
-  document.getElementById('trialState').textContent='🎁 فعالة حتى '+fmtDate(expiry);
+  byId('trialState').textContent='🎁 فعّالة حتى '+fmtDate(expiry);
  }else if(source==='free'){
-  document.getElementById('trialState').textContent='صلاحية مجانية غير محددة';
+  byId('trialState').textContent='صلاحية مجانية مفتوحة';
  }else{
-  document.getElementById('trialState').textContent=x.trial_available?'متاحة مرة واحدة':(x.trial_expires?'منتهية/مستخدمة':'غير متاحة');
+  byId('trialState').textContent=x.trial_available?'متاحة مرة واحدة':(x.trial_expires?'منتهية/مستخدمة':'غير متاحة');
  }
- document.getElementById('channelBtn').hidden=!active;
- document.getElementById('trialBtn').disabled=!x.trial_available;
+ byId('channelBtn').hidden=!active;
+ byId('trialBtn').disabled=!x.trial_available;
 }
  
 function renderPlans(p){
