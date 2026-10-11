@@ -1466,6 +1466,7 @@ async function adminRefresh(){
   subscriberStatusPanel:p.includes('users'),
   'monthly-report-panel':p.includes('users'),
   adminSubscriptionPanel:p.includes('subscriptions')||p.includes('settings'),
+  giftExtendPanel:p.includes('subscriptions'),
   starsPanel:p.includes('payments'),
   staffPanel:p.includes('admins'),
   deployPanel:p.includes('settings'),
@@ -1730,6 +1731,23 @@ async function adminSearch(){try{const q=document.getElementById('adminSearch').
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
 async function adminFreeExtend(id,d){try{await api('/api/admin/free-extend/'+id+'?days='+d,{method:'POST'});await adminRefresh();alert('تم تمديد المجاني للمستخدم.');}catch(e){alert(e.message);}}
 async function adminGrant(id,d){try{await api('/api/admin/grant/'+id+'?days='+encodeURIComponent(d),{method:'POST'});await adminRefresh();}catch(e){alert(e.message);}}
+async function adminGiftExtendAll(){
+ const input=document.getElementById('giftExtendDays');
+ const result=document.getElementById('giftExtendResult');
+ const button=document.getElementById('giftExtendAllBtn');
+ const days=Number(input?.value);
+ if(!Number.isInteger(days)||days<1||days>365){alert('أدخل مدة هدية من يوم إلى 365 يومًا.');return;}
+ if(!confirm('تأكيد تمديد اشتراكات جميع المشتركين الفعّالين '+days+' يومًا وإرسال رسالة هدية لكل واحد؟'))return;
+ button.disabled=true;button.textContent='⏳ جارٍ تمديد الاشتراكات وإرسال الهدايا…';
+ result.hidden=true;
+ try{
+  const d=await api('/api/admin/gift-extend-all',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({days})});
+  result.hidden=false;
+  result.innerHTML='<b>🎉 اكتملت الهدية الجماعية</b><br>تمديد الاشتراكات: '+Number(d.extended||0)+'<br>رسائل وصلت إلى Telegram: '+Number(d.notifications_sent||0)+'<br>تعذر إرسالها: '+Number(d.notifications_failed||0);
+  button.textContent='✅ تم تنفيذ الهدية';
+ }catch(e){alert(e.message||'تعذر تنفيذ الهدية الجماعية.');button.textContent='🎁 إرسال الهدية وتمديد اشتراكات الجميع';}
+ finally{button.disabled=false;}
+}
 async function adminRevoke(id){if(!confirm('إلغاء وصول هذا المستخدم؟'))return;try{await api('/api/admin/revoke/'+id,{method:'POST'});await adminRefresh();}catch(e){alert(e.message);}}
 async function loadSubscriptionConfig(){
  const d=await api('/api/admin/subscription-config');
