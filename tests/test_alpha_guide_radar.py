@@ -40,9 +40,9 @@ def test_alpha_guide_reports_watch_when_trend_passes_but_no_breakout():
 
 
 def test_alpha_guide_reports_breakout_only_when_volume_and_close_confirm():
-    rows = candles(230, breakout=True, volume_spike=True)
-    # Make the current close clearly exceed the prior 20-session high.
-    rows[-1]["close"] = rows[-2]["close"] + 0.50
+    rows = candles(230, volume_spike=True)
+    # A modest close above the previous 20-session high, without chasing >5% above EMA20.
+    rows[-1]["close"] = rows[-2]["close"] + 0.20
     rows[-1]["high"] = rows[-1]["close"] + 0.02
     rows[-1]["volume"] = 3000.0
     result = evaluate_alpha_guide(rows, spy_return_20=-0.05)
