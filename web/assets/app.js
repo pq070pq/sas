@@ -1652,6 +1652,15 @@ load();
  function arDate(ms){return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(ms));}
  function arTime(ms){return new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{timeZone:'Asia/Riyadh',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(ms));}
  function openingDateTime(ms){return '<span class="sas-opening-date" dir="rtl">'+arDate(ms)+'</span><span class="sas-opening-time"><bdi dir="ltr">'+arTime(ms)+'</bdi> • بتوقيت الرياض</span>';}
+ function marketPhase(now){
+   const p=fmtParts(now),day=String(p.weekday||'').toLowerCase();
+   const mins=Number(p.hour)*60+Number(p.minute);
+   if(day==='sat'||day==='sun')return 'closed';
+   if(mins>=240&&mins<570)return 'pre';
+   if(mins>=570&&mins<960)return 'open';
+   if(mins>=960&&mins<1200)return 'after';
+   return 'closed';
+ }
  function paint(){
    const now=new Date(), pre=nextOpening(now,4,0), regular=nextOpening(now,9,30);
    const pe=document.getElementById('sasPreCountdown'),re=document.getElementById('sasRegularCountdown');
@@ -1664,8 +1673,13 @@ load();
    if(pw)pw.innerHTML=openingDateTime(pre);
    if(rw)rw.innerHTML=openingDateTime(regular);
    const date=document.getElementById('sasCountdownDate');if(date)date.innerHTML='<span class="sas-opening-date" dir="rtl">موعد الجلسة القادمة: '+arDate(pre)+'</span><span class="sas-opening-time">جميع الأوقات بتوقيت الرياض</span>';
-   const detail=document.getElementById('sasCountdownDetail');
-   if(detail)detail.innerHTML=selected==='pre'?'<span class="sas-detail-icon" aria-hidden="true">◷</span><div><strong>موعد ما قبل الافتتاح</strong><span class="sas-opening-date" dir="rtl">'+arDate(pre)+'</span><span class="sas-opening-time"><bdi dir="ltr">'+arTime(pre)+'</bdi> • بتوقيت الرياض</span><p>يمكنك متابعة الأسهم وتجهيز قائمة الرصد قبل الجلسة الرسمية.</p></div>':'<span class="sas-detail-icon" aria-hidden="true">◷</span><div><strong>موعد الافتتاح الرسمي</strong><span class="sas-opening-date" dir="rtl">'+arDate(regular)+'</span><span class="sas-opening-time"><bdi dir="ltr">'+arTime(regular)+'</bdi> • بتوقيت الرياض</span><p>يبدأ الرادار متابعة الجلسة حسب إعدادات النظام.</p></div>';
+   const phase=marketPhase(now),strip=document.querySelector('.sas-market-strip'),headline=document.getElementById('sasMarketHeadline');
+   if(strip){strip.classList.remove('is-open','is-pre','is-closed','is-after');strip.classList.add(phase==='open'?'is-open':phase==='pre'?'is-pre':phase==='after'?'is-after':'is-closed');strip.dataset.marketState=phase;}
+   if(headline)headline.textContent=phase==='open'?'السوق الأمريكي مفتوح':phase==='pre'?'السوق الأمريكي قبل الافتتاح':phase==='after'?'التداول بعد الإغلاق':'السوق الأمريكي مغلق';
+   const sub=document.getElementById('sasMarketSubline');
+   if(sub)sub.textContent=phase==='closed'?'السوق مغلق حاليًا • موعد ما قبل الافتتاح 04:00 نيويورك':phase==='pre'?'فترة ما قبل الافتتاح • بتوقيت نيويورك':'التوقيت حسب بورصة نيويورك • جميع المواعيد بتوقيت الرياض';
+   const session=document.getElementById('sasSessionLabel');
+   if(session)session.textContent=phase==='open'?'الجلسة الرسمية مفتوحة':phase==='pre'?'ما قبل الافتتاح':phase==='after'?'بعد الإغلاق':'مغلق — لا يوجد تداول';
    document.querySelectorAll('[data-countdown]').forEach(b=>{const active=b.dataset.countdown===selected;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));});
  }
  document.querySelectorAll('[data-countdown]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.countdown;paint();}));
