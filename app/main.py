@@ -2291,7 +2291,7 @@ async def radar_status(_: dict = Depends(require_pro)):
 
 # PerpEquities 24-hour movers are kept separate from SAS technical radar signals.
 _PERPEQUITIES_URL = "https://perpequities.com/ar"
-_PERPEQUITIES_CACHE_TTL = 90
+_PERPEQUITIES_CACHE_TTL = 300
 _PERPEQUITIES_MOVERS_CACHE = {"fetched_at": 0.0, "payload": None}
 
 
@@ -2372,46 +2372,147 @@ def _parse_perpequities_movers(document: str):
     return {"available": bool(gainers or losers), "gainers": gainers, "losers": losers}
 
 
-@app.get("/api/market/movers")
-async def perpequities_market_movers(_: dict = Depends(require_pro)):
-    """Return PerpEquities' published 24-hour movers without mixing them with SAS signals."""
+_PERPEQUITIES_API_URL = "https://perpequities.com/api/v1/assets?assetClass=equity&live=1&limit=2000"
+_PERPEQUITIES_API_CACHE_TTL = 300
+_PERPEQUITIES_ASSETS_CACHE = {"fetched_at": 0.0, "payload": None}
+
+
+def _perpequities_asset_row(row):
+    if not isinstance(row, dict):
+        return None
+    ticker = str(row.get("ticker") or "").strip().upper()
+    if not ticker or not re.fullmatch(r"[A-Z0-9.\-]{1,16}", ticker):
+        return None
+    venues = []
+    for venue in row.get("venues") or []:
+        if not isinstance(venue, dict) or not venue.get("live") or venue.get("status") != "trading":
+            continue
+        venues.append({
+            "venue": venue.get("venueName") or venue.get("venue"),
+            "price": venue.get("price") if venue.get("price") is not None else venue.get("mark"),
+            "volume24hUsd": venue.get("volume24hUsd"),
+            "openInterestUsd": venue.get("openInterestUsd"),
+            "spreadBps": venue.get("spreadBps"),
+            "depth1PctUsd": venue.get("depth1PctUsd"),
+            "fundingApr": venue.get("fundingApr"),
+            "updatedAt": venue.get("updatedAt"),
+        })
+    return {
+        "symbol": ticker,
+        "name": row.get("name"),
+        "price": row.get("price"),
+        "change24h": row.get("change24h"),
+        "change7d": row.get("change7d"),
+        "volume24hUsd": row.get("volume24hUsd"),
+        "qualityFilteredVolume24hUsd": row.get("qualityFilteredVolume24hUsd"),
+        "openInterestUsd": row.get("openInterestUsd"),
+        "venueCount": row.get("venueCount"),
+        "tradableMarkets": row.get("tradableMarkets"),
+        "liveMarkets": row.get("liveMarkets"),
+        "url": row.get("url") or "https://perpequities.com/ar",
+        "venues": venues[:8],
+    }
+
+
+async def _fetch_perpequities_assets():
     now = time.monotonic()
-    cached = _PERPEQUITIES_MOVERS_CACHE.get("payload")
-    if cached and now - _PERPEQUITIES_MOVERS_CACHE.get("fetched_at", 0.0) < _PERPEQUITIES_CACHE_TTL:
+    cached = _PERPEQUITIES_ASSETS_CACHE.get("payload")
+    if cached and now - _PERPEQUITIES_ASSETS_CACHE.get("fetched_at", 0.0) < _PERPEQUITIES_API_CACHE_TTL:
         return cached
     try:
         async with httpx.AsyncClient(
-            timeout=10.0,
+            timeout=12.0,
             follow_redirects=True,
+            headers={"User-Agent": "SASPRO/2.1 (+https://perpequities.com/data)", "Accept": "application/json"},
+        ) as client:
+            response = await client.get(_PERPEQUITIES_API_URL)
+            response.raise_for_status()
+        body = response.json()
+        rows = body.get("data") if isinstance(body, dict) else None
+        if not isinstance(rows, list):
+            raise ValueError("PerpEquities API returned an unexpected data envelope.")
+        assets = []
+        seen = set()
+        for row in rows:
+            item = _perpequities_asset_row(row)
+            if not item or item["symbol"] in seen:
+                continue
+            seen.add(item["symbol"])
+            assets.append(item)
+        if not assets:
+            raise ValueError("PerpEquities API returned no usable live equity assets.")
+        market_at = response.headers.get("X-Market-Data-At") or body.get("marketDataAt") or body.get("generatedAt")
+        stale_header = str(response.headers.get("X-Market-Data-Stale") or body.get("stale") or "").lower()
+        payload = {
+            "available": True,
+            "assets": assets,
+            "source": "PerpEquities",
+            "source_url": "https://perpequities.com/ar",
+            "generated_at": body.get("generatedAt"),
+            "market_data_at": market_at,
+            "updated_at": market_at or body.get("generatedAt"),
+            "stale": stale_header in ("1", "true", "yes"),
+            "message_ar": None,
+        }
+        _PERPEQUITIES_ASSETS_CACHE.update({"fetched_at": time.monotonic(), "payload": payload})
+        return payload
+    except Exception as exc:
+        logger.warning("PerpEquities assets API refresh failed: %s", exc)
+        if cached:
+            return {**cached, "stale": True, "message_ar": "تعذر تحديث بيانات PerpEquities؛ نعرض آخر نسخة محفوظة."}
+        return {
+            "available": False, "assets": [], "source": "PerpEquities",
+            "source_url": "https://perpequities.com/ar", "generated_at": None,
+            "market_data_at": None, "updated_at": None, "stale": False,
+            "message_ar": "بيانات PerpEquities غير متاحة مؤقتًا.",
+        }
+
+
+@app.get("/api/market/movers")
+async def perpequities_market_movers(_: dict = Depends(require_pro)):
+    """Return live perpetual-equity context and movers, without using it as spot-price truth."""
+    assets_payload = await _fetch_perpequities_assets()
+    assets = assets_payload.get("assets") or []
+    if assets:
+        ranked = [x for x in assets if isinstance(x.get("change24h"), (int, float))]
+        gainers = sorted((x for x in ranked if x["change24h"] > 0), key=lambda x: x["change24h"], reverse=True)[:8]
+        losers = sorted((x for x in ranked if x["change24h"] < 0), key=lambda x: x["change24h"])[:8]
+        return {
+            **assets_payload,
+            "gainers": [{**x, "change_pct": round(float(x["change24h"]) * 100, 4)} for x in gainers],
+            "losers": [{**x, "change_pct": round(float(x["change24h"]) * 100, 4)} for x in losers],
+            "available": True,
+        }
+
+    now = time.monotonic()
+    cached = _PERPEQUITIES_MOVERS_CACHE.get("payload")
+    if cached and now - _PERPEQUITIES_MOVERS_CACHE.get("fetched_at", 0.0) < _PERPEQUITIES_CACHE_TTL:
+        return {**cached, "stale": True}
+    try:
+        async with httpx.AsyncClient(
+            timeout=10.0, follow_redirects=True,
             headers={"User-Agent": "Mozilla/5.0 (compatible; SASPRO-MarketDashboard/1.0)", "Accept-Language": "ar,en;q=0.8"},
         ) as client:
             response = await client.get(_PERPEQUITIES_URL)
             response.raise_for_status()
         parsed = _parse_perpequities_movers(response.text)
         if not parsed or not parsed.get("available"):
-            raise ValueError("The source page did not expose its 24-hour movers section.")
+            raise ValueError("PerpEquities homepage movers could not be parsed.")
         payload = {
-            **parsed,
-            "source": "PerpEquities",
-            "source_url": _PERPEQUITIES_URL,
-            "updated_at": utcnow().isoformat(),
-            "stale": False,
+            **parsed, "assets": [], "source": "PerpEquities",
+            "source_url": _PERPEQUITIES_URL, "updated_at": utcnow().isoformat(),
+            "stale": False, "available": True,
+            "message_ar": "عرض قائمة التحركات من صفحة الموقع؛ تفاصيل العقود غير متاحة الآن.",
         }
         _PERPEQUITIES_MOVERS_CACHE.update({"fetched_at": time.monotonic(), "payload": payload})
         return payload
     except Exception as exc:
-        logger.warning("PerpEquities movers refresh failed: %s", exc)
+        logger.warning("PerpEquities movers fallback failed: %s", exc)
         if cached:
             return {**cached, "stale": True}
         return {
-            "available": False,
-            "gainers": [],
-            "losers": [],
-            "source": "PerpEquities",
-            "source_url": _PERPEQUITIES_URL,
-            "updated_at": None,
-            "stale": False,
-            "message_ar": "تعذر جلب قائمة الأكثر تحركًا من المصدر حاليًا.",
+            **assets_payload, "gainers": [], "losers": [], "available": False,
+            "message_ar": assets_payload.get("message_ar") or "تعذر جلب بيانات الحركة من PerpEquities حاليًا.",
         }
 
 @app.get("/api/market/ticker")
