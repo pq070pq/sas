@@ -310,13 +310,13 @@ function renderDashboard(d){
  if(dock){dock.querySelectorAll('button').forEach(b=>b.classList.remove('is-active'));const active=dock.querySelector('button[onclick*="'+(terminalState.tab||'dashboard')+'"]');if(active)active.classList.add('is-active');}
  const metricDate=r.last_signal_at?new Date(r.last_signal_at):null;
  const metricDateValid=metricDate&&Number.isFinite(metricDate.getTime());
- const metricDateLabel=metricDateValid?metricDate.toLocaleDateString('ar-SA',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'لا توجد إشارة مسجلة';
- const metricTimeLabel=metricDateValid?metricDate.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}):'بانتظار أول إشارة';
+ const metricDateLabel=metricDateValid?new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(metricDate):'لا توجد إشارة مسجلة';
+ const metricTimeLabel=metricDateValid?new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{hour:'2-digit',minute:'2-digit',hour12:true}).format(metricDate):'بانتظار أول إشارة';
  const metricItems=[
   {id:'opportunities',icon:'<svg viewBox="0 0 24 24" fill="none"><path d="M3 17l6-6 4 3 8-9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 5h6v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',label:historical?'فرص آخر جلسة':'فرص اليوم',value:Number(r.opportunities||terminalState.radar.length||0).toLocaleString('ar-SA'),detail:historical?'عدد الفرص التي رصدها النظام في آخر جلسة تداول مسجلة.':'عدد الفرص التي رصدها النظام خلال جلسة اليوم.'},
   {id:'move',icon:'<svg viewBox="0 0 24 24" fill="none"><path d="M4 16l6-6 4 4 6-8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 6h6v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',label:'أعلى ارتفاع مسجل',value:pct(r.top_move_pct),detail:'أكبر نسبة ارتفاع مسجلة ضمن نتائج الرادار للفترة المعروضة؛ ليست ضمانًا لاستمرار الحركة.'},
   {id:'volume',icon:'<svg viewBox="0 0 24 24" fill="none"><path d="M4 19V9m5 10V5m5 14v-7m5 7V3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',label:'أعلى حجم تداول',value:r.top_volume?Number(r.top_volume).toLocaleString('en-US'):'—',detail:'أكبر حجم تداول مسجل في النتائج المتاحة. الحجم هو عدد الأسهم المتداولة، وليس قيمة التداول بالدولار.'},
-  {id:'signal',icon:'<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',label:'وقت آخر إشارة',value:metricDateValid?'<span class="metric-date">'+metricDateLabel+'</span><span class="metric-time">'+metricTimeLabel+'</span>':'<span class="metric-date">لا توجد إشارة</span><span class="metric-time">بانتظار البيانات</span>',detail:metricDateValid?'تاريخ ووقت آخر إشارة سجلها الرادار حسب التوقيت المحلي للجهاز.':'لم يسجل النظام وقت إشارة صالحًا حتى الآن.'}
+  {id:'signal',icon:'<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',label:'وقت آخر إشارة',value:metricDateValid?'<span class="metric-date" dir="rtl"><bdi dir="rtl">'+metricDateLabel+'</bdi></span><span class="metric-time" dir="ltr"><bdi dir="ltr">'+metricTimeLabel+'</bdi></span>':'<span class="metric-date">لا توجد إشارة</span><span class="metric-time">بانتظار البيانات</span>',detail:metricDateValid?'تاريخ ووقت آخر إشارة سجلها الرادار حسب التوقيت المحلي للجهاز.':'لم يسجل النظام وقت إشارة صالحًا حتى الآن.'}
  ];
  document.getElementById('dashboardMetrics').innerHTML=metricItems.map(m=>'<button type="button" class="sas-metric-card" data-metric="'+m.id+'" aria-expanded="false" onclick="toggleSasMetric(\''+m.id+'\')"><span class="sas-metric-top"><span class="sas-metric-icon">'+m.icon+'</span><span class="sas-metric-label">'+m.label+'</span><span class="sas-metric-chevron">⌄</span></span><strong class="sas-metric-value">'+m.value+'</strong><span class="sas-metric-hint">اضغط للتوضيح</span></button>').join('')+'<div id="sasMetricDetail" class="sas-metric-detail" hidden aria-live="polite"></div>';
  window.sasMetricDetails=Object.fromEntries(metricItems.map(m=>[m.id,{label:m.label,detail:m.detail}]));
@@ -1583,23 +1583,24 @@ load();
    for(let n=0;n<12;n++){const d=new Date(base+n*86400000);const dow=d.getUTCDay();if(dow===0||dow===6)continue;const target=zonedTimeToUtc(d.getUTCFullYear(),d.getUTCMonth()+1,d.getUTCDate(),hour,minute);if(target>now.getTime())return target;}
    return now.getTime()+86400000;
  }
- function dur(ms){let s=Math.max(0,Math.floor(ms/1000));const days=Math.floor(s/86400);s%=86400;const hh=Math.floor(s/3600);s%=3600;const mm=Math.floor(s/60),ss=s%60;const pad=n=>String(n).padStart(2,'0');return days?days+' يوم '+pad(hh)+':'+pad(mm)+':'+pad(ss):pad(hh)+':'+pad(mm)+':'+pad(ss);}
- function arDate(ms){return new Intl.DateTimeFormat('ar-SA',{timeZone:'Asia/Riyadh',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(ms));}
- function arTime(ms){return new Intl.DateTimeFormat('ar-SA',{timeZone:'Asia/Riyadh',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(ms));}
+ function dur(ms){let s=Math.max(0,Math.floor(ms/1000));const days=Math.floor(s/86400);s%=86400;const hh=Math.floor(s/3600);s%=3600;const mm=Math.floor(s/60),ss=s%60;const pad=n=>String(n).padStart(2,'0');const clock=pad(hh)+':'+pad(mm)+':'+pad(ss);return (days?'<span class="sas-countdown-days">'+days+' '+(days===1?'يوم':'أيام')+'</span>':'')+'<span class="sas-countdown-clock" dir="ltr">'+clock+'</span>';}
+ function arDate(ms){return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(ms));}
+ function arTime(ms){return new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{timeZone:'Asia/Riyadh',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(ms));}
+ function openingDateTime(ms){return '<span class="sas-opening-date" dir="rtl">'+arDate(ms)+'</span><span class="sas-opening-time"><bdi dir="ltr">'+arTime(ms)+'</bdi> • بتوقيت الرياض</span>';}
  function paint(){
    const now=new Date(), pre=nextOpening(now,4,0), regular=nextOpening(now,9,30);
    const pe=document.getElementById('sasPreCountdown'),re=document.getElementById('sasRegularCountdown');
    if(!pe||!re)return;
-   pe.textContent=dur(pre-now.getTime());re.textContent=dur(regular-now.getTime());
+   pe.innerHTML=dur(pre-now.getTime());re.innerHTML=dur(regular-now.getTime());
    const pd=document.getElementById('sasPreCountdownLabel'),rd=document.getElementById('sasRegularCountdownLabel');
    if(pd)pd.textContent=pre-now.getTime()<1000?'بدأ وقت ما قبل الافتتاح':'متبقي على بداية ما قبل الافتتاح';
    if(rd)rd.textContent=regular-now.getTime()<1000?'بدأت الجلسة الرسمية':'متبقي على افتتاح الجلسة الرسمية';
    const pw=document.getElementById('sasPreCountdownWhen'),rw=document.getElementById('sasRegularCountdownWhen');
-   if(pw)pw.textContent=arDate(pre)+' • '+arTime(pre)+' الرياض';
-   if(rw)rw.textContent=arDate(regular)+' • '+arTime(regular)+' الرياض';
-   const date=document.getElementById('sasCountdownDate');if(date)date.textContent='موعد الجلسة القادمة • '+arDate(pre)+' • جميع الأوقات بتوقيت الرياض';
+   if(pw)pw.innerHTML=openingDateTime(pre);
+   if(rw)rw.innerHTML=openingDateTime(regular);
+   const date=document.getElementById('sasCountdownDate');if(date)date.innerHTML='<span class="sas-opening-date" dir="rtl">موعد الجلسة القادمة: '+arDate(pre)+'</span><span class="sas-opening-time">جميع الأوقات بتوقيت الرياض</span>';
    const detail=document.getElementById('sasCountdownDetail');
-   if(detail)detail.textContent=selected==='pre'?'يبدأ التداول قبل الافتتاح الساعة '+arTime(pre)+' يوم '+arDate(pre)+' بتوقيت الرياض. يمكنك متابعة الأسهم وتجهيز قائمة الرصد قبل الجلسة الرسمية.':'يبدأ التداول الرسمي الساعة '+arTime(regular)+' يوم '+arDate(regular)+' بتوقيت الرياض، ويبدأ الرادار متابعة الجلسة حسب إعدادات النظام.';
+   if(detail)detail.innerHTML=selected==='pre'?'<span class="sas-detail-icon" aria-hidden="true">◷</span><div><strong>موعد ما قبل الافتتاح</strong><span class="sas-opening-date" dir="rtl">'+arDate(pre)+'</span><span class="sas-opening-time"><bdi dir="ltr">'+arTime(pre)+'</bdi> • بتوقيت الرياض</span><p>يمكنك متابعة الأسهم وتجهيز قائمة الرصد قبل الجلسة الرسمية.</p></div>':'<span class="sas-detail-icon" aria-hidden="true">◷</span><div><strong>موعد الافتتاح الرسمي</strong><span class="sas-opening-date" dir="rtl">'+arDate(regular)+'</span><span class="sas-opening-time"><bdi dir="ltr">'+arTime(regular)+'</bdi> • بتوقيت الرياض</span><p>يبدأ الرادار متابعة الجلسة حسب إعدادات النظام.</p></div>';
    document.querySelectorAll('[data-countdown]').forEach(b=>{const active=b.dataset.countdown===selected;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));});
  }
  document.querySelectorAll('[data-countdown]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.countdown;paint();}));
