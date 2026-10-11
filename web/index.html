@@ -120,7 +120,7 @@
  <div class="sas-radar-copy"><span class="eyebrow">SAS PRO • SMART RADAR</span><h2>رادار الفرص</h2><p>يمسح النتائج الفعلية ويعرض الفرص المكتشفة أسفل الرادار.</p><div class="sas-radar-status"><i></i><span>الرصد المباشر</span><b id="sasRadarCount">0 فرصة</b></div><div class="sas-radar-actions"><button type="button" class="sas-radar-scan-btn" onclick="runRadar(false)"><span>⟳</span> ابدأ مسحًا جديدًا</button><button type="button" class="sas-view-all" onclick="switchTerminalTab('radar')">كل النتائج <span>←</span></button></div></div>
 </section>
         <div id="dashboardRadar" class="stock-grid"><div class="loading">جاري التحميل...</div></div>
-        <div class="sas-insight-grid"><section class="sas-insight-panel"><div class="sas-insight-title"><span>📈</span><div><b>أعلى الأسهم حركة</b><small>حسب نتائج الرادار الحالية</small></div></div><div id="liveMovers" class="sas-live-movers"><div class="loading">جاري تحميل بيانات الرادار...</div></div></section><section class="sas-insight-panel"><div class="sas-insight-title"><span>🕒</span><div><b>مواعيد السوق</b><small>بتوقيت الرياض • تتغير حسب الجلسة</small></div></div><div class="sas-session-times"><div><span>قبل الافتتاح</span><b id="sasPremarketTime">—</b></div><div><span>الجلسة الرسمية</span><b id="sasRegularTime">—</b></div><div><span>بعد الإغلاق</span><b id="sasAfterHoursTime">—</b></div></div></section></div><section class="sas-insight-panel sas-perp-movers-panel" aria-label="الأكثر تحركًا خلال 24 ساعة">
+        <div class="sas-insight-grid"><section class="sas-insight-panel"><div class="sas-insight-title"><span>📈</span><div><b>أعلى الأسهم حركة</b><small>حسب نتائج الرادار الحالية</small></div></div><div id="liveMovers" class="sas-live-movers"><div class="loading">جاري تحميل بيانات الرادار...</div></div></section><section class="sas-insight-panel sas-market-hours-card" aria-label="مواعيد السوق التفاعلية"><div class="sas-insight-title"><span>◷</span><div><b>مواعيد السوق</b><small>مؤقّت مباشر • بتوقيت الرياض</small></div><span class="sas-hours-live"><i></i> مباشر</span></div><div class="sas-hours-status"><div><small>الوقت الآن في الرياض</small><strong id="sasHoursClock">--:--:--</strong></div><span id="sasHoursPhase" class="sas-hours-phase">جارٍ تحديد الجلسة</span></div><div class="sas-hours-tabs" role="tablist" aria-label="اختر مرحلة السوق"><button type="button" class="is-selected" data-sas-hours="pre" aria-pressed="true">قبل الافتتاح</button><button type="button" data-sas-hours="regular" aria-pressed="false">الجلسة الرسمية</button><button type="button" data-sas-hours="after" aria-pressed="false">بعد الإغلاق</button></div><div class="sas-hours-countdown"><span class="sas-hours-count-icon">◷</span><div><small id="sasHoursCountdownLabel">الوقت المتبقي للمرحلة</small><strong id="sasHoursCountdown">--:--:--</strong><small id="sasHoursSelectedTime">بتوقيت الرياض</small></div></div><div class="sas-hours-track" aria-hidden="true"><i id="sasHoursProgress"></i></div><div class="sas-session-times sas-hours-times"><div><span>قبل الافتتاح</span><b id="sasPremarketTime">—</b></div><div><span>الجلسة الرسمية</span><b id="sasRegularTime">—</b></div><div><span>بعد الإغلاق</span><b id="sasAfterHoursTime">—</b></div></div><p class="sas-hours-hint" id="sasHoursHint">اختر مرحلة لمعرفة موعدها وحالتها.</p></section></div><section class="sas-insight-panel sas-perp-movers-panel" aria-label="الأكثر تحركًا خلال 24 ساعة">
           <div class="sas-insight-title"><span>↕️</span><div><b>الأكثر تحركًا خلال 24 ساعة</b><small>رابحون وخاسرون حسب PerpEquities</small></div><a class="sas-movers-source" href="https://perpequities.com/ar" target="_blank" rel="noopener noreferrer">المصدر ↗</a></div>
           <div class="sas-perp-movers-meta"><span id="perpMoversUpdated">جاري جلب بيانات المصدر…</span><span id="perpMoversState">—</span></div>
           <div class="sas-perp-movers-grid">
@@ -357,7 +357,7 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261011-39"></script>
+<script src="/assets/app.js?v=20261011-40"></script>
 
 <script>
 /* Presentation-only interactions. Does not modify radar, pricing, API calls, or permissions. */
@@ -498,5 +498,35 @@
 })();
 </script>
 
+
+<script>
+/* Interactive market-hours card; reads the app's existing Riyadh session times and leaves radar data untouched. */
+(function(){
+ if(window.__sasMarketHoursCardV1)return;window.__sasMarketHoursCardV1=true;
+ const $=id=>document.getElementById(id);let selected='pre';
+ const fmt=n=>String(n).padStart(2,'0');
+ function parseTime(value){const m=(value||'').match(/(\\d{1,2}):(\\d{2})/);if(!m)return null;return {h:+m[1],m:+m[2]};}
+ function atRiyadh(h,m,base){const d=new Date(base);d.setHours(h,m,0,0);return d;}
+ function tick(){
+  const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Riyadh'}));
+  if($('sasHoursClock'))$('sasHoursClock').textContent=now.toLocaleTimeString('en-GB',{hour12:false});
+  const pre=parseTime($('sasPremarketTime')?.textContent||'11:00'),reg=parseTime(($('sasRegularTime')?.textContent||'16:30').split(/[–—-]/)[0]),close=parseTime(($('sasRegularTime')?.textContent||'23:00').split(/[–—-]/).slice(-1)[0]),after=parseTime($('sasAfterHoursTime')?.textContent||'03:00');
+  if(!pre||!reg||!close||!after)return;
+  const day=now.getDay(),weekday=day>=1&&day<=5;let phase='closed',phaseLabel='السوق مغلق';
+  const mins=now.getHours()*60+now.getMinutes(),p=pre.h*60+pre.m,r=reg.h*60+reg.m,c=close.h*60+close.m,a=after.h*60+after.m;
+  if(weekday&&mins>=r&&mins<c){phase='regular';phaseLabel='الجلسة الرسمية مفتوحة';}else if(weekday&&((mins>=p&&mins<r)||(mins>=c&&mins>=p))){phase=mins>=c?'after':'pre';phaseLabel=phase==='pre'?'ما قبل الافتتاح':'التداول بعد الإغلاق';}else if(weekday&&mins<a){phase='after';phaseLabel='التداول بعد الإغلاق';}
+  const targetTime=selected==='pre'?pre:selected==='regular'?reg:after;let target=atRiyadh(targetTime.h,targetTime.m,now);if(target<=now)target.setDate(target.getDate()+1);
+  let delta=Math.max(0,target-now),total=Math.floor(delta/1000),hh=Math.floor(total/3600),mm=Math.floor(total%3600/60),ss=total%60;
+  if($('sasHoursPhase'))$('sasHoursPhase').textContent=phaseLabel;
+  if($('sasHoursCountdown'))$('sasHoursCountdown').textContent=fmt(hh)+':'+fmt(mm)+':'+fmt(ss);
+  if($('sasHoursCountdownLabel'))$('sasHoursCountdownLabel').textContent=selected==='pre'?'الوقت حتى ما قبل الافتتاح':selected==='regular'?'الوقت حتى الافتتاح الرسمي':'الوقت حتى جلسة ما بعد الإغلاق';
+  if($('sasHoursSelectedTime'))$('sasHoursSelectedTime').textContent=(selected==='pre'?$('sasPremarketTime').textContent:selected==='regular'?$('sasRegularTime').textContent:$('sasAfterHoursTime').textContent)+' • بتوقيت الرياض';
+  if($('sasHoursHint'))$('sasHoursHint').textContent=phase==='regular'?'الجلسة الرسمية جارية؛ تابع الرصد والفرص الفعلية في البطاقات أعلاه.':phase==='pre'?'تهيّأ للافتتاح؛ نتائج الأسهم تبقى مرتبطة بآخر رصد فعلي.':'المواعيد تقديرية حسب جدول الجلسة؛ العطل والإغلاقات المبكرة قد تغيّرها.';
+  const start=selected==='pre'?p:selected==='regular'?r:c,end=selected==='pre'?r:selected==='regular'?c:a;let progress=Math.max(0,Math.min(100,(mins-start)/(Math.max(1,end-start))*100));if($('sasHoursProgress'))$('sasHoursProgress').style.width=progress+'%';
+ }
+ document.querySelectorAll('[data-sas-hours]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.sasHours;document.querySelectorAll('[data-sas-hours]').forEach(x=>{let active=x===b;x.classList.toggle('is-selected',active);x.setAttribute('aria-pressed',String(active));});tick();}));
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{tick();setInterval(tick,1000);});else{tick();setInterval(tick,1000);}
+})();
+</script>
 </body>
 </html>
