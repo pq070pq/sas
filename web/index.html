@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>SAS PRO — Market Terminal</title>
-<link rel="stylesheet" href="/assets/app.css?v=20261011-29">
+<link rel="stylesheet" href="/assets/app.css?v=20261011-30">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 </head>
 <body>
@@ -92,19 +92,20 @@
           <div class="sas-countdown-heading"><div><span class="eyebrow">SAS PRO • MARKET OPEN</span><h2>العد التنازلي لافتتاح السوق</h2><small id="sasCountdownDate">موعد الجلسة القادمة بتوقيت الرياض</small></div><span class="sas-countdown-live"><i></i> تحديث مباشر</span></div>
           <div class="sas-countdown-cards">
             <button type="button" class="sas-countdown-card is-selected" data-countdown="pre" aria-pressed="true">
-              <span class="sas-countdown-card-top"><span>🌅</span><span>السوق قبل الافتتاح</span></span>
+              <span class="sas-countdown-card-top"><span class="sas-countdown-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span>السوق قبل الافتتاح</span></span>
               <strong class="sas-countdown-time" id="sasPreCountdown">--:--:--</strong>
               <span class="sas-countdown-label" id="sasPreCountdownLabel">حتى يبدأ التداول قبل الافتتاح</span>
               <span class="sas-countdown-foot" id="sasPreCountdownWhen">04:00 صباحًا بتوقيت نيويورك</span>
             </button>
             <button type="button" class="sas-countdown-card" data-countdown="regular" aria-pressed="false">
-              <span class="sas-countdown-card-top"><span>🔔</span><span>الافتتاح الرسمي</span></span>
+              <span class="sas-countdown-card-top"><span class="sas-countdown-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 21h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span>الافتتاح الرسمي</span></span>
               <strong class="sas-countdown-time" id="sasRegularCountdown">--:--:--</strong>
               <span class="sas-countdown-label" id="sasRegularCountdownLabel">حتى افتتاح الجلسة الرسمية</span>
               <span class="sas-countdown-foot" id="sasRegularCountdownWhen">09:30 صباحًا بتوقيت نيويورك</span>
             </button>
           </div>
           <div class="sas-countdown-detail" id="sasCountdownDetail" aria-live="polite">اختر أحد العدّادين لعرض تفاصيل موعد الافتتاح.</div>
+        </section>
         </section>
         <div class="metric-grid" id="dashboardMetrics"></div>
         <div class="sas-feature-head"><div><span class="eyebrow">SAS PRO RADAR</span><h2>أهم الفرص اليوم</h2><small>الأسهم المعروضة من نتائج الرادار الفعلية فقط</small></div><button class="sas-view-all" onclick="switchTerminalTab('radar')">كل النتائج <span>←</span></button></div><div class="sas-quick-filters" aria-label="اختصارات الرادار"><button class="is-active" onclick="switchTerminalTab('radar')"><span>💎</span> فرص اليوم</button><button onclick="switchTerminalTab('radar')"><span>🔥</span> أعلى حركة</button><button onclick="switchTerminalTab('radar')"><span>🚀</span> الاختراقات</button><button onclick="switchTerminalTab('radar')"><span>📊</span> الأسهم الواعدة</button><button onclick="switchTerminalTab('search')"><span>📰</span> بحث وتحليل</button></div><div class="section-title"><b>🔥 أحدث الفرص / آخر رصد محفوظ</b><button onclick="switchTerminalTab('radar')">عرض كل الرصد</button></div>
@@ -337,7 +338,7 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261011-29"></script>
+<script src="/assets/app.js?v=20261011-30"></script>
 
 <script>
 /* Presentation-only interactions. Does not modify radar, pricing, API calls, or permissions. */
