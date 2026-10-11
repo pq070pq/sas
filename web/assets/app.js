@@ -1486,6 +1486,7 @@ async function adminRefresh(){
  if(radarNav)radarNav.hidden=!p.includes('radar');
  const tasks=[];
  if(p.includes('users')){tasks.push(loadAdminStats(),adminSearch(),loadAdminMonthlyReport(),loadAdminTerms());}
+ if(p.includes('subscriptions'))tasks.push(loadGiftCandidates());
  if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;document.getElementById('plansEditorPanel').hidden=false;document.getElementById('plansEditorPanel').dataset.adminPermissionHidden='0';document.getElementById('deployPanel').hidden=false;document.getElementById('deployPanel').dataset.adminPermissionHidden='0';document.getElementById('mediaPanel').hidden=false;document.getElementById('mediaPanel').dataset.adminPermissionHidden='0';tasks.push(loadAdminPlans(),loadSubscriptionConfig(),loadDeployStatus(),loadAdminMedia());}
  else {document.getElementById('planEditor').closest('.admin-panel').hidden=true;document.getElementById('plansEditorPanel').hidden=true;document.getElementById('plansEditorPanel').dataset.adminPermissionHidden='1';document.getElementById('deployPanel').hidden=true;document.getElementById('deployPanel').dataset.adminPermissionHidden='1';document.getElementById('mediaPanel').hidden=true;document.getElementById('mediaPanel').dataset.adminPermissionHidden='1';}
  if(p.includes('payments')){document.getElementById('starsPanel').hidden=false;document.getElementById('starsPanel').dataset.adminPermissionHidden='0';tasks.push(loadStarsWallet());}else{document.getElementById('starsPanel').hidden=true;document.getElementById('starsPanel').dataset.adminPermissionHidden='1';}
@@ -1732,6 +1733,22 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 async function adminFreeExtend(id,d){try{await api('/api/admin/free-extend/'+id+'?days='+d,{method:'POST'});await adminRefresh();alert('تم تمديد المجاني للمستخدم.');}catch(e){alert(e.message);}}
 async function adminGrant(id,d){try{await api('/api/admin/grant/'+id+'?days='+encodeURIComponent(d),{method:'POST'});await adminRefresh();}catch(e){alert(e.message);}}
 let giftMode='single';
+async function loadGiftCandidates(){
+ const select=document.getElementById('giftExtendTelegramId');
+ if(!select)return;
+ const previous=select.value;
+ select.innerHTML='<option value="">⏳ جاري تحميل المشتركين...</option>';
+ try{
+  const rows=await api('/api/admin/gift-candidates');
+  if(!Array.isArray(rows)||!rows.length){select.innerHTML='<option value="">لا يوجد مشتركون فعّالون حاليًا</option>';return;}
+  select.innerHTML='<option value="">— اختر المشترك —</option>'+rows.map(u=>{
+   const name=esc(u.name||u.username||u.telegram_id);
+   const username=u.username?' (@'+esc(u.username)+')':'';
+   return '<option value="'+Number(u.telegram_id)+'">'+name+username+' · '+esc(u.kind)+' · ينتهي '+esc(fmtDate(u.expires_at))+' · ID '+Number(u.telegram_id)+'</option>';
+  }).join('');
+  if(previous&&rows.some(u=>String(u.telegram_id)===previous))select.value=previous;
+ }catch(e){select.innerHTML='<option value="">تعذر تحميل المشتركين — حدّث اللوحة</option>';console.error('Gift candidates load failed',e);}
+}
 function setGiftMode(mode){
  giftMode=mode==='all'?'all':'single';
  const single=giftMode==='single';
@@ -1740,6 +1757,7 @@ function setGiftMode(mode){
  const allBtn=document.getElementById('giftModeAll');
  const action=document.getElementById('giftExtendAllBtn');
  if(target)target.hidden=!single;
+ if(single)loadGiftCandidates();
  if(singleBtn){singleBtn.classList.toggle('active',single);singleBtn.setAttribute('aria-pressed',String(single));}
  if(allBtn){allBtn.classList.toggle('active',!single);allBtn.setAttribute('aria-pressed',String(!single));}
  if(action)action.textContent=single?'🎁 إرسال الهدية وتمديد الاشتراك':'🎁 إرسال الهدية وتمديد اشتراكات الجميع';
@@ -1753,7 +1771,7 @@ async function adminGiftExtendAll(){
  const days=Number(input?.value);
  const telegramId=Number(targetInput?.value);
  if(!Number.isInteger(days)||days<1||days>365){alert('أدخل مدة هدية من يوم إلى 365 يومًا.');return;}
- if(giftMode==='single'&&(!Number.isSafeInteger(telegramId)||telegramId<1)){alert('أدخل رقم Telegram الصحيح للمستفيد.');return;}
+ if(giftMode==='single'&&(!Number.isSafeInteger(telegramId)||telegramId<1)){alert('اختر المشترك الذي تريد إهداءه.');return;}
  const scope=giftMode==='single'?'للمستخدم '+telegramId:'لجميع المشتركين الفعّالين';
  if(!confirm('تأكيد إرسال هدية '+days+' يومًا '+scope+'؟'))return;
  button.disabled=true;button.textContent='⏳ جارٍ تنفيذ الهدية…';result.hidden=true;
