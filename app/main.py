@@ -32,6 +32,7 @@ from .scheduler import scheduler
 from .market_calendar import market_status, us_market_holidays
 from .holiday_radar import stock_radar_enabled
 from .radar_health import radar_health_monitor
+from .radar_lifecycle import is_current_active_opportunity
 from .timeutil import utcnow, aware
 from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, get_subscription_config, setting_set, setting_get, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings, create_user_channel_invite
 from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
@@ -2746,6 +2747,10 @@ async def dashboard_home(_: dict = Depends(require_pro)):
             payload = json.loads(row.payload or "{}")
             payload.setdefault("symbol", row.symbol)
             payload.setdefault("created_at", row.created_at.isoformat() if row.created_at else None)
+            payload.setdefault("session_date", row.session_date)
+            # المحفوظ يعرض الفرص المؤكدة النشطة فقط؛ المرشحات التي فقدت الشروط تبقى تاريخيًا.
+            if not is_current_active_opportunity(payload):
+                continue
             if row.symbol not in seen:
                 radar_stocks.append(payload)
                 seen.add(row.symbol)
@@ -2764,9 +2769,9 @@ async def dashboard_home(_: dict = Depends(require_pro)):
             "watched": len(radar_stocks),
             "top_move_pct": max(moves) if moves else None,
             "top_volume": max(volumes) if volumes else None,
-            "last_signal_at": rows[0].created_at.isoformat() if rows and rows[0].created_at else None,
-            "source_session": source_session if rows else None,
-            "historical": bool(rows and source_session != session_date),
+            "last_signal_at": radar_stocks[0].get("created_at") if radar_stocks else None,
+            "source_session": radar_stocks[0].get("session_date") if radar_stocks else None,
+            "historical": bool(radar_stocks and radar_stocks[0].get("session_date") != session_date),
             "stocks": radar_stocks[:20],
         },
         "updated_at": utcnow().isoformat(),
@@ -2798,8 +2803,8 @@ async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
                     continue
                 if not isinstance(payload, dict):
                     continue
-                gate = payload.get("channel_gate") or {}
-                if not gate.get("passed") or not payload.get("radar_active", False):
+                # لا تظهر في المحفوظ إلا الفرصة المؤكدة التي ما زالت نشطة واجتازت بوابة النشر.
+                if not is_current_active_opportunity(payload):
                     continue
                 symbol = str(row.symbol or "").upper()
                 if not symbol or symbol in seen:
@@ -4850,6 +4855,10 @@ async def dashboard_home(_: dict = Depends(require_pro)):
             payload = json.loads(row.payload or "{}")
             payload.setdefault("symbol", row.symbol)
             payload.setdefault("created_at", row.created_at.isoformat() if row.created_at else None)
+            payload.setdefault("session_date", row.session_date)
+            # المحفوظ يعرض الفرص المؤكدة النشطة فقط؛ المرشحات التي فقدت الشروط تبقى تاريخيًا.
+            if not is_current_active_opportunity(payload):
+                continue
             if row.symbol not in seen:
                 radar_stocks.append(payload)
                 seen.add(row.symbol)
@@ -4902,8 +4911,8 @@ async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
                     continue
                 if not isinstance(payload, dict):
                     continue
-                gate = payload.get("channel_gate") or {}
-                if not gate.get("passed") or not payload.get("radar_active", False):
+                # لا تظهر في المحفوظ إلا الفرصة المؤكدة التي ما زالت نشطة واجتازت بوابة النشر.
+                if not is_current_active_opportunity(payload):
                     continue
                 symbol = str(row.symbol or "").upper()
                 if not symbol or symbol in seen:
