@@ -2739,3 +2739,48 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 
 .gift-subscriber-select{width:100%;min-height:46px;padding:10px 12px;border-radius:12px;border:1px solid var(--border,rgba(130,170,190,.25));background:var(--panel,#071a25);color:var(--text,#eaf5fb);font:inherit}
 .gift-subscriber-select option{background:#071a25;color:#eaf5fb}
+
+
+/* SAS PRO admin experience refresh — visual-only, preserves existing actions and APIs */
+.admin-page{--admin-accent:#31e7f2;--admin-card:rgba(6,19,27,.94);padding-bottom:30px}
+.admin-header{position:sticky;top:0;z-index:80;backdrop-filter:blur(18px);background:rgba(2,8,13,.94);border-bottom:1px solid rgba(49,231,242,.13);padding:12px clamp(12px,3vw,28px);gap:12px}
+.admin-brand-mark{box-shadow:0 0 24px rgba(49,231,242,.18);border:1px solid rgba(49,231,242,.3)}
+.admin-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.admin-refresh,.admin-nav button,.admin-panel button,.owner-card button{transition:transform .18s ease,border-color .18s ease,background .18s ease,box-shadow .18s ease}
+.admin-refresh:hover,.admin-nav button:hover,.admin-panel button:hover,.owner-card button:hover{transform:translateY(-1px);border-color:rgba(49,231,242,.42)}
+.admin-nav{position:sticky;top:62px;z-index:70;display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin;padding:9px clamp(10px,2.5vw,24px);background:rgba(3,12,18,.91);border-bottom:1px solid rgba(49,231,242,.1)}
+.admin-nav button{flex:0 0 auto;min-height:40px;padding:10px 13px;font-size:11px;border:1px solid transparent;border-radius:12px;white-space:nowrap}
+.admin-nav button.active{border-color:rgba(49,231,242,.2);box-shadow:0 5px 20px rgba(0,0,0,.18),inset 0 0 0 1px rgba(49,231,242,.05)}
+.admin-overview,.admin-panel,.owner-card{scroll-margin-top:130px}
+.admin-welcome{padding:clamp(16px,3vw,26px);border-radius:22px;box-shadow:0 18px 48px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.025)}
+.admin-panel,.admin-alerts-panel,.owner-card{border:1px solid rgba(128,190,204,.12)!important;border-radius:19px!important;background:linear-gradient(155deg,rgba(7,24,33,.97),rgba(3,12,18,.98))!important;box-shadow:0 12px 34px rgba(0,0,0,.16)}
+.admin-panel .section-head{gap:10px;align-items:center;flex-wrap:wrap;border-bottom:1px solid rgba(128,190,204,.1);padding-bottom:12px;margin-bottom:14px}
+.admin-panel .section-head b{font-size:14px;letter-spacing:.1px}
+.admin-panel .section-head span{font-size:10px;line-height:1.6}
+.admin-panel input:not([type=checkbox]),.admin-panel select,.admin-panel textarea{width:100%;min-height:42px;border:1px solid rgba(124,172,187,.2);border-radius:12px;background:#06131b;color:#e8fbff;padding:10px 12px;outline:none}
+.admin-panel input:focus,.admin-panel select:focus,.admin-panel textarea:focus{border-color:rgba(49,231,242,.65);box-shadow:0 0 0 3px rgba(49,231,242,.08)}
+.admin-panel .save-btn,.admin-panel button.primary{min-height:43px;border-radius:12px;font-weight:800}
+.subscription-controls{gap:13px}
+.toggle-row,.trial-days-row{border:1px solid rgba(124,172,187,.12);border-radius:14px;padding:13px;background:rgba(1,8,12,.32)}
+.plan-visibility{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:9px;margin:12px 0}
+.plan-visibility>*{border:1px solid rgba(124,172,187,.14);border-radius:12px;padding:11px;background:rgba(1,8,12,.35)}
+#planEditor{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+#planEditor>*{min-width:0;border:1px solid rgba(124,172,187,.14);border-radius:15px;padding:13px;background:rgba(1,8,12,.35)}
+#giftExtendPanel .gift-mode-switch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#giftExtendPanel .gift-mode-switch button{min-height:43px;border-radius:12px}
+#giftExtendPanel #giftExtendAllBtn{width:100%;min-height:46px;margin-top:8px}
+#giftExtendResult{border-radius:12px;padding:12px;background:rgba(49,231,242,.07);border:1px solid rgba(49,231,242,.18);line-height:1.8}
+.stars-wallet-card>div{border:1px solid rgba(124,172,187,.14);border-radius:15px;background:rgba(1,8,12,.36);padding:15px}
+.admin-stats>*{border-radius:16px;border:1px solid rgba(124,172,187,.12)}
+.sas-plan-card{position:relative;overflow:hidden;border:1px solid rgba(49,231,242,.18);background:linear-gradient(155deg,rgba(7,28,38,.98),rgba(2,11,17,.98));box-shadow:0 12px 30px rgba(0,0,0,.18);transition:transform .2s ease,border-color .2s ease}
+.sas-plan-card:hover{transform:translateY(-3px);border-color:rgba(49,231,242,.5)}
+.sas-plan-card strong{font-size:clamp(21px,5vw,28px);color:#efffff}
+.sas-plan-card .plan-payment-note{display:block;color:#8eabb5;font-size:10px;margin:9px 0 12px}
+.sas-plan-card button{min-height:45px;border-radius:12px;font-weight:900}
+#termsModal .modal-card{border:1px solid rgba(49,231,242,.2);border-radius:22px;box-shadow:0 25px 90px rgba(0,0,0,.55)}
+#termsModal .terms-text{max-height:min(48vh,460px);overflow:auto;line-height:1.9;padding:14px;border-radius:13px;background:rgba(1,8,12,.42);border:1px solid rgba(124,172,187,.1)}
+#termsModal .terms-check{display:flex;gap:10px;align-items:flex-start;margin-top:14px;padding:13px;border-radius:13px;background:rgba(49,231,242,.055);border:1px solid rgba(49,231,242,.15)}
+#termsModal .modal-actions{display:grid;grid-template-columns:1fr 1.4fr;gap:9px;margin-top:14px}
+#termsModal .modal-actions button{min-height:44px;border-radius:12px}
+@media(max-width:620px){.admin-header{align-items:flex-start;flex-wrap:wrap}.admin-header-actions{width:100%;justify-content:stretch}.admin-header-actions>*{flex:1}.admin-nav{top:108px}.admin-welcome{align-items:stretch;flex-direction:column}.admin-security{min-width:0}.admin-panel{padding:13px!important}.admin-nav button{padding:9px 11px}.sas-plan-card{padding:15px}}
+@media(prefers-reduced-motion:reduce){.admin-refresh,.admin-nav button,.admin-panel button,.owner-card button,.sas-plan-card{transition:none}}
