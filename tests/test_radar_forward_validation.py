@@ -25,3 +25,11 @@ def test_forward_sessions_are_aligned_between_stock_and_spy():
     stock = {"2026-10-02": 11, "2026-10-05": 12, "2026-10-06": 13}
     spy = {"2026-10-02": 101, "2026-10-06": 103, "2026-10-07": 104}
     assert _aligned_forward_days(stock, spy, "2026-10-01") == ["2026-10-02", "2026-10-06"]
+
+
+def test_close_map_excludes_current_incomplete_session():
+    result = {"candles": [
+        {"time": "2026-10-09", "close": 10},
+        {"time": "2026-10-12", "close": 11},
+    ]}
+    assert _close_map(result, before_day="2026-10-12") == {"2026-10-09": 10.0}
