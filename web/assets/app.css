@@ -2813,3 +2813,30 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .gift-message-editor-actions{display:flex;gap:8px;flex-wrap:wrap}
 .gift-message-save-status{font-size:13px;color:#9de9c0;min-height:1em}
 @media(max-width:600px){.gift-message-editor-actions>*{flex:1 1 100%}}
+
+
+/* SAS PRO terms modal: elegant animated red pulse around the agreement boundary */
+.terms-modal,.terms-dialog,.terms-card,[class*="terms-modal"],[class*="terms-dialog"]{position:relative;isolation:isolate}
+.terms-modal::before,.terms-dialog::before,.terms-card::before,[class*="terms-modal"]::before,[class*="terms-dialog"]::before{
+ content:"";position:absolute;inset:-2px;border-radius:inherit;pointer-events:none;z-index:3;
+ border:1.5px solid rgba(255,55,75,.92);
+ box-shadow:0 0 7px rgba(255,36,60,.48),inset 0 0 7px rgba(255,36,60,.16);
+ animation:sasTermsRedPulse 2.2s ease-in-out infinite;
+}
+.terms-modal::after,.terms-dialog::after,.terms-card::after,[class*="terms-modal"]::after,[class*="terms-dialog"]::after{
+ content:"";position:absolute;inset:-5px;border-radius:inherit;pointer-events:none;z-index:2;
+ border:1px solid rgba(255,55,75,.22);animation:sasTermsRedHalo 2.2s ease-in-out infinite;
+}
+@keyframes sasTermsRedPulse{
+ 0%,100%{border-color:rgba(255,55,75,.58);box-shadow:0 0 5px rgba(255,36,60,.28),inset 0 0 5px rgba(255,36,60,.08)}
+ 50%{border-color:rgba(255,75,88,1);box-shadow:0 0 15px rgba(255,36,60,.72),0 0 28px rgba(255,36,60,.22),inset 0 0 11px rgba(255,36,60,.2)}
+}
+@keyframes sasTermsRedHalo{
+ 0%,100%{opacity:.25;transform:scale(1)}
+ 50%{opacity:.8;transform:scale(1.004)}
+}
+.terms-modal:focus-within::before,.terms-dialog:focus-within::before,.terms-card:focus-within::before{border-width:2px}
+@media(prefers-reduced-motion:reduce){
+ .terms-modal::before,.terms-dialog::before,.terms-card::before,[class*="terms-modal"]::before,
+ .terms-modal::after,.terms-dialog::after,.terms-card::after,[class*="terms-modal"]::after{animation:none;box-shadow:0 0 8px rgba(255,36,60,.4)}
+}
