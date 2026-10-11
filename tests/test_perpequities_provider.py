@@ -3,8 +3,7 @@ from datetime import datetime, timezone
 from app.perpequities_provider import normalize_asset
 
 
-def _payload(**overrides):
-    now = datetime(2026, 10, 11, 12, 0, tzinfo=timezone.utc)
+def _asset(**overrides):
     data = {
         "ticker": "OSS",
         "price": 10.18,
@@ -29,12 +28,19 @@ def _payload(**overrides):
             "updatedAt": "2026-10-11T11:59:00Z",
         }],
     }
-    data.update(overrides.pop("data", {}))
+    data.update(overrides)
+    return data
+
+
+def _payload(**overrides):
+    now = datetime(2026, 10, 11, 12, 0, tzinfo=timezone.utc)
     payload = {
         "generatedAt": "2026-10-11T12:00:00Z",
         "marketDataAt": "2026-10-11T11:59:00Z",
-        "data": data,
+        "data": _asset(),
     }
+    if "data" in overrides:
+        payload["data"] = overrides.pop("data")
     payload.update(overrides)
     return payload, now
 
@@ -51,10 +57,7 @@ def test_normalize_returns_contract_context_and_attribution():
 
 
 def test_normalize_finds_symbol_in_bulk_snapshot():
-    payload, now = _payload(data=[
-        {"ticker": "AAPL", "price": 200},
-        _payload()[0]["data"],
-    ])
+    payload, now = _payload(data=[{"ticker": "AAPL", "price": 200}, _asset()])
     result = normalize_asset(payload, "OSS", now)
     assert result is not None
     assert result["symbol"] == "OSS"
@@ -81,7 +84,7 @@ def test_normalize_rejects_old_market_data():
 
 
 def test_normalize_keeps_unknown_aggregates_as_none():
-    payload, now = _payload(data={"qualityFilteredVolume24hUsd": None, "openInterestUsd": None})
+    payload, now = _payload(data={"ticker": "OSS", "qualityFilteredVolume24hUsd": None, "openInterestUsd": None})
     result = normalize_asset(payload, "OSS", now)
     assert result is not None
     assert result["volume_24h_usd"] is None
