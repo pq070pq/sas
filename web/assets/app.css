@@ -2311,3 +2311,14 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .account-load-error button{width:100%}
 }
 @media(prefers-reduced-motion:reduce){.account-loading i{animation:none}}
+
+/* Admin-managed icons catalog */
+.sas-movers-source[hidden]{display:none!important}
+.media-admin-hero-grid{grid-template-columns:minmax(0,1fr);margin-bottom:14px}
+#mediaIconsAdminGrid{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:12px}
+#mediaIconsAdminGrid .media-admin-card{min-width:0}
+#mediaIconsAdminGrid .media-admin-card>b{line-height:1.65}
+#mediaIconsAdminGrid .media-admin-card small{min-height:2.8em;line-height:1.6}
+#mediaIconsAdminGrid .media-upload-btn{display:block;text-align:center}
+@media(max-width:700px){#mediaIconsAdminGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}
+@media(max-width:360px){#mediaIconsAdminGrid{grid-template-columns:1fr}}
