@@ -78,6 +78,17 @@ async def ensure_subscription_settings():
                 await setting_set(db, "trial_days", 3)
             await setting_set(db, migration_key, "1")
 
+        # One-time migration for the requested 100 SAR monthly plan.
+        # Preserve any administrator-customized price once migration has run.
+        pricing_migration_key = "monthly_price_100_sar_migrated"
+        if await db.get(Setting, pricing_migration_key) is None:
+            current_sar = str(await setting_get(db, "monthly_sar", settings.monthly_sar)).strip()
+            current_stars = str(await setting_get(db, "monthly_stars", settings.pro_monthly_stars)).strip()
+            if current_sar == "150" and current_stars == "2250":
+                await setting_set(db, "monthly_sar", 100)
+                await setting_set(db, "monthly_stars", 2100)
+            await setting_set(db, pricing_migration_key, "1")
+
         await db.commit()
 
 async def get_subscription_config():
