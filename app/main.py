@@ -1,6 +1,7 @@
 import asyncio
 import copy
 import logging
+import time
 import re
 import json
 import base64
@@ -10,7 +11,8 @@ import html
 import os
 from pathlib import Path
 import httpx
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urljoin
+from html.parser import HTMLParser
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -2285,6 +2287,132 @@ async def radar_status(_: dict = Depends(require_pro)):
         "stock_radar_enabled": stock_radar_enabled(),
         "closed_market_macro_radar": not status["open"],
     }
+
+
+# PerpEquities 24-hour movers are kept separate from SAS technical radar signals.
+_PERPEQUITIES_URL = "https://perpequities.com/ar"
+_PERPEQUITIES_CACHE_TTL = 90
+_PERPEQUITIES_MOVERS_CACHE = {"fetched_at": 0.0, "payload": None}
+
+
+class _PerpEquitiesMoversParser(HTMLParser):
+    """Extract only the page's explicit 'most moved in 24 hours' section."""
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.offset = 0
+        self.anchors = []
+        self.headings = []
+        self.anchor = None
+        self.heading = None
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "a":
+            self.anchor = {"href": attrs.get("href", ""), "start": self.offset, "parts": []}
+        if tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
+            self.heading = {"tag": tag, "level": int(tag[1]), "start": self.offset, "parts": []}
+
+    def handle_data(self, data):
+        if self.anchor is not None:
+            self.anchor["parts"].append(data)
+        if self.heading is not None:
+            self.heading["parts"].append(data)
+        self.offset += len(data)
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self.anchor is not None:
+            item = self.anchor
+            item["end"] = self.offset
+            item["text"] = " ".join("".join(item.pop("parts")).split())
+            self.anchors.append(item)
+            self.anchor = None
+        if tag in ("h1", "h2", "h3", "h4", "h5", "h6") and self.heading is not None and tag == self.heading["tag"]:
+            item = self.heading
+            item["end"] = self.offset
+            item["text"] = " ".join("".join(item.pop("parts")).split())
+            self.headings.append(item)
+            self.heading = None
+
+
+def _parse_perpequities_movers(document: str):
+    parser = _PerpEquitiesMoversParser()
+    parser.feed(document)
+    clean = lambda value: re.sub(r"[\u064B-\u065F\u0670\u200e\u200f\u202a-\u202e]", "", value or "").strip()
+    target = next((h for h in parser.headings if "الأكثر تحركًا خلال 24 ساعة" in clean(h["text"]) or "الأكثر تحركا خلال 24 ساعة" in clean(h["text"])), None)
+    if not target:
+        return None
+    section_end = min(
+        (h["start"] for h in parser.headings if h["start"] > target["end"] and h["level"] <= target["level"]),
+        default=parser.offset + 1,
+    )
+    changes = []
+    seen = set()
+    for anchor in parser.anchors:
+        if not (target["end"] <= anchor["start"] < section_end):
+            continue
+        label = clean(anchor.get("text", "")).replace("−", "-").replace("–", "-")
+        match_change = re.search(r"([+\-]?\s*\d+(?:[.,]\d+)?)\s*[%٪]", label)
+        match_symbol = re.match(r"\$?([A-Z][A-Z0-9.-]{0,11})", label)
+        if not match_change or not match_symbol:
+            continue
+        symbol = match_symbol.group(1).upper()
+        if symbol in seen:
+            continue
+        try:
+            change = float(match_change.group(1).replace(" ", "").replace(",", "."))
+        except (TypeError, ValueError):
+            continue
+        href = urljoin(_PERPEQUITIES_URL, anchor.get("href") or "")
+        changes.append({"symbol": symbol, "change_pct": change, "url": href})
+        seen.add(symbol)
+    if not changes:
+        return None
+    gainers = sorted((x for x in changes if x["change_pct"] > 0), key=lambda x: x["change_pct"], reverse=True)[:8]
+    losers = sorted((x for x in changes if x["change_pct"] < 0), key=lambda x: x["change_pct"])[:8]
+    return {"available": bool(gainers or losers), "gainers": gainers, "losers": losers}
+
+
+@app.get("/api/market/movers")
+async def perpequities_market_movers(_: dict = Depends(require_pro)):
+    """Return PerpEquities' published 24-hour movers without mixing them with SAS signals."""
+    now = time.monotonic()
+    cached = _PERPEQUITIES_MOVERS_CACHE.get("payload")
+    if cached and now - _PERPEQUITIES_MOVERS_CACHE.get("fetched_at", 0.0) < _PERPEQUITIES_CACHE_TTL:
+        return cached
+    try:
+        async with httpx.AsyncClient(
+            timeout=10.0,
+            follow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; SASPRO-MarketDashboard/1.0)", "Accept-Language": "ar,en;q=0.8"},
+        ) as client:
+            response = await client.get(_PERPEQUITIES_URL)
+            response.raise_for_status()
+        parsed = _parse_perpequities_movers(response.text)
+        if not parsed or not parsed.get("available"):
+            raise ValueError("The source page did not expose its 24-hour movers section.")
+        payload = {
+            **parsed,
+            "source": "PerpEquities",
+            "source_url": _PERPEQUITIES_URL,
+            "updated_at": utcnow().isoformat(),
+            "stale": False,
+        }
+        _PERPEQUITIES_MOVERS_CACHE.update({"fetched_at": time.monotonic(), "payload": payload})
+        return payload
+    except Exception as exc:
+        logger.warning("PerpEquities movers refresh failed: %s", exc)
+        if cached:
+            return {**cached, "stale": True}
+        return {
+            "available": False,
+            "gainers": [],
+            "losers": [],
+            "source": "PerpEquities",
+            "source_url": _PERPEQUITIES_URL,
+            "updated_at": None,
+            "stale": False,
+            "message_ar": "تعذر جلب قائمة الأكثر تحركًا من المصدر حاليًا.",
+        }
 
 @app.get("/api/market/ticker")
 async def market_ticker(_: dict = Depends(require_pro)):

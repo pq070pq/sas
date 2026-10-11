@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>SAS PRO — Market Terminal</title>
-<link rel="stylesheet" href="/assets/app.css?v=20261011-35">
+<link rel="stylesheet" href="/assets/app.css?v=20261011-36">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 </head>
 <body>
@@ -120,7 +120,16 @@
  <div class="sas-radar-copy"><span class="eyebrow">SAS PRO • SMART RADAR</span><h2>رادار الفرص</h2><p>يمسح النتائج الفعلية ويعرض الفرص المكتشفة أسفل الرادار.</p><div class="sas-radar-status"><i></i><span>الرصد المباشر</span><b id="sasRadarCount">0 فرصة</b></div><div class="sas-radar-actions"><button type="button" class="sas-radar-scan-btn" onclick="runRadar(false)"><span>⟳</span> ابدأ مسحًا جديدًا</button><button type="button" class="sas-view-all" onclick="switchTerminalTab('radar')">كل النتائج <span>←</span></button></div></div>
 </section>
         <div id="dashboardRadar" class="stock-grid"><div class="loading">جاري التحميل...</div></div>
-        <div class="sas-insight-grid"><section class="sas-insight-panel"><div class="sas-insight-title"><span>📈</span><div><b>أعلى الأسهم حركة</b><small>حسب نتائج الرادار الحالية</small></div></div><div id="liveMovers" class="sas-live-movers"><div class="loading">جاري تحميل بيانات الرادار...</div></div></section><section class="sas-insight-panel"><div class="sas-insight-title"><span>🕒</span><div><b>مواعيد السوق</b><small>بتوقيت الرياض • تتغير حسب الجلسة</small></div></div><div class="sas-session-times"><div><span>قبل الافتتاح</span><b id="sasPremarketTime">—</b></div><div><span>الجلسة الرسمية</span><b id="sasRegularTime">—</b></div><div><span>بعد الإغلاق</span><b id="sasAfterHoursTime">—</b></div></div></section></div><div class="section-title"><b>📊 مؤشرات السوق</b><span>الأسعار المتاحة من مزود البيانات</span></div>
+        <div class="sas-insight-grid"><section class="sas-insight-panel"><div class="sas-insight-title"><span>📈</span><div><b>أعلى الأسهم حركة</b><small>حسب نتائج الرادار الحالية</small></div></div><div id="liveMovers" class="sas-live-movers"><div class="loading">جاري تحميل بيانات الرادار...</div></div></section><section class="sas-insight-panel"><div class="sas-insight-title"><span>🕒</span><div><b>مواعيد السوق</b><small>بتوقيت الرياض • تتغير حسب الجلسة</small></div></div><div class="sas-session-times"><div><span>قبل الافتتاح</span><b id="sasPremarketTime">—</b></div><div><span>الجلسة الرسمية</span><b id="sasRegularTime">—</b></div><div><span>بعد الإغلاق</span><b id="sasAfterHoursTime">—</b></div></div></section></div><section class="sas-insight-panel sas-perp-movers-panel" aria-label="الأكثر تحركًا خلال 24 ساعة">
+          <div class="sas-insight-title"><span>↕️</span><div><b>الأكثر تحركًا خلال 24 ساعة</b><small>رابحون وخاسرون حسب PerpEquities</small></div><a class="sas-movers-source" href="https://perpequities.com/ar" target="_blank" rel="noopener noreferrer">المصدر ↗</a></div>
+          <div class="sas-perp-movers-meta"><span id="perpMoversUpdated">جاري جلب بيانات المصدر…</span><span id="perpMoversState">—</span></div>
+          <div class="sas-perp-movers-grid">
+            <div class="sas-perp-movers-side"><b class="sas-perp-movers-side-title is-up">▲ الرابحون</b><div id="perpMoversGainers" class="sas-perp-movers-list"><div class="loading">جاري التحميل…</div></div></div>
+            <div class="sas-perp-movers-side"><b class="sas-perp-movers-side-title is-down">▼ الخاسرون</b><div id="perpMoversLosers" class="sas-perp-movers-list"><div class="loading">جاري التحميل…</div></div></div>
+          </div>
+          <p class="sas-perp-movers-note">هذه تحركات عقود الأسهم الدائمة المعروضة في المصدر خلال 24 ساعة، وقد تختلف عن سعر السهم الفوري. ليست توصية تداول.</p>
+        </section>
+        <div class="section-title"><b>📊 مؤشرات السوق</b><span>الأسعار المتاحة من مزود البيانات</span></div>
         <div id="macroGrid" class="macro-grid"></div>
       </section>
       <section id="tab-radar" class="terminal-tab"><div class="terminal-panel-head"><div><span class="eyebrow">SAS PRO RADAR</span><h2>بيانات الأسهم المرصودة</h2><small>🕒 يوضح لك وقت تنفيذ آخر رصد فعلي بتوقيت الرياض</small><small>السعر • الحركة • الحجم • RVOL • الدخول • الوقف • الهدف • R:R</small></div><button id="radarScanBtn" class="primary-btn" onclick="runRadar()">🔎 مسح الأسهم</button></div><div id="radarDiagnostics" class="diagnostics"></div><div id="radarCandidates" class="radar-candidates" hidden></div><div id="radarGrid" class="stock-grid"></div></section>
@@ -348,7 +357,7 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261011-35"></script>
+<script src="/assets/app.js?v=20261011-36"></script>
 
 <script>
 /* Presentation-only interactions. Does not modify radar, pricing, API calls, or permissions. */

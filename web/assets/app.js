@@ -211,11 +211,14 @@ async function refreshTerminal(){
  const results=await Promise.allSettled([
   api('/api/market/radar-status'),
   api('/api/dashboard/home'),
-  api('/api/market/ticker')
+  api('/api/market/ticker'),
+  api('/api/market/movers')
  ]);
  const status=results[0]?.status==='fulfilled'?results[0].value:null;
  const home=results[1]?.status==='fulfilled'?results[1].value:null;
  const ticker=results[2]?.status==='fulfilled'?results[2].value:null;
+ const movers=results[3]?.status==='fulfilled'?results[3].value:null;
+ if(movers) renderPerpEquitiesMovers(movers);
  if(Array.isArray(ticker)){
   const gold=ticker.find(x=>String(x?.symbol||'').toUpperCase()==='XAU/USD' || String(x?.label||'').toUpperCase()==='GOLD');
   if(!gold || !(Number(gold.price)>0)){
@@ -339,6 +342,35 @@ function toggleSasMetric(id){
  document.querySelectorAll('.sas-metric-card').forEach(b=>{const active=b.dataset.metric===id&&!wasOpen;b.classList.toggle('is-active',active);b.setAttribute('aria-expanded',String(active));});
  if(wasOpen){panel.hidden=true;panel.dataset.active='';panel.innerHTML='';return;}
  const item=window.sasMetricDetails[id];panel.dataset.active=id;panel.innerHTML='<span class="sas-metric-detail-icon">ⓘ</span><div><strong>'+item.label+'</strong><p>'+item.detail+'</p></div><button type="button" aria-label="إغلاق التوضيح" onclick="toggleSasMetric(\''+id+'\')">×</button>';panel.hidden=false;
+}
+
+function renderPerpEquitiesMovers(data){
+ const updated=document.getElementById('perpMoversUpdated');
+ const state=document.getElementById('perpMoversState');
+ const gainers=document.getElementById('perpMoversGainers');
+ const losers=document.getElementById('perpMoversLosers');
+ if(!gainers||!losers||!data)return;
+ if(!data.available){
+  if(updated&&!gainers.querySelector('.sas-perp-mover'))updated.textContent=data.message_ar||'بيانات المصدر غير متاحة حاليًا';
+  if(state&&!gainers.querySelector('.sas-perp-mover'))state.textContent='تعذر التحديث';
+  return;
+ }
+ const makeRows=(items,direction,emptyLabel)=>items.length?items.map(item=>{
+  const value=Number(item.change_pct);
+  const change=(value>0?'+':'')+value.toFixed(1)+'%';
+  const symbol=escHtml(String(item.symbol||'—'));
+  const href=escHtml(String(item.url||data.source_url||'https://perpequities.com/ar'));
+  return '<a class="sas-perp-mover '+direction+'" href="'+href+'" target="_blank" rel="noopener noreferrer"><span class="sas-perp-mover-symbol">'+symbol+'</span><b>'+change+'</b><span class="sas-perp-mover-open">↗</span></a>';
+ }).join(''):'<div class="sas-perp-movers-empty">'+emptyLabel+'</div>';
+ gainers.innerHTML=makeRows(Array.isArray(data.gainers)?data.gainers:[],'is-up','لا توجد بيانات رابحين متاحة');
+ losers.innerHTML=makeRows(Array.isArray(data.losers)?data.losers:[],'is-down','لا توجد بيانات خاسرين متاحة');
+ if(updated){
+  if(data.updated_at){
+   const date=new Date(data.updated_at);
+   updated.textContent='آخر جلب: '+(Number.isFinite(date.getTime())?new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',hour12:true}).format(date)+' بتوقيت الرياض':'—');
+  }else updated.textContent='وقت التحديث غير متاح';
+ }
+ if(state)state.textContent=data.stale?'آخر بيانات محفوظة • المصدر متعذر مؤقتًا':'تحديث المصدر';
 }
 function renderMacro(){
  const wanted=[

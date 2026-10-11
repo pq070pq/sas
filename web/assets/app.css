@@ -2066,3 +2066,24 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .radar-scan-progress{border:1px solid rgba(63,218,255,.34);border-radius:14px;background:linear-gradient(120deg,rgba(4,42,60,.96),rgba(2,15,27,.98));color:#e5faff;box-shadow:0 0 24px rgba(31,189,226,.1)}
 .radar-scan-progress .radar-scan-stage{display:inline-block;margin-top:9px;color:#69e8ff;font-weight:800}
 .radar-scan-progress .radar-scan-elapsed{display:inline-block;margin-top:5px;color:#9cb8cb}
+
+/* PerpEquities 24-hour movers: clearly separated from SAS radar signals. */
+.sas-perp-movers-panel{margin:14px 0 18px;padding:14px;border:1px solid rgba(45,244,255,.15);border-radius:16px;background:linear-gradient(145deg,rgba(4,20,29,.94),rgba(2,10,17,.98));box-shadow:0 10px 28px rgba(0,0,0,.2)}
+.sas-perp-movers-panel .sas-insight-title{display:flex;align-items:center;gap:9px;min-width:0}
+.sas-perp-movers-panel .sas-insight-title>div{flex:1;min-width:0}
+.sas-movers-source{flex:none;color:#79dff5;font-size:10px;font-weight:800;text-decoration:none;border:1px solid rgba(71,207,236,.25);border-radius:9px;padding:7px 9px}
+.sas-perp-movers-meta{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:10px 0;color:#7996a9;font-size:10px}
+.sas-perp-movers-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sas-perp-movers-side{min-width:0;padding:10px;border:1px solid rgba(58,111,133,.23);border-radius:12px;background:rgba(1,10,17,.58)}
+.sas-perp-movers-side-title{display:block;margin-bottom:8px;font-size:11px;font-weight:900}
+.sas-perp-movers-side-title.is-up,.sas-perp-mover.is-up b{color:#55ddb0}
+.sas-perp-movers-side-title.is-down,.sas-perp-mover.is-down b{color:#ff7f8d}
+.sas-perp-movers-list{display:grid;gap:6px}
+.sas-perp-mover{display:flex;align-items:center;gap:7px;min-width:0;padding:9px 8px;border:1px solid rgba(58,111,133,.2);border-radius:9px;background:linear-gradient(100deg,rgba(6,27,38,.8),rgba(3,14,23,.9));text-decoration:none;transition:border-color .18s,transform .18s}
+.sas-perp-mover:hover{border-color:rgba(66,211,244,.6);transform:translateY(-1px)}
+.sas-perp-mover-symbol{flex:1;min-width:0;color:#e1f2fa;font-size:12px;font-weight:900;direction:ltr;text-align:left;overflow:hidden;text-overflow:ellipsis}
+.sas-perp-mover b{font-size:12px;font-variant-numeric:tabular-nums;direction:ltr}
+.sas-perp-mover-open{color:#6e91a7;font-size:11px}
+.sas-perp-movers-empty{padding:12px 4px;color:#7790a1;font-size:10px;text-align:center}
+.sas-perp-movers-note{margin:10px 0 0;color:#71899a;font-size:9px;line-height:1.8}
+@media(max-width:420px){.sas-perp-movers-panel{padding:10px}.sas-perp-movers-grid{gap:7px}.sas-perp-movers-side{padding:7px}.sas-perp-mover{padding:8px 6px;gap:4px}.sas-perp-mover-symbol,.sas-perp-mover b{font-size:10px}.sas-movers-source{font-size:9px;padding:6px}}
