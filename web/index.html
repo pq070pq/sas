@@ -310,7 +310,7 @@
         <div class="gift-message-editor">
           <div class="gift-message-editor-head"><b>✍️ تخصيص رسالة الهدية</b><span>تُحفظ وتُستخدم في كل هدية جديدة</span></div>
           <label for="giftMessageTemplate">نص الرسالة</label>
-          <textarea id="giftMessageTemplate" rows="7" maxlength="2500" placeholder="اكتب رسالة الهدية هنا..."></textarea>
+          <textarea id="giftMessageTemplate" dir="auto" rows="7" maxlength="2500" placeholder="اكتب رسالة الهدية هنا..."></textarea>
           <small class="gift-template-help">المتغيرات المتاحة: <code>{days}</code> مدة الهدية، <code>{expiry_date}</code> تاريخ الانتهاء، <code>{brand}</code> اسم SAS PRO. يمكنك ترتيبها كما تريد.</small>
           <div class="gift-message-preview" id="giftMessagePreview" aria-live="polite"><b>👀 معاينة الرسالة</b><p>جاري تحميل الرسالة...</p></div>
           <div class="gift-message-editor-actions"><button type="button" class="admin-close-list" onclick="loadGiftMessageTemplate()">↻ استرجاع المحفوظ</button><button type="button" class="save-btn" id="saveGiftMessageBtn" onclick="saveGiftMessageTemplate()">💾 حفظ رسالة الهدية</button></div>
