@@ -1,8 +1,7 @@
 """Optional PerpEquities enrichment provider.
 
-This module is intentionally isolated from stock discovery and signal decisions.
-Perp-equity contract metrics are context only; they are not spot-stock liquidity
-or proof of institutional/whale accumulation.
+Uses one cached bulk snapshot instead of one HTTP request per stock. Contract
+metrics are context only, never spot-stock liquidity or proof of whale activity.
 """
 from __future__ import annotations
 
@@ -19,8 +18,8 @@ BASE_URL = "https://perpequities.com/api/v1"
 CACHE_TTL_SECONDS = 300
 MAX_DATA_AGE_SECONDS = 600
 _TIMEOUT = httpx.Timeout(8.0, connect=3.0)
-_cache: dict[str, tuple[float, dict[str, Any] | None]] = {}
-_cache_lock = asyncio.Lock()
+_snapshot: tuple[float, dict[str, Any]] | None = None
+_snapshot_lock = asyncio.Lock()
 
 
 def _parse_time(value: Any) -> datetime | None:
@@ -45,11 +44,24 @@ def _number(value: Any) -> float | None:
     return number if number >= 0 and number < float("inf") else None
 
 
+def _signed_number(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if abs(number) < float("inf") else None
+
+
 def normalize_asset(payload: Any, requested_symbol: str, now: datetime | None = None) -> dict[str, Any] | None:
-    """Validate and normalize one asset response; reject stale/incomplete snapshots."""
+    """Validate and normalize an asset from either a single-asset or bulk response."""
     if not isinstance(payload, dict):
         return None
     data = payload.get("data")
+    if isinstance(data, list):
+        wanted = requested_symbol.strip().upper()
+        data = next((item for item in data if isinstance(item, dict) and str(item.get("ticker") or "").strip().upper() == wanted), None)
     if not isinstance(data, dict):
         return None
 
@@ -64,13 +76,9 @@ def normalize_asset(payload: Any, requested_symbol: str, now: datetime | None = 
         current = current.replace(tzinfo=timezone.utc)
     current = current.astimezone(timezone.utc)
 
-    # Snapshot timestamp must be present and recent. A republished old snapshot
-    # must not be treated as live.
     if payload.get("stale") is True or data.get("stale") is True:
         return None
     if market_data_at is None:
-        # Some endpoint versions expose marketDataAt only in headers. We cannot
-        # validate headers after normalization, so fail closed if the body omits it.
         return None
     age = (current - market_data_at).total_seconds()
     if age < -60 or age > MAX_DATA_AGE_SECONDS:
@@ -81,9 +89,7 @@ def normalize_asset(payload: Any, requested_symbol: str, now: datetime | None = 
         venues = []
     live_venues = []
     for venue in venues:
-        if not isinstance(venue, dict) or venue.get("live") is not True:
-            continue
-        if venue.get("status") != "trading":
+        if not isinstance(venue, dict) or venue.get("live") is not True or venue.get("status") != "trading":
             continue
         live_venues.append({
             "venue": str(venue.get("venue") or ""),
@@ -120,47 +126,51 @@ def normalize_asset(payload: Any, requested_symbol: str, now: datetime | None = 
     }
 
 
-def _signed_number(value: Any) -> float | None:
-    if value is None or isinstance(value, bool):
-        return None
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return None
-    return number if abs(number) < float("inf") else None
+async def _get_snapshot() -> dict[str, Any] | None:
+    global _snapshot
+    now = time.monotonic()
+    if _snapshot is not None and now - _snapshot[0] < CACHE_TTL_SECONDS:
+        return _snapshot[1]
+
+    async with _snapshot_lock:
+        now = time.monotonic()
+        if _snapshot is not None and now - _snapshot[0] < CACHE_TTL_SECONDS:
+            return _snapshot[1]
+        try:
+            async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=False) as client:
+                response = await client.get(
+                    f"{BASE_URL}/assets",
+                    params={"assetClass": "equity", "live": "1", "limit": "2000"},
+                )
+                response.raise_for_status()
+                payload = response.json()
+            if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+                return None
+            # Do not cache stale snapshots; never reset data age based on publication time.
+            if payload.get("stale") is True or _parse_time(payload.get("marketDataAt")) is None:
+                return None
+            _snapshot = (time.monotonic(), payload)
+            return payload
+        except (httpx.HTTPError, ValueError, TypeError) as exc:
+            logger.info("PerpEquities bulk snapshot unavailable: %s", type(exc).__name__)
+            return None
+        except Exception:
+            logger.exception("Unexpected PerpEquities bulk snapshot failure")
+            return None
 
 
 async def get_equity_perpetual(symbol: str) -> dict[str, Any] | None:
-    """Return optional contract context for a ticker, or None on any unavailable data."""
+    """Return optional contract context from one cached bulk snapshot, or None."""
     ticker = str(symbol or "").strip().upper()
     if not ticker or len(ticker) > 12 or not ticker.replace(".", "").replace("-", "").isalnum():
         return None
-
-    now = time.monotonic()
-    async with _cache_lock:
-        cached = _cache.get(ticker)
-        if cached and now - cached[0] < CACHE_TTL_SECONDS:
-            return dict(cached[1]) if cached[1] is not None else None
-
-    result = None
-    try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=False) as client:
-            response = await client.get(f"{BASE_URL}/assets/{ticker}")
-            if response.status_code == 404:
-                result = None
-            else:
-                response.raise_for_status()
-                result = normalize_asset(response.json(), ticker)
-    except (httpx.HTTPError, ValueError, TypeError) as exc:
-        logger.info("PerpEquities enrichment unavailable for %s: %s", ticker, type(exc).__name__)
-    except Exception:
-        logger.exception("Unexpected PerpEquities enrichment failure for %s", ticker)
-
-    async with _cache_lock:
-        _cache[ticker] = (time.monotonic(), result)
-    return dict(result) if result is not None else None
+    payload = await _get_snapshot()
+    if payload is None:
+        return None
+    return normalize_asset(payload, ticker)
 
 
 def clear_cache() -> None:
-    """Clear the in-process cache; intended for tests and controlled diagnostics."""
-    _cache.clear()
+    """Clear the in-process snapshot cache; intended for tests and diagnostics."""
+    global _snapshot
+    _snapshot = None
