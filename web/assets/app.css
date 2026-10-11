@@ -2846,3 +2846,24 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 #termsModal .modal-card{position:relative;isolation:isolate;border:1px solid rgba(255,55,75,.78)!important;animation:sasTermsRedPulse 2.2s ease-in-out infinite}
 #termsModal .modal-card::after{content:"";position:absolute;inset:-5px;border:1px solid rgba(255,55,75,.42);border-radius:inherit;pointer-events:none;z-index:-1;animation:sasTermsRedHalo 2.2s ease-in-out infinite}
 @media(prefers-reduced-motion:reduce){#termsModal .modal-card,#termsModal .modal-card::after{animation:none}}
+
+
+/* SAS PRO entry welcome: premium greeting with short-lived fireworks. */
+.sas-welcome-overlay{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;overflow:hidden;background:radial-gradient(ellipse at 50% 42%,rgba(5,64,84,.97),rgba(1,8,18,.985) 68%);opacity:0;visibility:hidden;transition:opacity .38s ease,visibility .38s ease}
+.sas-welcome-overlay[hidden]{display:none}
+.sas-welcome-overlay.is-visible{opacity:1;visibility:visible}
+.sas-welcome-overlay.is-leaving{opacity:0;visibility:hidden}
+.sas-welcome-card{position:relative;z-index:2;width:min(86vw,420px);box-sizing:border-box;padding:36px 22px 26px;text-align:center;border:1px solid rgba(81,225,244,.42);border-radius:28px;background:linear-gradient(150deg,rgba(7,32,48,.92),rgba(2,13,26,.94));box-shadow:0 0 42px rgba(21,187,218,.16),inset 0 0 25px rgba(38,194,224,.04);transform:translateY(14px) scale(.97);transition:transform .55s cubic-bezier(.2,.8,.2,1)}
+.sas-welcome-overlay.is-visible .sas-welcome-card{transform:translateY(0) scale(1)}
+.sas-welcome-mark{width:64px;height:64px;margin:0 auto 15px;display:grid;place-items:center;border-radius:20px;border:1px solid #3ed8ef;background:linear-gradient(145deg,#0b5870,#062236);color:#8df5ff;font-size:38px;font-weight:900;box-shadow:0 0 26px rgba(62,216,239,.22)}
+.sas-welcome-kicker{font-size:11px;letter-spacing:.28em;color:#72ddec;font-weight:800}
+.sas-welcome-card h1{margin:7px 0 12px;font-size:clamp(30px,8vw,42px);letter-spacing:.06em;color:#f0fcff;text-shadow:0 0 18px rgba(62,216,239,.18)}
+.sas-welcome-card p{margin:0 0 9px;font-size:19px;font-weight:800;color:#dffaff}
+.sas-welcome-card span{font-size:14px;color:#8baebb}
+.sas-welcome-progress{height:3px;overflow:hidden;margin:25px 20px 0;border-radius:9px;background:rgba(101,202,220,.14)}
+.sas-welcome-progress i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ff4d6d,#ffd166,#4de4f0);transform-origin:right;animation:sasWelcomeProgress 2.8s linear forwards}
+.sas-fireworks{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.sas-firework-particle{position:absolute;left:var(--x);top:var(--y);width:5px;height:10px;border-radius:2px;background:var(--particle-color);opacity:0;box-shadow:0 0 9px var(--particle-color);animation:sasFirework var(--duration) ease-out var(--delay) both}
+@keyframes sasFirework{0%{opacity:0;transform:translate3d(0,25px,0) rotate(0) scale(.4)}15%{opacity:1}75%{opacity:.9}100%{opacity:0;transform:translate3d(30px,-120px,0) rotate(var(--turn)) scale(.7)}}
+@keyframes sasWelcomeProgress{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@media(prefers-reduced-motion:reduce){.sas-welcome-overlay,.sas-welcome-card{transition:none}.sas-firework-particle,.sas-welcome-progress i{animation:none;display:none}}
