@@ -1278,10 +1278,9 @@ def _power_trend_age(closes):
 
 async def _benchmark_return(symbol="QQQ", lookback=20):
     key = symbol.upper()
-    now = time.monotonic()
     cached = _benchmark_cache.get(key)
-    if cached and now - cached[0] < _CANDLE_CACHE_TTL:
-        candles = cached[1]
+    if cached:
+        candles = cached.get("candles") or []
     else:
         async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 20)) as client:
             candles, source = await _get_analysis_candles(client, key, allow_twelve_fallback=False)
