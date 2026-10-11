@@ -898,6 +898,9 @@ async def stock_radar_cycle():
                         "reason": channel_reason,
                     }
                     row["radar_active"] = False
+                    if symbol in app_active_symbols:
+                        app_active_symbols.discard(symbol)
+                        app_active_count = max(0, app_active_count - 1)
                     # Keep rejected-but-promising candidates as watch records.
                     # They do not generate Telegram messages, but they are
                     # rechecked on the next cycle so a real confirmation is not lost.
