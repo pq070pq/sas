@@ -2118,3 +2118,62 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 
 /* Keep the remaining live-movers insight card full-width after removing market hours. */
 .sas-insight-grid-single{grid-template-columns:minmax(0,1fr)!important}
+
+/* SAS PRO — neutral typography + dual-zone interactive exchange clock */
+:root{--sas-neutral-ink:#e8edf2;--sas-neutral-muted:#a4b0bb;--sas-neutral-line:rgba(164,181,195,.22);--sas-neutral-panel:rgba(13,24,35,.96);--sas-neutral-accent:#9cc7d7}
+.sas-market-strip{border-color:var(--sas-neutral-line)!important;background:linear-gradient(125deg,rgba(17,29,41,.97),rgba(7,16,26,.98))!important;box-shadow:0 10px 28px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.035)!important}
+.sas-market-strip.is-open,.sas-market-strip.is-pre,.sas-market-strip.is-closed{border-color:var(--sas-neutral-line)!important;box-shadow:0 10px 28px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.035)!important}
+.sas-market-strip.is-open .sas-market-live-dot,.sas-market-strip.is-pre .sas-market-live-dot,.sas-market-strip.is-closed .sas-market-live-dot{box-shadow:0 0 0 5px rgba(164,181,195,.09),0 0 10px currentColor}
+.sas-market-main strong{color:var(--sas-neutral-ink);font-size:clamp(14px,2vw,18px);letter-spacing:0;line-height:1.55}
+.sas-market-main small,.sas-market-clock small,.sas-session-mini span{color:var(--sas-neutral-muted);font-size:11px;line-height:1.7}
+.sas-market-clock{padding-inline-start:12px;min-width:0}
+.sas-clock-toggle{display:flex;align-items:center;gap:10px;min-width:0;padding:7px 9px;border:1px solid rgba(164,181,195,.2);border-radius:14px;background:rgba(7,15,24,.48);color:var(--sas-neutral-ink);font:inherit;text-align:right;cursor:pointer;transition:background .2s,border-color .2s,transform .2s}
+.sas-clock-toggle:hover,.sas-clock-toggle:focus-visible{outline:none;border-color:rgba(156,199,215,.7);background:rgba(30,49,63,.6)}
+.sas-clock-toggle:active{transform:scale(.985)}
+.sas-market-clock-icon{width:35px;height:35px;flex:none;display:grid;place-items:center;border:1px solid rgba(156,199,215,.28);border-radius:12px;background:rgba(156,199,215,.08);color:#b9d6e1;font-size:20px}
+.sas-market-clock-icon svg{width:21px;height:21px;display:block}
+.sas-clock-copy{display:grid;gap:3px;min-width:0}
+.sas-clock-copy>small{font-size:10px;white-space:nowrap}
+.sas-clock-copy>strong{font-size:clamp(15px,1.8vw,19px);line-height:1.35;letter-spacing:.6px;color:#f0f4f7;font-variant-numeric:tabular-nums}
+.sas-clock-secondary{display:flex;align-items:center;gap:5px;color:#9eacb8!important}
+.sas-clock-secondary b{font-size:10px;font-weight:750;color:#cbd5dd;font-variant-numeric:tabular-nums;direction:ltr}
+.sas-clock-switch{color:#a9c7d3;font-size:17px;padding-inline-start:2px}
+.sas-session-mini{border-color:var(--sas-neutral-line)}
+.sas-session-mini strong{font-size:12px;color:#dce4ea;line-height:1.7}
+#tab-dashboard>.sas-market-strip>#sasOpenCountdown{border-top-color:var(--sas-neutral-line)!important;background:linear-gradient(180deg,rgba(18,29,40,.42),rgba(8,16,26,.2))!important}
+.sas-open-countdown{color:var(--sas-neutral-ink)!important;border-color:var(--sas-neutral-line)!important;border-radius:20px!important;background:linear-gradient(145deg,rgba(17,29,41,.97),rgba(8,16,26,.99))!important;box-shadow:inset 0 1px rgba(255,255,255,.035),0 12px 30px rgba(0,0,0,.17)!important}
+.sas-countdown-heading h2{font-size:clamp(18px,2.8vw,23px)!important;line-height:1.6!important;letter-spacing:0!important;color:#edf1f4}
+.sas-countdown-heading .eyebrow{font-size:10px;letter-spacing:1.8px;color:#a9c4d0}
+.sas-countdown-heading small{font-size:12px;line-height:1.9;color:#a7b4bf}
+.sas-countdown-live{color:#b9d8ce!important;border-color:rgba(142,184,168,.25)!important;background:rgba(142,184,168,.07)}
+.sas-countdown-live i{background:#9fc5b5!important;box-shadow:0 0 8px rgba(159,197,181,.55)!important}
+.sas-countdown-card{border-color:rgba(164,181,195,.2)!important;background:linear-gradient(145deg,rgba(23,37,50,.92),rgba(9,18,28,.98))!important;color:#e4ebf0!important;border-radius:18px!important}
+.sas-countdown-card:hover,.sas-countdown-card.is-selected{border-color:rgba(156,199,215,.68)!important;box-shadow:inset 0 0 0 1px rgba(156,199,215,.1),0 8px 24px rgba(0,0,0,.15)!important}
+.sas-countdown-card-top{color:#bac8d2!important;font-size:clamp(12px,1.5vw,14px)!important;line-height:1.7}
+.sas-countdown-icon{color:#b4cbd5!important}
+.sas-countdown-time{color:#d4e4e9!important;font-size:clamp(23px,4.8vw,34px)!important;letter-spacing:.3px!important;font-weight:850!important}
+.sas-countdown-days{color:#b5c9d1!important}
+.sas-countdown-label{color:#d2dbe1!important;font-size:clamp(11px,1.4vw,13px)!important;line-height:1.9!important}
+.sas-countdown-foot{color:#9eacb8!important;font-size:11px!important;line-height:1.9!important}
+.sas-countdown-detail{border-color:rgba(164,181,195,.15)!important;background:rgba(4,11,19,.55)!important;color:#b8c4cd!important;font-size:12px!important;line-height:2!important}
+.sas-countdown-detail strong{color:#e4ebf0!important}
+.sas-detail-icon{background:rgba(156,199,215,.1)!important;color:#b9d6e1!important}
+@media(max-width:680px){
+ .sas-market-strip{grid-template-columns:minmax(0,1fr) auto!important;gap:10px!important;padding:12px!important}
+ .sas-market-clock{grid-column:1!important;grid-row:2!important;padding:0!important}
+ .sas-clock-toggle{gap:7px;padding:6px 7px;border-radius:12px}
+ .sas-market-clock-icon{width:30px;height:30px;border-radius:10px}
+ .sas-clock-copy>strong{font-size:15px}
+ .sas-clock-copy>small{font-size:9px}
+ .sas-clock-secondary b{font-size:9px}
+ .sas-clock-switch{font-size:14px}
+ .sas-session-mini{grid-column:2!important;grid-row:2!important;align-self:center;text-align:start!important}
+ .sas-countdown-heading{align-items:flex-start!important}
+ .sas-countdown-heading h2{font-size:18px!important}
+ .sas-countdown-live{font-size:9px!important;padding:6px 8px!important}
+ .sas-countdown-cards{gap:9px!important}
+ .sas-countdown-card{padding:13px 10px!important}
+ .sas-countdown-time{font-size:clamp(20px,5.4vw,27px)!important}
+ .sas-countdown-label{font-size:11px!important}
+}
+@media(prefers-reduced-motion:reduce){.sas-clock-toggle{transition:none}}
