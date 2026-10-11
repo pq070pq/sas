@@ -30,6 +30,8 @@ if not logger.handlers:
     logger.addHandler(handler)
 logger.propagate = False
 
+from .radar_policy import is_confirmed_opportunity
+
 def _money(value):
     try:
         return f"${float(value):,.4f}".rstrip("0").rstrip(".")
@@ -721,8 +723,7 @@ async def stock_radar_cycle():
             current_confirmed_symbols = {
                 str(r.get("symbol") or "").upper()
                 for r in rows
-                if str((r.get("classification") or {}).get("opportunity_status") or "") == "confirmed"
-                and bool((r.get("classification") or {}).get("confirmation_ready"))
+                if is_confirmed_opportunity(r)
             }
             app_active_symbols = {
                 str(x.symbol).upper()
@@ -825,7 +826,8 @@ async def stock_radar_cycle():
                 if q.get("price") is None:
                     logger.warning("Radar live quote unavailable; keeping candidate in watchlist: %s source=%s", symbol, q.get("source"))
                 classification = row.get("classification") or {}
-                if classification.get("opportunity_status") == "confirmed" and bool(classification.get("confirmation_ready")):
+                confirmed_opportunity = is_confirmed_opportunity(row)
+                if confirmed_opportunity:
                     confirmation_stats["confirmed"] += 1
                 else:
                     confirmation_stats["watch"] += 1
@@ -928,8 +930,17 @@ async def stock_radar_cycle():
                     "session": status.get("session"),
                     "reason": channel_reason,
                 }
-                row["radar_active"] = not app_cap_reached
-                if app_cap_reached:
+                # Keep active saved opportunities strictly limited to confirmed setups.
+                # Watch/history records remain stored for audit and outcome tracking only.
+                row["radar_active"] = bool(confirmed_opportunity and not app_cap_reached)
+                if not confirmed_opportunity:
+                    row["channel_delivery"] = {
+                        "published": True,
+                        "app_visible": False,
+                        "reason": "لم يعد السهم يحقق شروط الفرصة المؤكدة؛ الاحتفاظ بالسجل التاريخي فقط",
+                        "limit": None,
+                    }
+                elif app_cap_reached:
                     row["channel_delivery"] = {
                         "published": True,
                         "app_visible": False,
