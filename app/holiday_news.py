@@ -74,14 +74,15 @@ async def _translate_batch(items):
         return []
     evidence = [{"id": f"N{i+1}", "headline": x["headline"], "source": x["source"], "url": x["url"]} for i, x in enumerate(items)]
     prompt = """أنت محرر موجز أخبار SAS PRO.
-ترجم واختصر الأخبار المرفقة إلى العربية اعتمادًا على العناوين الموثقة فقط.
+قيّم أولًا هل لكل خبر أثر مباشر أو معقول ومدعوم على الأسهم الأمريكية أو مؤشراتها أو قطاع أمريكي محدد أو عامل سوق رئيسي مثل الفائدة والتضخم والنفط والرقائق.
+لا تعتبر مجرد ذكر الحرب أو إيران أو السياسة سببًا كافيًا للنشر. يجب تحديد قناة تأثير ملموسة على الأسهم أو القطاع؛ إن لم توجد قناة واضحة فاجعل relevant=false.
+لا تخمّن اتجاه السوق أو حجم الأثر، ولا تدّعِ أن الخبر حرّك الأسعار دون دليل.
+ترجم واختصر الأخبار ذات الصلة فقط اعتمادًا على العناوين الموثقة.
 ممنوع اختراع أي معلومة أو رقم أو سبب لحركة السوق.
-ممنوع إعطاء توصية شراء أو بيع.
-لا تذكر أسعار أسهم أو أهدافًا أو نقاط دخول/وقف.
-إذا كان تأثير الخبر غير واضح، اكتب «الأثر غير واضح».
+ممنوع إعطاء توصية شراء أو بيع أو ذكر أسعار وأهداف ونقاط دخول/وقف.
 أعد JSON فقط:
-{"items":[{"id":"N1","title_ar":"عنوان عربي مختصر","summary_ar":"ماذا حدث باختصار","market_impact":"الأثر المحتمل على السوق أو القطاع، أو الأثر غير واضح"}]}
-لا تضف أخبارًا من خارج القائمة ولا تغير id.
+{"items":[{"id":"N1","relevant":true,"affected_market":"القطاع أو المؤشر أو عامل السوق المتأثر بوضوح","title_ar":"عنوان عربي مختصر","summary_ar":"ماذا حدث باختصار","market_impact":"قناة التأثير المحتملة المدعومة بالخبر"}]}
+إذا لم توجد قناة تأثير ملموسة، أعد relevant=false وaffected_market="" ولا تعرض الخبر. لا تضف أخبارًا من خارج القائمة ولا تغير id.
 
 الأخبار:
 """ + json.dumps(evidence, ensure_ascii=False)
@@ -167,19 +168,26 @@ async def publish_holiday_news():
     added = 0
     for i, item in enumerate(candidates, 1):
         tr = by_id.get(f"N{i}")
-        if not tr:
+        if not tr or tr.get("relevant") is not True:
             continue
         title = str(tr.get("title_ar") or "").strip()
         summary = str(tr.get("summary_ar") or "").strip()
-        impact = str(tr.get("market_impact") or "الأثر غير واضح").strip()
-        if not title or not summary:
+        impact = str(tr.get("market_impact") or "").strip()
+        affected = str(tr.get("affected_market") or "").strip()
+        # Fail closed: do not publish generic geopolitics or an "impact unclear" story.
+        unclear = not impact or any(term in impact.lower() for term in (
+            "الأثر غير واضح", "غير واضح", "لا يوجد أثر", "no clear impact", "unclear"
+        ))
+        if not title or not summary or not affected or unclear:
             continue
-        lines += [f"🔹 <b>{title}</b>", summary, f"📊 <b>الأثر المحتمل:</b> {impact}",
+        lines += [f"🔹 <b>{title}</b>", summary,
+                  f"🎯 <b>النطاق المتأثر:</b> {affected}",
+                  f"📊 <b>الأثر المحتمل:</b> {impact}",
                   f"📰 المصدر: {item['source']}", ""]
         _sent_news_keys.add(item["url"] or item["headline"].lower())
         added += 1
     if not added:
-        return {"sent": False, "reason": "translation unavailable"}
+        return {"sent": False, "reason": "no materially relevant stock-market news"}
     lines += [
         "━━━━━━━━━━━━━━━━━━",
         f"🕐 {datetime.now(ZoneInfo('Asia/Riyadh')).strftime('%Y-%m-%d %H:%M')} بتوقيت السعودية",
