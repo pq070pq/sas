@@ -19,6 +19,7 @@ from .shariah import check_shariah
 from .maintenance import cleanup_old_data
 from .quality_score import score_quality
 from .quality_backtest import summarize_quality_outcomes
+from .radar_lifecycle import is_current_active_opportunity
 from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
@@ -1147,33 +1148,40 @@ async def stock_radar_cycle():
         ]
         # أي سهم من رصد اليوم لم يعد ضمن النتائج المؤهلة الحالية يخرج من التطبيق.
         # لا نحذف السجل التاريخي؛ فقط نعطله حتى يبقى Forward Test محفوظًا.
-        current_symbols = {
-            str(x.get("symbol") or "").upper()
-            for x in rows
-            if str(x.get("symbol") or "").strip()
-        }
         current_active_symbols = {
             str(x.get("symbol") or "").upper()
             for x in rows
-            if bool(x.get("radar_active"))
+            if str(x.get("symbol") or "").strip() and is_current_active_opportunity(x)
         }
-        try:
-            today_signals = (await db.execute(
-                select(RadarSignal).where(RadarSignal.session_date == session_date)
-            )).scalars().all()
-            for signal in today_signals:
-                symbol = str(signal.symbol or "").upper()
-                if symbol not in current_symbols or symbol not in current_active_symbols:
+        # لا نغيّر الحالة عند وجود أخطاء في المسح: قد تكون البيانات ناقصة فقط.
+        # بعد دورة ناجحة، نعطّل كل فرصة قديمة فقدت الشروط (حتى من جلسات سابقة)
+        # مع إبقاء السجل ونتائج الأهداف محفوظة للتقارير والإحصاءات التاريخية.
+        if int(diagnostics.get("errors") or 0) == 0:
+            try:
+                all_signals = (await db.execute(select(RadarSignal))).scalars().all()
+                for signal in all_signals:
+                    symbol = str(signal.symbol or "").upper()
+                    same_session = signal.session_date == session_date
+                    should_be_active = same_session and symbol in current_active_symbols
                     try:
                         payload = json.loads(signal.payload or "{}")
                     except (TypeError, ValueError):
                         payload = {}
-                    payload["radar_active"] = False
-                    signal.payload = json.dumps(payload, ensure_ascii=False)
-            await db.commit()
-        except Exception:
-            await db.rollback()
-            logger.exception("Radar active-state refresh failed")
+                    if not isinstance(payload, dict):
+                        payload = {}
+                    if should_be_active and is_current_active_opportunity(payload):
+                        continue
+                    if payload.get("radar_active") or payload.get("strategy_status") != "inactive":
+                        payload["radar_active"] = False
+                        payload["strategy_status"] = "inactive"
+                        payload["strategy_inactive_reason"] = (
+                            "فقد شروط الفرصة المؤكدة في آخر دورة رصد ناجحة"
+                        )
+                        signal.payload = json.dumps(payload, ensure_ascii=False)
+                await db.commit()
+            except Exception:
+                await db.rollback()
+                logger.exception("Radar active-state refresh failed")
 
         diagnostics["confirmation_stats"] = confirmation_stats
         diagnostics["gate_rejections"] = gate_rejections
