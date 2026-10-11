@@ -1018,28 +1018,34 @@ function openTerms(action){
  const button=document.getElementById('termsContinue');
  if(agree)agree.checked=false;
  if(button){
-  button.disabled=false;
+  button.disabled=action!=='view';
   button.textContent=action==='view'?'إغلاق':'أوافق على الشروط وأتابع';
  }
+ const row=document.getElementById('termsAgreeRow');
+ if(row)row.hidden=action==='view';
  document.getElementById('termsText').textContent='جاري تحميل الشروط...';
  document.getElementById('termsModal').hidden=false;
- requestAnimationFrame(()=>{if(agree)agree.focus();});
+ requestAnimationFrame(()=>{if(agree&&action!=='view')agree.focus();});
  api('/api/subscription/plans').then(d=>{document.getElementById('termsText').textContent=d.terms_text||'';}).catch(e=>{document.getElementById('termsText').textContent=e.message;});
 }
 function toggleTermsButton(){
  const agree=document.getElementById('termsAgree');
  const button=document.getElementById('termsContinue');
  if(!button||termAction==='view')return;
- button.disabled=false;
- button.textContent=agree?.checked?'أوافق على الشروط وأتابع':'أوافق على الشروط وأتابع';
+ button.disabled=!Boolean(agree?.checked);
+ button.textContent='أوافق على الشروط وأتابع';
 }
 function closeTerms(){document.getElementById('termsModal').hidden=true;termAction=null;}
 async function continueTerms(){
  const agree=document.getElementById('termsAgree');
  const button=document.getElementById('termsContinue');
  if(termAction==='view'){closeTerms();return;}
- // زر الموافقة نفسه تفاعلي: عند الضغط عليه تُسجّل الموافقة صراحة حتى لو لم يضغط المستخدم مربع الاختيار.
- if(!agree.checked)agree.checked=true;
+ // لا نسجل الموافقة ولا نفعّل التجربة قبل تحديد مربع الموافقة صراحة.
+ if(!agree?.checked){
+  const row=document.getElementById('termsAgreeRow');
+  if(row){row.style.borderColor='rgba(255,83,104,.75)';row.scrollIntoView({behavior:'smooth',block:'nearest'});}
+  return;
+ }
  const action=termAction;
  const originalText=button.textContent;
  button.disabled=true;
