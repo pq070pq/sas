@@ -135,6 +135,7 @@ SITE_MEDIA_SLOTS = {
     "icon-perp-movers": {"label": "أيقونة الأكثر تحركًا خلال 24 ساعة", "kind": "icon"},
     "icon-bitcoin": {"label": "أيقونة البتكوين في مؤشرات السوق", "kind": "icon"},
     "icon-gold": {"label": "أيقونة الذهب في مؤشرات السوق", "kind": "icon"},
+    "icon-market-indicators": {"label": "أيقونة عنوان مؤشرات السوق", "kind": "icon"},
 }
 SITE_MEDIA_MIMES = {
     "image/webp": (".webp", lambda b: len(b) >= 12 and b[:4] == b"RIFF" and b[8:12] == b"WEBP"),

@@ -2330,3 +2330,8 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .macro-card-icon img{display:block;width:100%;height:100%;object-fit:contain;padding:5px;filter:drop-shadow(0 2px 5px rgba(0,0,0,.35))}
 .macro-card-icon.has-managed-icon{padding:0}
 @media(max-width:600px){.macro-card-icon{width:36px;height:36px;border-radius:11px;font-size:22px}}
+
+/* Editable icon beside the market indicators heading */
+.market-indicators-icon{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-inline-end:5px;min-width:1.15em;min-height:1.15em;line-height:1}
+.market-indicators-icon.has-managed-icon{min-width:25px;min-height:25px}
+.market-indicators-icon .sas-managed-icon-image{display:block;width:1.35em;height:1.35em;object-fit:contain;filter:drop-shadow(0 2px 5px rgba(0,0,0,.25))}
