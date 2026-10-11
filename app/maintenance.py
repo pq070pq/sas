@@ -7,6 +7,9 @@ by TTL/size so repeated scans cannot grow memory indefinitely.
 from __future__ import annotations
 
 import time
+import os
+import tempfile
+from pathlib import Path
 from datetime import timedelta
 from sqlalchemy import delete, select
 
@@ -16,6 +19,31 @@ from .db import (
     AuditLog, AccessRequest, Invite, ScheduledReport,
 )
 from .timeutil import utcnow
+
+
+
+def _cleanup_stale_temp_files(max_age_hours: int = 24) -> dict:
+    """Remove only old SAS-prefixed temporary files from the OS temp directory."""
+    temp_root = Path(tempfile.gettempdir()).resolve()
+    cutoff = time.time() - max(1, int(max_age_hours)) * 3600
+    removed_files = 0
+    removed_bytes = 0
+    # Deliberately narrow allow-list: never scan or delete arbitrary /tmp files.
+    patterns = ("saspro-*.tmp", "sas-pro-*.tmp", "saspro-cache-*")
+    for pattern in patterns:
+        for path in temp_root.glob(pattern):
+            try:
+                if path.is_symlink() or not path.is_file():
+                    continue
+                stat = path.stat()
+                if stat.st_mtime >= cutoff:
+                    continue
+                path.unlink()
+                removed_files += 1
+                removed_bytes += stat.st_size
+            except (FileNotFoundError, PermissionError, OSError):
+                continue
+    return {"files": removed_files, "bytes": removed_bytes}
 
 
 def _prune_timestamp_cache(cache: dict, ttl_seconds: int, max_items: int) -> int:
@@ -93,7 +121,7 @@ def _prune_runtime_caches() -> dict:
 async def cleanup_old_data() -> dict:
     """Run once per day (or configured interval) and return deletion counts."""
     now = utcnow()
-    stats = {"runtime": _prune_runtime_caches()}
+    stats = {"runtime": _prune_runtime_caches(), "temporary_files": _cleanup_stale_temp_files(24)}
 
     async with SessionLocal() as db:
         outcome_cutoff = now - timedelta(days=max(1, settings.radar_signal_retention_days))
