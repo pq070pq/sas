@@ -914,6 +914,75 @@ async function buyPlan(k){
  }catch(e){alert(e.message);}
 }
 
+const SITE_MEDIA_ICON_TARGETS={
+ 'icon-radar':'.radar-icon',
+ 'icon-channel':'.channel-icon',
+ 'icon-search':'button[data-tab="search"]',
+ 'icon-watch':'button[data-tab="watch"]',
+ 'icon-account':'button[data-tab="account"]'
+};
+async function loadSiteMedia(){
+ const data=await api('/api/site-media');
+ const items=data?.items||{};
+ const hero=document.querySelector('.terminal-hero-banner > img');
+ if(hero&&items.hero?.url)hero.src=items.hero.url;
+ for(const [slot,selector] of Object.entries(SITE_MEDIA_ICON_TARGETS)){
+  const item=items[slot];
+  const el=document.querySelector(selector);
+  if(!el||!item?.url)continue;
+  if(el.matches('button')){
+   if(!el.dataset.mediaOriginalLabel)el.dataset.mediaOriginalLabel=el.textContent.trim();
+   const label=el.dataset.mediaOriginalLabel.replace(/^[^\\p{L}\\p{N}]+/u,'').trim();
+   el.innerHTML='<img class="sas-managed-tab-icon" src="'+esc(item.url)+'" alt="" aria-hidden="true"><span>'+esc(label)+'</span>';
+   el.classList.add('has-managed-icon');
+  }else{
+   el.innerHTML='<img class="sas-managed-icon-image" src="'+esc(item.url)+'" alt="" aria-hidden="true">';
+   el.classList.add('has-managed-icon');
+  }
+ }
+ return items;
+}
+async function loadAdminMedia(){
+ const status=document.getElementById('mediaUploadStatus');
+ try{
+  const items=await loadSiteMedia();
+  for(const slot of ['hero','icon-radar','icon-channel','icon-search','icon-watch','icon-account']){
+   const preview=document.getElementById('mediaPreview-'+slot);
+   const empty=document.getElementById('mediaEmpty-'+slot);
+   const url=items[slot]?.url;
+   if(preview){preview.hidden=!url;if(url)preview.src=url;}
+   if(empty)empty.hidden=!!url;
+  }
+  if(status)status.textContent='تم تحديث معاينات الصور والأيقونات.';
+ }catch(e){if(status)status.textContent='تعذر تحميل الصور: '+(e.message||'خطأ غير معروف');}
+}
+async function uploadSiteMedia(slot,input){
+ const file=input?.files?.[0];
+ if(!file)return;
+ const status=document.getElementById('mediaUploadStatus');
+ if(file.size>5*1024*1024){alert('الحد الأقصى لحجم الصورة 5 ميغابايت.');input.value='';return;}
+ if(!['image/webp','image/png','image/jpeg'].includes(file.type)){alert('اختر صورة بصيغة WebP أو PNG أو JPEG.');input.value='';return;}
+ if(status)status.textContent='جاري رفع '+file.name+' وحفظها...';
+ const cards=document.querySelectorAll('#mediaPanel input[type="file"]');
+ cards.forEach(el=>el.disabled=true);
+ try{
+  await api('/api/admin/site-media/'+encodeURIComponent(slot),{
+   method:'POST',
+   headers:{'Content-Type':file.type},
+   body:file,
+   timeoutMs:30000
+  });
+  await loadAdminMedia();
+  if(status)status.textContent='تم حفظ الصورة وتطبيقها بنجاح. ستبقى بعد إعادة النشر.';
+ }catch(e){
+  if(status)status.textContent='لم يتم حفظ الصورة: '+(e.message||'حدث خطأ');
+  alert('تعذر رفع الصورة: '+(e.message||'حدث خطأ'));
+ }finally{
+  cards.forEach(el=>el.disabled=false);
+  input.value='';
+ }
+}
+
 async function loadDeployStatus(){
  try{
   const d=await api('/api/admin/deploy-status');
@@ -941,6 +1010,7 @@ const ADMIN_ACCORDION_ITEMS=[
  ['starsPanel','⭐','المدفوعات','Telegram Stars والعمليات المالية'],
  ['staffPanel','🛡️','المشرفون','الأدوار والصلاحيات'],
  ['deployPanel','🚀','النشر','حالة GitHub Actions والنشر إلى OVH'],
+ ['mediaPanel','🖼️','الصور والأيقونات','استبدال صورة الواجهة ورفع الأيقونات المصغرة'],
  ['plansEditorPanel','💎','الباقات والأسعار','تعديل الأسعار وظهور الباقات'],
  ['ownerCard','👑','حساب المالك','بيانات الحساب الرئيسي'],
  ['monthly-report-panel','📊','التقرير الشهري','ملخص أداء المنصة الشهري']
@@ -1157,6 +1227,7 @@ async function adminRefresh(){
   starsPanel:p.includes('payments'),
   staffPanel:p.includes('admins'),
   deployPanel:p.includes('settings'),
+  mediaPanel:p.includes('settings'),
   plansEditorPanel:p.includes('settings')
  };
  const monthlyPanel=document.getElementById('monthly-report-panel');
@@ -1172,7 +1243,7 @@ async function adminRefresh(){
  if(radarNav)radarNav.hidden=!p.includes('radar');
  const tasks=[];
  if(p.includes('users')){tasks.push(loadAdminStats(),adminSearch(),loadAdminMonthlyReport(),loadAdminTerms());}
- if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;document.getElementById('plansEditorPanel').hidden=false;document.getElementById('plansEditorPanel').dataset.adminPermissionHidden='0';document.getElementById('deployPanel').hidden=false;document.getElementById('deployPanel').dataset.adminPermissionHidden='0';tasks.push(loadAdminPlans(),loadSubscriptionConfig(),loadDeployStatus());}
+ if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;document.getElementById('plansEditorPanel').hidden=false;document.getElementById('plansEditorPanel').dataset.adminPermissionHidden='0';document.getElementById('deployPanel').hidden=false;document.getElementById('deployPanel').dataset.adminPermissionHidden='0';tasks.push(loadAdminPlans(),loadSubscriptionConfig(),loadDeployStatus(),loadAdminMedia());}
  else {document.getElementById('planEditor').closest('.admin-panel').hidden=true;document.getElementById('plansEditorPanel').hidden=true;document.getElementById('plansEditorPanel').dataset.adminPermissionHidden='1';document.getElementById('deployPanel').hidden=true;document.getElementById('deployPanel').dataset.adminPermissionHidden='1';}
  if(p.includes('payments')){document.getElementById('starsPanel').hidden=false;document.getElementById('starsPanel').dataset.adminPermissionHidden='0';tasks.push(loadStarsWallet());}else{document.getElementById('starsPanel').hidden=true;document.getElementById('starsPanel').dataset.adminPermissionHidden='1';}
  await Promise.all(tasks);
@@ -1456,3 +1527,5 @@ async function saveSubscriptionConfig(){
 }
 document.addEventListener('change',e=>{if(e.target?.id==='paidPlansVisible')document.getElementById('plansEditorPanel').hidden=!e.target.checked;});
 load();
+
+// تحميل العلامة البصرية من مساحة التخزين الدائمة؛ لا يتدخل في بيانات الرادار.\nloadSiteMedia().catch(()=>{});\n
