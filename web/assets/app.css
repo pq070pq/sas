@@ -1907,3 +1907,20 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-dashboard-hero .sas-market-status,.sas-dashboard-hero .sas-time-note{display:none!important}
 #tab-dashboard>.sas-market-strip{margin:12px 0 14px!important}
 .sas-market-strip{scroll-margin-top:12px}
+
+
+/* Fix admin-return hit target: stay below Telegram Mini App chrome and above page controls */
+.terminal-hero-banner>#adminBackBtn.admin-user-back{
+ position:fixed!important;top:82px!important;right:12px!important;left:auto!important;
+ z-index:9999!important;width:48px!important;height:48px!important;min-width:48px!important;
+ padding:0!important;display:grid!important;place-items:center!important;
+ pointer-events:auto!important;touch-action:manipulation!important;
+ border:1px solid rgba(89,222,255,.55)!important;border-radius:14px!important;
+ background:rgba(2,15,27,.94)!important;color:#d9faff!important;
+ box-shadow:0 0 0 3px rgba(0,8,18,.35),0 6px 22px rgba(0,0,0,.35),0 0 16px rgba(0,213,255,.12)!important;
+}
+.terminal-hero-banner>#adminBackBtn.admin-user-back[hidden]{display:none!important}
+.terminal-hero-banner:after,.terminal-hero-banner .hero-shade{pointer-events:none!important}
+@media(max-width:680px){
+ .terminal-hero-banner>#adminBackBtn.admin-user-back{top:78px!important;right:10px!important;width:46px!important;height:46px!important;min-width:46px!important}
+}
