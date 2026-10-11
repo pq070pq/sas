@@ -2400,3 +2400,69 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .disclaimer-badge .disclaimer-icon:not(.has-managed-icon){font-size:27px!important}
  .sas-managed-tab-icon{width:23px!important;height:23px!important;max-width:23px!important;max-height:23px!important}
 }
+
+
+
+/* SAS PRO disclaimer: transparent neutral badge with a live red alert accent */
+.sas-disclaimer-bar .disclaimer-badge{
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  border-radius:0!important;
+  padding:4px 8px!important;
+  min-height:0!important;
+  color:#ff6678!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:7px!important;
+  flex:0 0 auto!important;
+}
+.sas-disclaimer-bar .disclaimer-badge .disclaimer-icon{
+  color:#ff3b55!important;
+  position:relative!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:48px!important;height:48px!important;
+  min-width:48px!important;min-height:48px!important;
+  flex:0 0 48px!important;
+  border:1px solid rgba(255,55,80,.52)!important;
+  border-radius:50%!important;
+  background:rgba(255,40,65,.07)!important;
+  box-shadow:0 0 0 0 rgba(255,50,75,.32),0 0 15px rgba(255,35,65,.15)!important;
+  animation:sasAlertPulse 1.8s ease-out infinite!important;
+  overflow:visible!important;
+}
+.sas-disclaimer-bar .disclaimer-badge .disclaimer-icon .sas-managed-icon-image{
+  width:39px!important;height:39px!important;
+  min-width:39px!important;min-height:39px!important;
+  max-width:39px!important;max-height:39px!important;
+  object-fit:contain!important;transform:none!important;
+  filter:drop-shadow(0 0 5px rgba(255,45,70,.55))!important;
+}
+.sas-disclaimer-bar .disclaimer-badge .disclaimer-icon:not(.has-managed-icon){
+  font-size:27px!important;line-height:1!important;
+}
+.sas-disclaimer-bar .disclaimer-badge:active .disclaimer-icon,
+.sas-disclaimer-bar .disclaimer-badge:hover .disclaimer-icon{
+  animation-duration:.85s!important;
+  box-shadow:0 0 0 5px rgba(255,50,75,.10),0 0 22px rgba(255,35,65,.32)!important;
+}
+@keyframes sasAlertPulse{
+  0%{box-shadow:0 0 0 0 rgba(255,50,75,.34),0 0 12px rgba(255,35,65,.12)}
+  70%{box-shadow:0 0 0 9px rgba(255,50,75,0),0 0 19px rgba(255,35,65,.24)}
+  100%{box-shadow:0 0 0 0 rgba(255,50,75,0),0 0 12px rgba(255,35,65,.12)}
+}
+@media(max-width:600px){
+  .sas-disclaimer-bar .disclaimer-badge{gap:5px!important;padding:2px 3px!important;font-size:10px!important}
+  .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon{
+    width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;flex-basis:40px!important
+  }
+  .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon .sas-managed-icon-image{
+    width:33px!important;height:33px!important;min-width:33px!important;min-height:33px!important;max-width:33px!important;max-height:33px!important
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .sas-disclaimer-bar .disclaimer-badge .disclaimer-icon{animation:none!important}
+}
