@@ -115,7 +115,7 @@ function showSASWelcome(){
  };
  let count=0;
  const fireTimer=window.setInterval(()=>{launch(12+Math.random()*76,14+Math.random()*54);if(++count>=7)window.clearInterval(fireTimer);},310);
- const onTap=e=>{const r=overlay.getBoundingClientRect();launch(Math.max(4,Math.min(96,(e.clientX-r.left)/r.width*100)),Math.max(5,Math.min(90,(e.clientY-r.top)/r.height*100));};
+ const onTap=e=>{const r=overlay.getBoundingClientRect();launch(Math.max(4,Math.min(96,(e.clientX-r.left)/r.width*100)),Math.max(5,Math.min(90,(e.clientY-r.top)/r.height*100)));};
  overlay.addEventListener('pointerdown',onTap);
  requestAnimationFrame(()=>overlay.classList.add('is-visible'));
  sasWelcomeTimer=window.setTimeout(()=>{
