@@ -1422,3 +1422,146 @@ filter:blur(.2px);
 @keyframes salGlow{to{transform:rotate(360deg)}}
 @media(max-width:420px){.stock-analysis-loader{padding:16px 12px;border-radius:18px}.sal-orbit{width:50px;height:50px;flex-basis:50px}.sal-loader-title>b{font-size:15px}.sal-step{font-size:9px;gap:3px}.sal-step i{width:16px;height:16px}}
 @media(prefers-reduced-motion:reduce){.sal-orbit:before,.sal-orbit:after,.stock-analysis-loader:before{animation:none}.sal-progress-track span{transition:none}}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   SAS PRO Market Terminal Refresh — presentation-only overrides
+   Preserve all existing IDs, handlers, routes, and feature logic.
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+ --bg:#030912;--bg2:#071421;--panel:rgba(7,20,33,.94);--panel2:rgba(5,15,26,.98);
+ --cyan:#56d9f5;--cyan2:#1aa8d4;--green:#39d9a0;--red:#ff6f83;--gold:#f3c969;
+ --text:#eef7ff;--muted:#93a9bc;--line:rgba(91,190,229,.24);--line2:rgba(255,255,255,.075);
+ --shadow:0 20px 55px rgba(0,0,0,.34),0 0 28px rgba(45,170,220,.045);
+}
+html{scroll-behavior:smooth;scroll-padding-top:88px}
+body{background-color:#030912;background-image:linear-gradient(180deg,rgba(2,8,15,.2),rgba(2,8,15,.9) 70%,#02060c),url("/assets/sas-pro-home.webp?v=20261011-15"),radial-gradient(ellipse at 50% 0%,rgba(24,118,156,.17),transparent 42%),linear-gradient(180deg,#061321,#02060c);background-position:center top,center top,center top,center;background-size:cover,100% auto,auto,auto;background-repeat:no-repeat;background-attachment:fixed}
+button,input,select,textarea{outline-color:rgba(86,217,245,.7)}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+.app{width:min(1180px,100%);padding-bottom:44px}
+.app:before{opacity:.08;background-size:42px 42px}
+.terminal-hero-banner,.poster-wrap{border-bottom:1px solid rgba(86,217,245,.24);box-shadow:0 12px 35px rgba(0,0,0,.16)}
+.terminal-hero-banner img{filter:saturate(1.04) contrast(1.06)}
+.hero-caption{backdrop-filter:blur(10px)}
+.market-ticker-wrap{position:sticky;top:0;z-index:30;background:rgba(3,12,21,.88);backdrop-filter:blur(16px);border-bottom:1px solid rgba(95,191,226,.15)}
+.market-ticker{scrollbar-width:none}
+.terminal-tabs{position:sticky;top:43px;z-index:29;gap:5px;padding:9px 10px;background:rgba(3,12,21,.91);backdrop-filter:blur(18px);border:1px solid rgba(95,191,226,.14);border-radius:0 0 22px 22px;box-shadow:0 12px 25px rgba(0,0,0,.18)}
+.terminal-tabs button{min-height:43px;border-radius:13px;border:1px solid transparent;color:#a8bbcb;font-weight:700;transition:background .2s,border-color .2s,color .2s,transform .2s}
+.terminal-tabs button:hover{background:rgba(83,183,224,.08);color:#eefaff}
+.terminal-tabs button.active{background:linear-gradient(135deg,rgba(25,118,159,.35),rgba(11,47,70,.78));border-color:rgba(83,201,242,.34);color:#86e3ff;box-shadow:inset 0 -2px #4cc8ed,0 4px 18px rgba(14,123,170,.1)}
+.terminal-main{padding:clamp(12px,2vw,24px)}
+.terminal-tab{animation:sasPageIn .24s ease both}
+@keyframes sasPageIn{from{opacity:.4;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.terminal-hero,.sas-dashboard-hero,.account-terminal,.search-terminal,.terminal-panel-head,.section-title,.section-head,.metric-card,.macro-card,.stock-card,.symbol-result,.mini-analysis,.recommendation-box,.shariah-box,.news-card,.chart-panel,.terminal-panel,.status-card,.trial-card,.plans,.terms-note{border-color:rgba(103,178,214,.17)}
+.sas-dashboard-hero{position:relative;overflow:hidden;border-radius:24px;background:linear-gradient(130deg,rgba(7,26,43,.97),rgba(5,16,29,.9) 65%,rgba(6,41,55,.78));box-shadow:var(--shadow);padding:clamp(18px,3vw,30px)}
+.sas-dashboard-hero:after{content:"";position:absolute;inset:auto -8% -70% 35%;height:250px;border-radius:50%;background:radial-gradient(ellipse,rgba(31,156,199,.12),transparent 70%);pointer-events:none}
+.sas-dashboard-copy h1{font-size:clamp(22px,3vw,31px);letter-spacing:-.3px}
+.sas-market-status{border:1px solid rgba(73,196,226,.16);background:rgba(4,14,25,.6);border-radius:12px;padding:10px 12px}
+.sas-dashboard-actions{gap:10px}
+.sas-action-card{border:1px solid rgba(99,177,214,.19);border-radius:16px;background:linear-gradient(135deg,rgba(13,38,57,.92),rgba(6,21,35,.94));transition:transform .2s,border-color .2s,background .2s}
+.sas-action-card:hover{transform:translateY(-2px);border-color:rgba(85,207,243,.42);background:linear-gradient(135deg,rgba(14,51,73,.95),rgba(6,24,40,.97))}
+.sas-action-icon{border-radius:13px;box-shadow:inset 0 1px rgba(255,255,255,.06)}
+.metric-grid{gap:12px}
+.metric-card,.macro-card{position:relative;overflow:hidden;border-radius:17px;background:linear-gradient(145deg,rgba(10,28,44,.96),rgba(4,15,27,.96));box-shadow:0 9px 22px rgba(0,0,0,.12)}
+.metric-card:before,.macro-card:before{content:"";position:absolute;inset:0 auto 0 0;width:2px;background:linear-gradient(180deg,rgba(86,217,245,.55),transparent)}
+.metric-card:hover,.macro-card:hover{border-color:rgba(86,217,245,.32);transform:translateY(-1px)}
+.section-title{margin:22px 0 12px}
+.section-title b,.section-head b{letter-spacing:.1px}
+.stock-grid{gap:12px}
+.stock-card{border-radius:18px;background:linear-gradient(145deg,rgba(9,26,41,.97),rgba(4,14,25,.98));box-shadow:0 10px 24px rgba(0,0,0,.14);transition:transform .2s,border-color .2s}
+.stock-card:hover{transform:translateY(-2px);border-color:rgba(86,217,245,.36)}
+.search-terminal{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:9px;padding:12px;border:1px solid rgba(91,190,229,.18);border-radius:19px;background:rgba(5,16,28,.86);box-shadow:var(--shadow)}
+.search-terminal input,.search-row input,.staff-add-row input,.staff-add-row select,.subscription-controls input,.plan-editor input{min-height:46px;border:1px solid rgba(111,171,202,.23);border-radius:12px;background:rgba(3,12,22,.86);color:var(--text);padding:11px 14px}
+.primary-btn,.save-btn,.staff-save-btn,.search-row button{border:1px solid rgba(86,217,245,.35);border-radius:12px;background:linear-gradient(135deg,#11678b,#0a3d59);color:#e9faff;font-weight:800;box-shadow:0 7px 16px rgba(0,74,108,.16)}
+.primary-btn:hover,.save-btn:hover,.staff-save-btn:hover,.search-row button:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.secondary-btn,.admin-refresh{border:1px solid rgba(111,171,202,.22);border-radius:12px;background:rgba(8,26,42,.9);color:#c4deeb}
+.symbol-result{margin-top:14px;border-radius:22px;background:linear-gradient(145deg,rgba(6,19,32,.97),rgba(3,11,21,.98));box-shadow:var(--shadow);padding:clamp(12px,2vw,22px)}
+.symbol-result .detail-head h2{font-size:clamp(24px,4vw,34px)}
+.mini-analysis,.recommendation-box,.shariah-box,.chart-panel,.news-card{border-radius:17px;box-shadow:0 7px 18px rgba(0,0,0,.1)}
+.mini-analysis{background:linear-gradient(145deg,rgba(7,28,44,.95),rgba(4,16,28,.96))}
+.mini-analysis-grid>div{border-radius:13px;background:rgba(13,38,55,.62);border-color:rgba(107,173,202,.11)}
+.news-card{padding:15px;background:rgba(6,20,33,.78);margin-top:10px}
+.chart-panel{overflow:hidden;background:rgba(4,15,27,.9)}
+.account-terminal{border-radius:22px;background:linear-gradient(145deg,rgba(8,26,42,.96),rgba(4,13,24,.97));padding:24px}
+.account-avatar{box-shadow:0 0 0 7px rgba(86,217,245,.07);border:1px solid rgba(86,217,245,.2)}
+.sas-disclaimer-footer{margin:20px 0 0}
+.sas-disclaimer-bar{border:1px solid rgba(85,192,220,.19);border-radius:17px;background:rgba(3,13,23,.92);backdrop-filter:blur(16px)}
+/* Subscription screen */
+.subscription-page{padding-bottom:36px}
+.status-card,.trial-card,.plans,.terms-note{border-radius:20px;background:linear-gradient(145deg,rgba(7,23,37,.94),rgba(3,13,23,.96));box-shadow:0 12px 30px rgba(0,0,0,.17)}
+.status-card,.plans,.terms-note{padding:clamp(14px,2vw,22px)}
+.trial-card{border:1px solid rgba(75,205,169,.22);background:linear-gradient(115deg,rgba(9,49,48,.75),rgba(5,20,33,.96));padding:18px}
+.trial-card button{border-radius:12px;background:linear-gradient(135deg,#087d75,#0a4f5d);border:1px solid rgba(97,232,203,.35);font-weight:800}
+.plan-grid{gap:12px}
+.plan-card{border-radius:17px;background:linear-gradient(145deg,rgba(10,30,47,.96),rgba(4,15,26,.98));border-color:rgba(103,178,214,.19);transition:transform .2s,border-color .2s}
+.plan-card:hover{transform:translateY(-2px);border-color:rgba(86,217,245,.38)}
+/* Admin: cohesive command-center hierarchy, same SAS visual identity */
+.admin-page{max-width:1180px;margin:0 auto;padding:clamp(10px,2.2vw,24px);color:var(--text)}
+.admin-header{position:sticky;top:0;z-index:35;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px clamp(12px,2vw,22px);margin:0 0 14px;border:1px solid rgba(91,190,229,.19);border-radius:0 0 20px 20px;background:rgba(3,12,22,.93);backdrop-filter:blur(18px);box-shadow:0 14px 35px rgba(0,0,0,.2)}
+.admin-brand-mark{display:grid;place-items:center;border-radius:15px;background:linear-gradient(145deg,#0f4e6a,#071b2d);border:1px solid rgba(86,217,245,.4);box-shadow:0 0 20px rgba(31,153,197,.13);font-size:25px}
+.admin-brand b{letter-spacing:.8px}
+.admin-brand em{border-radius:6px;padding:3px 6px;background:rgba(86,217,245,.12);color:#7de4ff;font-style:normal;font-size:10px}
+.admin-brand span{color:#8caabe}
+.admin-live{border:1px solid rgba(57,217,160,.18);background:rgba(20,125,89,.1);border-radius:99px;padding:8px 11px;color:#8ce7c2;font-size:11px}
+.admin-nav{position:sticky;top:75px;z-index:34;display:flex;gap:7px;overflow-x:auto;padding:9px;margin:0 0 16px;border:1px solid rgba(91,190,229,.16);border-radius:17px;background:rgba(4,14,25,.94);backdrop-filter:blur(18px);box-shadow:0 12px 28px rgba(0,0,0,.16);scrollbar-width:none}
+.admin-nav::-webkit-scrollbar{display:none}
+.admin-nav button{flex:0 0 auto;min-height:42px;border:1px solid transparent;border-radius:11px;padding:9px 13px;background:transparent;color:#9db6c8;font-weight:750}
+.admin-nav button:hover{background:rgba(86,217,245,.07);color:#e7f8ff}
+.admin-nav button.active{color:#8be6ff;border-color:rgba(86,217,245,.26);background:linear-gradient(135deg,rgba(20,104,139,.33),rgba(8,35,54,.85));box-shadow:inset 0 -2px #49c7ed}
+.admin-welcome{position:relative;overflow:hidden;border:1px solid rgba(86,217,245,.2);border-radius:22px;padding:clamp(18px,3vw,30px);background:linear-gradient(115deg,rgba(6,24,40,.98),rgba(5,16,29,.97) 65%,rgba(8,45,58,.92));box-shadow:var(--shadow);margin-bottom:14px}
+.admin-welcome:after{content:"";position:absolute;left:-35px;bottom:-100px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(35,165,205,.17),transparent 70%);pointer-events:none}
+.admin-welcome>div:first-child>span{font-size:10px;letter-spacing:2px;color:#77d9f6}
+.admin-welcome h1{margin:7px 0;font-size:clamp(22px,3.2vw,32px);letter-spacing:-.4px}
+.admin-welcome p{max-width:680px;line-height:1.9;color:#9db4c6}
+.admin-security{border:1px solid rgba(86,217,245,.18);border-radius:15px;background:rgba(2,13,23,.6);padding:14px 16px;min-width:155px}
+.admin-security small{display:block;color:#91aabe;margin-top:5px}
+.admin-panel,.admin-alerts-panel,.owner-card{border:1px solid rgba(96,167,204,.17);border-radius:19px;background:linear-gradient(145deg,rgba(7,22,37,.96),rgba(3,13,24,.97));box-shadow:0 12px 28px rgba(0,0,0,.13);padding:clamp(13px,2vw,21px);margin:12px 0}
+.admin-panel .section-head,.admin-alerts-panel .section-head{padding-bottom:12px;margin-bottom:13px;border-bottom:1px solid rgba(111,171,202,.12)}
+.admin-panel .section-head b,.admin-alerts-panel .section-head b{font-size:14px}
+.admin-stats{gap:11px;margin:14px 0}
+.admin-stats>*,.admin-stat-card{border:1px solid rgba(96,167,204,.17)!important;border-radius:16px!important;background:linear-gradient(145deg,rgba(10,30,47,.96),rgba(4,15,26,.98))!important;box-shadow:0 8px 20px rgba(0,0,0,.12)}
+.admin-alerts-summary,.admin-alerts-list,.subscriber-status-summary,.subscriber-status-list,.deploy-status,.stars-transactions,.staff-list-simple{border-radius:13px}
+.admin-system-ok{border:1px solid rgba(57,217,160,.18);background:rgba(12,91,66,.12);border-radius:13px;padding:13px}
+.search-row{gap:9px}
+.search-row input{flex:1;min-width:0}
+.search-row button{min-height:45px;padding:0 20px}
+.admin-page button:not(.admin-nav button){transition:transform .18s,border-color .18s,filter .18s}
+.admin-page button:not(:disabled):hover{border-color:rgba(86,217,245,.35)}
+.owner-card{border-color:rgba(243,201,105,.2);background:linear-gradient(115deg,rgba(49,39,18,.4),rgba(6,19,31,.97) 55%)}
+.owner-badge{border-radius:13px;background:rgba(243,201,105,.1);border:1px solid rgba(243,201,105,.22);color:#f4d78e}
+.staff-add-box{border-radius:15px;background:rgba(3,14,25,.68);border:1px solid rgba(96,167,204,.13);padding:14px}
+.staff-permission-guide span{border:1px solid rgba(96,167,204,.15);background:rgba(9,28,44,.65);border-radius:10px;padding:8px 10px}
+.deploy-note,.stars-note{border-radius:12px;background:rgba(86,217,245,.045);border:1px solid rgba(86,217,245,.12);padding:12px;line-height:1.9}
+.modal-card{border:1px solid rgba(86,217,245,.25);border-radius:22px;background:linear-gradient(145deg,#071a2a,#030b14);box-shadow:0 24px 80px rgba(0,0,0,.58)}
+@media(min-width:760px){
+ .terminal-main{padding:22px}
+ .terminal-tabs{top:48px}
+ .terminal-tab.active{display:block}
+ .admin-overview{display:block}
+ .admin-page{padding-top:18px}
+}
+@media(max-width:680px){
+ .app{padding-bottom:28px}
+ .terminal-tabs{top:39px;padding:7px 5px;border-radius:0 0 17px 17px;gap:2px}
+ .terminal-tabs button{min-height:39px;padding:8px 7px;font-size:11px;border-radius:10px}
+ .terminal-main{padding:10px}
+ .search-terminal{grid-template-columns:1fr 1fr}
+ .search-terminal input{grid-column:1/-1;width:100%;min-width:0}
+ .search-terminal button{min-height:43px;padding:8px 10px;font-size:12px}
+ .sas-dashboard-hero{border-radius:19px;padding:16px}
+ .sas-action-card{padding:12px}
+ .admin-page{padding:8px}
+ .admin-header{position:relative;top:auto;align-items:flex-start;flex-wrap:wrap;padding:12px;border-radius:0 0 17px 17px}
+ .admin-header-actions{width:100%;display:flex;flex-wrap:wrap;gap:7px}
+ .admin-header-actions>*{flex:1;justify-content:center}
+ .admin-nav{top:0;margin-bottom:12px;padding:6px;border-radius:13px}
+ .admin-nav button{min-height:39px;padding:8px 10px;font-size:11px}
+ .admin-welcome{border-radius:18px}
+ .admin-panel,.admin-alerts-panel,.owner-card{padding:13px;border-radius:16px}
+ .admin-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .staff-add-row{grid-template-columns:1fr}
+}
+@media(prefers-reduced-motion:reduce){
+ html{scroll-behavior:auto}
+ .terminal-tab,.sas-action-card,.stock-card,.metric-card,.macro-card,.plan-card{animation:none;transition:none}
+}
