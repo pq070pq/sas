@@ -2784,3 +2784,17 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 #termsModal .modal-actions button{min-height:44px;border-radius:12px}
 @media(max-width:620px){.admin-header{align-items:flex-start;flex-wrap:wrap}.admin-header-actions{width:100%;justify-content:stretch}.admin-header-actions>*{flex:1}.admin-nav{top:108px}.admin-welcome{align-items:stretch;flex-direction:column}.admin-security{min-width:0}.admin-panel{padding:13px!important}.admin-nav button{padding:9px 11px}.sas-plan-card{padding:15px}}
 @media(prefers-reduced-motion:reduce){.admin-refresh,.admin-nav button,.admin-panel button,.owner-card button,.sas-plan-card{transition:none}}
+
+
+/* SAS ADMIN polish: responsive action groups, test reset, and visible interaction feedback. */
+.admin-brand b{letter-spacing:.08em}
+.admin-brand em{font-style:normal;color:#58e4f4;background:rgba(40,203,226,.12);border:1px solid rgba(40,203,226,.3);padding:4px 9px;border-radius:9px}
+.user-row{gap:14px;padding:16px;border:1px solid rgba(76,211,232,.15);border-radius:16px;background:linear-gradient(145deg,rgba(8,31,44,.92),rgba(3,13,24,.94));margin:10px 0}
+.user-actions{display:flex;flex-wrap:wrap;gap:7px;justify-content:flex-start}
+.user-actions button{min-height:36px;border-radius:10px;padding:8px 11px;transition:transform .18s ease,border-color .18s ease,background .18s ease}
+.user-actions button:hover{transform:translateY(-1px);border-color:rgba(82,224,245,.65)}
+.user-actions .admin-test-reset{flex-basis:100%;border:1px solid rgba(76,211,232,.38);background:linear-gradient(120deg,rgba(12,104,124,.32),rgba(8,45,65,.72));color:#aaf5ff;font-weight:700}
+.admin-test-reset:focus-visible,.admin-refresh:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #62e5f4;outline-offset:3px}
+.admin-panel[hidden],.admin-accordion-item[hidden]{display:none!important}
+@media(max-width:640px){.user-row{display:flex;flex-direction:column;align-items:stretch}.user-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.user-actions button{min-width:0;white-space:normal}.user-actions .admin-test-reset{grid-column:1/-1}}
+@media(prefers-reduced-motion:reduce){.user-actions button{transition:none}.user-actions button:hover{transform:none}}
