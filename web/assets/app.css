@@ -2274,3 +2274,17 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @media(prefers-reduced-motion:reduce){
  #tab-dashboard>.sas-market-strip.is-open,#tab-dashboard>.sas-market-strip.is-closed{animation:none!important}
 }
+
+/* Interactive scan progress shown in-place before fresh radar results */
+.sas-radar-showcase .radar-scan-progress{grid-column:1/-1;display:grid;gap:9px;margin:12px 0 2px;padding:15px 16px;border:1px solid rgba(64,216,242,.34);border-radius:16px;background:linear-gradient(120deg,rgba(6,58,76,.48),rgba(2,18,31,.82));color:#dffaff;text-align:center;box-shadow:inset 0 0 20px rgba(45,217,255,.045);animation:sasScanAppear .28s ease-out}
+.sas-radar-showcase .radar-scan-progress>b{font-size:15px;font-weight:850;color:#a8f2ff}
+.sas-radar-showcase .radar-scan-progress small,.sas-radar-showcase .radar-scan-stage,.sas-radar-showcase .radar-scan-elapsed{font-size:12px;line-height:1.9;color:#a7c3d0}
+.sas-radar-showcase .radar-scan-stage{color:#d7edf4;font-weight:700}
+.sas-radar-showcase .radar-scan-progress-track{height:5px;overflow:hidden;border-radius:999px;background:rgba(139,181,198,.13)}
+.sas-radar-showcase .radar-scan-progress-track i{display:block;width:36%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#2c9ebc,#8cefff);box-shadow:0 0 12px rgba(72,220,248,.65);animation:sasScanProgress 1.3s ease-in-out infinite alternate}
+.sas-radar-showcase.sas-radar-scanning .sas-radar-copy p{color:#d7edf4}
+.sas-radar-showcase.sas-radar-scanning .sas-radar-scan-btn{opacity:.8;cursor:wait}
+.sas-radar-showcase .sas-radar-scan-btn:disabled,.sas-radar-showcase .sas-radar-visual:disabled{opacity:.7;cursor:wait}
+@keyframes sasScanProgress{from{width:18%;transform:translateX(0)}to{width:78%;transform:translateX(24%)}}
+@keyframes sasScanAppear{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.sas-radar-showcase .radar-scan-progress,.sas-radar-showcase .radar-scan-progress-track i{animation:none!important}}

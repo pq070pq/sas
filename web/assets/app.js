@@ -434,36 +434,55 @@ async function runRadar(show=true){
  terminalState.radarScanning=true;
  document.querySelectorAll('.sas-radar-showcase,.sas-radar-visual,.terminal-page').forEach(el=>el.classList.add('sas-radar-scanning'));
  const button=document.getElementById('radarScanBtn');
+ const showcase=document.querySelector('.sas-radar-showcase');
+ const copyText=showcase?.querySelector('.sas-radar-copy p');
+ const statusText=showcase?.querySelector('.sas-radar-status span');
+ const scanButtons=[...document.querySelectorAll('.sas-radar-scan-btn')];
+ const radarVisual=showcase?.querySelector('.sas-radar-visual');
  const grid=document.getElementById('radarGrid');
+ const dashboardGrid=document.getElementById('dashboardRadar');
  const startedAt=Date.now();
  let elapsedTimer=null;
+ let progress=null;
+ const initialCopy=copyText?.textContent||'يمسح النتائج الفعلية ويعرض الفرص المكتشفة أسفل الرادار.';
  try{
+  if(show)switchTerminalTab('radar');
+  const existing=terminalState.radar.length;
+  if(button){button.disabled=true;button.textContent='⏳ جارٍ الفحص…';}
+  scanButtons.forEach(b=>{b.disabled=true;b.dataset.originalText=b.textContent;b.textContent='⏳ جارٍ المسح…';});
+  if(radarVisual)radarVisual.disabled=true;
+  if(copyText)copyText.textContent='سيتم المسح الآن… نبحث عن الأسهم النشطة ونراجع الحركة والسيولة والشروط الفنية قبل عرض النتائج.';
+  if(statusText)statusText.textContent='المسح جارٍ';
+  progress=document.createElement('div');
+  progress.id='radarScanProgress';
+  progress.className='radar-scan-progress';
+  progress.setAttribute('role','status');
+  progress.setAttribute('aria-live','polite');
+  progress.innerHTML='<b>⟳ جارٍ مسح الأسهم الآن</b><div class="radar-scan-progress-track"><i></i></div><small>نراجع الحركة والسيولة والشروط الفنية. لن تظهر إلا الأسهم التي اجتازت شروط الرادار.</small><span class="radar-scan-stage">نبحث عن الأسهم النشطة…</span><span class="radar-scan-elapsed">⏱️ 0 ث</span>';
   if(show){
-   switchTerminalTab('radar');
-   if(button){button.disabled=true;button.textContent='⏳ جارٍ الفحص…';}
-   const existing=terminalState.radar.length;
-   const progress=document.createElement('div');
-   progress.id='radarScanProgress';
-   progress.className='loading radar-scan-progress';
-   progress.innerHTML='<b>🔎 نبحث عن الفرص الواعدة</b><br><small>نراجع الحركة والسيولة، ونتأكد من الشروط قبل عرض النتائج.'+(existing?' ستبقى النتائج السابقة ظاهرة.':'')+'</small><br><span class="radar-scan-stage">نبحث عن الأسهم النشطة…</span><br><span class="radar-scan-elapsed">⏱️ جارٍ الفحص</span>';
    const diagnostics=document.getElementById('radarDiagnostics');
    if(diagnostics)diagnostics.prepend(progress);
-   const stages=['نبحث عن الأسهم النشطة…','نراجع الحركة والسيولة…','نتحقق من الشروط الفنية…','نرتب النتائج التي اجتازت الفحص…'];
-   elapsedTimer=setInterval(()=>{
-    const elapsed=Math.floor((Date.now()-startedAt)/1000);
-    const label=document.querySelector('#radarScanProgress .radar-scan-elapsed');
-    const stage=document.querySelector('#radarScanProgress .radar-scan-stage');
-    if(label)label.textContent='⏱️ '+elapsed+' ث · نكمل مراجعة الفرص';
-    if(stage)stage.textContent=stages[Math.floor(elapsed/6)%stages.length];
-   },1000);
-   if(!existing && grid)grid.innerHTML='<div class="empty-state">نراجع الأسهم الآن… ستظهر هنا فقط النتائج التي تجتاز شروط الرادار.</div>';
+   if(!existing&&grid)grid.innerHTML='<div class="empty-state">نراجع الأسهم الآن… ستظهر هنا فقط النتائج التي تجتاز شروط الرادار.</div>';
+  }else if(showcase){
+   const actions=showcase.querySelector('.sas-radar-actions');
+   if(actions)actions.before(progress);
+   else showcase.append(progress);
   }
-  // يبدأ هذا الزر دورة رصد فعلية جديدة بدل الاكتفاء بقراءة الإشارات المحفوظة.
+  const stages=['نبحث عن الأسهم النشطة…','نراجع الحركة والسيولة…','نتحقق من الشروط الفنية…','نرتب النتائج التي اجتازت الفحص…'];
+  elapsedTimer=setInterval(()=>{
+   const elapsed=Math.floor((Date.now()-startedAt)/1000);
+   const label=progress?.querySelector('.radar-scan-elapsed');
+   const stage=progress?.querySelector('.radar-scan-stage');
+   if(label)label.textContent='⏱️ '+elapsed+' ث · نكمل مراجعة الفرص';
+   if(stage)stage.textContent=stages[Math.floor(elapsed/5)%stages.length];
+  },1000);
+  // Start a real fresh scan, retaining previous cards until the new results return.
   const d=await api('/api/radar/scan?fresh=1',{timeoutMs:180000,retries:0});
   if(d?.error){
     const reason=String(d.error.message||d.error.type||'خطأ غير معروف');
-    const box=document.getElementById('radarGrid');
-    if(box)box.innerHTML='<div class="fatal"><b>🔴 تعذر إكمال مسح الأسهم</b><br><small>'+escHtml(reason)+'</small><br><small>تم الاحتفاظ بآخر نتائج الرصد إن وُجدت.</small></div>';
+    if(show&&grid)grid.innerHTML='<div class="fatal"><b>🔴 تعذر إكمال مسح الأسهم</b><br><small>'+escHtml(reason)+'</small><br><small>تم الاحتفاظ بآخر نتائج الرصد إن وُجدت.</small></div>';
+    if(copyText)copyText.textContent='تعذر إكمال المسح. يمكنك إعادة المحاولة؛ احتفظنا بالنتائج السابقة.';
+    if(statusText)statusText.textContent='تعذر المسح';
     console.error('SAS PRO radar API error:',d.error);
     return;
   }
@@ -497,7 +516,7 @@ async function runRadar(show=true){
     candidateEl.innerHTML='<div class="candidate-title"><b>🔎 تحليل المرشحين</b><small>هذه الأسهم اجتازت مرحلة البحث الأولي ولم تدخل الإشارة النهائية. سبب الاستبعاد ظاهر لكل سهم.</small></div>'+
       '<div class="candidate-grid">'+candidates.slice(0,12).map(x=>{
         const sym=String(x.symbol||'—');
-        return '<article class="candidate-card"><div><b>'+escHtml(sym)+'</b><small>'+escHtml(x.data_source||'مصدر الرصد')+'</small></div><p>'+escHtml(x.reason||'تم استبعاده في مرحلة لاحقة')+'</p><button onclick="openSymbol(\''+escHtml(sym)+'\')">⏳ تحليل</button></article>';
+        return '<article class="candidate-card"><div><b>'+escHtml(sym)+'</b><small>'+escHtml(x.data_source||'مصدر الرصد')+'</small></div><p>'+escHtml(x.reason||'تم استبعاده في مرحلة لاحقة')+'</p><button onclick="openSymbol(\\''+escHtml(sym)+'\\')">⏳ تحليل</button></article>';
       }).join('')+'</div>';
   }else if(candidateEl){
     candidateEl.hidden=true;
@@ -505,17 +524,30 @@ async function runRadar(show=true){
   }
   renderRadar();
   renderDashboard({radar:{enabled:d.enabled,opportunities:terminalState.radar.length,top_move_pct:Math.max(...terminalState.radar.map(x=>Number(x.change_pct)||-Infinity)),top_volume:Math.max(...terminalState.radar.map(x=>Number(x.volume)||-Infinity))}});
+  const found=terminalState.radar.length;
+  if(copyText)copyText.textContent=found
+   ? 'اكتمل المسح بنجاح — تم العثور على '+found.toLocaleString('ar-SA')+' فرصة مطابقة للشروط، وتظهر الأسهم أدناه.'
+   : 'اكتمل المسح دون فرص مستوفية للشروط حاليًا. لا نعرض أسهمًا غير مؤكدة؛ يمكنك إعادة المسح لاحقًا.';
+  if(statusText)statusText.textContent=found?'اكتمل المسح':'اكتمل المسح • لا توجد فرص';
+  if(!show&&dashboardGrid){
+   dashboardGrid.setAttribute('aria-live','polite');
+   dashboardGrid.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+  }
  }catch(e){
    const msg=String(e?.message||'');
    if(msg.includes('الموافقة على الشروط')){
     openTerms('trial');
     return;
    }
-   if(grid)grid.innerHTML='<div class="fatal"><b>تعذر إكمال مسح الأسهم</b><br>'+escHtml(msg||'حدث خطأ غير معروف')+'<br><small>يمكنك إعادة المحاولة؛ لم تُحذف نتائج الرصد السابقة من قاعدة البيانات.</small></div>';
+   if(show&&grid)grid.innerHTML='<div class="fatal"><b>تعذر إكمال مسح الأسهم</b><br>'+escHtml(msg||'حدث خطأ غير معروف')+'<br><small>يمكنك إعادة المحاولة؛ لم تُحذف نتائج الرصد السابقة من قاعدة البيانات.</small></div>';
+   if(copyText)copyText.textContent='حدث خطأ أثناء المسح. احتفظنا بالنتائج السابقة؛ حاول مرة أخرى.';
+   if(statusText)statusText.textContent='حدث خطأ في المسح';
  }finally{
    if(elapsedTimer)clearInterval(elapsedTimer);
-   document.getElementById('radarScanProgress')?.remove();
+   progress?.remove();
    if(button){button.disabled=false;button.textContent='🔎 مسح الأسهم';}
+   scanButtons.forEach(b=>{b.disabled=false;b.textContent=b.dataset.originalText||'⟳ ابدأ مسحًا جديدًا';delete b.dataset.originalText;});
+   if(radarVisual)radarVisual.disabled=false;
    terminalState.radarScanning=false;
    document.querySelectorAll('.sas-radar-showcase,.sas-radar-visual,.terminal-page').forEach(el=>el.classList.remove('sas-radar-scanning'));
  }
