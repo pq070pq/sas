@@ -1020,9 +1020,11 @@ function renderAccount(){
 }
 
 function renderTrialCard(days){
- const d=Number(days||3);
- document.querySelector("#trialCard p").textContent=d+" يومًا للمستخدم الجديد • تبدأ تلقائيًا بعد الموافقة على الشروط، ثم يفتح رابط القناة مباشرة.";
- document.getElementById("trialBtn").textContent=d===30?"قراءة الشروط وبدء التجربة المجانية":"قراءة الشروط وبدء التجربة";
+ const d=Number(days||30);
+ const description=document.getElementById("trialDescription");
+ if(description)description.textContent="للمستخدمين الجدد: استمتع بـ "+d+" يومًا مجانًا. بعد موافقتك على الشروط، ستدخل إلى التطبيق مباشرة، ويمكنك الانضمام إلى القناة.";
+ const button=document.getElementById("trialBtn");
+ if(button)button.innerHTML='<span aria-hidden="true">🚀</span> قراءة الشروط والمتابعة <span aria-hidden="true">←</span>';
 }
 
 function renderStatus(x){
