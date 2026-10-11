@@ -1783,3 +1783,28 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 }
 @media(min-width:681px) and (max-width:900px){.market-ticker{grid-template-columns:repeat(3,minmax(0,1fr))}.stock-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sas-dashboard-hero{gap:12px;padding:15px}.sas-action-icon{width:45px;height:45px}.sas-quick-filters{gap:5px}.sas-quick-filters button{font-size:10px}}
 @media(prefers-reduced-motion:reduce){.sas-market-live-dot{animation:none!important}*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+
+
+/* Admin media manager: durable hero image and icon thumbnails */
+.media-admin-note{margin:10px 0 14px;color:#8ba7b1;font-size:11px;line-height:1.8}
+.media-admin-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+.media-admin-card{min-width:0;display:flex;flex-direction:column;gap:7px;padding:12px;border:1px solid rgba(90,185,205,.16);border-radius:15px;background:linear-gradient(145deg,rgba(6,24,35,.88),rgba(2,11,18,.96))}
+.media-admin-card>b{font-size:12px;color:#e8fbff}
+.media-admin-card>small{font-size:9px;line-height:1.6;color:#78939d;min-height:27px}
+.media-admin-preview{height:112px;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px dashed rgba(49,216,230,.24);border-radius:11px;background:rgba(0,0,0,.2);color:#39e4ee;font-size:30px}
+.media-admin-preview-hero{height:130px}
+.media-admin-preview img{display:block;width:100%;height:100%;object-fit:contain}
+.media-admin-preview-hero img{object-fit:cover}
+.media-admin-preview img[hidden]{display:none}
+.media-admin-preview span[hidden]{display:none}
+.media-upload-btn{position:relative;display:flex;align-items:center;justify-content:center;min-height:38px;padding:8px;border:1px solid rgba(49,216,230,.25);border-radius:10px;background:rgba(49,216,230,.08);color:#dffcff;font-size:10px;font-weight:800;text-align:center;cursor:pointer;overflow:hidden}
+.media-upload-btn input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.media-upload-btn input:disabled{cursor:wait}
+.media-upload-status{margin:12px 0;padding:11px 12px;border:1px solid rgba(49,216,230,.13);border-radius:10px;background:rgba(0,0,0,.15);color:#9cc4cd;font-size:10px;line-height:1.7}
+.sas-managed-icon-image{display:block;width:100%;height:100%;object-fit:contain}
+.sas-action-icon.has-managed-icon{padding:3px}
+.sas-managed-tab-icon{width:17px;height:17px;object-fit:contain;vertical-align:middle;flex:0 0 auto}
+.terminal-tabs button.has-managed-icon{display:inline-flex;align-items:center;justify-content:center;gap:5px}
+.terminal-tabs button.has-managed-icon span{display:inline}
+@media(max-width:700px){.media-admin-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.media-admin-card{padding:9px}.media-admin-preview{height:92px}.media-admin-preview-hero{height:105px}.media-admin-card>b{font-size:11px}.media-upload-btn{font-size:9px}}
+@media(max-width:360px){.media-admin-grid{grid-template-columns:1fr}.media-admin-preview{height:105px}.media-admin-preview-hero{height:125px}}
