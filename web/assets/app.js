@@ -368,33 +368,35 @@ function toggleSasMetric(id){
 function renderPerpEquitiesMovers(data){
  const sourceLink=document.querySelector('.sas-movers-source');
  if(sourceLink){const adminCanSeeSource=Boolean(me?.admin);sourceLink.classList.toggle('admin-source-visible',adminCanSeeSource);sourceLink.hidden=!adminCanSeeSource;sourceLink.setAttribute('aria-hidden',String(!adminCanSeeSource));}
- const updated=document.getElementById('perpMoversUpdated');
- const state=document.getElementById('perpMoversState');
- const gainers=document.getElementById('perpMoversGainers');
- const losers=document.getElementById('perpMoversLosers');
+ const updated=document.getElementById('perpMoversUpdated'),state=document.getElementById('perpMoversState');
+ const gainers=document.getElementById('perpMoversGainers'),losers=document.getElementById('perpMoversLosers');
  if(!gainers||!losers||!data)return;
- if(Array.isArray(data.assets))terminalState.perpAssets=Object.fromEntries(data.assets.map(x=>[String(x?.symbol||'').toUpperCase(),x]));
+ const assets=Array.isArray(data.assets)?data.assets:[];
+ terminalState.perpAssets=Object.fromEntries(assets.map(x=>[String(x?.symbol||'').toUpperCase(),x]));
+ const fmtUsd=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))?'$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4}):'—';
+ const fmtPct=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))?(Number(v)>0?'+':'')+(Number(v)*100).toFixed(2)+'%':'—';
  if(!data.available){
-  if(updated&&!gainers.querySelector('.sas-perp-mover'))updated.textContent=data.message_ar||'بيانات المصدر غير متاحة حاليًا';
-  if(state&&!gainers.querySelector('.sas-perp-mover'))state.textContent='تعذر التحديث';
+  const empty=escHtml(data.message_ar||'لا توجد بيانات أسعار ضمن النطاق المحدد حاليًا.');
+  gainers.innerHTML='<div class="sas-perp-movers-empty">'+empty+'</div>';losers.innerHTML='<div class="sas-perp-movers-empty">'+empty+'</div>';
+  if(updated)updated.textContent='بانتظار تحديث الأسعار';
+  if(state)state.textContent=data.stale?'آخر بيانات محفوظة • تحديث متأخر':'نطاق السعر $0.50–$15.00';
   return;
  }
- const makeRows=(items,direction,emptyLabel)=>items.length?items.map(item=>{
-  const value=Number(item.change_pct);
-  const change=(value>0?'+':'')+value.toFixed(1)+'%';
-  const symbol=escHtml(String(item.symbol||'—'));
-  const href=escHtml(String(item.url||data.source_url||'https://perpequities.com/ar'));
-  return '<a class="sas-perp-mover '+direction+'" href="'+href+'" target="_blank" rel="noopener noreferrer"><span class="sas-perp-mover-symbol">'+symbol+'</span><b>'+change+'</b><span class="sas-perp-mover-open">↗</span></a>';
+ const makeRows=(items,direction,emptyLabel)=>items.length?items.map((item,index)=>{
+  const value=Number(item.change_pct),change=(value>0?'+':'')+value.toFixed(2)+'%';
+  const symbol=escHtml(String(item.symbol||'—')),name=escHtml(String(item.name||'اسم الشركة غير متوفر'));
+  const price=fmtUsd(item.price),change7d=fmtPct(item.change7d);
+  const volume=fmtUsd(item.qualityFilteredVolume24hUsd??item.volume24hUsd),oi=fmtUsd(item.openInterestUsd);
+  const marketCount=escHtml(String(item.liveMarkets??item.venueCount??'—'));
+  const venues=Array.isArray(item.venues)?item.venues:[];
+  const venueRows=venues.length?venues.map(v=>'<div class="sas-perp-detail-venue"><span>'+escHtml(String(v.venue||v.venueName||'منصة'))+'</span><span>'+fmtUsd(v.price??v.mark)+'</span><span>حجم '+fmtUsd(v.volume24hUsd)+'</span></div>').join(''):'<div class="sas-perp-detail-muted">تفاصيل المنصات غير متاحة</div>';
+  return '<details class="sas-perp-mover-card '+direction+'"><summary class="sas-perp-mover"><span class="sas-perp-mover-rank">'+(index+1)+'</span><span class="sas-perp-mover-main"><strong class="sas-perp-mover-symbol">'+symbol+'</strong><small>'+name+'</small></span><span class="sas-perp-mover-price">'+price+'</span><b>'+change+'</b><span class="sas-perp-mover-open">⌄</span></summary><div class="sas-perp-mover-details"><div class="sas-perp-detail-grid"><div><small>السعر المرجعي</small><b>'+price+'</b></div><div><small>التغير 24 ساعة</small><b>'+change+'</b></div><div><small>التغير 7 أيام</small><b>'+change7d+'</b></div><div><small>حجم التداول 24 ساعة</small><b>'+volume+'</b></div><div><small>القيمة المفتوحة</small><b>'+oi+'</b></div><div><small>الأسواق النشطة</small><b>'+marketCount+'</b></div></div><div class="sas-perp-detail-venues"><b>المنصات المتاحة</b>'+venueRows+'</div></div></details>';
  }).join(''):'<div class="sas-perp-movers-empty">'+emptyLabel+'</div>';
- gainers.innerHTML=makeRows(Array.isArray(data.gainers)?data.gainers:[],'is-up','لا توجد بيانات رابحين متاحة');
- losers.innerHTML=makeRows(Array.isArray(data.losers)?data.losers:[],'is-down','لا توجد بيانات خاسرين متاحة');
- if(updated){
-  if(data.updated_at){
-   const date=new Date(data.updated_at);
-   updated.textContent='آخر جلب: '+(Number.isFinite(date.getTime())?new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',hour12:true}).format(date)+' بتوقيت الرياض':'—');
-  }else updated.textContent='وقت التحديث غير متاح';
- }
- if(state){state.textContent=me?.admin?(data.stale?'آخر بيانات محفوظة • المصدر متعذر مؤقتًا':(data.market_data_at?'بيانات العقود الدائمة • مصدر مباشر':'تحديث المصدر')):(data.stale?'آخر بيانات محفوظة • تحديث متأخر':(data.market_data_at?'بيانات العقود الدائمة':'جارٍ تحديث البيانات'));}
+ gainers.innerHTML=makeRows(Array.isArray(data.gainers)?data.gainers:[],'is-up','لا توجد أسهم رابحة ضمن نطاق السعر');
+ losers.innerHTML=makeRows(Array.isArray(data.losers)?data.losers:[],'is-down','لا توجد أسهم خاسرة ضمن نطاق السعر');
+ if(updated&&data.updated_at){const date=new Date(data.updated_at);updated.textContent='آخر تحديث للبيانات: '+(Number.isFinite(date.getTime())?new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',hour12:true}).format(date)+' بتوقيت الرياض':'—');}
+ else if(updated)updated.textContent='وقت التحديث غير متاح';
+ if(state)state.textContent=data.stale?'آخر بيانات محفوظة • تحديث متأخر':'تحديث تلقائي كل 5 دقائق • السعر المرجعي $0.50–$15.00';
 }
 function renderMacro(){
  const wanted=[
