@@ -846,7 +846,7 @@ const miniAnalysisHtml=
    notice+
    miniAnalysisHtml+
    '<section class="perpequities-panel"><div class="perpequities-panel-head"><div><span class="eyebrow">PERPEQUITIES • MARKET DATA</span><b>📊 الشارت التفاعلي وبيانات العقود</b></div><a class="gocharting-link" href="'+escHtml(safeNewsUrl(perpContext.source_url)||('https://perpequities.com/stocks/'+encodeURIComponent(symbol.toLowerCase())+'-perp'))+'" target="_blank" rel="noopener noreferrer">↗ فتح الموقع</a></div>'+renderPerpEquitiesStockContext(perpContext,symbol)+'</section>'+
-   '<section class="perpequities-panel"><div class="perpequities-panel-head"><div><span class="eyebrow">PERPEQUITIES • MARKET DATA</span><b>📊 الشارت التفاعلي وبيانات العقود</b></div><a class="gocharting-link" href="'+escHtml(safeNewsUrl(perpContext.source_url)||('https://perpequities.com/stocks/'+encodeURIComponent(symbol.toLowerCase())+'-perp'))+'" target="_blank" rel="noopener noreferrer">↗ فتح الموقع</a></div>'+renderPerpEquitiesStockContext(perpContext,symbol)+'</section>'+
+   +
  '<div class="chart-title"><b>📈 شارت السهم</b><div class="chart-title-actions"><small>شموع وحجم تداول • بيانات SAS PRO</small><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">↗ فتح GoCharting</a></div></div><div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">📊 البيانات الفنية التاريخية غير متاحة حاليًا<br><small>لم يتم اختلاق هدف أو وقف أو إشارة. سيتم إظهارها عند توفر بيانات الشموع والحجم.</small></div>':'<canvas id="stockCanvas" height="230"></canvas>')+'</div>'+
    '<div class="level-grid"><div><small>🟦 الدخول</small><b>&#36;'+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>&#36;'+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>&#36;'+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+rr+'</b></div></div>'+
    '<div class="ai-box"><b>'+(aiAvailable?'⏳ زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+
@@ -926,6 +926,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData){
    '<p class="mini-takeaway">'+escHtml(miniData?.mini_analysis?.takeaway||'تعذر تحميل تحليل SAS المختصر حاليًا.')+'</p>'+
    
  '</div>'+
+ '<section class="perpequities-panel"><div class="perpequities-panel-head"><div><span class="eyebrow">PERPEQUITIES • MARKET DATA</span><b>📊 الشارت التفاعلي وبيانات العقود</b></div><a class="gocharting-link" href="'+escHtml(safeNewsUrl(perpContext.source_url)||('https://perpequities.com/stocks/'+encodeURIComponent(symbol.toLowerCase())+'-perp'))+'" target="_blank" rel="noopener noreferrer">↗ فتح الموقع</a></div>'+renderPerpEquitiesStockContext(perpContext,symbol)+'</section>'+
  '<div class="chart-title"><b>📈 شارت السهم</b><div class="chart-title-actions"><small>شموع وحجم تداول • بيانات SAS PRO</small><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">↗ فتح GoCharting</a></div></div><div class="chart-box"><canvas id="stockCanvas" height="260"></canvas></div>'+
  '<div class="news-list">'+renderNewsItems(news,5)+'</div>';
  const partialCandles=Array.isArray(chart?.candles)?chart.candles:[];
