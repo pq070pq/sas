@@ -7,14 +7,14 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>SAS PRO — Market Terminal</title>
-<link rel="stylesheet" href="/assets/app.css?v=20261011-18">
+<link rel="stylesheet" href="/assets/app.css?v=20261011-19">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 </head>
 <body>
 <div class="app" id="app">
   <section id="subscriptionPage" class="subscription-page">
     <div class="poster-wrap">
-      <img src="/assets/sas-pro-home.webp?v=20261011-18-hero" class="poster" alt="SAS PRO">
+      <img src="/assets/sas-pro-home.webp?v=20261011-19-hero" class="poster" alt="SAS PRO">
           </div>
 
     <section class="status-card">
@@ -52,7 +52,7 @@
 
   <section id="terminalPage" class="terminal-page" hidden>
     <section class="terminal-hero-banner" aria-label="SAS PRO">
-      <img src="/assets/sas-pro-home.webp?v=20261011-18-hero" alt="SAS PRO سوق الأسهم" loading="eager">
+      <img src="/assets/sas-pro-home.webp?v=20261011-19-hero" alt="SAS PRO سوق الأسهم" loading="eager">
       <div class="hero-shade"></div>
       <div class="hero-caption">
         <div class="hero-brand-row"><time id="terminalClock" aria-label="الوقت الحالي"><span class="clock-time">—</span><small>🇸🇦 الرياض</small><i aria-hidden="true"></i></time><span>SAS PRO</span></div>
@@ -60,7 +60,7 @@
         <button id="adminBackBtn" class="secondary-btn admin-user-back" hidden onclick="returnToAdminView()">🛠️ العودة إلى الإدارة</button>
       </div>
     </section>
-    <section class="market-ticker-wrap" aria-label="أسعار الأسواق">
+    <section class="sas-market-strip is-closed" aria-label="حالة السوق الأمريكي"><div class="sas-market-main"><span class="sas-market-live-dot"></span><div><strong id="sasMarketHeadline">جاري التحقق من حالة السوق</strong><small id="sasMarketSubline">توقيت الرياض • حالة مباشرة من النظام</small></div></div><div class="sas-market-clock"><span class="sas-market-clock-icon">◷</span><div><small>الوقت في الرياض</small><strong id="sasMarketClock">—</strong></div></div><div class="sas-session-mini"><span>الجلسة الأمريكية</span><strong id="sasSessionLabel">—</strong></div></section><section class="market-ticker-wrap" aria-label="أسعار الأسواق">
       <div id="marketTicker" class="market-ticker"><div class="loading">جاري تحميل الأسعار...</div></div>
     </section>
     <nav class="terminal-tabs">
@@ -93,9 +93,9 @@
   </div>
 </div>
         <div class="metric-grid" id="dashboardMetrics"></div>
-        <div class="section-title"><b>🔥 أحدث الفرص / آخر رصد محفوظ</b><button onclick="switchTerminalTab('radar')">عرض كل الرصد</button></div>
+        <div class="sas-feature-head"><div><span class="eyebrow">SAS PRO RADAR</span><h2>أهم الفرص اليوم</h2><small>الأسهم المعروضة من نتائج الرادار الفعلية فقط</small></div><button class="sas-view-all" onclick="switchTerminalTab('radar')">كل النتائج <span>←</span></button></div><div class="sas-quick-filters" aria-label="اختصارات الرادار"><button class="is-active" onclick="switchTerminalTab('radar')"><span>💎</span> فرص اليوم</button><button onclick="switchTerminalTab('radar')"><span>🔥</span> أعلى حركة</button><button onclick="switchTerminalTab('radar')"><span>🚀</span> الاختراقات</button><button onclick="switchTerminalTab('radar')"><span>📊</span> الأسهم الواعدة</button><button onclick="switchTerminalTab('search')"><span>📰</span> بحث وتحليل</button></div><div class="section-title"><b>🔥 أحدث الفرص / آخر رصد محفوظ</b><button onclick="switchTerminalTab('radar')">عرض كل الرصد</button></div>
         <div id="dashboardRadar" class="stock-grid"><div class="loading">جاري التحميل...</div></div>
-        <div class="section-title"><b>📈 السوق</b><span>بيانات لحظية</span></div>
+        <div class="sas-insight-grid"><section class="sas-insight-panel"><div class="sas-insight-title"><span>📈</span><div><b>أعلى الأسهم حركة</b><small>حسب نتائج الرادار الحالية</small></div></div><div id="liveMovers" class="sas-live-movers"><div class="loading">جاري تحميل بيانات الرادار...</div></div></section><section class="sas-insight-panel"><div class="sas-insight-title"><span>🕒</span><div><b>مواعيد السوق</b><small>بتوقيت الرياض • تتغير حسب الجلسة</small></div></div><div class="sas-session-times"><div><span>قبل الافتتاح</span><b id="sasPremarketTime">—</b></div><div><span>الجلسة الرسمية</span><b id="sasRegularTime">—</b></div><div><span>بعد الإغلاق</span><b id="sasAfterHoursTime">—</b></div></div></section></div><div class="section-title"><b>📊 مؤشرات السوق</b><span>الأسعار المتاحة من مزود البيانات</span></div>
         <div id="macroGrid" class="macro-grid"></div>
       </section>
       <section id="tab-radar" class="terminal-tab"><div class="terminal-panel-head"><div><span class="eyebrow">SAS PRO RADAR</span><h2>بيانات الأسهم المرصودة</h2><small>🕒 يوضح لك وقت تنفيذ آخر رصد فعلي بتوقيت الرياض</small><small>السعر • الحركة • الحجم • RVOL • الدخول • الوقف • الهدف • R:R</small></div><button id="radarScanBtn" class="primary-btn" onclick="runRadar()">🔎 مسح الأسهم</button></div><div id="radarDiagnostics" class="diagnostics"></div><div id="radarCandidates" class="radar-candidates" hidden></div><div id="radarGrid" class="stock-grid"></div></section>
@@ -103,7 +103,7 @@
       <section id="tab-watch" class="terminal-tab"><div class="terminal-panel-head"><div><span class="eyebrow">WATCHLIST</span><h2>الأسهم المحفوظة</h2></div></div><div id="watchGrid" class="stock-grid"></div></section>
       <section id="tab-account" class="terminal-tab"><div class="account-terminal"><div class="account-avatar us-account-mark">📈</div><h2 id="accountName">—</h2><p id="accountPlan">—</p><div class="account-cards" id="accountCards"></div><div class="account-contact"><b>📝 للملاحظات والاقتراحات</b><span>تواصل مباشرة مع SAS PRO</span><a class="contact-btn" href="https://t.me/SAS770" target="_blank" rel="noopener">💬 مراسلة SAS PRO على الخاص</a></div></div></section>
     </main>
-    <footer class="sas-disclaimer-footer" aria-label="تنبيه SAS PRO"><div class="sas-disclaimer-bar"><span class="disclaimer-badge">⛔ تنبيه</span><div class="sas-disclaimer-marquee"><div class="sas-disclaimer-track"><span>المحتوى تعليمي إخباري فقط، وليس توصية شراء أو بيع • قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</span><span aria-hidden="true">المحتوى تعليمي إخباري فقط، وليس توصية شراء أو بيع • قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</span></div></div><span class="disclaimer-live">SAS PRO</span></div></footer>
+    <nav class="sas-mobile-dock" aria-label="التنقل السريع"><button class="is-active" onclick="switchTerminalTab('dashboard')"><span>⌂</span>الرئيسية</button><button onclick="switchTerminalTab('radar')"><span>▥</span>الرادار</button><button onclick="switchTerminalTab('search')"><span>⌕</span>البحث</button><button onclick="switchTerminalTab('watch')"><span>★</span>المفضلة</button><button onclick="switchTerminalTab('account')"><span>♙</span>حسابي</button></nav><footer class="sas-disclaimer-footer" aria-label="تنبيه SAS PRO"><div class="sas-disclaimer-bar"><span class="disclaimer-badge">⛔ تنبيه</span><div class="sas-disclaimer-marquee"><div class="sas-disclaimer-track"><span>المحتوى تعليمي إخباري فقط، وليس توصية شراء أو بيع • قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</span><span aria-hidden="true">المحتوى تعليمي إخباري فقط، وليس توصية شراء أو بيع • قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</span></div></div><span class="disclaimer-live">SAS PRO</span></div></footer>
   </section>
 
   <section id="adminPage" class="admin-page" hidden>
@@ -278,7 +278,7 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261011-18"></script>
+<script src="/assets/app.js?v=20261011-19"></script>
 
 <script>
 /* Presentation-only interactions. Does not modify radar, pricing, API calls, or permissions. */
