@@ -402,6 +402,8 @@ def _radar_criteria_explanation(row, quote_data, gate_passed, gate_reason):
     rvol, threshold = checks.get("momentum_rvol"), checks.get("momentum_rvol_threshold")
     quality = row.get("quality_score") if isinstance(row.get("quality_score"), dict) else {}
     score, rr = cls.get("score"), checks.get("risk_reward")
+    alpha = cls.get("alpha_guide_signal") if isinstance(cls.get("alpha_guide_signal"), dict) else {}
+    alpha_metrics = alpha.get("metrics") if isinstance(alpha.get("metrics"), dict) else {}
     lines = [
         "", "━━━━━━━━━━━━━━━━━━", "🧾 <b>لماذا أرسل SAS PRO هذا السهم؟</b>",
         "• اكتشفه محرك الرادار وأدخله نتائج الفحص؛ النشر يشرح الحالة ولا يعني أن الصفقة مؤكدة.",
@@ -420,6 +422,17 @@ def _radar_criteria_explanation(row, quote_data, gate_passed, gate_reason):
         "• SAS Core: <b>" + (html.escape(str(score)) + "/100" if isinstance(score, (int, float)) else "غير متوفر") + "</b>",
         "• جودة الفرصة: <b>" + (html.escape(str(quality.get("score"))) + "/100" if isinstance(quality.get("score"), (int, float)) else "غير متوفر") + "</b>",
         "• Risk/Reward: <b>" + (html.escape("%.2f" % float(rr)) if isinstance(rr, (int, float)) else "غير متوفر") + "</b>",
+        "", "🧭 <b>طبقة US Alpha Scanner (الدليل المرفق)</b>",
+        "• الحالة: <b>" + html.escape(str(alpha.get("label") or alpha.get("status") or "غير محسوبة")) + "</b>",
+        "• السبب: " + html.escape(str(alpha.get("reason") or "لا توجد بيانات كافية لتقييم هذه الطبقة.")),
+        "• EMA20 / EMA50 / EMA200: <b>" + html.escape(" / ".join(
+            ("%.4f" % float(alpha_metrics[k])) if isinstance(alpha_metrics.get(k), (int, float)) else "—"
+            for k in ("ema20", "ema50", "ema200")
+        )) + "</b>",
+        "• RSI14: <b>" + (html.escape("%.2f" % float(alpha_metrics["rsi14"])) if isinstance(alpha_metrics.get("rsi14"), (int, float)) else "غير متوفر") + "</b>",
+        "• RVOL20: <b>" + (html.escape("%.2f×" % float(alpha_metrics["rvol20"])) if isinstance(alpha_metrics.get("rvol20"), (int, float)) else "غير متوفر") + "</b>",
+        "• القوة النسبية مقابل SPY: <b>" + (html.escape("%+.2f نقطة مئوية" % float(alpha_metrics["rs20_spy_pct_points"])) if isinstance(alpha_metrics.get("rs20_spy_pct_points"), (int, float)) else "غير متوفرة") + "</b>",
+        "• هذه الطبقة تعليمية إضافية ولا تتجاوز بوابة تأكيد SAS PRO.",
         "", "📣 <b>قرار الإرسال للقناة</b>",
         "• السبب: رُصد السهم ضمن نتائج محرك SAS PRO؛ لذلك أُرسل التقرير لإظهار الشروط المتحققة وغير المتحققة.",
         "• بوابة التأكيد: <b>" + ("اجتازها" if gate_passed else "لم يجتزها") + "</b>",
