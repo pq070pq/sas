@@ -99,24 +99,28 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     actor_telegram_id: Mapped[int] = mapped_column(Integer, index=True)
-    action: Mapped[str] = mapped_column(String(128))
-    details: Mapped[str] = mapped_column(Text, default="{}")
+    action: Mapped[str] = mapped_column(String(64), index=True)
+    target_telegram_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    details: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class Setting(Base):
     __tablename__ = "settings"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    key: Mapped[str] = mapped_column(String(128), unique=True, index=True)
-    value: Mapped[str] = mapped_column(Text, default="")
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class RadarRun(Base):
     __tablename__ = "radar_runs"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    session_date: Mapped[str] = mapped_column(String(16), index=True)
+    session: Mapped[str] = mapped_column(String(24), index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    status: Mapped[str] = mapped_column(String(24), default="running", index=True)
+    duration_seconds: Mapped[float | None] = mapped_column()
+    status: Mapped[str] = mapped_column(String(24), index=True)
     candidates: Mapped[int] = mapped_column(Integer, default=0)
+    shortlist: Mapped[int] = mapped_column(Integer, default=0)
     passed: Mapped[int] = mapped_column(Integer, default=0)
     filtered: Mapped[int] = mapped_column(Integer, default=0)
     errors: Mapped[int] = mapped_column(Integer, default=0)
@@ -209,6 +213,9 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         if engine.url.get_backend_name() == "sqlite":
+            # Mini App requests must not stall behind radar/subscription writes.
+            # WAL allows readers to continue while background jobs commit, and the
+            # busy timeout gives short-lived SQLite write contention time to clear.
             await conn.execute(text("PRAGMA journal_mode=WAL"))
             await conn.execute(text("PRAGMA synchronous=NORMAL"))
             await conn.execute(text("PRAGMA busy_timeout=5000"))
@@ -228,31 +235,51 @@ async def init_db():
                 "trial_used_at": "DATETIME",
                 "channel_join_requested_at": "DATETIME",
             })
-            await _sqlite_add_columns(conn, "radar_signals", {"telegram_message_id": "INTEGER"})
+            await _sqlite_add_columns(conn, "radar_signals", {
+                "telegram_message_id": "INTEGER",
+            })
             await _sqlite_add_columns(conn, "radar_outcomes", {
-                "target4": "FLOAT", "target5": "FLOAT", "entry_price": "FLOAT",
-                "current_stop": "FLOAT", "last_alert_target": "INTEGER DEFAULT 0",
+                "target4": "FLOAT",
+                "target5": "FLOAT",
+                "entry_price": "FLOAT",
+                "current_stop": "FLOAT",
+                "last_alert_target": "INTEGER DEFAULT 0",
             })
             await _sqlite_add_columns(conn, "payments", {
-                "sar_amount": "INTEGER DEFAULT 0", "payload": "VARCHAR(128) DEFAULT ''",
+                "sar_amount": "INTEGER DEFAULT 0",
+                "payload": "VARCHAR(128) DEFAULT ''",
                 "paid_at": "DATETIME",
             })
+            # أي مستخدم بدأ تجربة قديمة يُعتبر قد استخدم التجربة بالفعل.
+            # هذا يمنع إعادة التجربة بعد التحديث إلى النظام النهائي.
             await conn.execute(text("""
-                UPDATE users SET trial_used_at = COALESCE(trial_used_at, trial_start, trial_expires)
-                WHERE trial_used_at IS NULL AND (trial_start IS NOT NULL OR trial_expires IS NOT NULL)
+                UPDATE users
+                SET trial_used_at = COALESCE(trial_used_at, trial_start, trial_expires)
+                WHERE trial_used_at IS NULL
+                  AND (trial_start IS NOT NULL OR trial_expires IS NOT NULL)
             """))
+            # توحيد إعداد التجربة الافتراضي القديم إلى 3 أيام للمستخدمين الجدد.
+            # لا نغيّر إعدادًا مخصصًا بقيمة أخرى سبق أن ضبطها المالك.
             await conn.execute(text("""
-                UPDATE settings SET value = '30', updated_at = CURRENT_TIMESTAMP
+                UPDATE settings
+                SET value = '30', updated_at = CURRENT_TIMESTAMP
                 WHERE key = 'trial_days' AND value = '3'
             """))
+            # ترحيل آمن لقيم الاشتراكات القديمة فقط. إذا غيّر المشرف قيمة يدويًا،
+            # لا نعتبرها قيمة قديمة ولا نستبدلها.
             for key, old_value, new_value in (
-                ("monthly_sar", "100", "150"), ("3month_sar", "250", "405"),
-                ("6month_sar", "500", "720"), ("yearly_sar", "1000", "1260"),
-                ("monthly_stars", "0", "2250"), ("3month_stars", "0", "6075"),
-                ("6month_stars", "0", "10800"), ("yearly_stars", "0", "18900"),
+                ("monthly_sar", "100", "150"),
+                ("3month_sar", "250", "405"),
+                ("6month_sar", "500", "720"),
+                ("yearly_sar", "1000", "1260"),
+                ("monthly_stars", "0", "2250"),
+                ("3month_stars", "0", "6075"),
+                ("6month_stars", "0", "10800"),
+                ("yearly_stars", "0", "18900"),
             ):
                 await conn.execute(text("""
-                    UPDATE settings SET value = :new_value, updated_at = CURRENT_TIMESTAMP
+                    UPDATE settings
+                    SET value = :new_value, updated_at = CURRENT_TIMESTAMP
                     WHERE key = :key AND value = :old_value
                 """), {"key": key, "old_value": old_value, "new_value": new_value})
 
