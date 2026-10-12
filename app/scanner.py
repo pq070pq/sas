@@ -13,17 +13,17 @@ from .twelve_guard import call as twelve_call
 from .smart_memory import SmartMemory
 
 # رادار SAS PRO:
-# - السوق: NASDAQ / NYSE / AMEX
-# - السعر: $0.30 - $15.00
+# - السوق: NASDAQ فقط
+# - السعر: $0.30 - $20.00
 # - لا نعتمد على نسبة الارتفاع وحدها؛ نبحث عن حركة مؤكدة أو تجميع قابل للقياس.
 # - Twelve Data ليس مصدر الرصد الأساسي ولا يُستهلك أثناء دورة الرادار.
 # - استراتيجية SAS: السلوك، التداول، RVOL، الدعم/المقاومة والثبات.
 MIN_PRICE = 0.30
-MAX_PRICE = 15.00
+MAX_PRICE = 20.00
 MAX_RADAR_RESULTS = 30
 MAX_SECTION_RESULTS = 15
 MIN_DAILY_DOLLAR_VOLUME = 1_000_000.0
-ALLOWED_EXCHANGES = {"NASDAQ", "NYSE", "AMEX"}
+ALLOWED_EXCHANGES = {"NASDAQ"}
 
 MOMENTUM_SMALL_MIN_GAIN = 10.0
 MOMENTUM_SMALL_MIN_VOLUME = 500_000.0
