@@ -575,9 +575,9 @@ function renderPerpEquitiesMovers(data){
  if(sourceLink){sourceLink.hidden=false;sourceLink.removeAttribute('aria-hidden');sourceLink.href='https://finviz.com/screener?v=111&f=exch_nasd%2Csh_curvol_o100%2Csh_float_u50%2Csh_relvol_o0.5%2Cta_perf_1wup&ft=4';sourceLink.textContent='فلاتر Finviz ↗';}
 
  const quickLinks=[
-  ['الرابحون','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15,sh_curvol_o100,sh_float_u50,sh_relvol_o0.5,ta_perf_1wup'],
-  ['الخاسرون','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15,sh_curvol_o100,sh_float_u50,sh_relvol_o0.5,ta_perf_1wdown'],
-  ['RVOL مرتفع','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15,sh_curvol_o100,sh_relvol_o1.5'],
+  ['أعلى الرابحين اليوم','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15&s=ta_topgainers'],
+  ['أعلى الخاسرين اليوم','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15&s=ta_toplosers'],
+  ['حجم غير اعتيادي','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15&s=ta_unusualvolume'],
   ['Float منخفض','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15,sh_float_u50,sh_curvol_o100']
  ];
  const title=document.querySelector('.sas-perp-movers-panel .sas-insight-title');
