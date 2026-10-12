@@ -25,7 +25,6 @@ import {
 } from '@panwatch/api'
 import { Button } from '@panwatch/base-ui/components/ui/button'
 import { useTranslation } from 'react-i18next'
-import { Onboarding } from '@panwatch/biz-ui/components/onboarding'
 import DiscoveryPanel from '@/components/DiscoveryPanel'
 import Sparkline from '@/components/Sparkline'
 import BenchChart from '@/components/BenchChart'
@@ -123,7 +122,6 @@ export default function DashboardPage() {
   const [shareBench, setShareBench] = useState(false)
   const [shareDiag, setShareDiag] = useState(false)
   const [shareDigest, setShareDigest] = useState(false)
-  const [showOnboarding, setShowOnboarding] = useState(false)
   const [modal, setModal] = useState<{ open: boolean; symbol: string; market: string; name: string; hasPosition: boolean }>({
     open: false,
     symbol: '',
@@ -205,17 +203,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     load()
-    if (!localStorage.getItem('panwatch_onboarding_completed')) setShowOnboarding(true)
     return () => {
       loadId.current += 1
       benchLoadId.current += 1
     }
   }, [load])
 
-  const handleOnboardingComplete = () => {
-    localStorage.setItem('panwatch_onboarding_completed', 'true')
-    setShowOnboarding(false)
-  }
 
   const openStock = (symbol: string, market: string, name = '', hasPosition = false) =>
     setModal({ open: true, symbol, market: market || 'CN', name, hasPosition })
@@ -355,7 +348,6 @@ export default function DashboardPage() {
   }, [])
   const hasHoldings = (diag?.position_count ?? 0) > 0
   const benchReady = bench && !bench.empty && bench.excess_return != null
-  const hasWatchlist = (overview?.kpis?.watchlist_count ?? 0) > 0
   const portfolioPnlPct =
     diag && diag.total_market_value - diag.total_unrealized_pnl > 0
       ? (diag.total_unrealized_pnl / (diag.total_market_value - diag.total_unrealized_pnl)) * 100
@@ -845,7 +837,6 @@ export default function DashboardPage() {
         )}
       </Suspense>
 
-      <Onboarding open={showOnboarding} onComplete={handleOnboardingComplete} hasStocks={hasWatchlist} />
     </div>
   )
 }
