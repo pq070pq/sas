@@ -48,6 +48,8 @@ _FUNDAMENTALS_CACHE_TTL = 3600
 _fundamentals_cache = {}
 _earnings_calendar_cache = None
 _tipranks_cache = {}
+_yahoo_news_cache = {}
+_YAHOO_NEWS_TTL = 15 * 60
 
 async def tipranks_analysis(symbol: str):
     """Fetch TipRanks stock-analysis page as external AI evidence; never used for SAS price/targets."""
@@ -87,6 +89,110 @@ def _safe_timestamp(value):
         return datetime.fromtimestamp(int(value), tz=timezone.utc)
     except (TypeError, ValueError, OSError):
         return None
+
+
+def _yahoo_date(value):
+    """Convert Yahoo RSS publication dates to Unix seconds without failing the feed."""
+    from email.utils import parsedate_to_datetime
+    try:
+        return int(parsedate_to_datetime(str(value)).timestamp())
+    except Exception:
+        return 0
+
+
+async def yahoo_finance_news(symbol: str, limit: int = 20):
+    """Fetch symbol news from Yahoo Finance's RSS feed; news-only, never a quote source."""
+    key = str(symbol or "").upper().strip()
+    if not key or not key.replace(".", "").isalnum():
+        return []
+    now = time.monotonic()
+    cached = _yahoo_news_cache.get(key)
+    if cached and now - cached[0] < _YAHOO_NEWS_TTL:
+        return cached[1][:max(1, int(limit))]
+    url = f"https://finance.yahoo.com/rss/headline?s={key}"
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True, headers={
+            "User-Agent": "Mozilla/5.0 (compatible; SASPRO/1.0; +https://github.com/pq070pq/sas)"
+        }) as client:
+            response = await client.get(url)
+        response.raise_for_status()
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(response.text)
+        rows = []
+        for item in root.findall(".//item"):
+            headline = (item.findtext("title") or "").strip()
+            link = (item.findtext("link") or "").strip()
+            if not headline or not link or not link.startswith(("https://", "http://")):
+                continue
+            source = (item.findtext("source") or "").strip() or "Yahoo Finance"
+            description = (item.findtext("description") or "").strip()
+            rows.append({
+                "headline": headline,
+                "source": source,
+                "url": link,
+                "datetime": _yahoo_date(item.findtext("pubDate")),
+                "summary": re.sub(r"<[^>]+>", " ", description).strip()[:800],
+                "symbol": key,
+                "provider": "Yahoo Finance",
+            })
+        # Deduplicate exact and near-identical headlines across syndicated publishers.
+        unique = []
+        seen = set()
+        for row in rows:
+            normal = re.sub(r"[^a-z0-9]+", " ", row["headline"].lower()).strip()
+            if not normal or normal in seen:
+                continue
+            seen.add(normal)
+            unique.append(row)
+        _yahoo_news_cache[key] = (now, unique)
+        return unique[:max(1, int(limit))]
+    except Exception:
+        return []
+
+
+async def yahoo_corporate_actions(symbol: str):
+    """Fetch Yahoo chart corporate-action events (splits/dividends), not price quotes."""
+    key = str(symbol or "").upper().strip()
+    if not key or not key.replace(".", "").isalnum():
+        return {"splits": [], "dividends": [], "source": "Yahoo Finance", "status": "unavailable"}
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{key}?range=10y&interval=1d&events=div%2Csplits"
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True, headers={
+            "User-Agent": "Mozilla/5.0 (compatible; SASPRO/1.0; +https://github.com/pq070pq/sas)"
+        }) as client:
+            response = await client.get(url)
+        response.raise_for_status()
+        payload = response.json()
+        result = (((payload.get("chart") or {}).get("result") or [None])[0]) or {}
+        events = result.get("events") or {}
+        splits = []
+        for stamp, event in (events.get("splits") or {}).items():
+            try:
+                date_text = datetime.fromtimestamp(int(stamp), tz=timezone.utc).date().isoformat()
+                numerator = int(event.get("numerator") or 0)
+                denominator = int(event.get("denominator") or 0)
+                if numerator and denominator:
+                    ratio = f"{numerator}:{denominator}"
+                    label = "تقسيم عكسي" if numerator < denominator else ("تقسيم عادي" if numerator > denominator else "تغيير نسبة ADS")
+                    splits.append({"date": date_text, "ratio": ratio, "label_ar": label, "source": "Yahoo Finance"})
+            except Exception:
+                continue
+        dividends = []
+        for stamp, event in (events.get("dividends") or {}).items():
+            try:
+                dividends.append({
+                    "date": datetime.fromtimestamp(int(stamp), tz=timezone.utc).date().isoformat(),
+                    "amount": event.get("amount"),
+                    "currency": "USD",
+                    "source": "Yahoo Finance",
+                })
+            except Exception:
+                continue
+        splits.sort(key=lambda x: x["date"], reverse=True)
+        dividends.sort(key=lambda x: x["date"], reverse=True)
+        return {"splits": splits, "dividends": dividends, "source": "Yahoo Finance", "status": "ok"}
+    except Exception:
+        return {"splits": [], "dividends": [], "source": "Yahoo Finance", "status": "unavailable"}
 
 
 async def _finnhub_get(endpoint: str, params: dict, timeout: int = 12):
@@ -169,18 +275,29 @@ async def company_news(symbol: str, days: int = 2):
 
     end = date.today()
     start = end - timedelta(days=max(1, days))
-    rows = await _finnhub_get(
-        "company-news",
-        {"symbol": key, "from": start.isoformat(), "to": end.isoformat()},
-    )
-    if isinstance(rows, list):
-        result = rows
+    # Yahoo Finance is the preferred source for company headlines.
+    # Do not use this path for live quotes or market-price retrieval.
+    yahoo_rows = await yahoo_finance_news(key, limit=30)
+    cutoff = int(datetime.now(timezone.utc).timestamp()) - max(1, days) * 86400
+    yahoo_recent = [
+        item for item in yahoo_rows
+        if not item.get("datetime") or int(item.get("datetime") or 0) >= cutoff
+    ]
+    if yahoo_recent:
+        result = yahoo_recent
     else:
-        fmp_rows = await _fmp_get(
-            "news/stock",
-            {"symbols": key, "from": start.isoformat(), "to": end.isoformat(), "limit": 20},
+        rows = await _finnhub_get(
+            "company-news",
+            {"symbol": key, "from": start.isoformat(), "to": end.isoformat()},
         )
-        result = _normalise_fmp_news(fmp_rows if isinstance(fmp_rows, list) else [])
+        if isinstance(rows, list) and rows:
+            result = rows
+        else:
+            fmp_rows = await _fmp_get(
+                "news/stock",
+                {"symbols": key, "from": start.isoformat(), "to": end.isoformat(), "limit": 20},
+            )
+            result = _normalise_fmp_news(fmp_rows if isinstance(fmp_rows, list) else [])
 
     _news_cache[cache_key] = (now, result)
     return result
@@ -277,12 +394,23 @@ async def corporate_events(symbol: str):
         "earnings": [], "dividends": [], "splits": [],
         "material_events": [], "status": "partial",
     }
+    yahoo_actions = await yahoo_corporate_actions(symbol)
+    if yahoo_actions.get("status") == "ok":
+        results["splits"] = yahoo_actions.get("splits") or []
+        results["dividends"] = yahoo_actions.get("dividends") or []
+        results["source"] = "Yahoo Finance"
+        results["status"] = "ok"
+
     if _finnhub_pool.size:
         for name, endpoint in [
                 ("earnings", "calendar/earnings"),
                 ("dividends", "stock/dividend"),
                 ("splits", "stock/split"),
             ]:
+                # Keep Yahoo as the primary source for splits/dividends; Finnhub
+                # supplies only missing event types or acts as fallback.
+                if name in ("splits", "dividends") and yahoo_actions.get("status") == "ok":
+                    continue
                 params = {"symbol": symbol.upper()}
                 if name == "earnings":
                     params.update({"from": date.today().isoformat(), "to": (date.today()+timedelta(days=90)).isoformat()})
@@ -293,7 +421,8 @@ async def corporate_events(symbol: str):
                     results[name] = payload if payload is not None else []
                 except Exception:
                     results[name] = []
-        results["status"] = "ok"
+        if results["status"] != "ok":
+            results["status"] = "ok"
 
     # Headline evidence catches material events without dedicated endpoints.
     try:
