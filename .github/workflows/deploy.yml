@@ -100,6 +100,10 @@ jobs:
             fi
             # أعد بناء خدمة SAS PRO دون كاش حتى يصل آخر كود من main إلى الصورة الفعلية.
             docker compose build --no-cache --pull=false saspro
+            # تنظيف الملفات المؤقتة والكاشات القديمة الخاصة بـ SAS PRO فقط، دون المساس ببيانات المستخدم أو قواعد البيانات.
+            find /opt/saspro/app -type d -name '__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true
+            find /opt/saspro -maxdepth 2 -type f \( -name '*.tmp' -o -name 'saspro_health.out' -o -name 'saspro_health.err' \) -mmin +60 -delete 2>/dev/null || true
+            docker image prune -f >/dev/null 2>&1 || true
             # Clean up stale Compose containers with the exact service container name.
             # A prior interrupted deployment can leave an orphan that blocks recreation.
             service_container=$(docker compose ps -aq saspro | head -n 1)
