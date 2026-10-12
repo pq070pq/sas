@@ -2965,10 +2965,10 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-session-schedule-heading{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;text-align:right}
 .sas-session-schedule-heading strong{color:#e6f2f8;font-size:16px;font-weight:800}
 .sas-session-schedule-heading small{color:#9bb3c2;font-size:12px;line-height:1.7}
-.sas-session-schedule-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.sas-session-schedule-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
 .sas-session-schedule-grid>div{display:flex;min-width:0;flex-direction:column;gap:8px;padding:13px 10px;border:1px solid rgba(125,169,191,.18);border-radius:15px;background:rgba(3,15,26,.5);text-align:right}
 .sas-session-schedule-grid span{color:#a8bfcc;font-size:12px}
 .sas-session-schedule-grid b{color:#e4f4fc;font-size:clamp(12px,2.8vw,16px);direction:ltr;text-align:right;white-space:nowrap}
 .sas-session-schedule-grid small{color:#829cab;font-size:10px;line-height:1.6}
 #sasScheduleStatus{margin:13px 0 0;padding:11px 12px;border-radius:12px;background:rgba(88,150,174,.09);color:#c6dce6;font-size:12px;line-height:1.8;text-align:right}
-@media(max-width:520px){.sas-session-schedule{margin:14px 10px 4px;padding:13px}.sas-session-schedule-grid{grid-template-columns:1fr}.sas-session-schedule-grid>div{display:grid;grid-template-columns:1fr auto;align-items:center;gap:6px 10px}.sas-session-schedule-grid span{grid-column:1}.sas-session-schedule-grid b{grid-column:2;grid-row:1/3}.sas-session-schedule-grid small{grid-column:1}}
+@media(max-width:520px){.sas-session-schedule{margin:14px 10px 4px;padding:13px}.sas-session-schedule-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.sas-session-schedule-grid>div{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:10px 8px}.sas-session-schedule-grid span{font-size:11px}.sas-session-schedule-grid b{font-size:12px;white-space:normal;overflow-wrap:anywhere}.sas-session-schedule-grid small{font-size:9px;line-height:1.5}}
