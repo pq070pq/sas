@@ -371,6 +371,20 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             if value is not None and value != "":
                 return value
         return None
+    
+    def meaningful_ai_text(value):
+        """Hide unavailable/placeholder AI messages instead of printing noise in reports."""
+        text_value = str(value or "").strip()
+        if not text_value:
+            return False
+        normalized = re.sub(r"[\s.!…:：-]+", " ", text_value.lower()).strip()
+        placeholders = (
+            "غير متاح", "غير متوفر", "غير متاحة", "لا يتوفر", "لا توجد بيانات",
+            "لا توجد معلومات", "تعذر التحليل", "تعذر الحصول", "غير واضح",
+            "unavailable", "not available", "no data", "unable to analyze",
+            "analysis unavailable", "no verified news",
+        )
+        return not any(normalized == p or normalized.startswith(p + " ") for p in placeholders)
 
     def add_section(report, title, lines):
         clean = [line for line in lines if line]
@@ -801,8 +815,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
                 summary = str(item.get("summary") or "").strip()
                 summary_label = "ملخص المصدر"
             if not summary:
-                summary = "لا يتوفر مختصر لهذا الخبر."
-                summary_label = "الملخص"
+                summary_label = ""
             elif summary_basis == "headline_only":
                 summary += " (مبني على العنوان فقط)"
 
@@ -812,31 +825,29 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
                 f'<a href="{_esc(source_url)}">المصدر: {source_name}</a>'
                 if source_url else f"المصدر: {source_name}"
             )
-            news_lines += [
-                f"<b>{idx}️⃣</b> {_esc(item.get('headline'))}",
-                f"📝 <b>{summary_label}:</b> {_esc(summary[:240])}",
-                source_line,
-                "",
-            ]
+            news_lines.append(f"<b>{idx}️⃣</b> {_esc(item.get('headline'))}")
+            if meaningful_ai_text(summary):
+                news_lines.append(f"📝 <b>{summary_label or 'الملخص'}:</b> {_esc(summary[:240])}")
+            news_lines += [source_line, ""]
         while news_lines and news_lines[-1] == "":
             news_lines.pop()
         news_lines += ["", f"📚 عدد الأخبار بعد إزالة التكرار: <b>{len(valid_news[:5])}</b>"]
         add_section(report, "📰 <b>أهم الأخبار الأخيرة</b>", news_lines)
 
         ai_lines = []
-        if ai.get("headline_summary"):
+        if meaningful_ai_text(ai.get("headline_summary")):
             ai_lines += ["📌 <b>ماذا حدث؟</b>", _esc(ai.get("headline_summary")), ""]
-        if ai.get("why_rising"):
+        if meaningful_ai_text(ai.get("why_rising")):
             ai_lines += ["📈 <b>لماذا قد يهم المتداول؟</b>", _esc(ai.get("why_rising")), ""]
-        if ai.get("news_assessment"):
+        if meaningful_ai_text(ai.get("news_assessment")):
             ai_lines += ["🔎 <b>علاقة الخبر بحركة السهم</b>", f"<b>{_esc(ai.get('news_assessment'))}</b>", ""]
-        if ai.get("momentum"):
+        if meaningful_ai_text(ai.get("momentum")):
             ai_lines += ["🚀 <b>الزخم الإخباري</b>", f"<b>{_esc(ai.get('momentum'))}</b>", ""]
-        if ai.get("risk_flags"):
+        if ai.get("risk_flags") and (not isinstance(ai.get("risk_flags"), str) or meaningful_ai_text(ai.get("risk_flags"))):
             risks = ai.get("risk_flags")
             risk_text = "\n".join(f"• {_esc(x)}" for x in risks[:5]) if isinstance(risks, list) else _esc(risks)
             ai_lines += ["⚠️ <b>المخاطر الخبرية</b>", risk_text, ""]
-        elif ai.get("risk_summary"):
+        elif meaningful_ai_text(ai.get("risk_summary")):
             ai_lines += ["⚠️ <b>المخاطر الخبرية</b>", _esc(ai.get("risk_summary")), ""]
         if ai_lines:
             while ai_lines and ai_lines[-1] == "":
