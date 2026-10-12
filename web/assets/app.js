@@ -572,7 +572,21 @@ function toggleSasMetric(id){
 }
 function renderPerpEquitiesMovers(data){
  const sourceLink=document.querySelector('.sas-movers-source');
- if(sourceLink){sourceLink.hidden=false;sourceLink.removeAttribute('aria-hidden');sourceLink.href='https://finviz.com/screener?v=111&f=exch_nasd%2Csh_curvol_o100%2Csh_float_u50%2Csh_relvol_o0.5%2Cta_perf_1wup&ft=4';sourceLink.textContent='Finviz ↗';}
+ if(sourceLink){sourceLink.hidden=false;sourceLink.removeAttribute('aria-hidden');sourceLink.href='https://finviz.com/screener?v=111&f=exch_nasd%2Csh_curvol_o100%2Csh_float_u50%2Csh_relvol_o0.5%2Cta_perf_1wup&ft=4';sourceLink.textContent='فلاتر Finviz ↗';}
+
+ const quickLinks=[
+  ['الرابحون','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15,sh_curvol_o100,sh_float_u50,sh_relvol_o0.5,ta_perf_1wup'],
+  ['الخاسرون','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15,sh_curvol_o100,sh_float_u50,sh_relvol_o0.5,ta_perf_1wdown'],
+  ['RVOL مرتفع','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15,sh_curvol_o100,sh_relvol_o1.5'],
+  ['Float منخفض','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15,sh_float_u50,sh_curvol_o100']
+ ];
+ const title=document.querySelector('.sas-perp-movers-panel .sas-insight-title');
+ if(title&&!document.getElementById('sasFinvizQuickLinks')){
+  const links=document.createElement('nav');links.id='sasFinvizQuickLinks';links.className='sas-finviz-quick-links';links.setAttribute('aria-label','فلاتر Finviz');
+  quickLinks.forEach(([label,url])=>{const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=label+' ↗';links.appendChild(a);});
+  title.insertAdjacentElement('afterend',links);
+ }
+
  const updated=document.getElementById('perpMoversUpdated'),state=document.getElementById('perpMoversState');
  const gainers=document.getElementById('perpMoversGainers'),losers=document.getElementById('perpMoversLosers');
  const gainersCount=document.getElementById('perpMoversGainersCount'),losersCount=document.getElementById('perpMoversLosersCount');
@@ -585,7 +599,7 @@ function renderPerpEquitiesMovers(data){
   const empty=escHtml(data.message_ar||'لا توجد بيانات أسعار ضمن النطاق المحدد حاليًا.');
   gainers.innerHTML='<div class="sas-perp-movers-empty">'+empty+'</div>';losers.innerHTML='<div class="sas-perp-movers-empty">'+empty+'</div>';
   if(updated)updated.textContent='بانتظار تحديث الأسعار';
-  if(state)state.textContent='نطاق السعر $0.30–$15.00 • Finviz';
+  if(state)state.textContent='نطاق السعر $0.30–$15.00 • بيانات السوق';
   return;
  }
  const makeRows=(items,direction,emptyLabel)=>items.length?items.map((item,index)=>{
@@ -593,7 +607,7 @@ function renderPerpEquitiesMovers(data){
   const symbol=escHtml(String(item.symbol||'—')),name=escHtml(String(item.name||'اسم الشركة غير متوفر'));
   const price=fmtUsd(item.price),volume=fmtUsd(item.volume);
   const link='https://finviz.com/quote.ashx?t='+encodeURIComponent(String(item.symbol||''));
-  return '<details class="sas-perp-mover-card '+direction+'"><summary class="sas-perp-mover"><span class="sas-perp-mover-rank">'+(index+1)+'</span><span class="sas-perp-mover-main"><strong class="sas-perp-mover-symbol">'+symbol+'</strong><small>'+name+'</small></span><span class="sas-perp-mover-price">'+price+'</span><b>'+change+'</b><span class="sas-perp-mover-open">⌄</span></summary><div class="sas-perp-mover-details"><div class="sas-perp-detail-grid"><div><small>السعر</small><b>'+price+'</b></div><div><small>التغير اليومي</small><b>'+change+'</b></div><div><small>حجم التداول</small><b>'+volume+'</b></div><div><small>المصدر</small><b>Finviz</b></div></div><a href="'+link+'" target="_blank" rel="noopener noreferrer">فتح تحليل السهم في Finviz ↗</a></div></details>';
+  return '<details class="sas-perp-mover-card '+direction+'"><summary class="sas-perp-mover"><span class="sas-perp-mover-rank">'+(index+1)+'</span><span class="sas-perp-mover-main"><strong class="sas-perp-mover-symbol">'+symbol+'</strong><small>'+name+'</small></span><span class="sas-perp-mover-price">'+price+'</span><b>'+change+'</b><span class="sas-perp-mover-open">⌄</span></summary><div class="sas-perp-mover-details"><div class="sas-perp-detail-grid"><div><small>السعر</small><b>'+price+'</b></div><div><small>التغير اليومي</small><b>'+change+'</b></div><div><small>حجم التداول</small><b>'+volume+'</b></div><div><small>الحالة</small><b>للمراجعة</b></div></div><a href="'+link+'" target="_blank" rel="noopener noreferrer">فتح تحليل السهم في Finviz ↗</a></div></details>';
  }).join(''):'<div class="sas-perp-movers-empty">'+emptyLabel+'</div>';
  const gainersList=(Array.isArray(data.gainers)?data.gainers:[]).filter(item=>Number(item?.change_pct)>0),losersList=(Array.isArray(data.losers)?data.losers:[]).filter(item=>Number(item?.change_pct)<0);
  gainers.innerHTML=makeRows(gainersList,'is-up','لا توجد أسهم رابحة مستوفية للفلاتر الآن');
@@ -602,7 +616,7 @@ function renderPerpEquitiesMovers(data){
  if(losersCount)losersCount.textContent=losersList.length.toLocaleString('ar-SA-u-nu-latn')+' سهم';
  if(updated&&data.updated_at){const date=new Date(data.updated_at);updated.textContent='آخر تحديث: '+(Number.isFinite(date.getTime())?new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',hour12:true}).format(date)+' بتوقيت الرياض':'—');}
  else if(updated)updated.textContent='وقت التحديث غير متاح';
- if(state)state.textContent=!['premarket','regular','afterhours','night'].includes(data.market_session)?'الرادار ينتظر جلسة الرصد التالية':(data.source==='Finviz + fallback providers'?'Finviz + مصادر احتياطية • $0.30–$15.00':'مصادر احتياطية • $0.30–$15.00');
+ if(state)state.textContent=!['premarket','regular','afterhours','night'].includes(data.market_session)?'الرادار ينتظر جلسة الرصد التالية':'مصادر بيانات السوق • $0.30–$15.00';
 }
 function renderMacro(){
  const wanted=[
