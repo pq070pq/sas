@@ -14,7 +14,21 @@ async def _stooq_ohlcv(symbol: str, days: int = 90):
             r = await client.get("https://stooq.com/q/d/l/", params={"s": stooq_symbol, "i": "d"})
             if r.status_code >= 400:
                 return []
-            rows = list(csv.DictReader(io.StringIO(r.text)))
+            # Stooq CSV headers are capitalized (Date, Open, High, Low, Close, Volume),
+            # while the analysis pipeline consumes lowercase keys. Normalize here so
+            # valid fallback candles are not silently discarded by OHLCV parsing.
+            rows = []
+            for raw in csv.DictReader(io.StringIO(r.text)):
+                row = {str(k or "").strip().lower(): str(v or "").strip() for k, v in raw.items()}
+                if not all(row.get(key) for key in ("date", "open", "high", "low", "close")):
+                    continue
+                try:
+                    for key in ("open", "high", "low", "close"):
+                        row[key] = float(row[key])
+                    row["volume"] = float(row.get("volume") or 0)
+                except (TypeError, ValueError):
+                    continue
+                rows.append(row)
             return rows[-max(20, min(int(days), 365)):]
     except Exception:
         return []
