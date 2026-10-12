@@ -2152,7 +2152,7 @@ def _parse_finviz_screener(html, direction):
     for row in parser.rows[header_index + 1:]:
         if max(columns["ticker"], columns["price"], columns["change"]) >= len(row): continue
         symbol = str(row[columns["ticker"]] or "").strip().upper()
-        if not re.fullmatch(r"[A-Z][A-Z0-9.\\-]{0,10}", symbol) or symbol in seen: continue
+        if not re.fullmatch(r"[A-Z][A-Z0-9.-]{0,10}", symbol) or symbol in seen: continue
         price, change = _finviz_number(row[columns["price"]]), _finviz_number(row[columns["change"]])
         volume = _finviz_number(row[columns["volume"]]) if "volume" in columns and columns["volume"] < len(row) else 0
         if price is None or change is None or not 0.30 <= price <= 15.00: continue
