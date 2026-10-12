@@ -2719,8 +2719,8 @@ async def perpequities_market_movers(_: dict = Depends(require_pro)):
         payload = await asyncio.wait_for(discover_market_movers(), timeout=25)
         return {
             **payload,
-            "source": "NASDAQ live market data",
-            "price_min": 0.30, "price_max": 20.00,
+            "source": payload.get("source") or "NASDAQ live market data",
+            "price_min": 0.30, "price_max": 15.00,
             "market_session": status.get("session"),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
