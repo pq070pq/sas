@@ -1,5 +1,6 @@
 import asyncio
 import time
+import re
 
 try:
     from scrapling.fetchers import Fetcher
