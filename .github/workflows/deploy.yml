@@ -92,9 +92,14 @@ jobs:
             fi
             git fetch origin main
             git reset --hard origin/main
-            # لا نعيد بناء PanWatch مع كل تحديث لـ SAS PRO؛ هذا كان يطيل النشر
-            # ويضغط الذاكرة على OVH رغم أن أغلب التغييرات تخص تطبيق SAS فقط.
-            docker compose build --pull=false saspro
+            # إذا وُجد .dockerignore محلي غير متتبع على الخادم فقد يستبعد ملفات app
+            # ويجعل Docker يعيد استخدام طبقة COPY app القديمة رغم تحديث Git.
+            if [ -f .dockerignore ] && ! git ls-files --error-unmatch .dockerignore >/dev/null 2>&1; then
+              echo "Removing untracked server-side .dockerignore that can hide application source."
+              rm -f .dockerignore
+            fi
+            # أعد بناء خدمة SAS PRO دون كاش حتى يصل آخر كود من main إلى الصورة الفعلية.
+            docker compose build --no-cache --pull=false saspro
             # Clean up stale Compose containers with the exact service container name.
             # A prior interrupted deployment can leave an orphan that blocks recreation.
             service_container=$(docker compose ps -aq saspro | head -n 1)
@@ -138,6 +143,13 @@ jobs:
               exit 1
             fi
             echo "SAS_PRO_CONTAINER_ID=$container_id"
+
+            # تحقق أن الصورة المشغلة تحتوي فعلًا على سطر التشخيص الجديد، لا مجرد health 200.
+            if ! docker compose exec -T saspro grep -q 'نوع الخطأ' /app/app/main.py; then
+              echo "❌ Running container does not contain the expected private-analysis diagnostic."
+              exit 1
+            fi
+            echo "✅ Private-analysis diagnostic code is present in the running container."
 
             # لا نشغل Python داخل الحاوية أثناء الاختبار؛ إذا كانت الذاكرة
             # منخفضة قد يقتل النظام عملية docker exec نفسها ويظهر الخطأ 137
