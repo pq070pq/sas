@@ -519,11 +519,12 @@ function renderStockMovers(){
   if(countEl)countEl.textContent=String(items.length);
   el.innerHTML=items.length?items.map(x=>{
    const symbol=escHtml(x.symbol||x.ticker||'—'),price=fmtPrice(x.live_price??x.price??x.entry_price),change=x._stockMoverChange;
-   return '<button type="button" class="sas-stock-mover-row" onclick="openRadarMoverAnalysis(\\''+symbol+'\\')"><span class="sas-stock-mover-symbol">'+symbol+'</span><span class="sas-stock-mover-price">'+price+'</span><strong class="'+(positive?'is-up':'is-down')+'">'+(change>0?'+':'')+change.toFixed(2)+'%</strong></button>';
+   return '<button type="button" class="sas-stock-mover-row" data-symbol="'+symbol+'"><span class="sas-stock-mover-symbol">'+symbol+'</span><span class="sas-stock-mover-price">'+price+'</span><strong class="'+(positive?'is-up':'is-down')+'">'+(change>0?'+':'')+change.toFixed(2)+'%</strong></button>';
   }).join(''):'<div class="empty-state">لا توجد أسهم مستوفية للعرض ضمن نتائج الرادار الحالية.</div>';
  };
  renderRows(gainers,gainersEl,gainersCount,true);
  renderRows(losers,losersEl,losersCount,false);
+ [gainersEl,losersEl].forEach(el=>el.querySelectorAll('.sas-stock-mover-row').forEach(btn=>btn.addEventListener('click',()=>openRadarMoverAnalysis(btn.dataset.symbol))));
 }
 function openRadarMoverAnalysis(symbol){
  switchTerminalTab('search');
