@@ -110,7 +110,7 @@ def market_status(now: datetime | None = None) -> dict:
 
     if d in us_market_holidays(local.year):
         return {
-            "open": False, "holiday": True, "session": "holiday",
+            "open": False, "radar_active": False, "holiday": True, "session": "holiday",
             "label_ar": "مغلق — عطلة السوق 🇺🇸", "short_ar": "عطلة",
             "reason": "US market holiday", "date": d.isoformat(),
             "local_time": local.isoformat(),
@@ -129,7 +129,7 @@ def market_status(now: datetime | None = None) -> dict:
         )
         if night_active:
             return {
-                "open": False, "holiday": False, "session": "night",
+                "open": False, "radar_active": True, "holiday": False, "session": "night",
                 "label_ar": "التداول الإلكتروني الليلي 🟣", "short_ar": "جلسة ليلية",
                 "reason": "Nasdaq Global Trading Hours", "date": d.isoformat(),
                 "local_time": local.isoformat(),
@@ -139,7 +139,7 @@ def market_status(now: datetime | None = None) -> dict:
 
     if local.weekday() >= 5:
         return {
-            "open": False, "holiday": False, "session": "weekend",
+            "open": False, "radar_active": False, "holiday": False, "session": "weekend",
             "label_ar": "مغلق — لا يوجد تداول", "short_ar": "لا تداول",
             "reason": "weekend", "date": d.isoformat(),
             "local_time": local.isoformat(),
@@ -154,7 +154,7 @@ def market_status(now: datetime | None = None) -> dict:
 
     if pre_start <= local < regular_start:
         return {
-            "open": False, "holiday": False, "session": "premarket",
+            "open": False, "radar_active": True, "holiday": False, "session": "premarket",
             "label_ar": "قبل الافتتاح 🟡", "short_ar": "قبل الافتتاح",
             "reason": "premarket", "date": d.isoformat(),
             "local_time": local.isoformat(),
@@ -166,7 +166,7 @@ def market_status(now: datetime | None = None) -> dict:
 
     if regular_start <= local < regular_end:
         return {
-            "open": True, "holiday": False, "session": "regular",
+            "open": True, "radar_active": True, "holiday": False, "session": "regular",
             "label_ar": "السوق مفتوح الآن 🟢", "short_ar": "مفتوح الآن",
             "reason": "regular session" if (regular_end_h, regular_end_m) == REGULAR_END else "early close",
             "date": d.isoformat(), "local_time": local.isoformat(),
@@ -177,7 +177,7 @@ def market_status(now: datetime | None = None) -> dict:
 
     if regular_end <= local < after_end:
         return {
-            "open": False, "holiday": False, "session": "afterhours",
+            "open": False, "radar_active": True, "holiday": False, "session": "afterhours",
             "label_ar": "بعد الإغلاق 🟠", "short_ar": "بعد الإغلاق",
             "reason": "after hours", "date": d.isoformat(),
             "local_time": local.isoformat(),
@@ -190,7 +190,7 @@ def market_status(now: datetime | None = None) -> dict:
     if d >= NIGHT_SESSION_LAUNCH and local.weekday() <= 4 and local.hour == 20:
         night_open = _dt_at(local, 21, 0)
         return {
-            "open": False, "holiday": False, "session": "night_pending",
+            "open": False, "radar_active": False, "holiday": False, "session": "night_pending",
             "label_ar": "🟣 التداول الليلي يفتح قريبًا",
             "short_ar": "يفتح قريبًا",
             "reason": "night session pending",
@@ -201,7 +201,7 @@ def market_status(now: datetime | None = None) -> dict:
         }
 
     return {
-        "open": False, "holiday": False, "session": "overnight",
+        "open": False, "radar_active": False, "holiday": False, "session": "overnight",
         "label_ar": "مغلق — انتظار البري ماركت 🌙", "short_ar": "مغلق",
         "reason": "overnight", "date": d.isoformat(),
         "local_time": local.isoformat(), "next_premarket_et": "04:00",
