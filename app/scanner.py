@@ -15,17 +15,17 @@ from .twelve_guard import call as twelve_call
 from .smart_memory import SmartMemory
 
 # رادار SAS PRO:
-# - السوق: NASDAQ فقط
-# - السعر: $0.30 - $20.00
+# - السوق: NASDAQ + NYSE + AMEX
+# - السعر: $0.30 - $15.00
 # - لا نعتمد على نسبة الارتفاع وحدها؛ نبحث عن حركة مؤكدة أو تجميع قابل للقياس.
 # - Twelve Data ليس مصدر الرصد الأساسي ولا يُستهلك أثناء دورة الرادار.
 # - استراتيجية SAS: السلوك، التداول، RVOL، الدعم/المقاومة والثبات.
 MIN_PRICE = 0.30
-MAX_PRICE = 20.00
+MAX_PRICE = 15.00
 MAX_RADAR_RESULTS = 30
 MAX_SECTION_RESULTS = 15
 MIN_DAILY_DOLLAR_VOLUME = 1_000_000.0
-ALLOWED_EXCHANGES = {"NASDAQ"}
+ALLOWED_EXCHANGES = {"NASDAQ", "NYSE", "AMEX"}
 
 MOMENTUM_SMALL_MIN_GAIN = 10.0
 MOMENTUM_SMALL_MIN_VOLUME = 500_000.0
@@ -278,13 +278,15 @@ def _momentum_time_filter():
     if hour >= 20 or hour < 4:
         return MOMENTUM_RVOL_THRESHOLDS[10], now
 
-    # Before premarket discovery begins, do not use regular-session momentum
-    # thresholds against stale/partial data.
-    if hour < 4 or hour < 10:
-        return None, now
+    # Premarket (04:00–09:59 ET): scan with the conservative opening threshold.
+    # This avoids silently disabling the radar during premarket.
+    if 4 <= hour < 10:
+        return MOMENTUM_RVOL_THRESHOLDS[10], now
 
+    # Regular session and after-hours use the closest available time bucket.
+    # Between 17:00–19:59 ET use the final conservative bucket.
     effective_hour = min(16, hour)
-    return MOMENTUM_RVOL_THRESHOLDS.get(effective_hour), now
+    return MOMENTUM_RVOL_THRESHOLDS.get(effective_hour, MOMENTUM_RVOL_THRESHOLDS[16]), now
 
 
 def _is_excluded_security(row):
@@ -941,46 +943,51 @@ async def discover_low_price_stocks():
         len(candidates), len(accepted), min(settings.radar_staging_limit, 300),
     )
 
-    # لا نسمح بانهيار الرادار إلى صفر فقط لأن RVOL/بنية الشموع اليومية
-    # لم تتأكد بعد. إذا لم ينجح مسار التأكيد الكامل، نحافظ على أفضل
-    # المتحركين الحقيقيين كـ "مراقبة مبكرة" ليعاد فحصهم في الدورة التالية.
-    # هذا المسار لا يتجاوز بوابة السعر الحي/السيولة في jobs.py ولا يرسل
-    # ارتفاعاً وهمياً إلى القناة.
-    if not accepted:
-        early_watch = []
-        for row in gainers[:120]:
-            symbol = str(row.get("symbol") or "").upper()
-            price = _f(row.get("price"), 0)
-            volume = _f(row.get("volume"), 0)
-            change = _f(row.get("change_pct"), 0)
-            dollar_volume = price * volume
-            if not symbol or price <= 0 or volume <= 0:
-                continue
-            if change < 1.0 or dollar_volume < MIN_DAILY_DOLLAR_VOLUME:
-                continue
-            early_watch.append({
-                **row,
-                "momentum_section": "early_mover",
-                "momentum_rvol_10d": None,
-                "momentum_rvol_threshold": 0.0,
-                "momentum_candle_source": "discovery",
-                "momentum_session_verified": True,
-                "accumulation_signal": False,
-                "movement_signal": True,
-                "breakout_setup": False,
-                "early_watch": True,
-                "staging_reason": "متحرك مبكر: ارتفاع + سيولة نقدية كافية؛ يحتاج تأكيد فني قبل النشر",
-            })
-        accepted = early_watch
+    # Keep a parallel early-watch lane on EVERY cycle, not only when the
+    # technical lane is completely empty. This was a major blind spot: if even
+    # one ticker passed candle confirmation, other live movers vanished.
+    # Early-watch names are explicitly unconfirmed and cannot bypass the final
+    # quote/liquidity/technical channel gate.
+    accepted_symbols = {str(x.get("symbol") or "").upper() for x in accepted}
+    early_watch = []
+    for row in gainers[:180]:
+        symbol = str(row.get("symbol") or "").upper()
+        price = _f(row.get("price"), 0)
+        volume = _f(row.get("volume"), 0)
+        change = _f(row.get("change_pct"), 0)
+        dollar_volume = price * volume
+        if not symbol or symbol in accepted_symbols or price <= 0 or volume <= 0:
+            continue
+        # Looser discovery thresholds are for visibility only, not publication.
+        if change < 1.0 or volume < 100_000 or dollar_volume < 250_000:
+            continue
+        early_watch.append({
+            **row,
+            "momentum_section": "early_mover",
+            "momentum_rvol_10d": None,
+            "momentum_rvol_threshold": None,
+            "momentum_candle_source": "discovery",
+            "momentum_session_verified": True,
+            "accumulation_signal": False,
+            "movement_signal": True,
+            "breakout_setup": False,
+            "early_watch": True,
+            "staging_reason": "مراقبة مبكرة: حركة وسوق نشط؛ ينتظر تأكيد الشموع والسعر الحي",
+        })
 
+    accepted.extend(early_watch)
     accepted.sort(
         key=lambda x: (
-            bool(x.get("early_watch")),
+            not bool(x.get("early_watch")),
             _f(x.get("momentum_rvol_10d")),
             _f(x.get("change_pct")),
             _f(x.get("price")) * _f(x.get("volume")),
         ),
         reverse=True,
+    )
+    logger.info(
+        "RADAR_SHORTLIST_SPLIT confirmed=%d early_watch=%d total=%d",
+        len(accepted_symbols), len(early_watch), min(len(accepted), settings.radar_shortlist_limit),
     )
     return accepted[:settings.radar_shortlist_limit]
 
