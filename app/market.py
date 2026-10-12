@@ -737,7 +737,7 @@ async def ticker():
             # لا نسمح لمصدر واحد بطيء أن يحجب لوحة الإدارة.
             item = await asyncio.wait_for(
                 macro_quote(symbol),
-                timeout=5.5,
+                timeout=20,
             )
             item["label"] = label
             if _valid_price(item.get("price")):
