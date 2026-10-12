@@ -875,20 +875,26 @@ async function runRadar(show=true){
 }
 function renderRadar(){renderCards(document.getElementById('radarGrid'),terminalState.radar);}
 function renderCards(el,rows){
- if(!rows.length){
-  el.innerHTML='<div class="radar-empty-card">'+
+ if(!el)return;
+ const all=Array.isArray(rows)?rows:[];
+ const confirmed=all.filter(x=>(x.opportunity_status||x.classification?.opportunity_status)==='confirmed'||x.radar_tier==='confirmed');
+ const confirmedSymbols=new Set(confirmed.map(x=>String(x.symbol||'').toUpperCase()));
+ const watch=all.filter(x=>!confirmedSymbols.has(String(x.symbol||'').toUpperCase()));
+ const empty='<div class="radar-empty-card">'+
    '<div class="radar-empty-orbit" aria-hidden="true"><span></span><i></i><b></b></div>'+
    '<div class="radar-empty-content">'+
     '<span class="radar-empty-kicker">SAS PRO · SMART RADAR</span>'+
     '<h3>لا توجد فرص مكتملة حاليًا</h3>'+
-    '<p>الرادار لا يعرض إلا الأسهم التي اجتازت شروط الفحص. إذا كان السوق مغلقًا، فسيعرض آخر الإشارات المحفوظة عند توفرها.</p>'+
+    '<p>لم يجتز أي سهم جميع شروط الفرصة المؤكدة في هذه الدورة. سيعرض الرادار المرشحين تحت المراقبة عند توفر بيانات فنية موثوقة.</p>'+
     '<div class="radar-empty-status"><span class="radar-empty-dot"></span><span>بانتظار فرصة تستوفي الشروط</span></div>'+
     '<div class="radar-empty-actions"><button type="button" class="radar-empty-primary" onclick="runRadar()">⟳ ابدأ مسحًا جديدًا</button><button type="button" class="radar-empty-secondary" onclick="toggleRadarEmptyHelp(this)" aria-expanded="false">كيف يعمل الرادار؟ <span>⌄</span></button></div>'+
-    '<div class="radar-empty-help" hidden>يفحص الرادار حركة السعر والسيولة والزخم والشروط الفنية. عدم ظهور فرص لا يعني وجود خطأ؛ بل يعني أن الأسهم المتاحة لم تحقق شروط الرصد في هذه الدورة.</div>'+
+    '<div class="radar-empty-help" hidden>الفرصة المؤكدة تحتاج اجتياز الاستراتيجية وتوفر سعر حي ومستويات فنية صالحة ونسبة عائد إلى مخاطرة لا تقل عن 1.5. المرشح تحت المراقبة ليس توصية دخول.</div>'+
    '</div></div>';
-  return;
- }
- el.innerHTML=rows.map(stockCard).join('');
+ if(!all.length){el.innerHTML=empty;return;}
+ const heading=(title,count,description)=>'<div class="radar-list-heading"><b>'+title+'</b><span>'+count.toLocaleString('ar-SA')+' سهم</span><small>'+description+'</small></div>';
+ const confirmedHtml=confirmed.length?heading('✅ الفرص المؤكدة',confirmed.length,'اجتازت شروط الرادار؛ راجع السعر والمستويات قبل اتخاذ القرار.')+confirmed.map(x=>stockCard({...x,_radarDisplayStatus:'confirmed'})).join(''):'';
+ const watchHtml=watch.length?heading('👀 أسهم تحت المراقبة',watch.length,'مرشحة للتحليل والمتابعة، لكنها لم تستكمل شروط الفرصة المؤكدة.')+watch.map(x=>stockCard({...x,_radarDisplayStatus:'watch'})).join(''):'';
+ el.innerHTML=confirmedHtml+watchHtml+(confirmed.length?'':(!watch.length?empty:''));
 }
 function toggleRadarEmptyHelp(button){
  const help=button.closest('.radar-empty-content')?.querySelector('.radar-empty-help');
@@ -944,7 +950,9 @@ function stockCard(x){
   '<span>الفائدة المفتوحة <b>$'+(Number.isFinite(perpOi)&&perpOi>0?escHtml(perpOi.toLocaleString('en-US',{notation:'compact',maximumFractionDigits:1})):'—')+'</b></span>',
   '</div>'+(me?.admin ? '<a href="'+escHtml(safeNewsUrl(perp.url)||'https://perpequities.com/ar')+'" target="_blank" rel="noopener noreferrer">تفاصيل العقود والمنصات ↗</a>' : '')+'</div>'
  ].join(''):'';
- return '<article class="stock-card"><div class="stock-head"><div><b>'+s+'</b><small>'+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • '+formatTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+
+ const displayStatus=x._radarDisplayStatus||((x.opportunity_status||cls.opportunity_status)==='confirmed'||x.radar_tier==='confirmed'?'confirmed':'watch');
+ const statusBadge=displayStatus==='confirmed'?'<i class="radar-stock-status is-confirmed">فرصة مؤكدة</i>':'<i class="radar-stock-status is-watch">تحت المراقبة</i>';
+ return '<article class="stock-card '+(displayStatus==='watch'?'radar-watch-card':'radar-confirmed-card')+'"><div class="stock-head"><div><b>'+s+'</b><small>'+statusBadge+' '+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • '+formatTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+
  '<strong>$'+money(price)+'</strong>'+
  '<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
  '<div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div>'+
