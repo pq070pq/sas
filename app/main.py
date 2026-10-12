@@ -2710,7 +2710,7 @@ async def perpequities_market_movers(_: dict = Depends(require_pro)):
     if not stock_radar_enabled():
         return {
             "available": False, "assets": [], "gainers": [], "losers": [],
-            "price_min": 0.30, "price_max": 20.00,
+            "price_min": 0.30, "price_max": 15.00,
             "market_session": status.get("session"),
             "message_ar": "تظهر حركة الأسهم عند توفر جلسة رصد وبيانات سوق موثوقة.",
         }
@@ -2728,7 +2728,7 @@ async def perpequities_market_movers(_: dict = Depends(require_pro)):
         logger.warning("NASDAQ market movers failed: %s", type(exc).__name__)
         return {
             "available": False, "assets": [], "gainers": [], "losers": [],
-            "price_min": 0.30, "price_max": 20.00,
+            "price_min": 0.30, "price_max": 15.00,
             "market_session": status.get("session"),
             "message_ar": "تعذر جلب بيانات حركة ناسداك مؤقتًا؛ ستتم المحاولة في التحديث التالي.",
         }
