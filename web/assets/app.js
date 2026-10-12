@@ -381,8 +381,8 @@ function renderDashboard(d){
   premarket:'قبل الافتتاح 🟡',
   regular:'السوق مفتوح الآن 🟢',
   afterhours:'بعد الإغلاق 🟠',
-  night:'التداول الإلكتروني الليلي 🟣',
-  night_pending:'🟣 التداول الليلي يفتح قريبًا'
+  night:'التداول الليلي ☾',
+  night_pending:'☾ التداول الليلي يفتح قريبًا'
  }[session]||'');
  const nightPending=session==='night_pending';
  const nightMinutes=Number(market.minutes_to_night);
@@ -411,7 +411,7 @@ function renderDashboard(d){
   const nyOffsetMinutes=offsetMatch?(offsetMatch[1]==='-'?-1:1)*(Number(offsetMatch[2])*60+Number(offsetMatch[3])):-240;
   const riyadhFromET=(hour,minute)=>{
     const utcMs=Date.UTC(Number(nyParts.year),Number(nyParts.month)-1,Number(nyParts.day),hour,minute)-nyOffsetMinutes*60000;
-    return new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(utcMs));
+    return new Intl.DateTimeFormat('ar-SA',{timeZone:'Asia/Riyadh',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(utcMs));
   };
   const preRiyadh=riyadhFromET(4,0)+' – '+riyadhFromET(9,30);
   const regularRiyadh=riyadhFromET(9,30)+' – '+riyadhFromET(16,0);
@@ -425,22 +425,23 @@ function renderDashboard(d){
   const nightStartRiyadh=riyadhFromET(20,0);
   const nightEndRiyadh=riyadhFromET(4,0);
   if(scheduleNight) scheduleNight.textContent=nightStartRiyadh+' – '+nightEndRiyadh;
-  if(scheduleNightET) scheduleNightET.textContent='20:00 – 04:00 بتوقيت نيويورك ('+nyZoneName+')';
-  if(preET)preET.textContent='04:00 – 09:30 بتوقيت نيويورك ('+nyZoneName+')';
-  if(regularET)regularET.textContent='09:30 – 16:00 بتوقيت نيويورك ('+nyZoneName+')';
-  if(afterET)afterET.textContent='16:00 – 20:00 بتوقيت نيويورك ('+nyZoneName+')';
+  const et12=(hour,minute)=>{const suffix=hour<12?'ص':'م';const h12=hour%12||12;return String(h12)+':'+String(minute).padStart(2,'0')+' '+suffix;};
+  if(scheduleNightET) scheduleNightET.textContent=et12(20,0)+' – '+et12(4,0)+' بتوقيت نيويورك ('+nyZoneName+')';
+  if(preET)preET.textContent=et12(4,0)+' – '+et12(9,30)+' بتوقيت نيويورك ('+nyZoneName+')';
+  if(regularET)regularET.textContent=et12(9,30)+' – '+et12(16,0)+' بتوقيت نيويورك ('+nyZoneName+')';
+  if(afterET)afterET.textContent=et12(16,0)+' – '+et12(20,0)+' بتوقيت نيويورك ('+nyZoneName+')';
  if(scheduleStatus)scheduleStatus.textContent=({
   premarket:'🟡 السوق في فترة ما قبل الافتتاح — التداول الممتد قبل الجلسة الرسمية.',
   regular:'🟢 الجلسة الرسمية مفتوحة الآن — التداول جارٍ.',
   afterhours:'🟠 انتهت الجلسة الرسمية — التداول الممتد بعد الإغلاق.',
-  night:'🟣 التداول الليلي جارٍ عبر منصات/وسطاء داعمين؛ التوفر والأسعار يختلفان حسب السهم ومزود البيانات.',
-  night_pending:'🟣 التداول الليلي لم يبدأ بعد.',
+  night:'☾ التداول الليلي جارٍ عبر منصات/وسطاء داعمين؛ التوفر والأسعار يختلفان حسب السهم ومزود البيانات.',
+  night_pending:'☾ التداول الليلي لم يبدأ بعد.',
   overnight:'🌙 السوق متوقف حاليًا — بانتظار فترة ما قبل الافتتاح.',
   weekend:'🌙 عطلة نهاية الأسبوع — لا توجد جلسة أسهم أمريكية عادية.',
   holiday:'🌙 عطلة سوق — تحقق من تقويم البورصة قبل اعتماد المواعيد.'
  }[session]||'يتم التحقق من حالة الجلسة الحالية.');
  document.getElementById('radarStatusText').textContent=nightPending
-  ? '🟣 التداول الليلي يفتح قريبًا'+nightCountdown+' — الرصد لا ينشر إشارة إلا بعد تحقق السعر والسيولة والزخم.'
+  ? '☾ التداول الليلي يفتح قريبًا'+nightCountdown+' — الرصد لا ينشر إشارة إلا بعد تحقق السعر والسيولة والزخم.'
   : premarket
    ? '🟡 Pre-Market — الرصد المبكر يعمل حتى '+regularOpen+' بتوقيت الرياض، مع تأكيد السعر والسيولة والزخم.'
    : session==='regular'
@@ -448,7 +449,7 @@ function renderDashboard(d){
     : session==='afterhours'
      ? '🟠 After-Hours — التداول الممتد حتى '+afterClose+' بتوقيت الرياض.'
      : session==='night'
-      ? '🟣 فترة التداول الليلي — الرصد يعمل، لكن التداول الفعلي وتحديث السعر يعتمدان على الوسيط ومزود البيانات.'
+      ? '☾ فترة التداول الليلي — الرصد يعمل، لكن التداول الفعلي وتحديث السعر يعتمدان على الوسيط ومزود البيانات.'
       : preopen
        ? '🌙 السوق مغلق — يبدأ Pre-Market الساعة '+nextPremarket+' بتوقيت الرياض.'
        : enabled
