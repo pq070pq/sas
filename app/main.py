@@ -483,10 +483,22 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     ]
     passed = [label for key, label in checks_short if checks.get(key) is True]
     failed = [label for key, label in checks_short if checks.get(key) is False]
+    if passed or failed:
+        report.append("🧾 <b>فحص الشروط</b>")
     if passed:
         report.append("🟢 تحقق: " + "، ".join(passed[:4]))
     if failed:
-        report.append("🔴 غير مكتمل: " + "، ".join(failed[:3]))
+        report.append("🔴 لم يتحقق: " + "، ".join(failed[:3]))
+    momentum_rvol = num(checks.get("momentum_rvol"))
+    rvol_threshold = num(checks.get("momentum_rvol_threshold"))
+    if momentum_rvol is not None:
+        threshold_text = f" (المطلوب {rvol_threshold:.2f}×)" if rvol_threshold is not None else ""
+        report.append(f"📊 RVOL: {momentum_rvol:.2f}×{threshold_text}")
+    gate = tech.get("channel_gate") or {}
+    if gate and not gate.get("passed"):
+        report.append("👀 سبب الإرسال للمراقبة: " + esc(gate.get("reason") or "لم تكتمل شروط التأكيد"))
+    if tech.get("radar_candidate_status"):
+        report.append("📍 حالة المرشح: " + esc(tech.get("radar_candidate_status")))
 
     if shariah:
         report += [
