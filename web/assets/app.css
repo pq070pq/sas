@@ -3236,3 +3236,44 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .macro-grid .macro-card .macro-card-icon{width:42px!important;height:42px!important;flex-basis:42px!important;font-size:27px!important}
  .macro-grid .macro-card .macro-card-icon img{width:34px!important;height:34px!important;max-width:34px!important;max-height:34px!important}
 }
+
+
+/* Dashboard saved-signals empty state — responsive and interactive */
+#dashboardRadar .dashboard-saved-empty{
+ grid-column:1/-1!important;min-width:0;min-height:230px!important;
+ padding:clamp(18px,3vw,30px)!important;gap:clamp(14px,2.4vw,26px)!important;
+ border-color:rgba(47,196,231,.34)!important;
+ background:
+  radial-gradient(ellipse at 88% 12%,rgba(24,183,214,.14),transparent 42%),
+  radial-gradient(ellipse at 12% 100%,rgba(22,92,139,.15),transparent 45%),
+  linear-gradient(135deg,rgba(4,23,36,.98),rgba(2,10,19,.99))!important;
+ text-align:right!important;justify-content:space-between!important;
+}
+#dashboardRadar .dashboard-saved-empty .radar-empty-orbit{flex-basis:86px!important;width:86px!important;height:86px!important;order:2;flex-shrink:0}
+#dashboardRadar .dashboard-saved-empty .radar-empty-content{flex:1;max-width:none!important;min-width:0;text-align:right!important}
+#dashboardRadar .dashboard-saved-empty .radar-empty-kicker{letter-spacing:1.2px;font-size:10px}
+#dashboardRadar .dashboard-saved-empty .radar-empty-content h3{font-size:clamp(18px,2vw,23px);margin-bottom:8px}
+#dashboardRadar .dashboard-saved-empty .radar-empty-content p{max-width:none;margin:0;font-size:12px;line-height:1.85}
+#dashboardRadar .dashboard-empty-tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+#dashboardRadar .dashboard-empty-tags span{padding:5px 9px;border-radius:8px;border:1px solid rgba(65,159,193,.22);background:rgba(9,38,55,.6);color:#9dc8db;font-size:10px}
+#dashboardRadar .dashboard-saved-empty .radar-empty-status{margin:12px 0;padding:7px 10px;font-size:10px}
+#dashboardRadar .dashboard-saved-empty .radar-empty-actions{justify-content:flex-start;gap:7px}
+#dashboardRadar .dashboard-saved-empty .radar-empty-actions button{padding:10px 12px;font-size:11px;min-height:38px}
+#dashboardRadar .dashboard-saved-empty .radar-empty-primary{box-shadow:0 5px 18px rgba(12,160,202,.15)}
+#dashboardRadar .dashboard-saved-empty .radar-empty-secondary:hover{border-color:rgba(64,203,237,.6);background:rgba(12,53,75,.9)}
+#dashboardRadar .dashboard-saved-empty .radar-empty-help{text-align:right}
+@media(max-width:680px){
+ #dashboardRadar .dashboard-saved-empty{flex-direction:column!important;align-items:stretch!important;justify-content:center!important;gap:12px!important;min-height:0!important;padding:18px!important}
+ #dashboardRadar .dashboard-saved-empty .radar-empty-orbit{order:0;align-self:center;width:72px!important;height:72px!important;flex-basis:72px!important}
+ #dashboardRadar .dashboard-saved-empty .radar-empty-content{text-align:center!important;width:100%}
+ #dashboardRadar .dashboard-saved-empty .radar-empty-kicker{text-align:center}
+ #dashboardRadar .dashboard-saved-empty .radar-empty-content p{text-align:center}
+ #dashboardRadar .dashboard-empty-tags{justify-content:center}
+ #dashboardRadar .dashboard-saved-empty .radar-empty-actions{justify-content:center}
+ #dashboardRadar .dashboard-saved-empty .radar-empty-status{margin:11px 0 13px}
+}
+@media(max-width:390px){
+ #dashboardRadar .dashboard-saved-empty .radar-empty-actions{display:grid;grid-template-columns:1fr 1fr}
+ #dashboardRadar .dashboard-saved-empty .radar-empty-primary{grid-column:1/-1}
+ #dashboardRadar .dashboard-saved-empty .radar-empty-actions button{width:100%;padding:10px 7px}
+}
