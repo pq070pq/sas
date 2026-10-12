@@ -2103,6 +2103,50 @@ async def _get_intraday_liquidity(symbols):
     return out
 
 
+async def discover_market_movers():
+    """Return real NASDAQ-listed equity movers for the Mini App, independent of strategy signals."""
+    source_names = ("nasdaq", "openterminal", "twelvedata", "panwatch", "licensed")
+    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
+        results = await asyncio.gather(
+            _discover_us_exchanges(client),
+            _discover_openterminal(client),
+            _discover_twelvedata(client),
+            _discover_panwatch(client),
+            _discover_licensed_market_data(client),
+            return_exceptions=True,
+        )
+    merged = {}
+    for source_name, rows in zip(source_names, results):
+        if isinstance(rows, Exception):
+            logger.warning("MARKET_MOVERS_SOURCE_FAILED source=%s error=%s", source_name, type(rows).__name__)
+            continue
+        for row in rows or []:
+            if not isinstance(row, dict) or _normalize_exchange(row.get("exchange") or row.get("mic_code")) != "NASDAQ":
+                continue
+            symbol = str(row.get("symbol") or "").strip().upper()
+            name = str(row.get("name") or "").strip()
+            price = _f(row.get("price"), 0)
+            change = _f(row.get("change_pct"), float("nan"))
+            volume = _f(row.get("volume"), 0)
+            if not symbol or _is_excluded_security(row) or not (MIN_PRICE <= price <= MAX_PRICE):
+                continue
+            if not (change == change) or change in (float("inf"), float("-inf")) or change == 0:
+                continue
+            if volume <= 0:
+                continue
+            previous = merged.get(symbol)
+            item = {"symbol": symbol, "name": name, "price": price, "change_pct": round(change, 4),
+                    "volume": volume, "exchange": "NASDAQ"}
+            if previous is None or item["volume"] > previous["volume"]:
+                merged[symbol] = item
+    rows = list(merged.values())
+    gainers = sorted((x for x in rows if x["change_pct"] > 0), key=lambda x: x["change_pct"], reverse=True)[:8]
+    losers = sorted((x for x in rows if x["change_pct"] < 0), key=lambda x: x["change_pct"])[:8]
+    return {"available": bool(rows), "assets": gainers + losers, "gainers": gainers, "losers": losers,
+            "price_min": MIN_PRICE, "price_max": MAX_PRICE, "market_session": "NASDAQ",
+            "message_ar": None if rows else "لم تصل بيانات حركة موثوقة لأسهم ناسداك ضمن نطاق 0.30–20 دولارًا من مزودي البيانات."}
+
+
 async def scan_us_low_price_stocks(force_refresh: bool = False):
     # الطلب اليدوي من Mini App يبدأ دورة رصد جديدة فعلًا ولا يعتمد على
     # مؤشرات اللحظي المخزنة من الدورة السابقة.
