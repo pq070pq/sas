@@ -2761,19 +2761,22 @@ async def _fetch_us_stock_movers():
 
 @app.get("/api/market/movers")
 async def perpequities_market_movers(_: dict = Depends(require_pro)):
-    """Show actual US stock gainers only during the regular US trading session."""
+    """Show real US-listed stock gainers during regular and extended daytime sessions."""
     status = market_status()
-    if status.get("session") != "regular":
+    session = status.get("session")
+    # Include pre-market and after-hours. The regular-session-only gate was
+    # hiding real US equity movement while extended trading was active.
+    if session not in {"regular", "premarket", "afterhours"}:
         return {
             "available": False, "assets": [], "gainers": [], "losers": [],
             "source": "Twelve Data US Stocks", "source_url": "https://twelvedata.com/docs",
             "updated_at": None, "price_min": 0.50, "price_max": 15.00,
             "refresh_interval_seconds": _US_STOCK_MOVERS_CACHE_TTL,
-            "market_session": status.get("session"),
-            "message_ar": "تظهر الأسهم الأمريكية الرابحة أثناء جلسة السوق الرسمية فقط.",
+            "market_session": session,
+            "message_ar": "تظهر حركة الأسهم قبل الافتتاح وأثناء الجلسة الرسمية وبعد الإغلاق؛ لا توجد جلسة أمريكية نشطة الآن.",
         }
     payload = await _fetch_us_stock_movers()
-    return {**payload, "market_session": status.get("session")}
+    return {**payload, "market_session": session}
 
 
 @app.get("/api/market/ticker")
