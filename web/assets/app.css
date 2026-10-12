@@ -3277,3 +3277,46 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  #dashboardRadar .dashboard-saved-empty .radar-empty-primary{grid-column:1/-1}
  #dashboardRadar .dashboard-saved-empty .radar-empty-actions button{width:100%;padding:10px 7px}
 }
+
+
+/* Radar scan waiting card — matching SAS PRO interactive empty-state design */
+#radarGrid .radar-scanning-empty{
+ grid-column:1/-1!important;min-width:0;min-height:225px!important;
+ padding:clamp(18px,3vw,30px)!important;gap:clamp(14px,2.4vw,26px)!important;
+ border-color:rgba(47,196,231,.38)!important;
+ background:
+  radial-gradient(ellipse at 86% 8%,rgba(24,183,214,.17),transparent 43%),
+  radial-gradient(ellipse at 12% 100%,rgba(22,92,139,.14),transparent 45%),
+  linear-gradient(135deg,rgba(4,23,36,.98),rgba(2,10,19,.99))!important;
+ text-align:right!important;justify-content:space-between!important;
+}
+#radarGrid .radar-scanning-empty .radar-empty-orbit{
+ flex-basis:86px!important;width:86px!important;height:86px!important;order:2;flex-shrink:0;
+ box-shadow:0 0 30px rgba(10,143,189,.16),inset 0 0 22px rgba(10,143,189,.1);
+}
+#radarGrid .radar-scanning-empty .radar-empty-content{flex:1;max-width:none!important;min-width:0;text-align:right!important}
+#radarGrid .radar-scanning-empty .radar-empty-content h3{font-size:clamp(19px,2.2vw,25px);margin-bottom:8px}
+#radarGrid .radar-scanning-empty .radar-empty-content p{max-width:none;margin:0;font-size:13px;line-height:1.9}
+#radarGrid .radar-scanning-empty .dashboard-empty-tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+#radarGrid .radar-scanning-empty .dashboard-empty-tags span{padding:6px 10px;border-radius:9px;border:1px solid rgba(65,159,193,.25);background:rgba(9,38,55,.64);color:#b1dce9;font-size:11px}
+#radarGrid .radar-scanning-empty .radar-empty-status{margin:12px 0;padding:8px 11px;font-size:11px}
+#radarGrid .radar-scanning-empty .radar-empty-actions{justify-content:flex-start;gap:8px}
+#radarGrid .radar-scanning-empty .radar-empty-actions button{min-height:42px;padding:10px 14px;font-size:12px}
+#radarGrid .radar-scanning-empty .radar-empty-help{text-align:right}
+#radarGrid .radar-scanning-empty .radar-empty-primary{border-color:#35c4e9;background:linear-gradient(135deg,#087ba0,#07506e)}
+#radarGrid .radar-scanning-empty .radar-empty-secondary:hover{border-color:rgba(64,203,237,.65);background:rgba(12,53,75,.9)}
+#radarGrid .radar-scanning-empty .radar-empty-orbit span{animation-duration:2s}
+@media(max-width:680px){
+ #radarGrid .radar-scanning-empty{flex-direction:column!important;align-items:stretch!important;justify-content:center!important;gap:12px!important;min-height:0!important;padding:18px!important}
+ #radarGrid .radar-scanning-empty .radar-empty-orbit{order:0;align-self:center;width:72px!important;height:72px!important;flex-basis:72px!important}
+ #radarGrid .radar-scanning-empty .radar-empty-content{text-align:center!important;width:100%}
+ #radarGrid .radar-scanning-empty .radar-empty-kicker{text-align:center}
+ #radarGrid .radar-scanning-empty .radar-empty-content p{text-align:center}
+ #radarGrid .radar-scanning-empty .dashboard-empty-tags{justify-content:center}
+ #radarGrid .radar-scanning-empty .radar-empty-actions{justify-content:center}
+ #radarGrid .radar-scanning-empty .radar-empty-status{margin:11px 0 13px}
+}
+@media(max-width:390px){
+ #radarGrid .radar-scanning-empty .radar-empty-actions{display:grid;grid-template-columns:1fr 1fr}
+ #radarGrid .radar-scanning-empty .radar-empty-actions button{width:100%;padding:10px 8px}
+}
