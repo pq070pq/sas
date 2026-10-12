@@ -575,12 +575,24 @@ function renderMacro(){
   const valid=Number(x.price)>0;
   const labelKey=String(x.label||'').toLowerCase();
   const iconSlot=labelKey==='btc'?'icon-bitcoin':labelKey==='gold'?'icon-gold':null;
-  const iconFallback=labelKey==='btc'?'₿':labelKey==='gold'?'🪙':'';
+  const iconFallback=labelKey==='btc'?'₿':labelKey==='gold'?'🪙':labelKey==='vix'?'🌡️':labelKey==='s&p 500'?'📈':labelKey==='nasdaq'?'💹':labelKey==='dow jones'?'🏛️':'◈';
   const iconUrl=iconSlot?terminalState.siteMedia?.[iconSlot]?.url:null;
-  const iconHtml=iconSlot?'<span class="macro-card-icon" aria-hidden="true">'+(iconUrl?'<img src="'+esc(iconUrl)+'" alt="">':iconFallback)+'</span>':'';
-  return '<div class="macro-card '+(valid?'':'macro-unavailable')+'"'+(iconSlot?' data-macro-label="'+labelKey+'"':'')+'>'+iconHtml+'<span>'+escHtml(x.label)+'</span><b>'+ (valid?money(x.price):'غير متاح') +'</b><em class="'+(Number(x.change_pct)>=0?'up':'down')+'">'+pct(x.change_pct)+'</em><small class="macro-source">'+escHtml(x.source||'غير متوفر')+'</small>'+(x.diagnostic?'<small class="macro-diagnostic">'+escHtml(x.diagnostic)+'</small>':'')+'</div>';
+  const iconHtml='<span class="macro-card-icon" aria-hidden="true">'+(iconUrl?'<img src="'+esc(iconUrl)+'" alt="">':iconFallback)+'</span>';
+  return '<button type="button" class="macro-card '+(valid?'':'macro-unavailable')+'" data-macro-label="'+labelKey+'" aria-label="تفاصيل '+escHtml(x.label)+'" title="اضغط لعرض تفاصيل '+escHtml(x.label)+'">'+iconHtml+'<span class="macro-card-label">'+escHtml(x.label)+'</span><b>'+ (valid?money(x.price):'غير متاح') +'</b><em class="'+(Number(x.change_pct)>=0?'up':'down')+'">'+pct(x.change_pct)+'</em><small class="macro-source">'+escHtml(x.source||'غير متوفر')+'</small>'+(x.diagnostic?'<small class="macro-diagnostic">'+escHtml(x.diagnostic)+'</small>':'')+'</button>';
  }).join('');
  document.getElementById('macroGrid').innerHTML=cards || '<div class="empty-state">لا تتوفر بيانات السوق حاليًا.</div>';
+ if(!window.__sasMacroCardInteraction){
+  window.__sasMacroCardInteraction=true;
+  document.addEventListener('click',function(event){
+   const tickerItem=event.target.closest('.ticker-item[data-ticker-label]');
+   const macroCard=event.target.closest('.macro-card[data-macro-label]');
+   const key=tickerItem?.dataset.tickerLabel||macroCard?.dataset.macroLabel;
+   if(!key)return;
+   const target=Array.from(document.querySelectorAll('.macro-card[data-macro-label]')).find(el=>el.dataset.macroLabel===key);
+   document.querySelectorAll('.macro-card.is-selected').forEach(el=>el.classList.remove('is-selected'));
+   if(target){target.classList.add('is-selected');target.scrollIntoView({behavior:'smooth',block:'center'});window.setTimeout(()=>target.classList.remove('is-selected'),2200);}
+  });
+ }
  const ticker=document.getElementById('marketTicker');
  if(ticker){
    const tickerItems=rows.map(x=>{
@@ -600,7 +612,9 @@ function renderMacro(){
          }
        }catch(e){}
      }
-     return '<div class="ticker-item"><span class="ticker-label">'+escHtml(x.label)+'</span><b>'+displayPrice+'</b><em class="'+cls+'">'+displayChange+'</em></div>';
+     const labelKey=String(x.label||'').toLowerCase();
+      const glyph=labelKey==='btc'?'₿':labelKey==='gold'?'🪙':labelKey==='vix'?'🌡️':labelKey==='s&p 500'?'📈':labelKey==='nasdaq'?'💹':labelKey==='dow jones'?'🏛️':'◈';
+      return '<button type="button" class="ticker-item" data-ticker-label="'+escHtml(labelKey)+'" aria-label="عرض تفاصيل '+escHtml(x.label)+'" title="اضغط لعرض تفاصيل '+escHtml(x.label)+'"><span class="ticker-icon" aria-hidden="true">'+glyph+'</span><span class="ticker-label">'+escHtml(x.label)+'</span><b>'+displayPrice+'</b><em class="'+cls+'">'+displayChange+'</em></button>';
    }).join('');
    // Duplicate the ticker run to keep the ribbon continuously filled while scrolling.
    ticker.innerHTML=tickerItems
