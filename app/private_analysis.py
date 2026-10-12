@@ -356,7 +356,17 @@ async def build_private_analysis(symbol: str):
     quote_data = value(quote_data, {"symbol": symbol})
     tech = value(tech, {"status": "error", "targets": []})
     events = value(events, {"splits": [], "earnings": [], "dividends": []})
-    news = dedupe_records(value(news, []), ("headline", "url", "datetime"))
+    try:
+        news = dedupe_records(value(news, []), ("headline", "url", "datetime"))
+    except Exception as exc:
+        # Malformed news records must not abort the entire stock report.
+        import logging
+        logging.getLogger(__name__).warning(
+            "PRIVATE_ANALYSIS_NEWS_DEDUPE_FAILED symbol=%s error=%s",
+            symbol, type(exc).__name__,
+        )
+        raw_news = value(news, [])
+        news = [item for item in raw_news if isinstance(item, dict)] if isinstance(raw_news, list) else []
     fundamentals = value(fundamentals, {})
     tipranks = value(tipranks, {})
     # Normalize provider results so a transient/empty response cannot abort
