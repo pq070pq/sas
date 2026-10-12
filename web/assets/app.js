@@ -773,7 +773,17 @@ async function runRadar(show=true){
   if(show){
    const diagnostics=document.getElementById('radarDiagnostics');
    if(diagnostics)diagnostics.prepend(progress);
-   if(!existing&&grid)grid.innerHTML='<div class="empty-state">نراجع الأسهم الآن… ستظهر هنا فقط النتائج التي تجتاز شروط الرادار.</div>';
+   if(!existing&&grid)grid.innerHTML='<div class="radar-empty-card radar-scanning-empty">'+
+    '<div class="radar-empty-orbit" aria-hidden="true"><span></span><i></i><b></b></div>'+
+    '<div class="radar-empty-content">'+
+     '<span class="radar-empty-kicker">SAS PRO · LIVE SCAN</span>'+
+     '<h3>الرادار يعمل الآن</h3>'+
+     '<p>نراجع الأسهم الأمريكية ونختبر الحركة والسيولة والزخم والشروط الفنية. ستظهر هنا فقط الأسهم التي تجتاز شروط الرادار، ولن نحذف النتائج السابقة أثناء الفحص.</p>'+
+     '<div class="dashboard-empty-tags"><span>⚡ تحليل الزخم</span><span>◉ فحص السيولة</span><span>✓ تأكيد فني</span></div>'+
+     '<div class="radar-empty-status"><span class="radar-empty-dot"></span><span>المسح جارٍ — ننتظر النتائج المطابقة</span></div>'+
+     '<div class="radar-empty-actions"><button type="button" class="radar-empty-primary" onclick="document.getElementById(\'radarScanProgress\')?.scrollIntoView({behavior:\'smooth\',block:\'center\'})">عرض تقدم المسح ↓</button><button type="button" class="radar-empty-secondary" onclick="toggleRadarEmptyHelp(this)" aria-expanded="false">ما الذي يفحصه؟ <span>⌄</span></button></div>'+
+     '<div class="radar-empty-help" hidden>يفحص الرادار المرشحين ثم يطبق شروط السعر والسيولة والحركة والزخم والتأكيد الفني. قد يستغرق الفحص وقتًا؛ ولا يعني عدم ظهور سهم أثناء الفحص وجود عطل.</div>'+
+    '</div></div>';
   }else if(showcase){
    const actions=showcase.querySelector('.sas-radar-actions');
    if(actions)actions.before(progress);
