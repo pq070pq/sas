@@ -3631,12 +3631,14 @@ async def process_telegram_update(data: dict):
                     change_text = f" | التغير: <b>{float(change):+.2f}%</b>" if change is not None else ""
                     freshness = " | جلسة ممتدة" if q.get("is_extended_hours") else ""
                     when = f"\n🕒 وقت البيانات: {html.escape(str(q.get('datetime')))}" if q.get("datetime") else ""
+                    error_name = type(last_exc).__name__ if last_exc else "UnknownError"
                     fallback_report = (
                         f"📊 <b>SAS PRO | تقرير بديل للسهم {html.escape(symbol)}</b>\n"
                         "━━━━━━━━━━━━━━━━━━\n"
                         f"💵 السعر المتاح: <b>${price:,.4f}</b>{change_text}{freshness}\n"
                         f"📡 المصدر المستخدم: <b>{html.escape(str(q.get('source') or 'مصدر بديل'))}</b>{when}\n"
-                        "⚠️ تعذر بناء التحليل الفني الكامل؛ لذلك لم نعرض أهدافًا أو وقفًا غير موثوقين.\n"
+                        f"🧩 تعذر التحليل الكامل — نوع الخطأ: <code>{html.escape(error_name)}</code>\n"
+                        "⚠️ لم نعرض أهدافًا أو وقفًا غير موثوقين.\n"
                         "⚠️ السعر قد يكون آخر سعر متاح وليس سعرًا لحظيًا؛ تحقق من وقت البيانات قبل التداول.\n"
                         "⚠️ معلومات تعليمية فقط وليست توصية تداول."
                     )
