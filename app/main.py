@@ -2705,37 +2705,32 @@ def _rank_perpequities_movers(assets):
 
 @app.get("/api/market/movers")
 async def perpequities_market_movers(_: dict = Depends(require_pro)):
-    """Return positive movers during the regular US session, excluding crypto-like assets."""
-    assets_payload = await _fetch_perpequities_assets()
+    """Independent NASDAQ cash-equity gainers/losers for the current radar session."""
     status = market_status()
-    assets = assets_payload.get("assets") or []
-    gainers, losers, eligible = _rank_perpequities_movers(assets)
     if not stock_radar_enabled():
         return {
-            **assets_payload, "assets": [], "gainers": [], "losers": [], "available": False,
+            "available": False, "assets": [], "gainers": [], "losers": [],
             "price_min": 0.30, "price_max": 20.00,
-            "refresh_interval_seconds": _PERPEQUITIES_API_CACHE_TTL,
-            "price_basis": "PerpEquities reference price for perpetual equity contracts",
             "market_session": status.get("session"),
-            "message_ar": "الرادار متوقف مؤقتًا خارج جلسات الرصد الأمريكية.",
+            "message_ar": "تظهر حركة الأسهم عند توفر جلسة رصد وبيانات سوق موثوقة.",
         }
-    if eligible:
+    try:
+        from .scanner import discover_market_movers
+        payload = await asyncio.wait_for(discover_market_movers(), timeout=25)
         return {
-            **assets_payload, "assets": eligible, "gainers": gainers, "losers": losers,
-            "available": True, "price_min": 0.50, "price_max": 15.00,
-            "refresh_interval_seconds": _PERPEQUITIES_API_CACHE_TTL,
-            "price_basis": "PerpEquities reference price for perpetual equity contracts",
+            **payload,
+            "source": "NASDAQ live market data",
+            "price_min": 0.30, "price_max": 20.00,
             "market_session": status.get("session"),
-            "message_ar": None,
         }
-    return {
-        **assets_payload, "assets": [], "gainers": [], "losers": [], "available": False,
-        "price_min": 0.50, "price_max": 15.00,
-        "refresh_interval_seconds": _PERPEQUITIES_API_CACHE_TTL,
-        "price_basis": "PerpEquities reference price for perpetual equity contracts",
-        "market_session": status.get("session"),
-        "message_ar": assets_payload.get("message_ar") or "لا توجد أسهم رابحة ببيانات موثوقة ضمن النطاق المحدد حاليًا.",
-    }
+    except Exception as exc:
+        logger.warning("NASDAQ market movers failed: %s", type(exc).__name__)
+        return {
+            "available": False, "assets": [], "gainers": [], "losers": [],
+            "price_min": 0.30, "price_max": 20.00,
+            "market_session": status.get("session"),
+            "message_ar": "تعذر جلب بيانات حركة ناسداك مؤقتًا؛ ستتم المحاولة في التحديث التالي.",
+        }
 
 
 @app.get("/api/market/ticker")
