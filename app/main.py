@@ -425,7 +425,9 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             rr = round(reward / risk, 2)
 
     # قراءة فنية مفهومة للمستخدم، مشتقة من المستويات الفعلية ولا تنشئ سعرًا جديدًا.
-    if rr is not None and rr < 1:
+    if price is None:
+        recommendation = '⚠️ لا توجد فرصة موثوقة حاليًا — السعر الحي غير متاح، ويجب انتظار تحديث موثوق قبل اعتماد أي دخول.'
+    elif rr is not None and rr < 1:
         recommendation = '⛔ لا دخول حاليًا — نسبة العائد للمخاطرة ضعيفة.'
     elif change is not None and change > 10:
         recommendation = '🟡 مراقبة وعدم مطاردة الارتفاع؛ الدخول مشروط بثبات السعر وتأكيد السيولة.'
@@ -766,10 +768,18 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             continue
         words = set(headline.split())
         duplicate = False
+        event_groups = [
+            {"buyback", "repurchase", "repurchases", "repurchasing", "buyback", "buybacks"},
+            {"merger", "acquisition", "acquire", "acquires", "takeover"},
+            {"offering", "public", "shares", "share", "stock", "stocks"},
+            {"earnings", "results", "quarterly", "revenue"},
+        ]
         for prior in seen_headlines:
             prior_words = set(prior.split())
             similarity = len(words & prior_words) / max(1, len(words | prior_words))
-            if headline == prior or similarity >= 0.72:
+            shared_entity = len(words & prior_words) >= 2
+            same_event = any(bool(words & group) and bool(prior_words & group) for group in event_groups)
+            if headline == prior or similarity >= 0.72 or (shared_entity and same_event):
                 duplicate = True
                 break
         if duplicate:
@@ -856,9 +866,11 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         add_section(report, "🧠 <b>مراجعة SAS PRO AI</b>", fcc_lines)
 
     conclusion = []
-    if momentum_label:
+    if price is None:
+        conclusion.append("⚠️ <b>جودة البيانات:</b>\nلا توجد فرصة موثوقة حاليًا لأن السعر الحي غير متاح. لا تعتمد الدخول أو الأهداف حتى تتوفر بيانات حديثة قابلة للتحقق.")
+    elif momentum_label:
         conclusion.append(f"📌 <b>الوضع الحالي:</b>\nالسهم في حالة {_esc(momentum_label)} وتحت المراقبة.")
-    if sas_core is True:
+    if price is not None and sas_core is True:
         conclusion.append("🟢 <b>نقطة القوة:</b>\nاجتياز SAS Core ووجود محفزات فنية وإخبارية.")
     if rr is not None and rr < 1.5:
         conclusion.append(f"🟠 <b>نقطة الانتباه:</b>\nنسبة R:R الحالية <b>{rr:.2f}</b> وهي أقل من مرجع SAS البالغ <b>1.5</b>.")
