@@ -326,39 +326,36 @@ async function refreshTerminal(){
  if(terminalState.refreshing)return;
  terminalState.refreshing=true;
  try{
- const results=await Promise.allSettled([
-  api('/api/market/radar-status'),
-  api('/api/dashboard/home'),
-  api('/api/market/ticker'),
-  api('/api/market/movers')
- ]);
- const status=results[0]?.status==='fulfilled'?results[0].value:null;
- const home=results[1]?.status==='fulfilled'?results[1].value:null;
- const ticker=results[2]?.status==='fulfilled'?results[2].value:null;
- const movers=results[3]?.status==='fulfilled'?results[3].value:null;
- if(movers) renderPerpEquitiesMovers(movers);
- if(Array.isArray(ticker)){
-  const gold=ticker.find(x=>String(x?.symbol||'').toUpperCase()==='XAU/USD' || String(x?.label||'').toUpperCase()==='GOLD');
-  if(!gold || !(Number(gold.price)>0)){
-   const directGold=await fetchPublicGoldFallback();
-   if(directGold){
-    const idx=ticker.findIndex(x=>String(x?.symbol||'').toUpperCase()==='XAU/USD' || String(x?.label||'').toUpperCase()==='GOLD');
-    if(idx>=0)ticker[idx]=directGold;else ticker.push(directGold);
-   }
-  }
- }
-
- if(status) renderMarketStrip(status);
- if(home) renderDashboard(home);
- if(Array.isArray(ticker)) terminalState.ticker=ticker;
- renderMacro();
-
- const errors=results.filter(x=>x.status==='rejected').map(x=>x.reason?.message||'خطأ غير معروف');
- if(errors.length && !ticker){
-  console.warn('SAS PRO market ticker refresh failed:',errors);
- }
- if(terminalState.tab==='radar') await runRadar(false);
- if(terminalState.tab==='watch') renderWatchlist();
+  // Update each panel as soon as its own request completes. Do not let a slow
+  // movers/status endpoint keep already-received prices stuck on "loading".
+  const requests=[
+   api('/api/market/radar-status').then(status=>{renderMarketStrip(status);return status;}),
+   api('/api/dashboard/home').then(home=>{renderDashboard(home);return home;}),
+   api('/api/market/ticker').then(ticker=>{
+    if(!Array.isArray(ticker))return ticker;
+    // Paint real/cached market prices immediately; fetch missing gold separately.
+    terminalState.ticker=ticker;
+    renderMacro();
+    const gold=ticker.find(x=>String(x?.symbol||'').toUpperCase()==='XAU/USD' || String(x?.label||'').toUpperCase()==='GOLD');
+    if(!gold || !(Number(gold.price)>0)){
+     fetchPublicGoldFallback().then(directGold=>{
+      if(!directGold)return;
+      const current=Array.isArray(terminalState.ticker)?terminalState.ticker:[];
+      const idx=current.findIndex(x=>String(x?.symbol||'').toUpperCase()==='XAU/USD' || String(x?.label||'').toUpperCase()==='GOLD');
+      if(idx>=0)current[idx]=directGold;else current.push(directGold);
+      terminalState.ticker=current;
+      renderMacro();
+     }).catch(()=>{});
+    }
+    return ticker;
+   }),
+   api('/api/market/movers').then(movers=>{renderPerpEquitiesMovers(movers);return movers;})
+  ];
+  const results=await Promise.allSettled(requests);
+  const errors=results.filter(x=>x.status==='rejected').map(x=>x.reason?.message||'خطأ غير معروف');
+  if(errors.length)console.warn('SAS PRO panel refresh partial failures:',errors);
+  if(terminalState.tab==='radar')await runRadar(false);
+  if(terminalState.tab==='watch')renderWatchlist();
  }finally{
   terminalState.refreshing=false;
  }
