@@ -40,3 +40,35 @@ def test_movers_returns_all_eligible_gainers_and_losers_not_only_top_eight():
     assert gainers[0]["symbol"] == "UP11"
     assert losers[0]["symbol"] == "DN11"
     assert len(eligible) == 24
+
+
+
+def test_finviz_screener_parses_unique_gainers_with_price_band():
+    from app.scanner import _parse_finviz_screener
+    html = """
+    <table><tr><td>Ticker</td><td>Company</td><td>Price</td><td>Change</td><td>Volume</td></tr>
+    <tr><td>ABCD</td><td>Alpha</td><td>4.25</td><td>+8.10%</td><td>1,200,000</td></tr>
+    <tr><td>ABCD</td><td>Alpha duplicate</td><td>4.25</td><td>+8.10%</td><td>1,200,000</td></tr>
+    <tr><td>CHEAP</td><td>Too cheap</td><td>0.20</td><td>+30.00%</td><td>900,000</td></tr>
+    <tr><td>EXPENSIVE</td><td>Too expensive</td><td>15.01</td><td>+5.00%</td><td>900,000</td></tr>
+    <tr><td>RED</td><td>Loser</td><td>3.00</td><td>-4.00%</td><td>700,000</td></tr>
+    </table>
+    """
+    rows = _parse_finviz_screener(html, "gainers")
+    assert [x["symbol"] for x in rows] == ["ABCD"]
+    assert rows[0]["change_pct"] == 8.1
+    assert rows[0]["source"] == "Finviz"
+
+
+def test_finviz_screener_parses_losers_and_deduplicates_symbols():
+    from app.scanner import _parse_finviz_screener
+    html = """
+    <table><tr><td>Ticker</td><td>Company</td><td>Price</td><td>Change</td><td>Volume</td></tr>
+    <tr><td>LOSS</td><td>Loser</td><td>2.75</td><td>-3.25%</td><td>850,000</td></tr>
+    <tr><td>WIN</td><td>Winner</td><td>2.75</td><td>+3.25%</td><td>850,000</td></tr>
+    <tr><td>LOSS</td><td>Duplicate</td><td>2.75</td><td>-3.25%</td><td>850,000</td></tr>
+    </table>
+    """
+    rows = _parse_finviz_screener(html, "losers")
+    assert [x["symbol"] for x in rows] == ["LOSS"]
+    assert rows[0]["change_pct"] == -3.25
