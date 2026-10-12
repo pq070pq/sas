@@ -3584,19 +3584,60 @@ async def process_telegram_update(data: dict):
             # analysis fails: try a minimal live-quote report as a final fallback.
             fallback_report = None
             try:
-                from .market import quote
-                q = await asyncio.wait_for(quote(symbol), timeout=10)
+                from .market import quote, _stooq_quote
+                from .config import settings
+                from .twelve_guard import call as twelve_call
+                import httpx
+
+                q = None
+                # Fallback order intentionally differs from the primary quote:
+                # try Twelve Data first, then Stooq, then the normal provider pool.
+                if settings.twelve_data_api_key or settings.twelve_data_api_keys:
+                    try:
+                        async with httpx.AsyncClient(timeout=9) as client:
+                            response = await twelve_call(
+                                client.get,
+                                "https://api.twelvedata.com/quote",
+                                params={"symbol": symbol, "prepost": "true"},
+                            )
+                            response.raise_for_status()
+                            data = response.json()
+                            raw_price = data.get("extended_price") or data.get("price") or data.get("close")
+                            if raw_price is not None and float(raw_price) > 0:
+                                q = {
+                                    "symbol": symbol,
+                                    "price": float(raw_price),
+                                    "change_pct": data.get("extended_percent_change") or data.get("percent_change"),
+                                    "source": "Twelve Data Fallback",
+                                    "datetime": data.get("datetime"),
+                                    "is_extended_hours": bool(data.get("extended_price")),
+                                }
+                    except Exception as provider_exc:
+                        logger.warning("PRIVATE_FALLBACK_TWELVE_FAILED symbol=%s error=%s", symbol, type(provider_exc).__name__)
+                if not q:
+                    try:
+                        q = await asyncio.wait_for(_stooq_quote(symbol), timeout=12)
+                        if q and q.get("price") is not None:
+                            q["source"] = "Stooq Fallback (last available quote)"
+                        else:
+                            q = None
+                    except Exception as provider_exc:
+                        logger.warning("PRIVATE_FALLBACK_STOOQ_FAILED symbol=%s error=%s", symbol, type(provider_exc).__name__)
+                if not q:
+                    q = await asyncio.wait_for(quote(symbol), timeout=12)
                 if isinstance(q, dict) and q.get("price") is not None:
                     price = float(q["price"])
                     change = q.get("change_pct")
                     change_text = f" | التغير: <b>{float(change):+.2f}%</b>" if change is not None else ""
+                    freshness = " | جلسة ممتدة" if q.get("is_extended_hours") else ""
+                    when = f"\n🕒 وقت البيانات: {html.escape(str(q.get('datetime')))}" if q.get("datetime") else ""
                     fallback_report = (
                         f"📊 <b>SAS PRO | تقرير بديل للسهم {html.escape(symbol)}</b>\n"
                         "━━━━━━━━━━━━━━━━━━\n"
-                        f"💵 السعر الحي: <b>${price:,.4f}</b>{change_text}\n"
-                        f"📡 المصدر: {html.escape(str(q.get('source') or 'مصدر الأسعار'))}\n"
-                        "⚠️ تعذر بناء التحليل الكامل بعد عدة محاولات؛ لذلك لم نعرض أهدافًا أو وقفًا غير موثوقين.\n"
-                        "أعد المحاولة لاحقًا للحصول على التحليل الفني الكامل.\n"
+                        f"💵 السعر المتاح: <b>${price:,.4f}</b>{change_text}{freshness}\n"
+                        f"📡 المصدر المستخدم: <b>{html.escape(str(q.get('source') or 'مصدر بديل'))}</b>{when}\n"
+                        "⚠️ تعذر بناء التحليل الفني الكامل؛ لذلك لم نعرض أهدافًا أو وقفًا غير موثوقين.\n"
+                        "⚠️ السعر قد يكون آخر سعر متاح وليس سعرًا لحظيًا؛ تحقق من وقت البيانات قبل التداول.\n"
                         "⚠️ معلومات تعليمية فقط وليست توصية تداول."
                     )
             except Exception as fallback_exc:
@@ -5716,19 +5757,60 @@ async def process_telegram_update(data: dict):
             # analysis fails: try a minimal live-quote report as a final fallback.
             fallback_report = None
             try:
-                from .market import quote
-                q = await asyncio.wait_for(quote(symbol), timeout=10)
+                from .market import quote, _stooq_quote
+                from .config import settings
+                from .twelve_guard import call as twelve_call
+                import httpx
+
+                q = None
+                # Fallback order intentionally differs from the primary quote:
+                # try Twelve Data first, then Stooq, then the normal provider pool.
+                if settings.twelve_data_api_key or settings.twelve_data_api_keys:
+                    try:
+                        async with httpx.AsyncClient(timeout=9) as client:
+                            response = await twelve_call(
+                                client.get,
+                                "https://api.twelvedata.com/quote",
+                                params={"symbol": symbol, "prepost": "true"},
+                            )
+                            response.raise_for_status()
+                            data = response.json()
+                            raw_price = data.get("extended_price") or data.get("price") or data.get("close")
+                            if raw_price is not None and float(raw_price) > 0:
+                                q = {
+                                    "symbol": symbol,
+                                    "price": float(raw_price),
+                                    "change_pct": data.get("extended_percent_change") or data.get("percent_change"),
+                                    "source": "Twelve Data Fallback",
+                                    "datetime": data.get("datetime"),
+                                    "is_extended_hours": bool(data.get("extended_price")),
+                                }
+                    except Exception as provider_exc:
+                        logger.warning("PRIVATE_FALLBACK_TWELVE_FAILED symbol=%s error=%s", symbol, type(provider_exc).__name__)
+                if not q:
+                    try:
+                        q = await asyncio.wait_for(_stooq_quote(symbol), timeout=12)
+                        if q and q.get("price") is not None:
+                            q["source"] = "Stooq Fallback (last available quote)"
+                        else:
+                            q = None
+                    except Exception as provider_exc:
+                        logger.warning("PRIVATE_FALLBACK_STOOQ_FAILED symbol=%s error=%s", symbol, type(provider_exc).__name__)
+                if not q:
+                    q = await asyncio.wait_for(quote(symbol), timeout=12)
                 if isinstance(q, dict) and q.get("price") is not None:
                     price = float(q["price"])
                     change = q.get("change_pct")
                     change_text = f" | التغير: <b>{float(change):+.2f}%</b>" if change is not None else ""
+                    freshness = " | جلسة ممتدة" if q.get("is_extended_hours") else ""
+                    when = f"\n🕒 وقت البيانات: {html.escape(str(q.get('datetime')))}" if q.get("datetime") else ""
                     fallback_report = (
                         f"📊 <b>SAS PRO | تقرير بديل للسهم {html.escape(symbol)}</b>\n"
                         "━━━━━━━━━━━━━━━━━━\n"
-                        f"💵 السعر الحي: <b>${price:,.4f}</b>{change_text}\n"
-                        f"📡 المصدر: {html.escape(str(q.get('source') or 'مصدر الأسعار'))}\n"
-                        "⚠️ تعذر بناء التحليل الكامل بعد عدة محاولات؛ لذلك لم نعرض أهدافًا أو وقفًا غير موثوقين.\n"
-                        "أعد المحاولة لاحقًا للحصول على التحليل الفني الكامل.\n"
+                        f"💵 السعر المتاح: <b>${price:,.4f}</b>{change_text}{freshness}\n"
+                        f"📡 المصدر المستخدم: <b>{html.escape(str(q.get('source') or 'مصدر بديل'))}</b>{when}\n"
+                        "⚠️ تعذر بناء التحليل الفني الكامل؛ لذلك لم نعرض أهدافًا أو وقفًا غير موثوقين.\n"
+                        "⚠️ السعر قد يكون آخر سعر متاح وليس سعرًا لحظيًا؛ تحقق من وقت البيانات قبل التداول.\n"
                         "⚠️ معلومات تعليمية فقط وليست توصية تداول."
                     )
             except Exception as fallback_exc:
