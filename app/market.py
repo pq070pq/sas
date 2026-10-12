@@ -721,49 +721,87 @@ async def quote(symbol: str, prefer_extended: bool = False):
 
 
 _TICKER_CACHE = {}
+_TICKER_REFRESH_TASK = None
+_TICKER_SYMBOLS = [
+    ("BTC/USD", "BTC"),
+    ("XAU/USD", "GOLD"),
+    ("SPX", "S&P 500"),
+    ("IXIC", "NASDAQ"),
+    ("DJI", "DOW JONES"),
+    ("VIX", "VIX"),
+]
 
-async def ticker():
-    symbols = [
-        ("BTC/USD", "BTC"),
-        ("XAU/USD", "GOLD"),
-        ("SPX", "S&P 500"),
-        ("IXIC", "NASDAQ"),
-        ("DJI", "DOW JONES"),
-        ("VIX", "VIX"),
-    ]
 
+async def _refresh_ticker_cache():
     async def one(symbol, label):
         try:
-            # لا نسمح لمصدر واحد بطيء أن يحجب لوحة الإدارة.
-            item = await asyncio.wait_for(
-                macro_quote(symbol),
-                timeout=20,
-            )
+            item = await asyncio.wait_for(macro_quote(symbol), timeout=12)
             item["label"] = label
             if _valid_price(item.get("price")):
+                item["price"] = float(item["price"])
                 _TICKER_CACHE[symbol] = dict(item)
-            else:
-                cached = _TICKER_CACHE.get(symbol)
-                if cached:
-                    item = dict(cached)
-                    item["source"] = f"{item.get('source', 'مصدر سابق')} — آخر سعر حقيقي محفوظ"
-                    item["stale"] = True
-            item["price"] = float(item["price"]) if _valid_price(item.get("price")) else None
-            return item
+                return item
+            cached = _TICKER_CACHE.get(symbol)
+            if cached:
+                stale = dict(cached)
+                stale["label"] = label
+                stale["source"] = f"{stale.get('source', 'مصدر سابق')} — آخر سعر حقيقي محفوظ"
+                stale["stale"] = True
+                return stale
+            return {
+                "symbol": symbol, "label": label, "price": None,
+                "change_pct": None, "source": "unavailable",
+                "diagnostic": "provider_returned_no_valid_price",
+            }
         except Exception as exc:
             cached = _TICKER_CACHE.get(symbol)
             if cached:
-                item = dict(cached)
-                item["label"] = label
-                item["source"] = f"{item.get('source', 'مصدر سابق')} — آخر سعر حقيقي محفوظ"
-                item["stale"] = True
-                return item
+                stale = dict(cached)
+                stale["label"] = label
+                stale["source"] = f"{stale.get('source', 'مصدر سابق')} — آخر سعر حقيقي محفوظ"
+                stale["stale"] = True
+                return stale
             logger.warning("MARKET_TICKER_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
             return {
-                "symbol": symbol, "label": label,
-                "price": None, "change_pct": None, "source": "unavailable",
+                "symbol": symbol, "label": label, "price": None,
+                "change_pct": None, "source": "unavailable",
                 "diagnostic": f"timeout_or_source_error:{type(exc).__name__}",
             }
 
-    # جميع الأصول تُجلب بالتوازي.
-    return await asyncio.gather(*(one(symbol, label) for symbol, label in symbols))
+    return await asyncio.gather(*(one(symbol, label) for symbol, label in _TICKER_SYMBOLS))
+
+
+async def ticker():
+    """Return cached macro quotes immediately while refreshing providers in background."""
+    global _TICKER_REFRESH_TASK
+
+    def snapshot():
+        rows = []
+        for symbol, label in _TICKER_SYMBOLS:
+            item = _TICKER_CACHE.get(symbol)
+            if item and _valid_price(item.get("price")):
+                row = dict(item)
+                row["label"] = label
+                rows.append(row)
+            else:
+                rows.append({
+                    "symbol": symbol, "label": label, "price": None,
+                    "change_pct": None, "source": "جارٍ تحديث المصدر",
+                    "diagnostic": "quote_refresh_in_progress",
+                })
+        return rows
+
+    cached_rows = snapshot()
+    if _TICKER_REFRESH_TASK is None or _TICKER_REFRESH_TASK.done():
+        _TICKER_REFRESH_TASK = asyncio.create_task(_refresh_ticker_cache())
+
+    # First-ever request waits only briefly; the refresh continues in background.
+    if not any(_valid_price(row.get("price")) for row in cached_rows):
+        try:
+            await asyncio.wait_for(asyncio.shield(_TICKER_REFRESH_TASK), timeout=5.0)
+        except asyncio.TimeoutError:
+            pass
+        except Exception as exc:
+            logger.warning("MARKET_TICKER_REFRESH_FAILED error=%s", type(exc).__name__)
+        cached_rows = snapshot()
+    return cached_rows
