@@ -276,6 +276,22 @@ function switchTerminalTab(tab){
  if(tab==='radar')renderRadar();
  if(tab==='watch')renderWatchlist();
 }
+async function refreshTickerOnly(){
+ if(terminalState.tickerRefreshing)return;
+ terminalState.tickerRefreshing=true;
+ try{
+  const ticker=await api('/api/market/ticker',{timeoutMs:7000,retries:0});
+  if(Array.isArray(ticker)){
+   terminalState.ticker=ticker;
+   renderMacro();
+  }
+ }catch(e){
+  console.warn('SAS PRO ticker refresh failed:',e?.message||e);
+ }finally{
+  terminalState.tickerRefreshing=false;
+ }
+}
+
 async function initTerminal(){
  const backBtn=document.getElementById('adminBackBtn');
  if(backBtn)backBtn.hidden=!Boolean(me?.admin);
@@ -283,8 +299,13 @@ async function initTerminal(){
  document.getElementById('accountName').textContent=me.user?.first_name||me.user?.username||'مستخدم SAS PRO';
  document.getElementById('accountPlan').textContent=(me.user?.plan||'SAS PRO')+' • وصول فعّال';
  renderAccount();
+ if(terminalState.timer)clearInterval(terminalState.timer);
+ if(terminalState.tickerTimer)clearInterval(terminalState.tickerTimer);
  await refreshTerminal();
  terminalState.timer=setInterval(refreshTerminal,20000);
+ // Quotes refresh independently every 5 seconds, so they appear as soon as
+ // the backend's first provider request finishes instead of waiting for a full dashboard cycle.
+ terminalState.tickerTimer=setInterval(refreshTickerOnly,5000);
 }
 async function fetchPublicGoldFallback(){
  try{
@@ -316,6 +337,7 @@ async function openAdminUserView(){
 function returnToAdminView(){
  if(!me?.admin)return;
  if(terminalState.timer){clearInterval(terminalState.timer);terminalState.timer=null;}
+ if(terminalState.tickerTimer){clearInterval(terminalState.tickerTimer);terminalState.tickerTimer=null;}
  document.getElementById('terminalPage').hidden=true;
  document.getElementById('adminPage').hidden=false;
  adminRefresh();
