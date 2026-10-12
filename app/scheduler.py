@@ -95,10 +95,9 @@ async def scheduler():
 
         configured_interval = max(1, int(settings.radar_interval_minutes))
         current_session = str((market_status() or {}).get("session") or "")
-        if current_session in {"afterhours", "night"}:
-            sleep_seconds = 3600
-        else:
-            sleep_seconds = max(600, configured_interval * 60)
+        # Keep the extended-session radar responsive too. Do not wait an hour
+        # between after-hours/overnight scans; use the configured radar cadence.
+        sleep_seconds = max(300, configured_interval * 60)
 
         try:
             next_status = market_status()
