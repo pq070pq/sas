@@ -538,7 +538,16 @@ function toggleSasMetric(id){
  const wasOpen=panel.dataset.active===id&&!panel.hidden;
  document.querySelectorAll('.sas-metric-card').forEach(b=>{const active=b.dataset.metric===id&&!wasOpen;b.classList.toggle('is-active',active);b.setAttribute('aria-expanded',String(active));});
  if(wasOpen){panel.hidden=true;panel.dataset.active='';panel.innerHTML='';return;}
- const item=window.sasMetricDetails[id];panel.dataset.active=id;panel.innerHTML='<span class="sas-metric-detail-icon">ⓘ</span><div><strong>'+item.label+'</strong><p>'+item.detail+'</p></div><button type="button" aria-label="إغلاق التوضيح" onclick="toggleSasMetric(\\''+id+'\\')">×</button>';panel.hidden=false;
+ const item=window.sasMetricDetails[id];
+ panel.dataset.active=id;
+ panel.replaceChildren();
+ const icon=document.createElement('span');icon.className='sas-metric-detail-icon';icon.textContent='ⓘ';
+ const body=document.createElement('div');
+ const title=document.createElement('strong');title.textContent=item.label;
+ const detail=document.createElement('p');detail.textContent=item.detail;
+ body.append(title,detail);
+ const close=document.createElement('button');close.type='button';close.setAttribute('aria-label','إغلاق التوضيح');close.textContent='×';close.addEventListener('click',()=>toggleSasMetric(id));
+ panel.append(icon,body,close);panel.hidden=false;
 }
 function renderPerpEquitiesMovers(data){
  const sourceLink=document.querySelector('.sas-movers-source');
