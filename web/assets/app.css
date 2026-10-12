@@ -3170,3 +3170,34 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-finviz-quick-links a{display:inline-flex;align-items:center;justify-content:center;min-height:30px;padding:6px 10px;border:1px solid rgba(58,197,235,.28);border-radius:9px;background:rgba(3,31,47,.72);color:#9be9ff;text-decoration:none;font-size:10px;font-weight:700;line-height:1.3}
 .sas-finviz-quick-links a:active{opacity:.8}
 @media(max-width:420px){.sas-finviz-quick-links{gap:5px}.sas-finviz-quick-links a{flex:1 1 calc(50% - 5px);font-size:10px}}
+
+
+/* Dashboard: highest movers are the real SAS radar passes, with their satisfied checks */
+.sas-live-movers{display:grid;gap:9px}
+.sas-radar-mover-card{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:start;gap:10px;width:100%;min-width:0;padding:12px;border:1px solid rgba(61,180,215,.18);border-radius:13px;background:linear-gradient(135deg,rgba(4,29,43,.92),rgba(3,15,26,.94));color:#dff7ff;text-align:start;cursor:pointer;transition:border-color .16s,background .16s}
+.sas-radar-mover-card:active{background:rgba(6,44,62,.98);border-color:rgba(43,224,255,.55)}
+.sas-radar-mover-rank{display:grid;place-items:center;width:28px;height:28px;border-radius:9px;background:rgba(36,190,231,.1);border:1px solid rgba(48,207,242,.22);color:#7ceaff;font-size:10px;font-weight:900;font-variant-numeric:tabular-nums}
+.sas-radar-mover-main{display:grid;gap:7px;min-width:0}
+.sas-radar-mover-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.sas-radar-mover-heading>b{font-size:14px;font-weight:950;letter-spacing:.35px}
+.sas-radar-mover-heading em{font-style:normal;font-size:12px;font-weight:950;font-variant-numeric:tabular-nums}
+.sas-radar-mover-heading em.is-up{color:#4de5b1}
+.sas-radar-mover-heading em.is-down{color:#ff8198}
+.sas-radar-mover-meta{display:flex;flex-wrap:wrap;gap:6px 12px;color:#7798ac;font-size:10px}
+.sas-radar-mover-meta span{display:inline-flex;gap:4px;align-items:center}
+.sas-radar-mover-meta b{color:#cde8f5;font-weight:800;font-variant-numeric:tabular-nums}
+.sas-radar-condition-tags{display:flex;flex-wrap:wrap;gap:5px}
+.sas-radar-condition-tags>span{max-width:100%;padding:4px 7px;border-radius:7px;border:1px solid rgba(65,197,190,.16);background:rgba(17,105,99,.12);color:#8ee4d6;font-size:9px;line-height:1.4;overflow-wrap:anywhere}
+.sas-radar-mover-open{align-self:center;display:grid;justify-items:center;gap:4px;color:#7fb4ca;font-size:9px;white-space:nowrap}
+.sas-radar-mover-open b{font-size:16px;color:#5bdfff}
+.sas-radar-movers-empty{display:grid;justify-items:center;text-align:center;gap:7px;padding:23px 15px;border:1px dashed rgba(87,153,180,.24);border-radius:13px;color:#8aa6b9}
+.sas-radar-movers-empty>span{font-size:26px;color:#41dfff}
+.sas-radar-movers-empty>b{font-size:12px;color:#cde5f3}
+.sas-radar-movers-empty>small{font-size:10px;line-height:1.8;max-width:340px}
+@media(max-width:420px){
+ .sas-radar-mover-card{grid-template-columns:25px minmax(0,1fr);gap:8px;padding:10px}
+ .sas-radar-mover-rank{width:24px;height:24px}
+ .sas-radar-mover-open{grid-column:2;justify-self:start;display:flex;gap:5px}
+ .sas-radar-mover-meta{gap:5px 9px}
+ .sas-radar-condition-tags>span{font-size:9px}
+}
