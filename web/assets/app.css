@@ -3201,3 +3201,38 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .sas-radar-mover-meta{gap:5px 9px}
  .sas-radar-condition-tags>span{font-size:9px}
 }
+
+
+/* Market indicators: clearer icons, honest quote states, readable mobile layout */
+.macro-grid .macro-card-icon{
+ width:56px!important;height:56px!important;flex:0 0 56px!important;
+ border-radius:15px!important;font-size:34px!important;overflow:hidden!important;
+}
+.macro-grid .macro-card .macro-card-icon img{
+ width:42px!important;height:42px!important;max-width:42px!important;max-height:42px!important;
+ object-fit:contain!important;padding:0!important;filter:drop-shadow(0 2px 7px rgba(0,210,255,.28))!important;
+}
+.macro-grid .macro-card .macro-card-label{font-size:clamp(11px,1.4vw,14px)!important;font-weight:900!important;letter-spacing:.35px}
+.macro-grid .macro-card>b{font-size:clamp(15px,2vw,23px)!important;font-weight:950!important;line-height:1.3!important;overflow-wrap:anywhere}
+.macro-grid .macro-card>em{font-size:clamp(12px,1.5vw,16px)!important;font-weight:900!important}
+.macro-grid .macro-card>em.neutral{color:#a9c0ce!important}
+.macro-grid .macro-card .macro-source{font-size:11px!important;line-height:1.55!important;overflow-wrap:anywhere;opacity:.92}
+.macro-grid .macro-card.macro-unavailable{opacity:1!important;border-color:rgba(105,155,185,.28)!important}
+.macro-grid .macro-card.macro-unavailable>b{color:#9bb3c3!important;font-size:14px!important}
+.macro-grid .macro-card.macro-stale .macro-source{color:#edc47c!important}
+.market-ticker .ticker-icon{width:42px!important;height:42px!important;font-size:28px!important}
+.market-ticker .ticker-icon img{width:36px!important;height:36px!important;max-width:36px!important;max-height:36px!important;object-fit:contain!important}
+@media(max-width:760px){
+ .macro-grid .macro-card{grid-template-columns:54px minmax(0,1fr)!important;column-gap:11px!important;row-gap:6px!important;min-height:142px!important;padding:13px!important}
+ .macro-grid .macro-card .macro-card-icon{width:52px!important;height:52px!important;flex-basis:52px!important;border-radius:14px!important;font-size:32px!important}
+ .macro-grid .macro-card .macro-card-icon img{width:40px!important;height:40px!important;max-width:40px!important;max-height:40px!important}
+ .macro-grid .macro-card .macro-card-label{font-size:clamp(11px,3vw,14px)!important}
+ .macro-grid .macro-card>b{font-size:clamp(15px,4vw,21px)!important}
+ .macro-grid .macro-card>em{font-size:clamp(12px,3.2vw,15px)!important}
+ .macro-grid .macro-card .macro-source{font-size:10px!important}
+}
+@media(max-width:360px){
+ .macro-grid .macro-card{grid-template-columns:43px minmax(0,1fr)!important;column-gap:8px!important;min-height:132px!important;padding:10px!important}
+ .macro-grid .macro-card .macro-card-icon{width:42px!important;height:42px!important;flex-basis:42px!important;font-size:27px!important}
+ .macro-grid .macro-card .macro-card-icon img{width:34px!important;height:34px!important;max-width:34px!important;max-height:34px!important}
+}
