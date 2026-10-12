@@ -699,10 +699,11 @@ function renderMacro(){
  if(ticker){
    const tickerItems=rows.map(x=>{
      const valid=Number(x.price)>0;
-     const cls=Number(x.change_pct)>=0?'up':'down';
+     const changeValid=x.change_pct!==null&&x.change_pct!==undefined&&Number.isFinite(Number(x.change_pct));
+     const cls=changeValid?(Number(x.change_pct)>=0?'up':'down'):'neutral';
      const cachedKey='saspro_macro_'+String(x.label).replace(/\s+/g,'_');
      let displayPrice=valid?money(x.price):'—';
-     let displayChange=valid?pct(x.change_pct):'—';
+     let displayChange=valid&&changeValid?pct(Number(x.change_pct)):'—';
      if(valid){
        try{localStorage.setItem(cachedKey,JSON.stringify({price:x.price,change_pct:x.change_pct,updated_at:Date.now()}));}catch(e){}
      }else{
@@ -710,7 +711,7 @@ function renderMacro(){
          const cached=JSON.parse(localStorage.getItem(cachedKey)||'null');
          if(cached && Number(cached.price)>0){
            displayPrice=money(cached.price);
-           displayChange=Number.isFinite(Number(cached.change_pct))?pct(cached.change_pct):'—';
+           displayChange=cached.change_pct!==null&&cached.change_pct!==undefined&&Number.isFinite(Number(cached.change_pct))?pct(Number(cached.change_pct)):'—';
          }
        }catch(e){}
      }
