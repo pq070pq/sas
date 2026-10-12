@@ -2131,32 +2131,6 @@ function renderGiftMessagePreview(){
  if(node)node.textContent=Number.isInteger(days)&&days>0?String(days):'7';
 }
 document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays')renderGiftMessagePreview();});
-+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4}):'—';};
- const row=(x,down,i)=>{
-  const symbol=String(x.symbol||x.ticker||'—').toUpperCase(),price=x.live_price??x.price??x.entry_price,change=x._stockMoverChange,safe=escHtml(symbol);
-  return '<button type="button" class="radar-stock-mover-row '+(down?'is-down':'is-up')+'" onclick="openRadarMoverAnalysis(\''+safe+'\')"><span class="radar-stock-mover-rank">'+(i+1)+'</span><span class="radar-stock-mover-info"><b>'+safe+'</b><small>'+fmtPrice(price)+'</small></span><strong>'+(change>0?'+':'')+change.toFixed(2)+'%</strong><span class="radar-stock-mover-arrow">↗</span></button>';
- };
- const empty='<div class="radar-stock-mover-empty">لا توجد نتائج كافية من الرادار في هذه الدورة.</div>';
- gainersEl.innerHTML=gainers.length?gainers.map((x,i)=>row(x,false,i)).join(''):empty;
- losersEl.innerHTML=losers.length?losers.map((x,i)=>row(x,true,i)).join(''):empty;
- if(gainersCount)gainersCount.textContent=gainers.length+' سهم';
- if(losersCount)losersCount.textContent=losers.length+' سهم';
-}
-function openRadarMoverAnalysis(symbol){
- const input=document.getElementById('symbolSearch');
- if(!input)return;
- switchTerminalTab('search');
- input.value=String(symbol||'').trim().toUpperCase();
- if(typeof window.analyzeSymbol==='function')window.analyzeSymbol();
-}
-function toggleSasMetric(id){
- const panel=document.getElementById('sasMetricDetail');
- if(!panel||!window.sasMetricDetails||!window.sasMetricDetails[id])return;
- const wasOpen=panel.dataset.active===id&&!panel.hidden;
- document.querySelectorAll('.sas-metric-card').forEach(b=>{const active=b.dataset.metric===id&&!wasOpen;b.classList.toggle('is-active',active);b.setAttribute('aria-expanded',String(active));});
- if(wasOpen){panel.hidden=true;panel.dataset.active='';panel.innerHTML='';return;}
- const item=window.sasMetricDetails[id];panel.dataset.active=id;panel.innerHTML='<span class="sas-metric-detail-icon">ⓘ</span><div><strong>'+item.label+'</strong><p>'+item.detail+'</p></div><button type="button" aria-label="إغلاق التوضيح" onclick="toggleSasMetric(\''+id+'\')">×</button>';panel.hidden=false;
-}
 
 function renderPerpEquitiesMovers(data){
  const sourceLink=document.querySelector('.sas-movers-source');
