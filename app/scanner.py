@@ -843,13 +843,13 @@ async def discover_low_price_stocks():
             abs(_f(x.get("change_pct"))),
         ),
         reverse=True,
-    )[:min(settings.radar_staging_limit, 300)]
+    )[:min(settings.radar_staging_limit, 240)]
     # مرحلة التأكيد اليومية كانت نقطة الاختناق: 500 سهم × طلبات OHLCV
     # بتزامن 8 كانت تجعل دورة الرادار تتجاوز 10 دقائق. نستخدم عميل HTTP
     # مشتركًا وتزامنًا أعلى مع مهلة مستقلة لكل سهم حتى لا يحتجز سهم واحد
     # الدورة كلها.
-    semaphore = asyncio.Semaphore(4)
-    analysis_timeout = 15
+    semaphore = asyncio.Semaphore(12)
+    analysis_timeout = 10
     stage_stats = {
         "candle_error": 0,
         "insufficient_candles": 0,
