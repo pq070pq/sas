@@ -397,9 +397,9 @@ function renderDashboard(d){
  const scheduleRegular=document.getElementById('sasScheduleRegular');
  const scheduleAfter=document.getElementById('sasScheduleAfter');
  const scheduleStatus=document.getElementById('sasScheduleStatus');
- if(schedulePre)schedulePre.textContent=nextPremarket+' ص – '+regularOpen+' م';
- if(scheduleRegular)scheduleRegular.textContent=regularOpen+' م – '+regularClose+' م';
- if(scheduleAfter)scheduleAfter.textContent=regularClose+' م – '+afterClose+' ص';
+ if(schedulePre)schedulePre.textContent=nextPremarket+' – '+regularOpen;
+ if(scheduleRegular)scheduleRegular.textContent=regularOpen+' – '+regularClose;
+ if(scheduleAfter)scheduleAfter.textContent=regularClose+' – '+afterClose;
  if(scheduleStatus)scheduleStatus.textContent=({
   premarket:'🟡 السوق في فترة ما قبل الافتتاح — التداول الممتد قبل الجلسة الرسمية.',
   regular:'🟢 الجلسة الرسمية مفتوحة الآن — التداول جارٍ.',
