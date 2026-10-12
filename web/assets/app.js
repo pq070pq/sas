@@ -509,42 +509,69 @@ function renderDashboard(d){
  ];
  document.getElementById('dashboardMetrics').innerHTML=metricItems.map(m=>'<button type="button" class="sas-metric-card" data-metric="'+m.id+'" aria-expanded="false" onclick="toggleSasMetric(\''+m.id+'\')"><span class="sas-metric-top"><span class="sas-metric-icon">'+m.icon+'</span><span class="sas-metric-label">'+m.label+'</span><span class="sas-metric-chevron">⌄</span></span><strong class="sas-metric-value">'+m.value+'</strong><span class="sas-metric-hint">اضغط للتوضيح</span></button>').join('')+'<div id="sasMetricDetail" class="sas-metric-detail" hidden aria-live="polite"></div>';
  window.sasMetricDetails=Object.fromEntries(metricItems.map(m=>[m.id,{label:m.label,detail:m.detail}]));
- const movers=document.getElementById('liveMovers');
- if(movers){
-  const ranked=[...terminalState.radar].map(x=>({...x,_move:Number(x.change_pct??x.change??x.change_percent??x.day_change_pct)})).filter(x=>Number.isFinite(x._move)).sort((a,b)=>b._move-a._move).slice(0,5);
-  const maxMove=Math.max(1,...ranked.map(x=>Math.abs(x._move)));
-  movers.innerHTML=ranked.length?ranked.map(x=>'<div class="sas-mover-row"><span class="sas-mover-symbol">'+escHtml(x.symbol||x.ticker||'—')+'</span><span class="sas-mover-track"><i style="width:'+Math.max(4,Math.min(100,Math.abs(x._move)/maxMove*100))+'%"></i></span><strong class="sas-mover-value" style="color:'+(x._move>=0?'#00f5a0':'#ff6078')+'">'+(x._move>0?'+':'')+x._move.toFixed(2)+'%</strong></div>').join(''):'<div class="empty-state">لا توجد بيانات حركة قابلة للعرض ضمن نتائج الرادار الحالية.</div>';
- }
+ renderRadarMovementSignals();
  const count=document.getElementById('sasRadarCount');if(count)count.textContent=Number(terminalState.radar.length||0).toLocaleString('ar-SA')+' فرصة';
- renderStockMovers();
+
  const el=document.getElementById('dashboardRadar');
  if(terminalState.radar.length) renderCards(el,terminalState.radar.slice(0,6));
  else el.innerHTML='<div class="empty-state">لا توجد إشارات محفوظة من آخر جلسة.</div>';
 }
 
-function renderStockMovers(){
- const gainersEl=document.getElementById('radarStockGainers'),losersEl=document.getElementById('radarStockLosers');
- const gainersCount=document.getElementById('radarStockGainersCount'),losersCount=document.getElementById('radarStockLosersCount');
- if(!gainersEl||!losersEl)return;
- const stocks=(Array.isArray(terminalState.radar)?terminalState.radar:[]).map(x=>{
-  const raw=x.change_pct??x.change_percent??x.day_change_pct??x.change;
-  return {...x,_stockMoverChange:Number(raw)};
- }).filter(x=>Number.isFinite(x._stockMoverChange)&&x._stockMoverChange!==0)
- .filter(x=>Number(x.live_price??x.price??x.entry_price)>0)
- .filter(x=>{const p=Number(x.live_price??x.price??x.entry_price);return p>=0.50&&p<=30;});
- const gainers=stocks.filter(x=>x._stockMoverChange>0).sort((a,b)=>b._stockMoverChange-a._stockMoverChange).slice(0,8);
- const losers=stocks.filter(x=>x._stockMoverChange<0).sort((a,b)=>a._stockMoverChange-b._stockMoverChange).slice(0,8);
- const fmtPrice=v=>{const n=Number(v);return Number.isFinite(n)&&n>0?'$'+n.toFixed(2):'—';};
- const renderRows=(items,el,countEl,positive)=>{
-  if(countEl)countEl.textContent=String(items.length);
-  el.innerHTML=items.length?items.map(x=>{
-   const symbol=escHtml(x.symbol||x.ticker||'—'),price=fmtPrice(x.live_price??x.price??x.entry_price),change=x._stockMoverChange;
-   return '<button type="button" class="sas-stock-mover-row" data-symbol="'+symbol+'"><span class="sas-stock-mover-symbol">'+symbol+'</span><span class="sas-stock-mover-price">'+price+'</span><strong class="'+(positive?'is-up':'is-down')+'">'+(change>0?'+':'')+change.toFixed(2)+'%</strong></button>';
-  }).join(''):'<div class="empty-state">لا توجد أسهم مستوفية للعرض ضمن نتائج الرادار الحالية.</div>';
+function renderRadarMovementSignals(){
+ const el=document.getElementById('liveMovers');
+ if(!el)return;
+ const stocks=(Array.isArray(terminalState.radar)?terminalState.radar:[])
+  .filter(x=>x&&String(x.symbol||x.ticker||'').trim())
+  .map(x=>({...x,_move:Number(x.live_change_pct??x.change_pct??x.change_percent??x.day_change_pct??x.change)}))
+  .filter(x=>Number.isFinite(x._move)&&Number(x.live_price??x.price??x.entry_price)>0)
+  .sort((a,b)=>Math.abs(b._move)-Math.abs(a._move) || Number(b.opening_opportunity_score||0)-Number(a.opening_opportunity_score||0))
+  .slice(0,12);
+ const pct=v=>(v>0?'+':'')+v.toFixed(2)+'%';
+ const price=v=>{const n=Number(v);return Number.isFinite(n)&&n>0?'$'+n.toFixed(2):'—';};
+ const conditionTags=x=>{
+  const c=x.radar_checks||{},cl=x.classification||{},tags=[];
+  if(c.momentum_label)tags.push('الزخم: '+c.momentum_label);
+  else if(c.momentum)tags.push('زخم مرصود');
+  if(c.sas_core)tags.push('اجتاز SAS Core');
+  if(c.liquidity)tags.push('السيولة مستوفاة');
+  if(c.rvol)tags.push('RVOL '+(c.momentum_rvol!=null?Number(c.momentum_rvol).toFixed(2)+'×':'متحقق'));
+  if(c.target)tags.push('هدف فني مؤكد');
+  else if(c.target_status)tags.push(c.target_status);
+  if(c.advanced_confirmation)tags.push('تأكيد فني متقدم');
+  if(c.no_distribution)tags.push('لا توجد علامة توزيع');
+  if(c.no_chase)tags.push('دون مطاردة سعرية');
+  const structure=c.market_structure||cl.market_structure;
+  if(structure&&typeof structure==='string')tags.push('البنية: '+structure);
+  const fib=c.fibonacci_zone||cl.fibonacci?.zone;
+  if(fib&&typeof fib==='string')tags.push('فيبوناتشي: '+fib);
+  const fvg=c.fvg;
+  if(fvg&&typeof fvg==='string')tags.push('FVG: '+fvg);
+  const divergence=c.rsi_divergence;
+  if(divergence&&typeof divergence==='string'&&!['none','لا يوجد','محايد'].includes(divergence.toLowerCase()))tags.push('RSI: '+divergence);
+  return tags.slice(0,6);
  };
- renderRows(gainers,gainersEl,gainersCount,true);
- renderRows(losers,losersEl,losersCount,false);
- [gainersEl,losersEl].forEach(el=>el.querySelectorAll('.sas-stock-mover-row').forEach(btn=>btn.addEventListener('click',()=>openRadarMoverAnalysis(btn.dataset.symbol))));
+ if(!stocks.length){
+  el.innerHTML='<div class="sas-radar-movers-empty"><span>⌁</span><b>لا توجد فرص مؤكدة في آخر رصد</b><small>ستظهر الأسهم هنا بعد اجتياز شروط الرادار الفعلية، مع توضيح الشروط التي حققها كل سهم.</small></div>';
+  return;
+ }
+ el.innerHTML=stocks.map((x,index)=>{
+  const sym=String(x.symbol||x.ticker||'—'),safe=escHtml(sym);
+  const change=x._move,positive=change>=0;
+  const px=price(x.live_price??x.price??x.entry_price);
+  const volume=Number(x.volume),rvol=x.radar_checks?.momentum_rvol??x.classification?.rvol;
+  const score=Number(x.opening_opportunity_score);
+  const tags=conditionTags(x);
+  return '<button type="button" class="sas-radar-mover-card" data-symbol="'+safe+'" aria-label="فتح تحليل '+safe+'">'+
+   '<span class="sas-radar-mover-rank">'+String(index+1).padStart(2,'0')+'</span>'+
+   '<span class="sas-radar-mover-main"><span class="sas-radar-mover-heading"><b>'+safe+'</b><em class="'+(positive?'is-up':'is-down')+'">'+pct(change)+'</em></span>'+
+   '<span class="sas-radar-mover-meta"><span>السعر <b>'+px+'</b></span>'+
+   (Number.isFinite(volume)&&volume>0?'<span>الحجم <b>'+volume.toLocaleString('en-US',{maximumFractionDigits:0})+'</b></span>':'')+
+   (Number.isFinite(Number(rvol))&&Number(rvol)>0?'<span>RVOL <b>'+Number(rvol).toFixed(2)+'×</b></span>':'')+
+   (Number.isFinite(score)?'<span>قوة الفرصة <b>'+score.toFixed(0)+'/100</b></span>':'')+'</span>'+
+   '<span class="sas-radar-condition-tags">'+(tags.length?tags.map(t=>'<span>'+escHtml(t)+'</span>').join(''):'<span>اجتاز بوابة الرادار</span>')+'</span></span>'+
+   '<span class="sas-radar-mover-open">تحليل السهم <b>↗</b></span></button>';
+ }).join('');
+ el.querySelectorAll('.sas-radar-mover-card').forEach(btn=>btn.addEventListener('click',()=>openRadarMoverAnalysis(btn.dataset.symbol)));
 }
 function openRadarMoverAnalysis(symbol){
  switchTerminalTab('search');
