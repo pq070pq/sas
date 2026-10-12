@@ -567,7 +567,7 @@ function renderPerpEquitiesMovers(data){
   const empty=escHtml(data.message_ar||'لا توجد بيانات أسعار ضمن النطاق المحدد حاليًا.');
   gainers.innerHTML='<div class="sas-perp-movers-empty">'+empty+'</div>';losers.innerHTML='<div class="sas-perp-movers-empty">'+empty+'</div>';
   if(updated)updated.textContent='بانتظار تحديث الأسعار';
-  if(state)state.textContent=data.stale?'آخر بيانات محفوظة • تحديث متأخر':'نطاق السعر $0.50–$15.00';
+  if(state)state.textContent=data.stale?'آخر بيانات محفوظة • تحديث متأخر':'نطاق السعر $0.30–$20.00';
   return;
  }
  const makeRows=(items,direction,emptyLabel)=>items.length?items.map((item,index)=>{
@@ -587,7 +587,7 @@ function renderPerpEquitiesMovers(data){
  if(losersCount)losersCount.textContent=losersList.length.toLocaleString('ar-SA-u-nu-latn')+' سهم';
  if(updated&&data.updated_at){const date=new Date(data.updated_at);updated.textContent='آخر تحديث للبيانات: '+(Number.isFinite(date.getTime())?new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',hour12:true}).format(date)+' بتوقيت الرياض':'—');}
  else if(updated)updated.textContent='وقت التحديث غير متاح';
- if(state)state.textContent=!['premarket','regular','afterhours','night'].includes(data.market_session)?'الرادار ينتظر جلسة الرصد التالية':(data.stale?'آخر بيانات محفوظة • تحديث متأخر':'الرابحون والخاسرون • تحديث تلقائي كل 5 دقائق • $0.50–$15.00');
+ if(state)state.textContent=!['premarket','regular','afterhours','night'].includes(data.market_session)?'الرادار ينتظر جلسة الرصد التالية':(data.stale?'آخر بيانات محفوظة • تحديث متأخر':'الرابحون والخاسرون • تحديث تلقائي كل 5 دقائق • $0.30–$20.00');
 }
 function renderMacro(){
  const wanted=[
