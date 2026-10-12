@@ -393,6 +393,23 @@ function renderDashboard(d){
  const regularOpen=market.regular_open_riyadh||'16:30';
  const regularClose=market.regular_close_riyadh||'23:00';
  const afterClose=market.afterhours_close_riyadh||'03:00';
+ const schedulePre=document.getElementById('sasSchedulePre');
+ const scheduleRegular=document.getElementById('sasScheduleRegular');
+ const scheduleAfter=document.getElementById('sasScheduleAfter');
+ const scheduleStatus=document.getElementById('sasScheduleStatus');
+ if(schedulePre)schedulePre.textContent=nextPremarket+' ص – '+regularOpen+' م';
+ if(scheduleRegular)scheduleRegular.textContent=regularOpen+' م – '+regularClose+' م';
+ if(scheduleAfter)scheduleAfter.textContent=regularClose+' م – '+afterClose+' ص';
+ if(scheduleStatus)scheduleStatus.textContent=({
+  premarket:'🟡 السوق في فترة ما قبل الافتتاح — التداول الممتد قبل الجلسة الرسمية.',
+  regular:'🟢 الجلسة الرسمية مفتوحة الآن — التداول جارٍ.',
+  afterhours:'🟠 انتهت الجلسة الرسمية — التداول الممتد بعد الإغلاق.',
+  night:'🟣 فترة التداول الليلي مفعّلة حسب توفر بيانات الوسيط.',
+  night_pending:'🟣 التداول الليلي لم يبدأ بعد.',
+  overnight:'🌙 السوق متوقف حاليًا — بانتظار فترة ما قبل الافتتاح.',
+  weekend:'🌙 عطلة نهاية الأسبوع — لا توجد جلسة أسهم أمريكية عادية.',
+  holiday:'🌙 عطلة سوق — تحقق من تقويم البورصة قبل اعتماد المواعيد.'
+ }[session]||'يتم التحقق من حالة الجلسة الحالية.');
  document.getElementById('radarStatusText').textContent=nightPending
   ? '🟣 التداول الليلي يفتح قريبًا'+nightCountdown+' — الرصد لا ينشر إشارة إلا بعد تحقق السعر والسيولة والزخم.'
   : premarket
