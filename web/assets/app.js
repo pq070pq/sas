@@ -500,7 +500,7 @@ function renderPerpEquitiesMovers(data){
  if(losersCount)losersCount.textContent=losersList.length.toLocaleString('ar-SA-u-nu-latn')+' سهم';
  if(updated&&data.updated_at){const date=new Date(data.updated_at);updated.textContent='آخر تحديث للبيانات: '+(Number.isFinite(date.getTime())?new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',hour12:true}).format(date)+' بتوقيت الرياض':'—');}
  else if(updated)updated.textContent='وقت التحديث غير متاح';
- if(state)state.textContent=data.market_session!=='regular'?'يظهر الرصد خلال جلسة السوق الأمريكي الرسمية فقط':(data.stale?'آخر بيانات محفوظة • تحديث متأخر':'Twelve Data • الرابحون فقط • تحديث كل 5 دقائق • $0.50–$15.00');
+ if(state)state.textContent=data.stale?'آخر بيانات محفوظة • تحديث متأخر':(data.market_session==='premarket'?'تداول ما قبل الافتتاح • Twelve Data':data.market_session==='afterhours'?'تداول ما بعد الإغلاق • Twelve Data':'Twelve Data • الرابحون فقط • تحديث كل 5 دقائق • $0.50–$15.00');
 }
 function renderMacro(){
  const wanted=[
