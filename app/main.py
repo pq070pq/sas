@@ -2657,7 +2657,7 @@ async def _fetch_perpequities_assets():
         }
 
 
-def _movers_price_in_range(item, minimum=0.50, maximum=15.00):
+def _movers_price_in_range(item, minimum=0.30, maximum=20.00):
     """Only include assets whose published reference price is inside the requested band."""
     if not isinstance(item, dict):
         return False
@@ -2713,7 +2713,7 @@ async def perpequities_market_movers(_: dict = Depends(require_pro)):
     if not stock_radar_enabled():
         return {
             **assets_payload, "assets": [], "gainers": [], "losers": [], "available": False,
-            "price_min": 0.50, "price_max": 15.00,
+            "price_min": 0.30, "price_max": 20.00,
             "refresh_interval_seconds": _PERPEQUITIES_API_CACHE_TTL,
             "price_basis": "PerpEquities reference price for perpetual equity contracts",
             "market_session": status.get("session"),
