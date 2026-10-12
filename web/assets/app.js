@@ -393,6 +393,8 @@ function renderDashboard(d){
  const regularOpen=market.regular_open_riyadh||'16:30';
  const regularClose=market.regular_close_riyadh||'23:00';
  const afterClose=market.afterhours_close_riyadh||'03:00';
+ const scheduleNight=document.getElementById('sasScheduleNight');
+ const scheduleNightET=document.getElementById('sasScheduleNightET');
  const schedulePre=document.getElementById('sasSchedulePre');
  const scheduleRegular=document.getElementById('sasScheduleRegular');
  const scheduleAfter=document.getElementById('sasScheduleAfter');
@@ -420,6 +422,10 @@ function renderDashboard(d){
   const preET=document.getElementById('sasSchedulePreET');
   const regularET=document.getElementById('sasScheduleRegularET');
   const afterET=document.getElementById('sasScheduleAfterET');
+  const nightStartRiyadh=riyadhFromET(20,0);
+  const nightEndRiyadh=riyadhFromET(4,0);
+  if(scheduleNight) scheduleNight.textContent=nightStartRiyadh+' – '+nightEndRiyadh;
+  if(scheduleNightET) scheduleNightET.textContent='20:00 – 04:00 بتوقيت نيويورك ('+nyZoneName+')';
   if(preET)preET.textContent='04:00 – 09:30 بتوقيت نيويورك ('+nyZoneName+')';
   if(regularET)regularET.textContent='09:30 – 16:00 بتوقيت نيويورك ('+nyZoneName+')';
   if(afterET)afterET.textContent='16:00 – 20:00 بتوقيت نيويورك ('+nyZoneName+')';
@@ -427,7 +433,7 @@ function renderDashboard(d){
   premarket:'🟡 السوق في فترة ما قبل الافتتاح — التداول الممتد قبل الجلسة الرسمية.',
   regular:'🟢 الجلسة الرسمية مفتوحة الآن — التداول جارٍ.',
   afterhours:'🟠 انتهت الجلسة الرسمية — التداول الممتد بعد الإغلاق.',
-  night:'🟣 فترة التداول الليلي مفعّلة حسب توفر بيانات الوسيط.',
+  night:'🟣 التداول الليلي جارٍ عبر منصات/وسطاء داعمين؛ التوفر والأسعار يختلفان حسب السهم ومزود البيانات.',
   night_pending:'🟣 التداول الليلي لم يبدأ بعد.',
   overnight:'🌙 السوق متوقف حاليًا — بانتظار فترة ما قبل الافتتاح.',
   weekend:'🌙 عطلة نهاية الأسبوع — لا توجد جلسة أسهم أمريكية عادية.',
@@ -442,7 +448,7 @@ function renderDashboard(d){
     : session==='afterhours'
      ? '🟠 After-Hours — التداول الممتد حتى '+afterClose+' بتوقيت الرياض.'
      : session==='night'
-      ? '🟣 التداول الإلكتروني الليلي — الرصد يعمل ضمن الجلسة الليلية.'
+      ? '🟣 فترة التداول الليلي — الرصد يعمل، لكن التداول الفعلي وتحديث السعر يعتمدان على الوسيط ومزود البيانات.'
       : preopen
        ? '🌙 السوق مغلق — يبدأ Pre-Market الساعة '+nextPremarket+' بتوقيت الرياض.'
        : enabled
