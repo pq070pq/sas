@@ -547,7 +547,7 @@ async def _yahoo_index_quote(symbol: str):
         return None
 
 async def macro_quote(symbol: str):
-    """Holiday/macro quote with independent fallbacks and automatic diagnostics."""
+    """Return market indicators using live providers first, then reliable last closes."""
     diagnostics = []
 
     if symbol in {"BTC/USD", "XAU/USD"}:
@@ -559,6 +559,7 @@ async def macro_quote(symbol: str):
         except Exception as exc:
             diagnostics.append(f"Public:{type(exc).__name__}")
 
+    # Paid/configured index providers first.
     try:
         fallback = await _fmp_index_quote(symbol) if symbol in {"SPX", "IXIC", "DJI"} else None
         if fallback:
@@ -578,13 +579,45 @@ async def macro_quote(symbol: str):
     except Exception as exc:
         diagnostics.append(f"Finnhub:{type(exc).__name__}")
 
+    # Yahoo index quotes are allowed only during active US sessions by the
+    # helper itself. It is intentionally attempted before slower historical
+    # fallbacks, and remains disabled on weekends/holidays.
+    if symbol in {"SPX", "IXIC", "DJI"}:
+        try:
+            fallback = await _yahoo_index_quote(symbol)
+            if fallback:
+                return fallback
+            diagnostics.append("YahooIndex:no_data_or_closed")
+        except Exception as exc:
+            diagnostics.append(f"YahooIndex:{type(exc).__name__}")
+
+    # Keyless snapshot/history fallback prevents a slow API chain from leaving
+    # every market-indicator card empty when the market is closed.
+    try:
+        snapshot = await _stooq_quote(symbol)
+        if snapshot:
+            return snapshot
+        diagnostics.append("Stooq:no_data")
+    except Exception as exc:
+        diagnostics.append(f"Stooq:{type(exc).__name__}")
+
+    if symbol in {"SPX", "IXIC", "DJI"}:
+        try:
+            fred = await _fred_index_quote(symbol)
+            if fred:
+                return fred
+            diagnostics.append("FRED:no_data")
+        except Exception as exc:
+            diagnostics.append(f"FRED:{type(exc).__name__}")
+
+    # Last resort: quote endpoint and daily-close fallback using configured keys.
     try:
         item = await quote(symbol)
         if _valid_price(item.get("price")):
             return item
-        diagnostics.append(f"TwelveQuote:{item.get('source', 'no_data')}")
+        diagnostics.append(f"Quote:{item.get('source', 'no_data')}")
     except Exception as exc:
-        diagnostics.append(f"TwelveQuote:{type(exc).__name__}")
+        diagnostics.append(f"Quote:{type(exc).__name__}")
 
     try:
         last_close = await _twelve_last_close(symbol)
@@ -594,34 +627,7 @@ async def macro_quote(symbol: str):
     except Exception as exc:
         diagnostics.append(f"TwelveLastClose:{type(exc).__name__}")
 
-    try:
-        snapshot = await _stooq_quote(symbol)
-        if snapshot:
-            return snapshot
-        diagnostics.append("Stooq:no_data")
-    except Exception as exc:
-        diagnostics.append(f"Stooq:{type(exc).__name__}")
-
-    # Active-session fallback only; never used on weekends/US holidays.
-    try:
-        fallback = await _yahoo_index_quote(symbol)
-        if fallback:
-            return fallback
-        diagnostics.append("YahooIndex:no_data")
-    except Exception as exc:
-        diagnostics.append(f"YahooIndex:{type(exc).__name__}")
-
-    # Final keyless fallback for the three cash indices. This is intentionally
-    # after all configured providers so it cannot mask a live/provider quote.
-    try:
-        fred = await _fred_index_quote(symbol)
-        if fred:
-            return fred
-        diagnostics.append("FRED:no_data")
-    except Exception as exc:
-        diagnostics.append(f"FRED:{type(exc).__name__}")
-
-    logger.warning("HOLIDAY_RADAR_PRICE_FAILED symbol=%s diagnostics=%s", symbol, " | ".join(diagnostics))
+    logger.warning("MARKET_INDICATOR_PRICE_FAILED symbol=%s diagnostics=%s", symbol, " | ".join(diagnostics))
     return {
         "symbol": symbol,
         "price": None,
