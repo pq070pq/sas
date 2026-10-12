@@ -2722,6 +2722,7 @@ async def perpequities_market_movers(_: dict = Depends(require_pro)):
             "source": "NASDAQ live market data",
             "price_min": 0.30, "price_max": 20.00,
             "market_session": status.get("session"),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
     except Exception as exc:
         logger.warning("NASDAQ market movers failed: %s", type(exc).__name__)
