@@ -134,8 +134,9 @@ def _format_corporate_actions(events):
 
 
 def _format_news(news, ai=None):
+    # Empty/filtered news is a normal state; it must not break private analysis.
     if not isinstance(news, list) or not news:
-        return "\n".join(lines) if lines else "• لا توجد أخبار موثقة حديثة من المصادر المتاحة."
+        return "• لا توجد أخبار موثقة حديثة من المصادر المتاحة."
 
     summary_by_story = {}
     for summary_item in (ai or {}).get("news_summaries") or []:
