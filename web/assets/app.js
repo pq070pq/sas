@@ -232,7 +232,7 @@ async function load(){
  }
 }
 
-const terminalState={ticker:[],radar:[],perpAssets:{},watch:JSON.parse(localStorage.getItem('saspro_watchlist')||'[]'),timer:null,tab:'dashboard',refreshing:false,radarScanning:false};
+const terminalState={ticker:[],radar:[],perpAssets:{},watch:JSON.parse(localStorage.getItem('saspro_watchlist')||'[]'),timer:null,tickerTimer:null,moversTimer:null,moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
 function escHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 function safeNewsUrl(value){
  try{
@@ -301,11 +301,14 @@ async function initTerminal(){
  renderAccount();
  if(terminalState.timer)clearInterval(terminalState.timer);
  if(terminalState.tickerTimer)clearInterval(terminalState.tickerTimer);
- await refreshTerminal();
+ if(terminalState.moversTimer)clearInterval(terminalState.moversTimer);
+ await Promise.allSettled([refreshTerminal(),refreshMoversOnly()]);
  terminalState.timer=setInterval(refreshTerminal,20000);
  // Quotes refresh independently every 5 seconds, so they appear as soon as
  // the backend's first provider request finishes instead of waiting for a full dashboard cycle.
  terminalState.tickerTimer=setInterval(refreshTickerOnly,5000);
+ // Refresh winning/losing equity prices every five minutes, independently of the dashboard's faster refresh.
+ terminalState.moversTimer=setInterval(refreshMoversOnly,300000);
 }
 async function fetchPublicGoldFallback(){
  try{
@@ -338,12 +341,25 @@ function returnToAdminView(){
  if(!me?.admin)return;
  if(terminalState.timer){clearInterval(terminalState.timer);terminalState.timer=null;}
  if(terminalState.tickerTimer){clearInterval(terminalState.tickerTimer);terminalState.tickerTimer=null;}
+ if(terminalState.moversTimer){clearInterval(terminalState.moversTimer);terminalState.moversTimer=null;}
  document.getElementById('terminalPage').hidden=true;
  document.getElementById('adminPage').hidden=false;
  adminRefresh();
  window.scrollTo({top:0,behavior:'smooth'});
 }
 
+async function refreshMoversOnly(){
+ if(terminalState.moversRefreshing||document.visibilityState!=='visible')return;
+ terminalState.moversRefreshing=true;
+ try{
+  const movers=await api('/api/market/movers',{timeoutMs:30000,retries:0});
+  renderPerpEquitiesMovers(movers);
+ }catch(e){
+  console.warn('SAS PRO movers refresh failed:',e?.message||e);
+ }finally{
+  terminalState.moversRefreshing=false;
+ }
+}
 async function refreshTerminal(){
  if(terminalState.refreshing)return;
  terminalState.refreshing=true;
@@ -371,7 +387,6 @@ async function refreshTerminal(){
     }
     return ticker;
    }),
-   api('/api/market/movers').then(movers=>{renderPerpEquitiesMovers(movers);return movers;})
   ];
   // Start the radar scan independently too; it must not wait for ticker/movers.
   if(terminalState.tab==='radar')void runRadar(false);
