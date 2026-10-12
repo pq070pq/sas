@@ -767,13 +767,14 @@ async def discover_low_price_stocks():
       4) high-dollar-volume names.
     Detailed OHLCV confirmation happens after staging.
     """
-    source_names = ("nasdaq", "openterminal", "twelvedata", "panwatch", "licensed")
+    source_names = ("nasdaq", "yahoo_gainers", "openterminal", "twelvedata", "panwatch", "licensed")
     source_counts = {name: 0 for name in source_names}
     source_errors = {}
 
     async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
         sources = await asyncio.gather(
             _discover_us_exchanges(client),
+            _discover_yahoo_top_gainers(client),
             _discover_openterminal(client),
             _discover_twelvedata(client),
             _discover_panwatch(client),
