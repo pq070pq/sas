@@ -442,6 +442,7 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
     """
     session = str((status or {}).get("session") or "")
     extended = session in {"premarket", "afterhours", "night"}
+    overnight = session == "night"
 
     classification = row.get("classification") or {}
     # لا تسمح بوابة القناة أو التطبيق بفرصة "مراقبة" غير مكتملة.
@@ -528,9 +529,13 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
             return True, "جلسة رئيسية — مرشح SAS مؤكد ببيانات لحظية"
         return False, "بيانات السعر/الحجم الحي غير متاحة"
 
+    # Overnight ATS is a separate venue/session from pre-market and after-hours.
+    # Generic prepost/extended_price fields do not prove a quote is from the
+    # active overnight session. Keep candidates watch-only until a provider
+    # explicitly identifies a live overnight quote.
+    if overnight and not bool((quote_data or {}).get("is_overnight_hours")):
+        return False, "لا يوجد سعر موثق لجلسة التداول الليلي نفسها"
     # Extended-hours channel messages require an explicitly extended quote.
-    # If the provider cannot verify that the price is from the active extended
-    # session, keep the candidate in the radar/app but do not publish it.
     if not bool((quote_data or {}).get("is_extended_hours")):
         return False, "السعر الحالي غير موثق كبيانات ممتدة"
 
