@@ -2972,3 +2972,7 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-session-schedule-grid small{color:#829cab;font-size:10px;line-height:1.6}
 #sasScheduleStatus{margin:13px 0 0;padding:11px 12px;border-radius:12px;background:rgba(88,150,174,.09);color:#c6dce6;font-size:12px;line-height:1.8;text-align:right}
 @media(max-width:520px){.sas-session-schedule{margin:14px 10px 4px;padding:13px}.sas-session-schedule-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.sas-session-schedule-grid>div{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:10px 8px}.sas-session-schedule-grid span{font-size:11px}.sas-session-schedule-grid b{font-size:12px;white-space:normal;overflow-wrap:anywhere}.sas-session-schedule-grid small{font-size:9px;line-height:1.5}}
+
+/* Custom crescent mark for the night trading session */
+.sas-night-title{display:flex;align-items:center;justify-content:flex-start;gap:7px}
+.sas-crescent-icon{width:20px;height:20px;flex:0 0 20px;color:#a9d9f4;filter:drop-shadow(0 0 5px rgba(115,198,239,.24))}
