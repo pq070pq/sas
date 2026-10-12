@@ -3079,3 +3079,31 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .macro-grid .macro-card .macro-card-icon img{width:19px;height:19px}
  .macro-grid .macro-card>b{font-size:11px!important}
 }
+
+/* SAS PRO — actual radar stock gainers/losers, separate from perpetual-contract movers */
+.sas-radar-stock-movers{margin:14px 0;padding:clamp(12px,2.2vw,18px);border:1px solid rgba(91,151,193,.22);border-radius:18px;background:linear-gradient(145deg,rgba(8,24,36,.96),rgba(3,12,21,.98));min-width:0}
+.sas-radar-stock-movers .sas-insight-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sas-stock-movers-finviz{margin-inline-start:auto;display:inline-flex;align-items:center;justify-content:center;padding:7px 10px;border:1px solid rgba(89,169,255,.32);border-radius:10px;color:#9bcaff;text-decoration:none;font-size:12px;white-space:nowrap}
+.radar-stock-movers-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.radar-stock-movers-side{min-width:0;border:1px solid rgba(120,160,190,.15);border-radius:13px;overflow:hidden;background:rgba(2,10,17,.62)}
+.radar-stock-movers-side>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 12px;font-size:13px;font-weight:800}
+.radar-stock-movers-side>summary::-webkit-details-marker{display:none}
+.radar-stock-movers-side>summary.is-up{color:#68e8ae;background:rgba(19,116,77,.13)}
+.radar-stock-movers-side>summary.is-down{color:#ff8c9c;background:rgba(146,37,61,.13)}
+.radar-stock-movers-side>summary span:last-child{font-size:11px;opacity:.85}
+.radar-stock-movers-list{display:grid;gap:1px}
+.radar-stock-mover-row{width:100%;min-width:0;display:grid;grid-template-columns:22px minmax(0,1fr) auto 14px;align-items:center;gap:8px;padding:10px 11px;text-align:start;color:var(--text,#eaf3fa);background:rgba(255,255,255,.012);border:0;border-bottom:1px solid rgba(120,160,190,.09);cursor:pointer}
+.radar-stock-mover-row:last-child{border-bottom:0}
+.radar-stock-mover-rank{font-size:10px;color:#8ba5b8;text-align:center}
+.radar-stock-mover-info{display:grid;gap:3px;min-width:0}
+.radar-stock-mover-info b{font-size:12px;letter-spacing:.3px}
+.radar-stock-mover-info small{font-size:11px;color:#8fa7b9}
+.radar-stock-mover-row>strong{font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.radar-stock-mover-row.is-up>strong,.radar-stock-mover-row.is-up .radar-stock-mover-arrow{color:#54dfa0}
+.radar-stock-mover-row.is-down>strong,.radar-stock-mover-row.is-down .radar-stock-mover-arrow{color:#ff7189}
+.radar-stock-mover-arrow{font-size:12px}
+.radar-stock-mover-row.is-down .radar-stock-mover-arrow{transform:rotate(90deg)}
+.radar-stock-mover-row:hover{background:rgba(80,150,200,.09)}
+.radar-stock-mover-empty{padding:16px 10px;text-align:center;color:#8299aa;font-size:12px;line-height:1.6}
+.radar-stock-movers-note{margin:11px 2px 0;color:#7f96a7;font-size:10px;line-height:1.65}
+@media(max-width:560px){.radar-stock-movers-grid{grid-template-columns:minmax(0,1fr);gap:9px}.sas-stock-movers-finviz{margin-inline-start:0}.radar-stock-mover-row{padding:10px}}
