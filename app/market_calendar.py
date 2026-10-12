@@ -8,7 +8,6 @@ PREMARKET_START = (4, 0)
 REGULAR_START = (9, 30)
 REGULAR_END = (16, 0)
 AFTERHOURS_END = (20, 0)
-NIGHT_SESSION_LAUNCH = date(2026, 12, 6)
 
 
 def _nth_weekday(year: int, month: int, weekday: int, n: int) -> date:
@@ -115,27 +114,24 @@ def market_status(now: datetime | None = None) -> dict:
             "reason": "US market holiday", "date": d.isoformat(),
             "local_time": local.isoformat(),
         }
-    # Nasdaq Global Trading Hours: from 6 Dec 2026, the Sunday 21:00 ET
-    # Night Session resumes the electronic stock radar before the Monday day session.
-    if d >= NIGHT_SESSION_LAUNCH:
-        t = (local.hour, local.minute)
-        # 23/5 schedule: Sunday 21:00 ET through Friday 20:00 ET,
-        # with the night session active Sun 21:00–Mon 04:00 and
-        # Mon 21:00–Fri 04:00. Saturday is never an active night session.
-        night_active = (
-            (local.weekday() == 6 and t >= (21, 0)) or
-            (local.weekday() in (0, 1, 2, 3) and (t >= (21, 0) or t < (4, 0))) or
-            (local.weekday() == 4 and t < (4, 0))
-        )
-        if night_active:
-            return {
-                "open": False, "radar_active": True, "holiday": False, "session": "night",
-                "label_ar": "التداول الإلكتروني الليلي 🟣", "short_ar": "جلسة ليلية",
-                "reason": "Nasdaq Global Trading Hours", "date": d.isoformat(),
-                "local_time": local.isoformat(),
-                "night_session_et": "21:00–04:00",
-            }
-
+    # Overnight trading is offered by participating broker/ATS venues for supported symbols.
+    # It is separate from the official exchange session; availability depends on broker/data.
+    t = (local.hour, local.minute)
+    night_active = (
+        (local.weekday() == 6 and t >= (20, 0)) or
+        (local.weekday() in (0, 1, 2, 3) and (t >= (20, 0) or t < (4, 0))) or
+        (local.weekday() == 4 and t < (4, 0))
+    )
+    if night_active:
+        return {
+            "open": False, "radar_active": True, "holiday": False, "session": "night",
+            "label_ar": "التداول الليلي عبر وسطاء داعمين 🟣", "short_ar": "تداول ليلي",
+            "reason": "broker-supported overnight ATS session", "date": d.isoformat(),
+            "local_time": local.isoformat(),
+            "night_session_et": "20:00–04:00",
+            "night_session_riyadh": "03:00–11:00",
+            "broker_dependent": True,
+        }
 
     if local.weekday() >= 5:
         return {
