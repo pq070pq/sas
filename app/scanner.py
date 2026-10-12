@@ -269,8 +269,18 @@ def _momentum_time_filter():
     from zoneinfo import ZoneInfo
     now = datetime.now(ZoneInfo("America/New_York"))
     hour = now.hour
-    if hour < 10:
+
+    # Allow the scanner to run during the broker-supported overnight session
+    # (20:00–04:00 ET). Overnight volume is thinner, so use the conservative
+    # opening-session RVOL threshold rather than the daytime time-ramped values.
+    if hour >= 20 or hour < 4:
+        return MOMENTUM_RVOL_THRESHOLDS[10], now
+
+    # Before premarket discovery begins, do not use regular-session momentum
+    # thresholds against stale/partial data.
+    if hour < 4 or hour < 10:
         return None, now
+
     effective_hour = min(16, hour)
     return MOMENTUM_RVOL_THRESHOLDS.get(effective_hour), now
 
