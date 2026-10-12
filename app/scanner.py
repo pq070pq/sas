@@ -2,6 +2,8 @@ import asyncio
 import httpx
 import time
 import logging
+import re
+from html.parser import HTMLParser
 
 logger = logging.getLogger(__name__)
 from .config import settings
@@ -2103,11 +2105,83 @@ async def _get_intraday_liquidity(symbols):
     return out
 
 
+
+class _FinvizScreenerParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.rows, self.row, self.cell = [], None, None
+    def handle_starttag(self, tag, attrs):
+        if tag == "tr": self.row = []
+        elif tag in ("td", "th") and self.row is not None: self.cell = []
+    def handle_data(self, data):
+        if self.cell is not None: self.cell.append(data)
+    def handle_endtag(self, tag):
+        if tag in ("td", "th") and self.cell is not None and self.row is not None:
+            self.row.append(" ".join("".join(self.cell).split())); self.cell = None
+        elif tag == "tr" and self.row is not None:
+            if self.row: self.rows.append(self.row)
+            self.row = None
+
+def _finviz_number(value):
+    text = str(value or "").strip().replace(",", "").replace("$", "").replace("%", "").replace("+", "")
+    try:
+        number = float(text)
+        return number if math.isfinite(number) else None
+    except (TypeError, ValueError):
+        return None
+
+def _parse_finviz_screener(html, direction):
+    parser = _FinvizScreenerParser()
+    parser.feed(html or "")
+    header_index, columns = None, {}
+    for idx, row in enumerate(parser.rows):
+        names = [str(x).strip().lower() for x in row]
+        if "ticker" in names and "price" in names and "change" in names:
+            header_index = idx
+            columns = {k: names.index(k) for k in ("ticker", "price", "change", "volume", "company") if k in names}
+            break
+    if header_index is None or not all(k in columns for k in ("ticker", "price", "change")): return []
+    output, seen = [], set()
+    for row in parser.rows[header_index + 1:]:
+        if max(columns["ticker"], columns["price"], columns["change"]) >= len(row): continue
+        symbol = str(row[columns["ticker"]] or "").strip().upper()
+        if not re.fullmatch(r"[A-Z][A-Z0-9.\\-]{0,10}", symbol) or symbol in seen: continue
+        price, change = _finviz_number(row[columns["price"]]), _finviz_number(row[columns["change"]])
+        volume = _finviz_number(row[columns["volume"]]) if "volume" in columns and columns["volume"] < len(row) else 0
+        if price is None or change is None or not 0.30 <= price <= 15.00: continue
+        if (direction == "gainers" and change <= 0) or (direction == "losers" and change >= 0): continue
+        company = row[columns["company"]] if "company" in columns and columns["company"] < len(row) else ""
+        output.append({"symbol":symbol,"name":company,"price":price,"change_pct":round(change,4),
+                       "volume":volume or 0,"exchange":"NASDAQ","source":"Finviz",
+                       "url":"https://finviz.com/quote.ashx?t="+symbol})
+        seen.add(symbol)
+    return output
+
+_FINVIZ_MOVER_CACHE = {}
+_FINVIZ_MOVER_CACHE_TTL = 60
+
+async def _discover_finviz_movers(client, direction):
+    cached = _FINVIZ_MOVER_CACHE.get(direction)
+    if cached and time.monotonic() - cached[0] < _FINVIZ_MOVER_CACHE_TTL:
+        return [dict(x) for x in cached[1]]
+    weekly_filter = "ta_perf_1wup" if direction == "gainers" else "ta_perf_1wdown"
+    filters = "exch_nasd,sh_curvol_o100,sh_float_u50,sh_relvol_o0.5," + weekly_filter
+    url = "https://finviz.com/screener?v=111&f=" + filters + "&ft=4"
+    response = await client.get(url, headers={"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36",
+        "Accept":"text/html,application/xhtml+xml","Referer":"https://finviz.com/"})
+    response.raise_for_status()
+    rows = _parse_finviz_screener(response.text, direction)
+    if rows: _FINVIZ_MOVER_CACHE[direction] = (time.monotonic(), rows)
+    return rows
+
+
 async def discover_market_movers():
     """Return real NASDAQ-listed equity movers for the Mini App, independent of strategy signals."""
-    source_names = ("nasdaq", "openterminal", "twelvedata", "panwatch", "licensed")
-    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
+    source_names = ("finviz_gainers", "finviz_losers", "nasdaq", "openterminal", "twelvedata", "panwatch", "licensed")
+    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds, follow_redirects=True) as client:
         results = await asyncio.gather(
+            _discover_finviz_movers(client, "gainers"),
+            _discover_finviz_movers(client, "losers"),
             _discover_us_exchanges(client),
             _discover_openterminal(client),
             _discover_twelvedata(client),
@@ -2136,15 +2210,20 @@ async def discover_market_movers():
                 continue
             previous = merged.get(symbol)
             item = {"symbol": symbol, "name": name, "price": price, "change_pct": round(change, 4),
-                    "volume": volume, "exchange": "NASDAQ"}
-            if previous is None or item["volume"] > previous["volume"]:
+                    "volume": volume, "exchange": "NASDAQ", "source": row.get("source") or source_name}
+            if previous is None or (item["source"] == "Finviz" and previous.get("source") != "Finviz") or (
+                previous.get("source") != "Finviz" and item["volume"] > previous["volume"]
+            ):
                 merged[symbol] = item
     rows = list(merged.values())
     gainers = sorted((x for x in rows if x["change_pct"] > 0), key=lambda x: x["change_pct"], reverse=True)[:8]
     losers = sorted((x for x in rows if x["change_pct"] < 0), key=lambda x: x["change_pct"])[:8]
+    finviz_count = sum(1 for x in rows if x.get("source") == "Finviz")
     return {"available": bool(rows), "assets": gainers + losers, "gainers": gainers, "losers": losers,
-            "price_min": MIN_PRICE, "price_max": MAX_PRICE, "market_session": "NASDAQ",
-            "message_ar": None if rows else "لم تصل بيانات حركة موثوقة لأسهم ناسداك ضمن نطاق 0.30–20 دولارًا من مزودي البيانات."}
+            "price_min": 0.30, "price_max": 15.00, "market_session": "NASDAQ",
+            "source": "Finviz + fallback providers" if finviz_count else "fallback providers",
+            "finviz_count": finviz_count,
+            "message_ar": None if rows else "لم تصل بيانات حركة موثوقة لأسهم ناسداك ضمن نطاق 0.30–15 دولارًا. تحقق من اتصال مصدر Finviz ومزودي البيانات."}
 
 
 async def scan_us_low_price_stocks(force_refresh: bool = False):
