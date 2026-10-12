@@ -2123,7 +2123,7 @@ async def discover_market_movers():
         for row in rows or []:
             if not isinstance(row, dict) or _normalize_exchange(row.get("exchange") or row.get("mic_code")) != "NASDAQ":
                 continue
-            symbol = str(row.get("symbol") or "").strip().upper()
+            symbol = "".join(str(row.get("symbol") or "").upper().split())
             name = str(row.get("name") or "").strip()
             price = _f(row.get("price"), 0)
             change = _f(row.get("change_pct"), float("nan"))
