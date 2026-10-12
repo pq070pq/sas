@@ -514,7 +514,17 @@ function renderDashboard(d){
 
  const el=document.getElementById('dashboardRadar');
  if(terminalState.radar.length) renderCards(el,terminalState.radar.slice(0,6));
- else el.innerHTML='<div class="empty-state">لا توجد إشارات محفوظة من آخر جلسة.</div>';
+ else el.innerHTML='<div class="radar-empty-card dashboard-saved-empty">'+
+  '<div class="radar-empty-orbit" aria-hidden="true"><span></span><i></i><b></b></div>'+
+  '<div class="radar-empty-content">'+
+   '<span class="radar-empty-kicker">SAS PRO · RADAR WATCH</span>'+
+   '<h3>نترقّب الإشارة القادمة</h3>'+
+   '<p>لا توجد إشارات محفوظة من آخر جلسة. شغّل الرادار للبحث عن الأسهم التي تحقق شروط الزخم والسيولة والتأكيد الفني، وستظهر الفرص هنا عند رصدها.</p>'+
+   '<div class="dashboard-empty-tags"><span>⚡ الزخم</span><span>◉ السيولة</span><span>✓ تأكيد الشروط</span></div>'+
+   '<div class="radar-empty-status"><span class="radar-empty-dot"></span><span>جاهز لفحص فرص جديدة</span></div>'+
+   '<div class="radar-empty-actions"><button type="button" class="radar-empty-primary" onclick="runRadar()">⟳ ابدأ مسحًا جديدًا</button><button type="button" class="radar-empty-secondary" onclick="switchTerminalTab(\'radar\')">افتح صفحة الرادار ↗</button><button type="button" class="radar-empty-secondary dashboard-empty-help-btn" onclick="toggleRadarEmptyHelp(this)" aria-expanded="false">كيف يعمل؟ <span>⌄</span></button></div>'+
+   '<div class="radar-empty-help" hidden>لا يعرض SAS PRO سهمًا لمجرد ارتفاعه؛ بل ينتظر تحقق شروط الرصد المعتمدة. إذا لم تظهر فرص، فهذا يعني أن النتائج الحالية لم تجتز الفلاتر بعد.</div>'+
+  '</div></div>';
 }
 
 function renderRadarMovementSignals(){
