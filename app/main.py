@@ -3580,12 +3580,36 @@ async def process_telegram_update(data: dict):
                     logger.exception("Private stock analysis failed: symbol=%s attempt=%s error=%s", symbol, attempt + 1, exc)
                 if attempt < 2:
                     await asyncio.sleep(2 * (attempt + 1))
+            # Keep the private chat useful even when the full multi-provider
+            # analysis fails: try a minimal live-quote report as a final fallback.
+            fallback_report = None
             try:
-                raise last_exc
-            except Exception:
+                from .market import quote
+                q = await asyncio.wait_for(quote(symbol), timeout=10)
+                if isinstance(q, dict) and q.get("price") is not None:
+                    price = float(q["price"])
+                    change = q.get("change_pct")
+                    change_text = f" | التغير: <b>{float(change):+.2f}%</b>" if change is not None else ""
+                    fallback_report = (
+                        f"📊 <b>SAS PRO | تقرير بديل للسهم {html.escape(symbol)}</b>\n"
+                        "━━━━━━━━━━━━━━━━━━\n"
+                        f"💵 السعر الحي: <b>${price:,.4f}</b>{change_text}\n"
+                        f"📡 المصدر: {html.escape(str(q.get('source') or 'مصدر الأسعار'))}\n"
+                        "⚠️ تعذر بناء التحليل الكامل بعد عدة محاولات؛ لذلك لم نعرض أهدافًا أو وقفًا غير موثوقين.\n"
+                        "أعد المحاولة لاحقًا للحصول على التحليل الفني الكامل.\n"
+                        "⚠️ معلومات تعليمية فقط وليست توصية تداول."
+                    )
+            except Exception as fallback_exc:
+                logger.exception("Private analysis fallback quote failed: symbol=%s error=%s", symbol, fallback_exc)
+            if fallback_report:
+                await _safe_send(fallback_report)
+            else:
+                error_name = type(last_exc).__name__ if last_exc else "UnknownError"
+                logger.error("Private analysis exhausted retries: symbol=%s error_type=%s", symbol, error_name)
                 await _safe_send(
-                    "❌ تعذر إكمال التحليل الكامل حاليًا بعد 3 محاولات.\n"
-                    "تم تسجيل الخطأ تلقائيًا؛ أرسل رمز السهم مرة أخرى بعد قليل."
+                    "❌ تعذر إكمال التحليل الكامل أو جلب السعر الحي بعد 3 محاولات.\n"
+                    f"نوع الخطأ المسجل: <code>{html.escape(error_name)}</code>\n"
+                    "لم يتم تخمين سعر أو أهداف. أرسل هذه الرسالة للدعم إذا استمرت المشكلة."
                 )
 
         global private_analysis_task
@@ -5688,12 +5712,36 @@ async def process_telegram_update(data: dict):
                     logger.exception("Private stock analysis failed: symbol=%s attempt=%s error=%s", symbol, attempt + 1, exc)
                 if attempt < 2:
                     await asyncio.sleep(2 * (attempt + 1))
+            # Keep the private chat useful even when the full multi-provider
+            # analysis fails: try a minimal live-quote report as a final fallback.
+            fallback_report = None
             try:
-                raise last_exc
-            except Exception:
+                from .market import quote
+                q = await asyncio.wait_for(quote(symbol), timeout=10)
+                if isinstance(q, dict) and q.get("price") is not None:
+                    price = float(q["price"])
+                    change = q.get("change_pct")
+                    change_text = f" | التغير: <b>{float(change):+.2f}%</b>" if change is not None else ""
+                    fallback_report = (
+                        f"📊 <b>SAS PRO | تقرير بديل للسهم {html.escape(symbol)}</b>\n"
+                        "━━━━━━━━━━━━━━━━━━\n"
+                        f"💵 السعر الحي: <b>${price:,.4f}</b>{change_text}\n"
+                        f"📡 المصدر: {html.escape(str(q.get('source') or 'مصدر الأسعار'))}\n"
+                        "⚠️ تعذر بناء التحليل الكامل بعد عدة محاولات؛ لذلك لم نعرض أهدافًا أو وقفًا غير موثوقين.\n"
+                        "أعد المحاولة لاحقًا للحصول على التحليل الفني الكامل.\n"
+                        "⚠️ معلومات تعليمية فقط وليست توصية تداول."
+                    )
+            except Exception as fallback_exc:
+                logger.exception("Private analysis fallback quote failed: symbol=%s error=%s", symbol, fallback_exc)
+            if fallback_report:
+                await _safe_send(fallback_report)
+            else:
+                error_name = type(last_exc).__name__ if last_exc else "UnknownError"
+                logger.error("Private analysis exhausted retries: symbol=%s error_type=%s", symbol, error_name)
                 await _safe_send(
-                    "❌ تعذر إكمال التحليل الكامل حاليًا بعد 3 محاولات.\n"
-                    "تم تسجيل الخطأ تلقائيًا؛ أرسل رمز السهم مرة أخرى بعد قليل."
+                    "❌ تعذر إكمال التحليل الكامل أو جلب السعر الحي بعد 3 محاولات.\n"
+                    f"نوع الخطأ المسجل: <code>{html.escape(error_name)}</code>\n"
+                    "لم يتم تخمين سعر أو أهداف. أرسل هذه الرسالة للدعم إذا استمرت المشكلة."
                 )
 
         global private_analysis_task
