@@ -2976,3 +2976,7 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 /* Custom crescent mark for the night trading session */
 .sas-night-title{display:flex;align-items:center;justify-content:flex-start;gap:7px}
 .sas-crescent-icon{width:20px;height:20px;flex:0 0 20px;color:#a9d9f4;filter:drop-shadow(0 0 5px rgba(115,198,239,.24))}
+
+
+/* Fix: remove the dark edge mask that obscures the moving market ticker cards. */
+.market-ticker:after{display:none!important;content:none!important;background:none!important}
