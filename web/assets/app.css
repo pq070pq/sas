@@ -3107,3 +3107,59 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .radar-stock-mover-empty{padding:16px 10px;text-align:center;color:#8299aa;font-size:12px;line-height:1.6}
 .radar-stock-movers-note{margin:11px 2px 0;color:#7f96a7;font-size:10px;line-height:1.65}
 @media(max-width:560px){.radar-stock-movers-grid{grid-template-columns:minmax(0,1fr);gap:9px}.sas-stock-movers-finviz{margin-inline-start:0}.radar-stock-mover-row{padding:10px}}
+
+
+/* FIX: prevent dashboard action cards from stretching to the Telegram viewport height */
+#tab-dashboard .sas-dashboard-hero{
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  align-items:start!important;
+  grid-auto-rows:max-content!important;
+}
+#tab-dashboard .sas-dashboard-actions{
+  align-self:start!important;
+  align-content:start!important;
+  grid-auto-rows:max-content!important;
+  min-height:0!important;
+  height:auto!important;
+}
+#tab-dashboard .sas-action-card{
+  box-sizing:border-box!important;
+  height:auto!important;
+  min-height:76px!important;
+  max-height:132px!important;
+  align-self:start!important;
+  justify-content:initial!important;
+  flex:0 0 auto!important;
+  white-space:normal!important;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+#tab-dashboard .sas-action-card:active,
+#tab-dashboard .sas-action-card:focus{
+  height:auto!important;
+  max-height:132px!important;
+  transform:none!important;
+}
+#tab-dashboard .sas-action-copy{min-width:0!important;overflow-wrap:anywhere}
+@media(max-width:900px){
+  #tab-dashboard .sas-dashboard-hero{
+    height:auto!important;min-height:0!important;grid-template-rows:max-content max-content!important;
+  }
+  #tab-dashboard .sas-dashboard-actions{
+    grid-column:1/-1!important;grid-row:2!important;
+    display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    align-items:start!important;gap:9px!important;
+  }
+  #tab-dashboard .sas-action-card{
+    width:100%!important;min-width:0!important;min-height:88px!important;max-height:118px!important;
+    padding:10px!important;gap:7px!important;
+  }
+  #tab-dashboard .sas-action-copy b{font-size:clamp(11px,2.8vw,14px)!important}
+  #tab-dashboard .sas-action-copy small{font-size:10px!important;line-height:1.45!important}
+}
+@media(max-width:380px){
+  #tab-dashboard .sas-dashboard-actions{grid-template-columns:minmax(0,1fr)!important}
+  #tab-dashboard .sas-action-card{min-height:72px!important;max-height:100px!important}
+}
