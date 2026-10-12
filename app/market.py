@@ -735,7 +735,7 @@ _TICKER_SYMBOLS = [
 async def _refresh_ticker_cache():
     async def one(symbol, label):
         try:
-            item = await asyncio.wait_for(macro_quote(symbol), timeout=12)
+            item = await asyncio.wait_for(macro_quote(symbol), timeout=35)
             item["label"] = label
             if _valid_price(item.get("price")):
                 item["price"] = float(item["price"])
@@ -795,10 +795,11 @@ async def ticker():
     if _TICKER_REFRESH_TASK is None or _TICKER_REFRESH_TASK.done():
         _TICKER_REFRESH_TASK = asyncio.create_task(_refresh_ticker_cache())
 
-    # First-ever request waits only briefly; the refresh continues in background.
-    if not any(_valid_price(row.get("price")) for row in cached_rows):
+    # Wait briefly whenever any indicator is still missing, even if BTC/gold
+    # already have prices. Otherwise a partial cache can hide pending index data.
+    if any(not _valid_price(row.get("price")) for row in cached_rows):
         try:
-            await asyncio.wait_for(asyncio.shield(_TICKER_REFRESH_TASK), timeout=5.0)
+            await asyncio.wait_for(asyncio.shield(_TICKER_REFRESH_TASK), timeout=3.0)
         except asyncio.TimeoutError:
             pass
         except Exception as exc:
