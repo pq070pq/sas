@@ -923,7 +923,15 @@ async def discover_low_price_stocks():
         )
 
         # Reject only if there is no evidence of either movement or accumulation.
-        if not (accumulation_signal or movement_signal or breakout_setup):
+        # Early mover lane: do not discard a genuine, liquid daily gainer
+        # solely because candle confirmation is missing/late. It remains labeled
+        # unconfirmed and must still pass the downstream final risk/channel gate.
+        early_mover = bool(
+            change >= 2.0
+            and volume >= 100_000
+            and dollar_volume >= 250_000
+        )
+        if not (accumulation_signal or movement_signal or breakout_setup or early_mover):
             stage_stats["no_technical_signal"] += 1
             return None
 
@@ -936,20 +944,23 @@ async def discover_low_price_stocks():
 
         result = dict(row)
         result.update({
-            "momentum_section": "accumulation" if accumulation_signal else "movement",
+            "momentum_section": "accumulation" if accumulation_signal else "movement" if (movement_signal or breakout_setup) else "early_mover",
             "momentum_rvol_10d": round(rvol, 2),
             "momentum_rvol_threshold": 0.80 if accumulation_signal else 1.20,
             "momentum_candle_source": source,
             "momentum_session_verified": True,
             "accumulation_signal": accumulation_signal,
-            "movement_signal": movement_signal,
+            "movement_signal": movement_signal or early_mover,
             "breakout_setup": breakout_setup,
+            "early_watch": early_mover and not (accumulation_signal or movement_signal or breakout_setup),
             "staging_reason": (
                 "تجميع: قرب دعم + قيعان أعلى + انكماش/جفاف بيع"
                 if accumulation_signal
                 else "حركة: تغير سعري + RVOL غير عادي"
                 if movement_signal
                 else "اقتراب من مقاومة مع حجم داعم"
+                if breakout_setup
+                else "مراقبة مبكرة: سهم رابح وسيولته كافية؛ التأكيد الفني النهائي مطلوب"
             ),
         })
         return result
