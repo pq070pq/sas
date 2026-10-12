@@ -2124,8 +2124,15 @@ class _FinvizScreenerParser(HTMLParser):
 
 def _finviz_number(value):
     text = str(value or "").strip().replace(",", "").replace("$", "").replace("%", "").replace("+", "")
+    if not text or text in {"-", "--", "N/A", "nan"}:
+        return None
+    multiplier = 1.0
+    suffix = text[-1:].upper()
+    if suffix in {"K", "M", "B"}:
+        multiplier = {"K": 1_000.0, "M": 1_000_000.0, "B": 1_000_000_000.0}[suffix]
+        text = text[:-1]
     try:
-        number = float(text)
+        number = float(text) * multiplier
         return number if math.isfinite(number) else None
     except (TypeError, ValueError):
         return None
