@@ -127,27 +127,11 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
 
 
 async def technical_targets(symbol: str):
-    """Build targets only from observed OHLCV structure; never invent prices."""
-    base = settings.panwatch_base_url.rstrip("/")
-    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
-        rows = []
-        try:
-            r = await client.get(
-                f"{base}/api/klines/{symbol.upper()}",
-                params={"market": "US", "days": 90, "interval": "1d"},
-            )
-            r.raise_for_status()
-            payload = r.json()
-            data = payload.get("data") or payload
-            rows = data.get("klines", []) if isinstance(data, dict) else []
-        except Exception:
-            pass
-
-        # If PanWatch responded but returned no/insufficient candles, still use
-        # the observed Stooq history; otherwise the Mini App shows empty targets.
-        if len(rows) < 20:
-            rows = await _stooq_ohlcv(symbol, 90)
-
+    """Build targets from the same multi-provider OHLCV fallback used by the chart."""
+    # Reuse the complete history pipeline (PanWatch -> Twelve Data -> Finnhub -> Stooq)
+    # instead of querying only PanWatch/Stooq and leaving analysis empty when either fails.
+    history = await ohlcv(symbol, days=90, interval="1d")
+    rows = history.get("candles", []) if isinstance(history, dict) else []
     candles = []
     for row in rows:
         try:
