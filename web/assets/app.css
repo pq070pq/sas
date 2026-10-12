@@ -3409,3 +3409,35 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .ticker-item>em.positive{background:rgba(25,207,137,.12)!important;color:#27e7a0!important}
 .ticker-item>em.neutral{background:rgba(73,159,201,.12)!important;color:#9bd8f4!important}
 @media(max-width:600px){.ticker-item{min-width:260px!important;max-width:300px!important;min-height:108px!important;grid-template-columns:44px minmax(0,1fr) auto!important;gap:6px 10px!important;padding:13px!important;border-radius:18px!important}.ticker-item .ticker-icon{width:44px!important;height:44px!important;min-width:44px!important;border-radius:13px!important;font-size:22px!important}.ticker-item .ticker-label{font-size:12px!important}.ticker-item>b{font-size:clamp(16px,4vw,20px)!important}.ticker-item>em{font-size:12px!important;padding:7px 8px!important}}
+
+
+/* FIX 2026-10-12: prevent price/change badges from colliding with icons or values */
+.ticker-item{
+  box-sizing:border-box!important;
+  grid-template-columns:clamp(42px,4vw,54px) minmax(0,1fr)!important;
+  grid-template-rows:auto auto auto!important;
+  column-gap:12px!important;
+  row-gap:7px!important;
+  min-width:0!important;
+  min-height:142px!important;
+}
+.ticker-item .ticker-icon{grid-column:1!important;grid-row:1/4!important;align-self:start!important}
+.ticker-item .ticker-label{grid-column:2!important;grid-row:1!important;min-width:0!important}
+.ticker-item>b{grid-column:2!important;grid-row:2!important;min-width:0!important;max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:break-word!important;font-size:clamp(17px,1.65vw,25px)!important}
+.ticker-item>em{grid-column:2!important;grid-row:3!important;justify-self:start!important;align-self:start!important;max-width:100%!important;box-sizing:border-box!important;padding:5px 9px!important;font-size:clamp(11px,1vw,14px)!important}
+.macro-grid .macro-card{box-sizing:border-box!important}
+.macro-grid .macro-card .macro-card-icon{grid-row:1/4!important;align-self:start!important}
+.macro-grid .macro-card .macro-card-label{min-width:0!important}
+.macro-grid .macro-card>b{min-width:0!important;max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:break-word!important}
+.macro-grid .macro-card>em{grid-column:2/-1!important;grid-row:3!important;justify-self:start!important;align-self:start!important;max-width:100%!important;box-sizing:border-box!important;padding:5px 9px!important;font-size:clamp(11px,1vw,14px)!important}
+@media(max-width:600px){
+ .ticker-item{grid-template-columns:36px minmax(0,1fr)!important;min-height:126px!important;gap:6px 9px!important;padding:11px!important}
+ .ticker-item .ticker-icon{width:35px!important;height:35px!important;min-width:35px!important;grid-row:1/4!important}
+ .ticker-item .ticker-label{font-size:11px!important;line-height:1.4!important}
+ .ticker-item>b{font-size:clamp(14px,3.8vw,18px)!important;line-height:1.35!important}
+ .ticker-item>em{font-size:11px!important;padding:4px 7px!important;white-space:normal!important}
+ .macro-grid .macro-card{grid-template-columns:36px minmax(0,1fr)!important;grid-template-rows:auto auto auto auto!important}
+ .macro-grid .macro-card .macro-card-icon{grid-row:1/4!important}
+ .macro-grid .macro-card>b{grid-column:2!important;grid-row:2!important;font-size:clamp(13px,3.4vw,17px)!important}
+ .macro-grid .macro-card>em{grid-column:2!important;grid-row:3!important;justify-self:start!important}
+}
