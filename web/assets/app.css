@@ -2980,3 +2980,52 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 
 /* Fix: remove the dark edge mask that obscures the moving market ticker cards. */
 .market-ticker:after{display:none!important;content:none!important;background:none!important}
+
+
+/* Premium interactive market tiles and ticker controls */
+.macro-card{
+ position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:7px;
+ width:100%;min-width:0;text-align:start;cursor:pointer;color:var(--text);
+ border-radius:17px;padding:15px 14px 13px;
+ background:linear-gradient(145deg,rgba(7,37,52,.96),rgba(2,13,24,.98));
+ border:1px solid rgba(63,206,242,.25);
+ box-shadow:inset 0 1px rgba(255,255,255,.055),0 8px 22px rgba(0,0,0,.2);
+ transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease,background .22s ease;
+}
+.macro-card:before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(120deg,rgba(67,224,255,.09),transparent 46%);opacity:.75}
+.macro-card:hover,.macro-card:focus-visible,.macro-card.is-selected{
+ outline:none;transform:translateY(-3px);border-color:rgba(45,244,255,.8);
+ box-shadow:inset 0 1px rgba(255,255,255,.08),0 0 0 1px rgba(45,244,255,.14),0 12px 30px rgba(0,0,0,.34),0 0 24px rgba(45,244,255,.12);
+}
+.macro-card.is-selected{background:linear-gradient(145deg,rgba(8,58,72,.98),rgba(2,17,29,.99))}
+.macro-card-icon{position:relative;z-index:1;display:grid;place-items:center;width:37px;height:37px;flex:0 0 37px;border-radius:12px;border:1px solid rgba(45,244,255,.28);background:linear-gradient(145deg,rgba(45,244,255,.14),rgba(3,18,29,.8));color:#c7f9ff;font-size:21px;box-shadow:inset 0 1px rgba(255,255,255,.06),0 0 16px rgba(45,244,255,.07)}
+.macro-card-icon img{display:block;width:24px;height:24px;object-fit:contain}
+.macro-card-label{position:relative;z-index:1;color:#b9d8e4;font-size:10px;font-weight:900;letter-spacing:.6px}
+.macro-card>b,.macro-card>em,.macro-card>small{position:relative;z-index:1}
+.macro-card>b{font-size:clamp(14px,2vw,20px);font-variant-numeric:tabular-nums;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.macro-card>em{font-style:normal;font-weight:1000;font-size:12px}
+.macro-card>em.up{color:#25f0a2}.macro-card>em.down{color:#ff7086}
+.market-ticker .ticker-run{align-items:stretch}
+.market-ticker .ticker-item{
+ position:relative;display:grid;grid-template-columns:28px auto;grid-template-rows:auto auto;
+ align-content:center;align-items:center;gap:3px 9px;min-width:170px;
+ border:1px solid rgba(58,191,232,.2);border-radius:15px;margin:4px 5px;padding:10px 12px;
+ color:#effcff;text-align:start;cursor:pointer;
+ background:linear-gradient(145deg,rgba(5,34,50,.96),rgba(2,13,24,.98));
+ box-shadow:inset 0 1px rgba(255,255,255,.045),0 5px 15px rgba(0,0,0,.16);
+ transition:border-color .2s,background .2s,transform .2s,box-shadow .2s;
+}
+.market-ticker .ticker-item:hover,.market-ticker .ticker-item:focus-visible{outline:none;border-color:rgba(45,244,255,.72);background:linear-gradient(145deg,rgba(8,53,69,.98),rgba(2,18,30,.99));box-shadow:0 0 18px rgba(45,244,255,.1);transform:translateY(-2px)}
+.ticker-icon{grid-row:1/3;grid-column:1;display:grid;place-items:center;width:28px;height:28px;border-radius:9px;color:#a7efff;background:rgba(45,244,255,.09);border:1px solid rgba(45,244,255,.2);font-size:17px}
+.market-ticker .ticker-label{grid-column:2;grid-row:1;font-size:9px;letter-spacing:.5px}
+.market-ticker .ticker-item>b{grid-column:2;grid-row:2;font-size:13px}
+.market-ticker .ticker-item>em{position:absolute;right:10px;top:9px;font-size:10px}
+.market-ticker .ticker-item{padding-right:65px}
+@media(max-width:680px){
+ .macro-card{padding:11px 10px;border-radius:14px;gap:5px}
+ .macro-card-icon{width:31px;height:31px;flex-basis:31px;border-radius:10px;font-size:18px}
+ .macro-card-icon img{width:21px;height:21px}
+ .macro-card>b{font-size:clamp(12px,3.4vw,16px)}
+ .market-ticker .ticker-item{min-width:158px;padding:9px 58px 9px 10px;margin:3px 4px}
+}
+@media(prefers-reduced-motion:reduce){.macro-card,.market-ticker .ticker-item{transition:none}}
