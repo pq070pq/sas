@@ -2470,7 +2470,7 @@ async def radar_status(_: dict = Depends(require_pro)):
     return {
         **status,
         "stock_radar_enabled": stock_radar_enabled(),
-        "closed_market_macro_radar": not status["open"],
+        "closed_market_macro_radar": not status.get("radar_active", status["open"]),
     }
 
 
@@ -2667,7 +2667,7 @@ def _movers_price_in_range(item, minimum=0.50, maximum=15.00):
 def _rank_perpequities_movers(assets):
     """Return positive movers only; exclude crypto-like assets and require the regular US session."""
     status = market_status()
-    if status.get("session") != "regular":
+    if not stock_radar_enabled():
         return [], [], []
 
     crypto_name_terms = (
@@ -2686,15 +2686,17 @@ def _rank_perpequities_movers(assets):
             change = float(raw.get("change24h"))
         except (TypeError, ValueError):
             continue
-        if not math.isfinite(change) or change <= 0:
+        if not math.isfinite(change) or change == 0:
             continue
         item = dict(raw)
         item["price"] = float(item["price"])
         item["change24h"] = change
         item["change_pct"] = round(change * 100, 4)
         eligible.append(item)
-    gainers = sorted(eligible, key=lambda x: x["change24h"], reverse=True)
-    return gainers, [], eligible
+    gainers = sorted((x for x in eligible if x["change24h"] > 0), key=lambda x: x["change24h"], reverse=True)[:8]
+    losers = sorted((x for x in eligible if x["change24h"] < 0), key=lambda x: x["change24h"])[:8]
+    ranked = gainers + losers
+    return gainers, losers, ranked
 
 
 @app.get("/api/market/movers")
@@ -2704,18 +2706,18 @@ async def perpequities_market_movers(_: dict = Depends(require_pro)):
     status = market_status()
     assets = assets_payload.get("assets") or []
     gainers, losers, eligible = _rank_perpequities_movers(assets)
-    if status.get("session") != "regular":
+    if not stock_radar_enabled():
         return {
             **assets_payload, "assets": [], "gainers": [], "losers": [], "available": False,
             "price_min": 0.50, "price_max": 15.00,
             "refresh_interval_seconds": _PERPEQUITIES_API_CACHE_TTL,
             "price_basis": "PerpEquities reference price for perpetual equity contracts",
             "market_session": status.get("session"),
-            "message_ar": "تظهر الأسهم الرابحة أثناء جلسة السوق الأمريكي الرسمية فقط.",
+            "message_ar": "الرادار متوقف مؤقتًا خارج جلسات الرصد الأمريكية.",
         }
     if eligible:
         return {
-            **assets_payload, "assets": eligible, "gainers": gainers, "losers": [],
+            **assets_payload, "assets": eligible, "gainers": gainers, "losers": losers,
             "available": True, "price_min": 0.50, "price_max": 15.00,
             "refresh_interval_seconds": _PERPEQUITIES_API_CACHE_TTL,
             "price_basis": "PerpEquities reference price for perpetual equity contracts",
@@ -4600,7 +4602,7 @@ async def radar_status(_: dict = Depends(require_pro)):
     return {
         **status,
         "stock_radar_enabled": stock_radar_enabled(),
-        "closed_market_macro_radar": not status["open"],
+        "closed_market_macro_radar": not status.get("radar_active", status["open"]),
     }
 
 
