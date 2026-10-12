@@ -361,8 +361,9 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
 
     def num(value):
         try:
-            return float(value)
-        except (TypeError, ValueError):
+            parsed = float(value)
+            return parsed if math.isfinite(parsed) else None
+        except (TypeError, ValueError, OverflowError):
             return None
 
     def first_value(*values):
@@ -395,18 +396,35 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         return [f"• {_esc(item)}" for item in cleaned[:8]]
 
     price = num(q.get("price"))
+    if price is not None and price <= 0:
+        price = None
     change = num(q.get("change_pct"))
     score = num(classification.get("score"))
+    if score is not None:
+        score = max(0.0, min(100.0, score))
     rvol = num(first_value(intraday.get("rvol"), intraday.get("intraday_rvol"),
                            classification.get("rvol"), tech.get("volume_ratio")))
     momentum_rvol = num(radar_checks.get("momentum_rvol"))
-    rr = num(tech.get("risk_reward"))
     stop = num(first_value(tech.get("exit"), tech.get("stop"), tech.get("stop_loss")))
+    if stop is not None and stop <= 0:
+        stop = None
     targets = [num(x) for x in (tech.get("targets") or [])]
-    targets = [x for x in targets if x is not None and x > 0]
+    targets = sorted(set(x for x in targets if x is not None and x > 0))
+    entry_price = num(first_value(tech.get("entry"), tech.get("entry_price"), tech.get("price")))
+    if entry_price is not None and entry_price <= 0:
+        entry_price = None
+
+    # احسب R:R من الدخول والوقف والهدف الأول كلما توفرت المستويات؛
+    # لا نعرض قيمة منقولة إذا كانت المستويات نفسها تناقضها.
+    rr = None
+    target1 = targets[0] if targets else None
+    if entry_price is not None and stop is not None and target1 is not None:
+        risk = entry_price - stop
+        reward = target1 - entry_price
+        if risk > 0 and reward > 0:
+            rr = round(reward / risk, 2)
 
     # قراءة فنية مفهومة للمستخدم، مشتقة من المستويات الفعلية ولا تنشئ سعرًا جديدًا.
-    target1 = targets[0] if targets else None
     if rr is not None and rr < 1:
         recommendation = '⛔ لا دخول حاليًا — نسبة العائد للمخاطرة ضعيفة.'
     elif change is not None and change > 10:
@@ -417,7 +435,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         recommendation = '🟡 مراقبة؛ الدخول فقط بعد تأكيد الحركة والسيولة.'
 
     current_stop = num(getattr(outcome, "current_stop", None)) if outcome is not None else None
-    if current_stop is None:
+    if current_stop is None or current_stop <= 0:
         current_stop = stop
 
     sas_core = radar_checks.get("sas_core")
@@ -445,7 +463,9 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
 
     summary_lines = [f"📈 <b>السهم:</b> {_esc(symbol.upper())}"]
     if price is not None:
-        summary_lines.append(f"💵 <b>السعر:</b> {_money(price)}")
+        summary_lines.append(f"💵 <b>السعر الحالي:</b> {_money(price)}")
+    else:
+        summary_lines.append("💵 <b>السعر الحالي:</b> غير متاح — لا تعتمد التقرير كإشارة دخول حتى تتأكد الأسعار الحية.")
     if change is not None:
         icon = "🟢" if change > 0 else ("🔴" if change < 0 else "⚪")
         summary_lines.append(f"{icon} <b>التغير:</b> {change:+.2f}%")
@@ -603,8 +623,12 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         ])
 
     level_lines = []
-    if price is not None:
+    if entry_price is not None:
+        level_lines += ["🔵 <b>الدخول المرصود</b>", _money(entry_price)]
+    elif price is not None:
         level_lines += ["🟦 <b>السعر المرجعي</b>", _money(price)]
+    if price is None:
+        level_lines += ["⚠️ <b>تنبيه جودة البيانات</b>", "السعر الحي غير متاح؛ المستويات الفنية للمتابعة فقط ولا تُعامل كفرصة مؤكدة حتى يتوفر سعر حديث."]
     if current_stop is not None:
         level_lines += ["🛑 <b>الوقف</b>", _money(current_stop)]
     for idx, target in enumerate(targets, 1):
@@ -656,7 +680,9 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         financial_lines += ["🏢 الشركة", f"<b>{_esc(company)}</b>"]
     if sector:
         financial_lines += ["🏷️ القطاع", f"<b>{_esc(sector)}</b>"]
-    if market_cap is not None:
+    # تُحجب القيمة السوقية شديدة الصغر التي يُحتمل أن تكون ناتجة عن اختلاف وحدة القياس.
+    # لا نعيد تقديرها أو نخمن وحدة بديلة.
+    if market_cap is not None and market_cap >= 0.1:
         financial_lines += ["💰 القيمة السوقية", f"${market_cap:,.2f}M"]
     if eps is not None:
         financial_lines += ["🧮 EPS", f"<b>{eps:.2f}</b>"]
@@ -728,7 +754,28 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         if story_key[0] and story_key[1] and summary_item.get("summary"):
             ai_summary_by_story[story_key] = summary_item
 
-    valid_news = [item for item in news_items if isinstance(item, dict) and item.get("headline")]
+    # إزالة الأخبار المتكررة أو التي تعيد صياغة الخبر نفسه من مزود آخر.
+    valid_news = []
+    seen_headlines = []
+    for item in news_items if isinstance(news_items, list) else []:
+        if not isinstance(item, dict):
+            continue
+        headline = re.sub(r"[^\w\s]", " ", str(item.get("headline") or "").lower())
+        headline = re.sub(r"\s+", " ", headline).strip()
+        if not headline:
+            continue
+        words = set(headline.split())
+        duplicate = False
+        for prior in seen_headlines:
+            prior_words = set(prior.split())
+            similarity = len(words & prior_words) / max(1, len(words | prior_words))
+            if headline == prior or similarity >= 0.72:
+                duplicate = True
+                break
+        if duplicate:
+            continue
+        seen_headlines.append(headline)
+        valid_news.append(item)
     if valid_news:
         news_lines = []
         for idx, item in enumerate(valid_news[:5], 1):
@@ -763,8 +810,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             ]
         while news_lines and news_lines[-1] == "":
             news_lines.pop()
-        count = len(news_items) if isinstance(news_items, list) else len(valid_news)
-        news_lines += ["", f"📚 عدد الأخبار المتاحة: <b>{count}</b>"]
+        news_lines += ["", f"📚 عدد الأخبار بعد إزالة التكرار: <b>{len(valid_news[:5])}</b>"]
         add_section(report, "📰 <b>أهم الأخبار الأخيرة</b>", news_lines)
 
         ai_lines = []
