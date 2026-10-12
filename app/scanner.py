@@ -2140,9 +2140,8 @@ async def discover_market_movers():
             previous = merged.get(symbol)
             item = {"symbol": symbol, "name": name, "price": price, "change_pct": round(change, 4),
                     "volume": volume, "exchange": "NASDAQ", "source": row.get("source") or source_name}
-            if previous is None or (item["source"] == "Finviz" and previous.get("source") != "Finviz") or (
-                previous.get("source") != "Finviz" and item["volume"] > previous["volume"]
-            ):
+            # Prefer the record with the strongest reported volume when providers overlap.
+            if previous is None or item["volume"] > previous["volume"]:
                 merged[symbol] = item
     rows = list(merged.values())
     gainers = sorted((x for x in rows if x["change_pct"] > 0), key=lambda x: x["change_pct"], reverse=True)[:8]
