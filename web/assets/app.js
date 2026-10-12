@@ -400,6 +400,29 @@ function renderDashboard(d){
  if(schedulePre)schedulePre.textContent=nextPremarket+' – '+regularOpen;
  if(scheduleRegular)scheduleRegular.textContent=regularOpen+' – '+regularClose;
  if(scheduleAfter)scheduleAfter.textContent=regularClose+' – '+afterClose;
+  // Exchange time is authoritative; convert New York session hours to Riyadh with DST handled automatically.
+  const exchangeNow=new Date();
+  const nyParts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(exchangeNow).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
+  const nyZoneName=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',timeZoneName:'short'}).formatToParts(exchangeNow).find(p=>p.type==='timeZoneName')?.value||'ET';
+  const nyOffsetText=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',timeZoneName:'longOffset'}).formatToParts(exchangeNow).find(p=>p.type==='timeZoneName')?.value||'GMT-04:00';
+  const offsetMatch=nyOffsetText.match(/GMT([+-])(\\d{2}):(\\d{2})/);
+  const nyOffsetMinutes=offsetMatch?(offsetMatch[1]==='-'?-1:1)*(Number(offsetMatch[2])*60+Number(offsetMatch[3])):-240;
+  const riyadhFromET=(hour,minute)=>{
+    const utcMs=Date.UTC(Number(nyParts.year),Number(nyParts.month)-1,Number(nyParts.day),hour,minute)-nyOffsetMinutes*60000;
+    return new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(utcMs));
+  };
+  const preRiyadh=riyadhFromET(4,0)+' – '+riyadhFromET(9,30);
+  const regularRiyadh=riyadhFromET(9,30)+' – '+riyadhFromET(16,0);
+  const afterRiyadh=riyadhFromET(16,0)+' – '+riyadhFromET(20,0);
+  if(schedulePre)schedulePre.textContent=preRiyadh;
+  if(scheduleRegular)scheduleRegular.textContent=regularRiyadh;
+  if(scheduleAfter)scheduleAfter.textContent=afterRiyadh;
+  const preET=document.getElementById('sasSchedulePreET');
+  const regularET=document.getElementById('sasScheduleRegularET');
+  const afterET=document.getElementById('sasScheduleAfterET');
+  if(preET)preET.textContent='04:00 – 09:30 بتوقيت نيويورك ('+nyZoneName+')';
+  if(regularET)regularET.textContent='09:30 – 16:00 بتوقيت نيويورك ('+nyZoneName+')';
+  if(afterET)afterET.textContent='16:00 – 20:00 بتوقيت نيويورك ('+nyZoneName+')';
  if(scheduleStatus)scheduleStatus.textContent=({
   premarket:'🟡 السوق في فترة ما قبل الافتتاح — التداول الممتد قبل الجلسة الرسمية.',
   regular:'🟢 الجلسة الرسمية مفتوحة الآن — التداول جارٍ.',
