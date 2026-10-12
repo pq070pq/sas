@@ -351,10 +351,11 @@ async function refreshTerminal(){
    }),
    api('/api/market/movers').then(movers=>{renderPerpEquitiesMovers(movers);return movers;})
   ];
+  // Start the radar scan independently too; it must not wait for ticker/movers.
+  if(terminalState.tab==='radar')void runRadar(false);
   const results=await Promise.allSettled(requests);
   const errors=results.filter(x=>x.status==='rejected').map(x=>x.reason?.message||'خطأ غير معروف');
   if(errors.length)console.warn('SAS PRO panel refresh partial failures:',errors);
-  if(terminalState.tab==='radar')await runRadar(false);
   if(terminalState.tab==='watch')renderWatchlist();
  }finally{
   terminalState.refreshing=false;
