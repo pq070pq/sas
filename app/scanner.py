@@ -849,6 +849,14 @@ async def discover_low_price_stocks():
     # الدورة كلها.
     semaphore = asyncio.Semaphore(4)
     analysis_timeout = 15
+    stage_stats = {
+        "candle_error": 0,
+        "insufficient_candles": 0,
+        "no_technical_signal": 0,
+        "accepted_accumulation": 0,
+        "accepted_movement": 0,
+        "accepted_breakout_setup": 0,
+    }
 
     async def stage(row):
         symbol = str(row.get("symbol") or "").upper()
@@ -859,9 +867,11 @@ async def discover_low_price_stocks():
                         client, symbol, allow_twelve_fallback=False
                     )
             except (asyncio.TimeoutError, httpx.HTTPError, Exception):
+                stage_stats["candle_error"] += 1
                 logger.warning("RADAR_STAGE_TIMEOUT_OR_ERROR symbol=%s", symbol)
                 return None
         if len(candles) < 30:
+            stage_stats["insufficient_candles"] += 1
             return None
 
         closes = [x["close"] for x in candles]
@@ -913,7 +923,15 @@ async def discover_low_price_stocks():
 
         # Reject only if there is no evidence of either movement or accumulation.
         if not (accumulation_signal or movement_signal or breakout_setup):
+            stage_stats["no_technical_signal"] += 1
             return None
+
+        if accumulation_signal:
+            stage_stats["accepted_accumulation"] += 1
+        elif movement_signal:
+            stage_stats["accepted_movement"] += 1
+        elif breakout_setup:
+            stage_stats["accepted_breakout_setup"] += 1
 
         result = dict(row)
         result.update({
@@ -939,8 +957,8 @@ async def discover_low_price_stocks():
         staged_rows = await asyncio.gather(*(stage(row) for row in candidates), return_exceptions=False)
     accepted = [x for x in staged_rows if x]
     logger.info(
-        "RADAR_MOMENTUM_STAGE candidates=%d accepted=%d staging_limit=%d",
-        len(candidates), len(accepted), min(settings.radar_staging_limit, 300),
+        "RADAR_MOMENTUM_STAGE candidates=%d accepted=%d staging_limit=%d stage_stats=%s",
+        len(candidates), len(accepted), min(settings.radar_staging_limit, 300), stage_stats,
     )
 
     # Keep a parallel early-watch lane on EVERY cycle, not only when the
@@ -986,8 +1004,9 @@ async def discover_low_price_stocks():
         reverse=True,
     )
     logger.info(
-        "RADAR_SHORTLIST_SPLIT confirmed=%d early_watch=%d total=%d",
+        "RADAR_SHORTLIST_SPLIT confirmed=%d early_watch=%d total=%d discovery_gainers=%d stage_stats=%s",
         len(accepted_symbols), len(early_watch), min(len(accepted), settings.radar_shortlist_limit),
+        len(gainers), stage_stats,
     )
     return accepted[:settings.radar_shortlist_limit]
 
