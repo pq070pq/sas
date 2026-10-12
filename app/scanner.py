@@ -2209,7 +2209,7 @@ async def discover_market_movers():
             price = _f(row.get("price"), 0)
             change = _f(row.get("change_pct"), float("nan"))
             volume = _f(row.get("volume"), 0)
-            if not symbol or _is_excluded_security(row) or not (MIN_PRICE <= price <= MAX_PRICE):
+            if not symbol or _is_excluded_security(row) or not (0.30 <= price <= 15.00):
                 continue
             if not (change == change) or change in (float("inf"), float("-inf")) or change == 0:
                 continue
