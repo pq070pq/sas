@@ -1315,13 +1315,22 @@ async function continueTerms(){
   alert(e.message);
  }
 }
+let sasChannelOpening=false;
 async function openChannel(){
+ if(sasChannelOpening)return;
+ sasChannelOpening=true;
+ const button=document.querySelector('#tab-dashboard .sas-action-card[onclick="openChannel()"]');
+ if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
  try{
-  const d=await api('/api/channel/access');
+  const d=await api('/api/channel/access',{timeoutMs:8000,retries:0});
   if(tg?.openTelegramLink)tg.openTelegramLink(d.url);
   else if(tg?.openLink)tg.openLink(d.url);
   else window.open(d.url,'_blank');
  }catch(e){alert(e.message);}
+ finally{
+  sasChannelOpening=false;
+  if(button){button.disabled=false;button.removeAttribute('aria-busy');}
+ }
 }
 async function buyPlan(k){
  if(!me.terms_accepted){openTerms('buy:'+k);return;}
