@@ -660,12 +660,13 @@ function renderMacro(){
    const symbol=String(x?.symbol||'').toUpperCase();
    return label===item.label.toUpperCase() || item.symbols.some(s=>s.toUpperCase()===symbol);
   });
-  if(found)return {...found,label:item.label};
+  if(found && Number(found.price)>0)return {...found,label:item.label};
+  // A pending provider placeholder must not mask the last valid browser cache.
   try{
    const cached=JSON.parse(localStorage.getItem('saspro_macro_'+item.label.replace(/\\s+/g,'_'))||'null');
-   if(cached && Number(cached.price)>0)return {label:item.label,price:cached.price,change_pct:cached.change_pct,source:'آخر سعر محفوظ'};
+   if(cached && Number(cached.price)>0)return {...(found||{}),label:item.label,price:cached.price,change_pct:cached.change_pct,source:'آخر سعر محفوظ',stale:true,diagnostic:null};
   }catch(e){}
-  return null;
+  return found?{...found,label:item.label,source:'جارٍ تحديث الأسعار'}:{label:item.label,price:null,change_pct:null,source:'بانتظار بيانات المزود',diagnostic:'quote_refresh_in_progress'};
  }).filter(Boolean);
  const cards=rows.map(x=>{
   const valid=Number(x.price)>0;
@@ -675,7 +676,11 @@ function renderMacro(){
   const iconFallback=labelKey==='btc'?'₿':labelKey==='gold'?'🪙':labelKey==='vix'?'🌡️':labelKey==='s&p 500'?'📈':labelKey==='nasdaq'?'💹':labelKey==='dow jones'?'🏛️':'◈';
   const iconUrl=iconSlot?terminalState.siteMedia?.[iconSlot]?.url:null;
   const iconHtml='<span class="macro-card-icon" aria-hidden="true">'+(iconUrl?'<img src="'+esc(iconUrl)+'" alt="">':iconFallback)+'</span>';
-  return '<button type="button" class="macro-card '+(valid?'':'macro-unavailable')+'" data-macro-label="'+labelKey+'" aria-label="تفاصيل '+escHtml(x.label)+'" title="اضغط لعرض تفاصيل '+escHtml(x.label)+'">'+iconHtml+'<span class="macro-card-label">'+escHtml(x.label)+'</span><b>'+ (valid?money(x.price):'غير متاح') +'</b><em class="'+(Number(x.change_pct)>=0?'up':'down')+'">'+pct(x.change_pct)+'</em><small class="macro-source">'+escHtml(x.source||'غير متوفر')+'</small>'+(x.diagnostic?'<small class="macro-diagnostic">'+escHtml(x.diagnostic)+'</small>':'')+'</button>';
+  const changeValid=x.change_pct!==null&&x.change_pct!==undefined&&Number.isFinite(Number(x.change_pct));
+  const changeText=changeValid?pct(Number(x.change_pct)):'—';
+  const changeClass=changeValid?(Number(x.change_pct)>=0?'up':'down'):'neutral';
+  const sourceText=x.stale?'آخر سعر محفوظ • تحقق من وقت التحديث':(valid?(x.source||'مزود البيانات'):(x.source==='unavailable'?'تعذر جلب السعر':'جارٍ تحديث الأسعار'));
+  return '<button type="button" class="macro-card '+(valid?'':'macro-unavailable')+(x.stale?' macro-stale':'')+'" data-macro-label="'+labelKey+'" aria-label="تفاصيل '+escHtml(x.label)+'" title="اضغط لعرض تفاصيل '+escHtml(x.label)+'">'+iconHtml+'<span class="macro-card-label">'+escHtml(x.label)+'</span><b>'+ (valid?money(x.price):'غير متاح') +'</b><em class="'+changeClass+'">'+changeText+'</em><small class="macro-source">'+escHtml(sourceText)+'</small></button>';
  }).join('');
  document.getElementById('macroGrid').innerHTML=cards || '<div class="empty-state">لا تتوفر بيانات السوق حاليًا.</div>';
  if(!window.__sasMacroCardInteraction){
