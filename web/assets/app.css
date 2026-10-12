@@ -3351,3 +3351,15 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .ticker-item>b{grid-area:price;display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:clamp(13px,1.2vw,17px);line-height:1.25;font-variant-numeric:tabular-nums;letter-spacing:0}
 .ticker-item>em{grid-area:change;justify-self:end;align-self:center;display:block;max-width:100%;white-space:nowrap;font-size:clamp(12px,1.1vw,16px);line-height:1.2;font-variant-numeric:tabular-nums}
 @media(max-width:600px){.ticker-item{min-width:190px;max-width:220px;min-height:84px;grid-template-columns:36px minmax(0,1fr) auto;column-gap:9px;padding:11px 12px}.ticker-item .ticker-icon{width:36px;height:36px;min-width:36px;border-radius:11px;font-size:20px}.ticker-item .ticker-label{font-size:11px}.ticker-item>b{font-size:13px}.ticker-item>em{font-size:12px}}
+
+
+/* Radar: clearly separate confirmed opportunities from watch-only candidates. */
+.radar-list-heading{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:center;margin:18px 0 10px;padding:12px 14px;border:1px solid rgba(82,205,224,.24);border-radius:14px;background:linear-gradient(120deg,rgba(7,40,55,.88),rgba(3,17,29,.92));color:#e8f8ff}
+.radar-list-heading>b{font-size:15px;letter-spacing:.1px}
+.radar-list-heading>span{font-size:12px;color:#70d9ed}
+.radar-list-heading>small{grid-column:1/-1;color:#91aebb;font-size:12px;line-height:1.7}
+.radar-stock-status{display:inline-flex;align-items:center;margin-inline-end:5px;padding:2px 7px;border-radius:7px;font-size:10px;font-style:normal;font-weight:800;vertical-align:middle}
+.radar-stock-status.is-confirmed{color:#77f2c3;background:rgba(26,194,132,.12);border:1px solid rgba(26,194,132,.3)}
+.radar-stock-status.is-watch{color:#ffd18a;background:rgba(236,166,65,.1);border:1px solid rgba(236,166,65,.28)}
+.radar-watch-card{border-color:rgba(236,166,65,.23)}
+.radar-confirmed-card{border-color:rgba(26,194,132,.25)}
