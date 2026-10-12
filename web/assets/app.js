@@ -514,15 +514,32 @@ function renderStockMovers(){
  .filter(x=>{const p=Number(x.live_price??x.price??x.entry_price);return p>=0.50&&p<=30;});
  const gainers=stocks.filter(x=>x._stockMoverChange>0).sort((a,b)=>b._stockMoverChange-a._stockMoverChange).slice(0,8);
  const losers=stocks.filter(x=>x._stockMoverChange<0).sort((a,b)=>a._stockMoverChange-b._stockMoverChange).slice(0,8);
- const fmtPrice=v=>{const n=Number(v);return Number.isFinite(n)&&n>0?'
+ const fmtPrice=v=>{const n=Number(v);return Number.isFinite(n)&&n>0?'$'+n.toFixed(2):'—';};
+ const renderRows=(items,el,countEl,positive)=>{
+  if(countEl)countEl.textContent=String(items.length);
+  el.innerHTML=items.length?items.map(x=>{
+   const symbol=escHtml(x.symbol||x.ticker||'—'),price=fmtPrice(x.live_price??x.price??x.entry_price),change=x._stockMoverChange;
+   return '<button type="button" class="sas-stock-mover-row" onclick="openRadarMoverAnalysis(\\''+symbol+'\\')"><span class="sas-stock-mover-symbol">'+symbol+'</span><span class="sas-stock-mover-price">'+price+'</span><strong class="'+(positive?'is-up':'is-down')+'">'+(change>0?'+':'')+change.toFixed(2)+'%</strong></button>';
+  }).join(''):'<div class="empty-state">لا توجد أسهم مستوفية للعرض ضمن نتائج الرادار الحالية.</div>';
+ };
+ renderRows(gainers,gainersEl,gainersCount,true);
+ renderRows(losers,losersEl,losersCount,false);
+}
+function openRadarMoverAnalysis(symbol){
+ switchTerminalTab('search');
+ const input=document.getElementById('symbolSearch')||document.getElementById('searchSymbol')||document.querySelector('[data-symbol-search]');
+ if(input){input.value=symbol;input.dispatchEvent(new Event('input',{bubbles:true}));}
+ if(typeof window.analyzeSymbol==='function')window.analyzeSymbol(symbol);
+}
+
+function toggleSasMetric(id){
  const panel=document.getElementById('sasMetricDetail');
  if(!panel||!window.sasMetricDetails||!window.sasMetricDetails[id])return;
  const wasOpen=panel.dataset.active===id&&!panel.hidden;
  document.querySelectorAll('.sas-metric-card').forEach(b=>{const active=b.dataset.metric===id&&!wasOpen;b.classList.toggle('is-active',active);b.setAttribute('aria-expanded',String(active));});
  if(wasOpen){panel.hidden=true;panel.dataset.active='';panel.innerHTML='';return;}
- const item=window.sasMetricDetails[id];panel.dataset.active=id;panel.innerHTML='<span class="sas-metric-detail-icon">ⓘ</span><div><strong>'+item.label+'</strong><p>'+item.detail+'</p></div><button type="button" aria-label="إغلاق التوضيح" onclick="toggleSasMetric(\''+id+'\')">×</button>';panel.hidden=false;
+ const item=window.sasMetricDetails[id];panel.dataset.active=id;panel.innerHTML='<span class="sas-metric-detail-icon">ⓘ</span><div><strong>'+item.label+'</strong><p>'+item.detail+'</p></div><button type="button" aria-label="إغلاق التوضيح" onclick="toggleSasMetric(\\''+id+'\\')">×</button>';panel.hidden=false;
 }
-
 function renderPerpEquitiesMovers(data){
  const sourceLink=document.querySelector('.sas-movers-source');
  if(sourceLink){const adminCanSeeSource=Boolean(me?.admin);sourceLink.hidden=!adminCanSeeSource;sourceLink.setAttribute('aria-hidden',String(!adminCanSeeSource));sourceLink.classList.toggle('admin-source-visible',adminCanSeeSource);}
