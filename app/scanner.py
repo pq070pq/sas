@@ -13,6 +13,7 @@ from .market import quote
 from .perpequities_provider import get_equity_perpetuals
 from .twelve_guard import call as twelve_call
 from .smart_memory import SmartMemory
+from .alpha_guide import evaluate_alpha_guide
 
 # رادار SAS PRO:
 # - السوق: NASDAQ + NYSE + AMEX
@@ -86,6 +87,7 @@ def _parse_candles(rows):
                 "low": _f(row["low"]),
                 "close": _f(row["close"]),
                 "volume": _f(row.get("volume")),
+                "datetime": row.get("datetime") or row.get("date") or row.get("time") or row.get("timestamp"),
             })
         except (TypeError, ValueError, KeyError):
             continue
@@ -1327,10 +1329,9 @@ def _power_trend_age(closes):
 
 async def _benchmark_return(symbol="QQQ", lookback=20):
     key = symbol.upper()
-    now = time.monotonic()
     cached = _benchmark_cache.get(key)
-    if cached and now - cached[0] < _CANDLE_CACHE_TTL:
-        candles = cached[1]
+    if cached:
+        candles = cached.get("candles") or []
     else:
         async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 20)) as client:
             candles, source = await _get_analysis_candles(client, key, allow_twelve_fallback=False)
@@ -1712,6 +1713,12 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         stock_return_20 - benchmark_return
         if stock_return_20 is not None and benchmark_return is not None else None
     )
+    # طبقة US Alpha Scanner مستقلة عن شروط SAS Core؛ تستخدم SPY كما في الدليل.
+    try:
+        spy_return_20, _spy_symbol = await _benchmark_return("SPY", 20)
+    except Exception:
+        spy_return_20 = None
+    alpha_guide_signal = evaluate_alpha_guide(candles, spy_return_20=spy_return_20)
 
     # "Near entry" is evidence-based: distance to EMA20 or to a real nearby resistance.
     distance_from_ema20_pct = ((price / ema20) - 1.0) * 100.0 if ema20 else None
@@ -1985,6 +1992,7 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
         "rsi14": round(rsi14, 2) if rsi14 is not None else None,
         "relative_strength": round(relative_strength * 100, 2) if relative_strength is not None else None,
         "relative_strength_benchmark": benchmark_symbol,
+        "alpha_guide_signal": alpha_guide_signal,
         "distance_from_ema20_pct": round(distance_from_ema20_pct, 2) if distance_from_ema20_pct is not None else None,
         "resistance_distance_pct": round(resistance_distance_pct, 2) if resistance_distance_pct is not None else None,
         "near_entry": near_entry,
