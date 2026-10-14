@@ -1,0 +1,52 @@
+name: SAS PRO one-time test report to Telegram channel
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  send-test:
+    if: contains(github.event.head_commit.message, 'TEST_CHANNEL_REPORT_ONCE')
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Prepare OVH SSH key
+        env:
+          OVH_SSH_KEY_B64: ${{ secrets.OVH_SSH_KEY_B64 }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$OVH_SSH_KEY_B64" | base64 --decode > "$RUNNER_TEMP/ovh_key"
+          chmod 600 "$RUNNER_TEMP/ovh_key"
+          ssh-keygen -y -f "$RUNNER_TEMP/ovh_key" >/dev/null
+      - name: Send one clearly labelled test report
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.OVH_HOST }}
+          username: ${{ secrets.OVH_USER || 'root' }}
+          key_path: ${{ runner.temp }}/ovh_key
+          port: ${{ secrets.OVH_PORT || '22' }}
+          command_timeout: 3m
+          script: |
+            set -e
+            cd /opt/saspro
+            docker compose exec -T saspro python - <<'PY'
+            import asyncio
+            from app.config import settings
+            from app.telegram import send_message
+
+            message = (
+                "🧪 <b>تقرير تجريبي — SAS PRO</b>\n"
+                "⚡ <b>SAS PRO | رصد 📡</b>\n"
+                "🔹 <b>الرمز:</b> TEST (تجريبي فقط)\n"
+                "📈 <b>نوع الحركة:</b> معاينة تنسيق التقرير\n"
+                "💵 <b>السعر:</b> غير متاح — لا توجد بيانات سوق لهذا الاختبار\n"
+                "📊 <b>الارتفاع:</b> غير متاح\n"
+                "📦 <b>الأسهم المتاحة (Float):</b> غير متاح\n"
+                "📉 <b>الحجم النسبي (RVOL):</b> غير متاح\n"
+                "📊 <b>الحجم الكلي:</b> غير متاح\n"
+                "💰 <b>تكلفة الاقتراض (CTB):</b> غير متاح\n"
+                "🗂️ <b>الإفصاح التنظيمي:</b> غير متاح\n"
+                "⚠️ لا يُعد توصية شراء أو بيع، ويبقى قرار التداول وإدارة المخاطر مسؤوليتك ⛔"
+            )
+            result = asyncio.run(send_message(settings.telegram_channel_id, message))
+            print("TEST_CHANNEL_REPORT_SENT", result.get("message_id"))
+            PY
