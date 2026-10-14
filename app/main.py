@@ -41,48 +41,71 @@ from .shariah import check_shariah
 from .smart_memory import SmartMemory
 from .binance_spot import is_crypto_symbol, normalize_symbol as normalize_crypto_symbol, quote as binance_quote, analyze as binance_analyze, candles as binance_candles
 
-# Quote cache is deliberately short: avoid duplicate API calls from the quote
-# card and analysis request while keeping pre/after-market prices fresh.
+# Short quote cache plus single-flight locks: concurrent users requesting
+# the same symbol share one provider refresh instead of multiplying API calls.
 _SESSION_QUOTE_CACHE = {}
 _SESSION_QUOTE_CACHE_TTL = 10
+_SESSION_QUOTE_LOCKS = {}
 
 async def _quote_for_current_session(symbol: str):
     status = market_status()
     session = str(status.get("session") or "closed")
     prefer_extended = session in {"premarket", "afterhours"}
     key = (str(symbol or "").upper().strip(), session)
-    now = time.monotonic()
-    cached = _SESSION_QUOTE_CACHE.get(key)
-    if cached and now - cached[0] < _SESSION_QUOTE_CACHE_TTL:
-        return dict(cached[1])
-    result = None
-    # quote() already walks the configured provider fallback chain. If every
-    # provider returns no valid price, repeat the full chain once before giving
-    # up; never cache missing/invalid values.
-    for attempt in range(2):
-        try:
-            candidate = await quote(key[0], prefer_extended=prefer_extended)
-            if isinstance(candidate, dict) and candidate.get("price"):
+
+    def cached_quote():
+        cached = _SESSION_QUOTE_CACHE.get(key)
+        if cached and time.monotonic() - cached[0] < _SESSION_QUOTE_CACHE_TTL:
+            return dict(cached[1])
+        return None
+
+    cached = cached_quote()
+    if cached is not None:
+        return cached
+
+    lock = _SESSION_QUOTE_LOCKS.get(key)
+    if lock is None:
+        lock = asyncio.Lock()
+        _SESSION_QUOTE_LOCKS[key] = lock
+
+    async with lock:
+        # Another request may have refreshed the cache while we waited.
+        cached = cached_quote()
+        if cached is not None:
+            return cached
+
+        result = None
+        # Keep the existing provider fallback/retry behavior unchanged.
+        for attempt in range(2):
+            try:
+                candidate = await quote(key[0], prefer_extended=prefer_extended)
+                if isinstance(candidate, dict) and candidate.get("price"):
+                    result = candidate
+                    break
                 result = candidate
-                break
-            result = candidate
-            logger.warning(
-                "STOCK_QUOTE_RESCAN symbol=%s session=%s attempt=%s reason=no_valid_price",
-                key[0], session, attempt + 1,
-            )
-        except Exception as exc:
-            logger.warning(
-                "STOCK_QUOTE_RESCAN symbol=%s session=%s attempt=%s error=%s",
-                key[0], session, attempt + 1, type(exc).__name__,
-            )
-        if attempt == 0:
-            await asyncio.sleep(0.35)
-    if isinstance(result, dict) and result.get("price"):
-        _SESSION_QUOTE_CACHE[key] = (time.monotonic(), dict(result))
-        if len(_SESSION_QUOTE_CACHE) > 256:
-            for old_key in list(_SESSION_QUOTE_CACHE)[:128]:
-                _SESSION_QUOTE_CACHE.pop(old_key, None)
-    return result
+                logger.warning(
+                    "STOCK_QUOTE_RESCAN symbol=%s session=%s attempt=%s reason=no_valid_price",
+                    key[0], session, attempt + 1,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "STOCK_QUOTE_RESCAN symbol=%s session=%s attempt=%s error=%s",
+                    key[0], session, attempt + 1, type(exc).__name__,
+                )
+            if attempt == 0:
+                await asyncio.sleep(0.35)
+
+        if isinstance(result, dict) and result.get("price"):
+            _SESSION_QUOTE_CACHE[key] = (time.monotonic(), dict(result))
+            if len(_SESSION_QUOTE_CACHE) > 256:
+                for old_key in list(_SESSION_QUOTE_CACHE)[:128]:
+                    _SESSION_QUOTE_CACHE.pop(old_key, None)
+        # Keep lock memory bounded too.
+        if len(_SESSION_QUOTE_LOCKS) > 256:
+            for old_key in list(_SESSION_QUOTE_LOCKS)[:128]:
+                if old_key != key and not _SESSION_QUOTE_LOCKS[old_key].locked():
+                    _SESSION_QUOTE_LOCKS.pop(old_key, None)
+        return result
 
 
 logger = logging.getLogger(__name__)
