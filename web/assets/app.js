@@ -1303,7 +1303,8 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
  const displayQuote=quoteUsable(q)&&quoteSymbolMatches(q)?q:(quoteUsable(fallbackQuote)&&quoteSymbolMatches(fallbackQuote)?fallbackQuote:{symbol,price:null,change_pct:null,source:'غير متاح'});
  const price=hasNumericValue(displayQuote?.price)?Number(displayQuote.price):NaN;
  const change=hasNumericValue(displayQuote?.change_pct)?Number(displayQuote.change_pct):NaN;
- const priceText=Number.isFinite(price)&&price>0?'
+ const priceText=Number.isFinite(price)&&price>0?String.fromCharCode(36)+money(price):'غير متاح';
+ const changeText=Number.isFinite(change)?pct(change):'التغير غير متاح';
  const classification=miniData?.classification&&typeof miniData.classification==='object'?miniData.classification:{};
  const targets=miniData?.targets&&typeof miniData.targets==='object'?miniData.targets:{};
  const mini=miniData?.mini_analysis&&typeof miniData.mini_analysis==='object'?miniData.mini_analysis:{};
