@@ -19,7 +19,7 @@ def candles(count, base=5.0, step=0.001):
 
 class AnnualLowCycleTests(unittest.TestCase):
     def test_price_range_is_enforced(self):
-        result = analyze_annual_low_cycle("TEST", 10.01, candles(70), candles(35))
+        result = analyze_annual_low_cycle("TEST", 15.01, candles(70), candles(35))
         self.assertEqual(result["status"], "out_of_price_range")
 
     def test_missing_candles_are_not_invented(self):
