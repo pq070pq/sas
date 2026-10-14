@@ -97,9 +97,9 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                 rows = list(reversed((r.json()).get("values") or []))
             except Exception as exc:
                 attempts.append(f"TwelveData:{type(exc).__name__}")
-            if len(rows) >= 20: source = "Twelve Data"
+            if len(rows) >= minimum: source = "Twelve Data"
             elif len(rows): attempts.append("TwelveData:insufficient")
-        if len(rows) < 20:
+        if len(rows) < minimum:
             # Finnhub candle endpoint is an additional historical-data fallback
             # for cases where PanWatch/Twelve Data do not return enough bars.
             finnhub_key = str(getattr(settings, "finnhub_api_key", "") or "").strip()
@@ -121,7 +121,7 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                             "low": payload["l"][i], "close": payload["c"][i],
                             "volume": payload["v"][i],
                         } for i in range(len(payload["c"]))]
-                        if len(rows) >= 20:
+                        if len(rows) >= minimum:
                             source = "Finnhub Candles"
                         else:
                             attempts.append("Finnhub:insufficient")
@@ -129,7 +129,7 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                         attempts.append(f"Finnhub:{payload.get('s', 'no_data')}")
                 except Exception as exc:
                     attempts.append(f"Finnhub:{type(exc).__name__}")
-        if len(rows) < 20:
+        if len(rows) < minimum:
             # Financial Modeling Prep provides an independent daily OHLCV source.
             # It is optional and only queried when a key is configured.
             fmp_keys = [
@@ -182,7 +182,7 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                     attempts.append("FMP:insufficient")
                 except Exception as exc:
                     attempts.append(f"FMP:{type(exc).__name__}")
-        if len(rows) < 20:
+        if len(rows) < minimum:
             # Yahoo chart endpoint is a last-resort historical OHLCV source for
             # symbols not covered by PanWatch, Twelve Data, or Finnhub.
             try:
@@ -226,9 +226,9 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                     attempts.append("YahooFinance:no_data")
             except Exception as exc:
                 attempts.append(f"YahooFinance:{type(exc).__name__}")
-        if len(rows) < 20:
+        if len(rows) < minimum:
             rows = await _stooq_ohlcv(symbol, days)
-            if len(rows) >= 20: source = "Stooq"
+            if len(rows) >= minimum: source = "Stooq"
             else: attempts.append("Stooq:insufficient")
     candles = []
     for row in rows:
