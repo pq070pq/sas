@@ -1106,7 +1106,8 @@ async function analyzeSymbol(){
    api('/api/stocks/'+encodeURIComponent(symbol)+'/analyze',{method:'POST',timeoutMs:30000}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/mini-analysis',{timeoutMs:30000}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/shariah',{timeoutMs:12000}),
-   api('/api/stocks/'+encodeURIComponent(symbol)+'/perpequities',{timeoutMs:10000})
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/perpequities',{timeoutMs:10000}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/cusp',{timeoutMs:9000})
  ]);
  stopStockAnalysisLoader();
  const qRaw=qR.status==='fulfilled'?qR.value:{symbol,price:null,change_pct:null,source:'غير متاح'};
@@ -1126,6 +1127,10 @@ async function analyzeSymbol(){
    return;
  }
  const perp=perpR.status==='fulfilled'&&perpR.value&&typeof perpR.value==='object'?perpR.value:{symbol,available:false,source_url:'https://perpequities.com/ar',message_ar:'تعذر تحميل بيانات PerpEquities.'};
+ const cusp=cuspR.status==='fulfilled'&&cuspR.value&&typeof cuspR.value==='object'?cuspR.value:{symbol,available:false,source_url:'https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol),message_ar:'تعذر تحميل بيانات CUSP الآن.'};
+ const cuspHtml='<section class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth · بحث مالي إضافي</b><a href="'+escHtml(safeNewsUrl(cusp.source_url)||('https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol)))+'" target="_blank" rel="noopener noreferrer">فتح صفحة السهم ↗</a></div>'+
+   (cusp.available?'<p><b>'+escHtml(cusp.title||symbol)+'</b></p>'+(cusp.description?'<p>'+escHtml(cusp.description)+'</p>':''):'<p>'+escHtml(cusp.message_ar||'لا تتوفر بيانات قابلة للقراءة آليًا؛ افتح المصدر لمراجعة التفاصيل.')+'</p>')+
+   '<small>مصدر بحثي إضافي؛ لا يُستخدم كسعر حي أو توصية تداول. '+(cusp.available?'قد تعرض الصفحة تفاصيل إضافية لا يمكن استخراجها آليًا.':'')+'</small></section>';
  const tech=analysis.sas_pro?.targets||{};
  const sh=shariah||tech.shariah||{};
  const ai=analysis.analysis||{};
@@ -1172,6 +1177,7 @@ const miniAnalysisHtml=
    '<div class="quote-line"><strong>&#36;'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
    notice+
    miniAnalysisHtml+
+   cuspHtml+
    '<div class="chart-title"><b>📈 شارت السهم</b><div class="chart-title-actions"><small>شموع وحجم تداول • بيانات SAS PRO</small>'+(me?.admin ? '<a class="gocharting-link" href="'+escHtml(safeNewsUrl(perp.chart_url||perp.source_url)||'https://perpequities.com/ar')+'" target="_blank" rel="noopener noreferrer">↗ فتح تحليل PerpEquities</a>' : '')+'</div></div><div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">📊 البيانات الفنية التاريخية غير متاحة حاليًا<br><small>لم يتم اختلاق هدف أو وقف أو إشارة. سيتم إظهارها عند توفر بيانات الشموع والحجم.</small></div>':'<canvas id="stockCanvas" height="230"></canvas>')+'</div><div id="perpEquitiesAnalysis"></div>'+
    '<div class="level-grid"><div><small>🟦 الدخول</small><b>&#36;'+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>&#36;'+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>&#36;'+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+rr+'</b></div></div>'+
    '<div class="ai-box"><b>'+(aiAvailable?'⏳ زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+
