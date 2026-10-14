@@ -3482,3 +3482,9 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .cusp-metrics-grid b{display:block;margin-top:4px;color:#e4f5ff;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
 .cusp-data-note,.cusp-no-metrics{display:block;color:#8aa6ba;font-size:9px;line-height:1.7;margin-top:7px}
 @media(min-width:650px){.cusp-metrics-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+.cusp-fundamental-summary{margin:10px 0;padding:11px 12px;border:1px solid rgba(35,184,231,.3);border-radius:10px;background:linear-gradient(135deg,rgba(5,40,56,.78),rgba(2,15,25,.96));color:#d8effb}
+.cusp-fundamental-summary>b{display:block;color:#38c9f3;font-size:12px;margin-bottom:6px}
+.cusp-fundamental-summary p{font-size:11px;line-height:1.8;margin:0;color:#d5e7f1}
+.cusp-fundamental-summary small{display:block;margin-top:6px;color:#88a9ba;font-size:9px;line-height:1.7}
+.chart-unavailable a{display:inline-block;margin-top:9px;color:#43d7ff;text-decoration:underline;font-size:11px}
