@@ -39,11 +39,11 @@ class _VisibleText(HTMLParser):
 
 
 def _clean(value):
-    return re.sub(r"\\s+", " ", html.unescape(str(value or ""))).strip()
+    return re.sub(r"\s+", " ", html.unescape(str(value or ""))).strip()
 
 
 def _number_token(text):
-    match = re.search(r"(?<![A-Za-z])([+-]?\\d[\\d,]*(?:\\.\\d+)?)", text or "")
+    match = re.search(r"(?<![A-Za-z])([+-]?\d[\d,]*(?:\.\d+)?)", text or "")
     if not match:
         return None
     try:
@@ -58,8 +58,8 @@ def _value_after(text, labels, window=150):
         if match:
             segment = text[match.end():match.end() + window]
             # Skip separators and capture the first visible value only.
-            segment = re.sub(r"^[\\s:：|—–-]+", "", segment)
-            value = re.match(r"([^\\n]{1,90})", segment)
+            segment = re.sub(r"^[\s:：|—–-]+", "", segment)
+            value = re.match(r"([^\n]{1,90})", segment)
             if value:
                 candidate = _clean(value.group(1))
                 if candidate:
@@ -74,7 +74,7 @@ def _numeric_after(text, labels, window=120):
 
 def _first_currency_number(text):
     # The first currency value after the ticker is the primary asset-page quote.
-    matches = list(re.finditer(r"([0-9][0-9,]*(?:\\.[0-9]+)?)\\s*(?:US\\$|USD)", text, re.I))
+    matches = list(re.finditer(r"([0-9][0-9,]*(?:\.[0-9]+)?)\s*(?:US\$|USD)", text, re.I))
     for match in matches:
         try:
             value = float(match.group(1).replace(",", ""))
@@ -88,16 +88,16 @@ def _first_currency_number(text):
 def parse_asset_page(symbol, document, source_url):
     parser = _VisibleText()
     parser.feed(document[:2_500_000])
-    text = _clean("\\n".join(parser.parts))
+    text = _clean("\n".join(parser.parts))
     # Keep a line-oriented version for extracting labels and values.
-    lines = [re.sub(r"\\s+", " ", html.unescape(x)).strip() for x in text.splitlines()]
+    lines = [re.sub(r"\s+", " ", html.unescape(x)).strip() for x in text.splitlines()]
     lines = [x for x in lines if x]
-    plain = "\\n".join(lines)
+    plain = "\n".join(lines)
 
     title_match = re.search(r"<title[^>]*>(.*?)</title>", document, re.I | re.S)
     title = _clean(re.sub(r"<[^>]+>", " ", title_match.group(1))) if title_match else ""
     # Prefer a price close to the asset ticker; never use valuation or target price as quote.
-    ticker_pos = plain.upper().find("\\n" + symbol.upper() + "\\n")
+    ticker_pos = plain.upper().find("\n" + symbol.upper() + "\n")
     quote_region = plain[ticker_pos + len(symbol) + 1:] if ticker_pos >= 0 else plain
     quote_region = quote_region[:350]
     price = _first_currency_number(quote_region)
@@ -110,7 +110,7 @@ def parse_asset_page(symbol, document, source_url):
 
     market_status = None
     for status in ("مفتوح", "مغلق", "Open", "Closed"):
-        if re.search(r"(?<!\\w)" + re.escape(status) + r"(?!\\w)", quote_region, re.I):
+        if re.search(r"(?<!\w)" + re.escape(status) + r"(?!\w)", quote_region, re.I):
             market_status = status
             break
 
@@ -141,12 +141,12 @@ def parse_asset_page(symbol, document, source_url):
     }
     # Remove values that are just labels/noise, preserving the fact that unavailable data is missing.
     metrics = {key: val for key, val in metrics.items() if val and val not in {"-", "—", "غير متاح", "N/A"}}
-    description_match = re.search(r'<meta[^>]+name=["\\']description["\\'][^>]+content=["\\']([^"\\']*)', document, re.I)
+    description_match = re.search(r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']*)', document, re.I)
     description = _clean(description_match.group(1)) if description_match else ""
     change_pct = None
     # The detailed CUSP page often displays "-(-)" when change is not published.
     # Only extract an explicit percentage from the small quote block near its price.
-    change_match = re.search(r"(?:US\\$|USD)[^\\n]{0,100}?([+-]?[0-9]+(?:\\.[0-9]+)?)\\s*%", quote_region, re.I)
+    change_match = re.search(r"(?:US\$|USD)[^\n]{0,100}?([+-]?[0-9]+(?:\.[0-9]+)?)\s*%", quote_region, re.I)
     if change_match:
         try:
             change_pct = float(change_match.group(1))
@@ -171,7 +171,7 @@ def parse_asset_page(symbol, document, source_url):
 
 
 async def get_cusp_asset(symbol):
-    symbol = re.sub(r"[^A-Z0-9.\\-]", "", str(symbol or "").upper().strip())
+    symbol = re.sub(r"[^A-Z0-9.\-]", "", str(symbol or "").upper().strip())
     if not symbol or len(symbol) > 15:
         return {"symbol": symbol, "available": False, "source": "CUSP Wealth", "message_ar": "رمز سهم غير صالح."}
     now = time.monotonic()
