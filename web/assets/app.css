@@ -3488,3 +3488,7 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .cusp-fundamental-summary p{font-size:11px;line-height:1.8;margin:0;color:#d5e7f1}
 .cusp-fundamental-summary small{display:block;margin-top:6px;color:#88a9ba;font-size:9px;line-height:1.7}
 .chart-unavailable a{display:inline-block;margin-top:9px;color:#43d7ff;text-decoration:underline;font-size:11px}
+
+/* CUSP is a public-page fallback, not a guaranteed live quote. */
+.sas-terminal-live.sas-quote-delayed{color:#f4c879!important}
+.sas-terminal-live.sas-quote-delayed i{background:#f4c879!important;box-shadow:0 0 8px #f4c879!important}
