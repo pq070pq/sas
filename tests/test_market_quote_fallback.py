@@ -11,6 +11,9 @@ class _Response:
 
 
 class _FakeClient:
+    def __init__(self, *args, **kwargs):
+        pass
+
     async def __aenter__(self):
         return self
 
