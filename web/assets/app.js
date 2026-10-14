@@ -1169,7 +1169,7 @@ async function analyzeSymbol(){
  const recommendation=(partial||!Number.isFinite(entry)||!Number.isFinite(stop)||!Number.isFinite(target1)||entry<=stop||target1<=entry) ? '⚪ الحالة: البيانات غير مكتملة؛ راقب فقط حتى تتأكد الأسعار والمستويات.' : ((Number(rr)<1||Boolean(tech.risk_reward_warning)) ? '🔴 الحالة: المخاطرة مرتفعة مقارنة بالهدف؛ لا تدخل الآن.' : (Number(q.change_pct)>10 ? '🟡 الحالة: السهم ارتفع بسرعة؛ تجنب المطاردة وانتظر إعادة اختبار.' : (Number(tech.score||0)>=70 ? '🟢 الحالة: إعداد فني جيد للمراقبة؛ انتظر تأكيد الاختراق والسيولة.' : '🟡 الحالة: مراقبة فقط؛ التأكيد الفني غير كافٍ بعد.')));
  const summary=ai.key_takeaway||ai.headline_summary||'لا توجد خلاصة موثقة متاحة حاليًا.';
  const mini=analysis.mini_analysis||{};
- const classification=analysis.sas_pro?.classification||analysis.classification||{};
+ const classification=Object.assign({},analysis.technical_analysis||{},analysis.sas_pro?.classification||analysis.classification||{});
  const indicatorHtml=renderVerifiedTechnicalCards(classification,tech,mini);
  const recommendationHtml='<section class="recommendation-box"><b>📌 القراءة الفنية</b><strong>'+escHtml(recommendation)+'</strong><small>قراءة آلية وليست توصية شراء أو بيع.</small></section>';
  const shSources=Array.isArray(sh.sources)?sh.sources:[];
