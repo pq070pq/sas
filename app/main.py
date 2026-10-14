@@ -2635,44 +2635,25 @@ async def stock_perpequities_analysis(symbol: str, _: dict = Depends(require_pro
 
 @app.get("/api/stocks/{symbol}/cusp")
 async def stock_cusp_analysis(symbol: str, _: dict = Depends(require_pro)):
-    """Optional CUSP Wealth research context; never used as a quote or trade signal."""
+    """Public CUSP Wealth asset-page data for supplementary stock fundamentals."""
     raw_symbol = symbol.upper().strip()
     if is_crypto_symbol(raw_symbol):
         return {"symbol": raw_symbol, "available": False, "source": "CUSP Wealth",
                 "message_ar": "مصدر CUSP مخصص لصفحات الأسهم وليس للأصول الرقمية."}
-    url = f"https://cuspwealth.com/ar/asset/{raw_symbol}"
     try:
-        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True,
-                                     headers={"User-Agent": "Mozilla/5.0 SASPRO/2.1", "Accept": "text/html"}) as client:
-            response = await client.get(url)
-            if response.status_code >= 400:
-                return {"symbol": raw_symbol, "available": False, "source": "CUSP Wealth",
-                        "source_url": url, "message_ar": "تعذر جلب صفحة CUSP حاليًا؛ يمكنك فتح المصدر مباشرة."}
-            document = response.text[:2_000_000]
-        # Extract only explicit structured metadata/text; don't infer financial metrics.
-        title_match = re.search(r"<title[^>]*>(.*?)</title>", document, re.I | re.S)
-        title = html.unescape(re.sub(r"<[^>]+>", " ", title_match.group(1))).strip() if title_match else ""
-        description_match = re.search(r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']*)', document, re.I)
-        description = html.unescape(description_match.group(1)).strip() if description_match else ""
-        # Next.js/JSON-LD pages can expose structured data without a public API.
-        structured = []
-        for match in re.finditer(r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>', document, re.I | re.S):
-            try:
-                obj = json.loads(match.group(1).strip())
-                if isinstance(obj, dict):
-                    structured.append({k: obj.get(k) for k in ("name", "description", "url", "dateModified") if obj.get(k)})
-            except Exception:
-                continue
-        if not title and not description and not structured:
-            return {"symbol": raw_symbol, "available": False, "source": "CUSP Wealth",
-                    "source_url": url, "message_ar": "صفحة CUSP لا تعرض بيانات قابلة للاستخراج آليًا؛ افتح المصدر لمراجعة التحليل."}
-        return {"symbol": raw_symbol, "available": True, "source": "CUSP Wealth", "source_url": url,
-                "title": title[:240], "description": description[:1200], "structured_data": structured[:5],
-                "message_ar": "سياق بحثي إضافي من صفحة CUSP؛ لم تُستخرج أي قيمة مالية غير موثقة."}
+        from .cuspwealth_provider import get_cusp_asset
+        result = await asyncio.wait_for(get_cusp_asset(raw_symbol), timeout=12.0)
+        # Keep the source explicit and preserve nulls for data CUSP does not publish.
+        result.setdefault("source", "CUSP Wealth")
+        result.setdefault("source_url", f"https://cuspwealth.com/ar/asset/{raw_symbol}")
+        if result.get("available"):
+            result["message_ar"] = "بيانات مالية مستخرجة من صفحة السهم في CUSP Wealth؛ القيم غير المنشورة تبقى غير متاحة."
+        return result
     except Exception as exc:
         logger.info("CUSP Wealth page unavailable for %s: %s", raw_symbol, type(exc).__name__)
         return {"symbol": raw_symbol, "available": False, "source": "CUSP Wealth",
-                "source_url": url, "message_ar": "تعذر تحميل بيانات CUSP الآن؛ يمكنك فتح الصفحة الأصلية."}
+                "source_url": f"https://cuspwealth.com/ar/asset/{raw_symbol}",
+                "message_ar": "تعذر تحميل بيانات CUSP الآن.", "error": type(exc).__name__}
 
 @app.get("/api/stocks/{symbol}/news")
 async def stock_news(symbol: str, _: dict = Depends(require_pro)):

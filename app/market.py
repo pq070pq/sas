@@ -728,13 +728,34 @@ async def quote(symbol: str, prefer_extended: bool = False):
     if fmp:
         return fmp
 
-    # 4) Keyless last-close fallback. A provider outage must not kill private analysis.
+    # 4) CUSP Wealth public asset page fallback. It may expose the latest
+    # displayed asset price and fundamental context; change remains null unless
+    # CUSP explicitly publishes a percentage. This is not an official CUSP API.
+    try:
+        from .cuspwealth_provider import get_cusp_asset
+        cusp = await get_cusp_asset(symbol)
+        if isinstance(cusp, dict) and _valid_price(cusp.get("price")):
+            return {
+                "symbol": symbol,
+                "price": float(cusp["price"]),
+                "change_pct": cusp.get("change_pct"),
+                "source": "CUSP Wealth",
+                "is_extended_hours": False,
+                "market_status": cusp.get("market_status"),
+                "datetime": cusp.get("data_timestamp"),
+                "cusp_metrics": cusp.get("metrics", {}),
+                "source_url": cusp.get("source_url"),
+            }
+    except Exception as exc:
+        logger.info("CUSP_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+
+    # 5) Keyless last-close fallback. A provider outage must not kill private analysis.
     stooq = await _stooq_quote(symbol)
     if stooq:
         return stooq
 
     logger.warning(
-        "QUOTE_UNAVAILABLE symbol=%s attempted_sources=Finnhub,TwelveData,FMP,Stooq",
+        "QUOTE_UNAVAILABLE symbol=%s attempted_sources=Finnhub,TwelveData,FMP,CUSP,Stooq",
         symbol,
     )
     return {
