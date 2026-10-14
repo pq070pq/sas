@@ -872,21 +872,39 @@ async def discover_low_price_stocks():
         for row in rows[:limit]:
             staged[row["symbol"]] = row
 
-    # Hard cap protects PanWatch/local resources without narrowing the price universe.
-    candidates = sorted(
+    # Stratified staging: do not let high-dollar-volume movers crowd out
+    # quiet/early accumulation candidates. Keep independent slots for each lane,
+    # then fill remaining capacity by liquidity. This changes discovery coverage,
+    # not the confirmation or anti-chase rules.
+    staging_limit = min(max(settings.radar_staging_limit, 180), 300)
+    candidates_by_symbol = {}
+    lane_plan = (
+        (quiet, max(35, staging_limit // 4)),
+        (gainers, max(35, staging_limit // 4)),
+        (by_volume, max(25, staging_limit // 6)),
+        (by_dollar, max(25, staging_limit // 6)),
+        (by_move, max(20, staging_limit // 8)),
+    )
+    for lane_rows, lane_limit in lane_plan:
+        for row in lane_rows[:lane_limit]:
+            candidates_by_symbol.setdefault(row["symbol"], row)
+    # Fill remaining slots with the strongest liquid rows only after every lane
+    # has received representation.
+    for row in sorted(
         staged.values(),
-        key=lambda x: (
-            _f(x.get("price")) * _f(x.get("volume")),
-            abs(_f(x.get("change_pct"))),
-        ),
+        key=lambda x: _f(x.get("price")) * _f(x.get("volume")),
         reverse=True,
-    )[:min(settings.radar_staging_limit, 240)]
+    ):
+        if len(candidates_by_symbol) >= staging_limit:
+            break
+        candidates_by_symbol.setdefault(row["symbol"], row)
+    candidates = list(candidates_by_symbol.values())[:staging_limit]
     for diagnostic_symbol in RADAR_DIAGNOSTIC_SYMBOLS:
         logger.info(
             "RADAR_SYMBOL_DIAGNOSTIC symbol=%s stage=staging staged=%s selected_for_analysis=%s staging_limit=%s",
             diagnostic_symbol, diagnostic_symbol in staged,
             any(str(row.get("symbol") or "").upper() == diagnostic_symbol for row in candidates),
-            min(settings.radar_staging_limit, 240),
+            min(max(settings.radar_staging_limit, 180), 300),
         )
     # مرحلة التأكيد اليومية كانت نقطة الاختناق: 500 سهم × طلبات OHLCV
     # بتزامن 8 كانت تجعل دورة الرادار تتجاوز 10 دقائق. نستخدم عميل HTTP
@@ -953,7 +971,7 @@ async def discover_low_price_stocks():
         supports, resistances = _local_levels(candles)
         support = max([x for x in supports if x < price], default=None)
         resistance = min([x for x in resistances if x > price], default=None)
-        near_support = bool(support and _near(support, price, 0.08))
+        near_support = bool(support and _near(support, price, 0.10))
         dollar_volume = price * _f(row.get("volume"), 0)
         change = _f(row.get("change_pct"), 0)
 
@@ -961,18 +979,18 @@ async def discover_low_price_stocks():
             near_support
             and higher_lows
             and (compression or selling_dry)
-            and rvol >= 0.80
-            and dollar_volume >= MIN_DAILY_DOLLAR_VOLUME
+            and rvol >= 0.70
+            and dollar_volume >= 500_000
         )
         movement_signal = bool(
-            change >= 1.5
-            and rvol >= 1.20
-            and dollar_volume >= MIN_DAILY_DOLLAR_VOLUME
+            change >= 1.0
+            and rvol >= 1.10
+            and dollar_volume >= 750_000
         )
         breakout_setup = bool(
             resistance
             and 0 <= ((resistance / price) - 1) * 100 <= 5
-            and rvol >= 1.10
+            and rvol >= 1.00
             and higher_lows
         )
 
@@ -981,8 +999,8 @@ async def discover_low_price_stocks():
         # solely because candle confirmation is missing/late. It remains labeled
         # unconfirmed and must still pass the downstream final risk/channel gate.
         early_mover = bool(
-            change >= 2.0
-            and volume >= 100_000
+            change >= 1.0
+            and volume >= 75_000
             and dollar_volume >= 250_000
         )
         if not (accumulation_signal or movement_signal or breakout_setup or early_mover):
@@ -1047,7 +1065,7 @@ async def discover_low_price_stocks():
     # quote/liquidity/technical channel gate.
     accepted_symbols = {str(x.get("symbol") or "").upper() for x in accepted}
     early_watch = []
-    for row in gainers[:180]:
+    for row in gainers[:300]:
         symbol = str(row.get("symbol") or "").upper()
         price = _f(row.get("price"), 0)
         volume = _f(row.get("volume"), 0)
