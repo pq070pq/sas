@@ -81,7 +81,8 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
                     "https://api.twelvedata.com/time_series",
                     params={
                         "symbol": symbol.upper(),
-                        "interval": interval,
+                        # Twelve Data expects "1day", not the app's internal "1d".
+                        "interval": {"1d": "1day", "1h": "1h", "1wk": "1week"}.get(interval, interval),
                         "outputsize": max(20, min(int(days), 365)),
                         "apikey": settings.twelve_data_api_key,
                     },
@@ -122,6 +123,59 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
                         attempts.append(f"Finnhub:{payload.get('s', 'no_data')}")
                 except Exception as exc:
                     attempts.append(f"Finnhub:{type(exc).__name__}")
+        if len(rows) < 20:
+            # Financial Modeling Prep provides an independent daily OHLCV source.
+            # It is optional and only queried when a key is configured.
+            fmp_keys = [
+                item.strip()
+                for item in str(getattr(settings, "fmp_api_keys", "") or "").replace("\\n", ",").replace(";", ",").split(",")
+                if item.strip()
+            ]
+            if getattr(settings, "fmp_api_key", ""):
+                fmp_keys.insert(0, str(settings.fmp_api_key).strip())
+            fmp_keys = list(dict.fromkeys(key for key in fmp_keys if key))
+            for fmp_key in fmp_keys:
+                try:
+                    from datetime import datetime, timedelta, timezone
+                    end_date = datetime.now(timezone.utc).date()
+                    start_date = end_date - timedelta(days=max(45, min(int(days) * 3, 1095)))
+                    r = await client.get(
+                        "https://financialmodelingprep.com/stable/historical-price-eod/full",
+                        params={
+                            "symbol": symbol.upper(),
+                            "from": start_date.isoformat(),
+                            "to": end_date.isoformat(),
+                            "apikey": fmp_key,
+                        },
+                    )
+                    if r.status_code in (401, 403, 429):
+                        attempts.append(f"FMP:HTTP{r.status_code}")
+                        continue
+                    r.raise_for_status()
+                    payload = r.json()
+                    fmp_rows = payload if isinstance(payload, list) else (payload.get("historical") or [])
+                    normalized = []
+                    for item in fmp_rows:
+                        if not isinstance(item, dict):
+                            continue
+                        try:
+                            normalized.append({
+                                "datetime": str(item.get("date") or item.get("datetime") or ""),
+                                "open": float(item["open"]),
+                                "high": float(item["high"]),
+                                "low": float(item["low"]),
+                                "close": float(item["close"]),
+                                "volume": float(item.get("volume") or 0),
+                            })
+                        except (KeyError, TypeError, ValueError):
+                            continue
+                    normalized.sort(key=lambda item: item["datetime"])
+                    if len(normalized) >= 20:
+                        rows, source = normalized[-max(20, min(int(days), 365)):], "Financial Modeling Prep"
+                        break
+                    attempts.append("FMP:insufficient")
+                except Exception as exc:
+                    attempts.append(f"FMP:{type(exc).__name__}")
         if len(rows) < 20:
             # Yahoo chart endpoint is a last-resort historical OHLCV source for
             # symbols not covered by PanWatch, Twelve Data, or Finnhub.
