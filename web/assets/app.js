@@ -1181,9 +1181,11 @@ async function analyzeSymbol(){
  const cusp=cuspR.status==='fulfilled'&&cuspR.value&&typeof cuspR.value==='object'?cuspR.value:{symbol,available:false,source_url:'https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol),message_ar:'تعذر تحميل بيانات CUSP الآن.'};
  const cuspMetricsHtml=renderCuspWealthMetrics(cusp);
  const cuspFundamentalSummary=renderCuspFundamentalSummary(cusp,q.price);
- const cuspHtml='<section class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth · بيانات مالية إضافية</b><a href="'+escHtml(safeNewsUrl(cusp.source_url)||('https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol)))+'" target="_blank" rel="noopener noreferrer">فتح صفحة السهم ↗</a></div>'+
-   (cusp.available?'<p><b>'+escHtml(cusp.title||symbol)+'</b></p>'+(cusp.description?'<p>'+escHtml(cusp.description)+'</p>':'')+cuspFundamentalSummary+cuspMetricsHtml:'<p>'+escHtml(cusp.message_ar||'لا تتوفر بيانات قابلة للقراءة آليًا؛ افتح المصدر لمراجعة التفاصيل.')+'</p>')+
-   '<small>مصدر مالي إضافي؛ السعر قد يمثل آخر سعر منشور لدى CUSP وليس بالضرورة سعرًا لحظيًا. القيم غير المتاحة لا تُقدّر.</small></section>';
+ const cuspHasData=Boolean((cusp.available&&(cusp.title||cusp.description))||cuspMetricsHtml.includes('cusp-metrics-grid'));
+ const cuspHtml=cuspHasData?'<section class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth · بيانات مالية إضافية</b><a href="'+escHtml(safeNewsUrl(cusp.source_url)||('https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol)))+'" target="_blank" rel="noopener noreferrer">فتح صفحة السهم ↗</a></div>'+
+   (cusp.available?'<p><b>'+escHtml(cusp.title||symbol)+'</b></p>'+(cusp.description?'<p>'+escHtml(cusp.description)+'</p>':'')+cuspFundamentalSummary+cuspMetricsHtml:cuspMetricsHtml)+
+   '<small>مصدر مالي إضافي؛ السعر قد يمثل آخر سعر منشور لدى CUSP وليس بالضرورة سعرًا لحظيًا. القيم غير المتاحة لا تُقدّر.</small></section>':'';
+
  const tech=analysis.sas_pro?.targets||{};
  const sh=shariah||tech.shariah||{};
  const ai=analysis.analysis||{};
@@ -1396,6 +1398,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
  const cuspMetricsHtml=renderCuspWealthMetrics(cuspData);
  const cuspFundamentalSummary=renderCuspFundamentalSummary(cuspData,displayQuote?.price);
  const cuspText=cuspData?.available?(cuspData.title||cuspData.description||'تم الوصول إلى صفحة CUSP؛ قد تكون التفاصيل محمّلة داخل الموقع.'):(cuspData?.message_ar||'بيانات CUSP غير متاحة آليًا الآن.');
+ const cuspHasData=Boolean((cuspData?.available&&(cuspData.title||cuspData.description))||cuspMetricsHtml.includes('cusp-metrics-grid'));
  const quickMetrics=renderStockTerminalQuickMetrics(classification,targets,mini);
  const averages=renderStockTerminalAverages(classification,targets);
  const level=(v)=>{const n=Number(v);return Number.isFinite(n)&&n>0?'$'+money(n):'غير متاح';};
@@ -1407,7 +1410,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
    quickMetrics+averages+
    renderAvailableLevelPanel('مستويات السهم','القيم الفعلية المستلمة من محرك التحليل',[['الهدف',level(mini.target)],['وقف الخسارة',level(mini.stop)],['الزخم',mini.momentum],['السيولة',mini.liquidity]])+(mini.takeaway?'<section class="sas-terminal-panel"><p class="mini-takeaway">'+escHtml(mini.takeaway)+'</p></section>':'')+
    (candles.length?'<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت</b><small>شموع السعر وحجم التداول من البيانات المستلمة</small></div><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a></div><div class="chart-box"><canvas id="stockCanvas" height="290"></canvas></div></section>':'')+
-   '<section class="sas-terminal-panel" id="sasTerminalResearch"><div class="sas-terminal-section-title"><span>▤</span><div><b>بحث مالي إضافي</b><small>المصدر: CUSP Wealth</small></div></div><div class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth</b><a href="'+escHtml(cuspUrl)+'" target="_blank" rel="noopener noreferrer">فتح المصدر ↗</a></div><p>'+escHtml(cuspText)+'</p>'+cuspFundamentalSummary+cuspMetricsHtml+'<small>مصدر بحثي إضافي؛ السعر قد يكون آخر سعر معروض على صفحة المصدر وليس بالضرورة سعرًا لحظيًا.</small></div></section>'+
+   (cuspHasData?'<section class="sas-terminal-panel" id="sasTerminalResearch"><div class="sas-terminal-section-title"><span>▤</span><div><b>بحث مالي إضافي</b><small>المصدر: CUSP Wealth</small></div></div><div class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth</b><a href="'+escHtml(cuspUrl)+'" target="_blank" rel="noopener noreferrer">فتح المصدر ↗</a></div><p>'+escHtml(cuspText)+'</p>'+cuspFundamentalSummary+cuspMetricsHtml+'<small>مصدر بحثي إضافي؛ السعر قد يكون آخر سعر منشور على صفحة المصدر وليس بالضرورة سعرًا لحظيًا.</small></div></section>':'')+
    (Array.isArray(news)&&news.length?'<section class="sas-terminal-panel" id="sasTerminalNews"><div class="sas-terminal-section-title"><span>▣</span><div><b>آخر أخبار السهم</b><small>الأخبار التي تم استلامها من المصادر</small></div></div><div class="news-list">'+renderNewsItems(news,5)+'</div></section>':'')+
    '<div class="terminal-disclaimer">البيانات المتاحة جزئية وليست توصية شراء أو بيع. لا يتم إنشاء مؤشرات أو أسعار غير مستلمة من المصادر.</div>'+
   '</div>';
