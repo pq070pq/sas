@@ -1043,12 +1043,18 @@ async function searchShariah(){
    else meaning=src.verified?'نتيجة مباشرة موثقة.':'لا توجد نتيجة مباشرة موثقة.';
    return '<div class="shariah-source-row"><span><b>'+name+'</b><small>'+escHtml(meaning)+'</small></span><b>'+statusText+'</b></div>';
   }).filter(Boolean).join(''):'<div class="shariah-source-row"><span>المصادر</span><b>لا توجد نتيجة موثقة كافية</b></div>';
-  el.innerHTML='<div class="shariah-search-card '+cls+'">'+
-   '<div class="shariah-search-head"><div><span>🕌 بحث الشرعية</span><h3>$'+escHtml(symbol)+'</h3></div><strong>'+icon+' '+escHtml(label)+'</strong></div>'+
-   '<p class="shariah-search-reason">'+escHtml(result?.reason||result?.message||'تم التحقق دون تأليف نتيجة.')+'</p>'+
-   (result?.updated_at?'<small>📅 آخر تحديث منشور: '+escHtml(result.updated_at)+'</small>':'')+
+  const statusTitle=cls==='sh-ok'?'متوافق بحسب النتيجة المنشورة':(cls==='sh-bad'?'غير متوافق بحسب النتيجة المنشورة':'غير واضح / يحتاج تحقق');
+  const statusIcon=cls==='sh-ok'?'✓':(cls==='sh-bad'?'×':'?');
+  const statusExplanation=cls==='sh-unknown'?'لم تتوفر نتيجة مباشرة موثقة أو توجد معلومات غير كافية. لن نخمن الحكم الشرعي.':(result?.reason||result?.message||'الحالة بحسب المصدر المنشور؛ راجع تفاصيل المصادر أدناه.');
+  el.innerHTML='<div class="shariah-search-card shariah-review '+cls+'">'+
+   '<div class="shariah-review-hero">'+
+    '<div class="shariah-emblem '+cls+'" aria-hidden="true"><span class="shariah-emblem-mark">'+statusIcon+'</span><span class="shariah-emblem-caption">SAS PRO</span></div>'+
+    '<div class="shariah-verdict"><span class="shariah-eyebrow">التحقق من شرعية السهم</span><h3 dir="ltr">'+escHtml(symbol)+'</h3><div class="shariah-verdict-state '+cls+'"><span aria-hidden="true">'+statusIcon+'</span>'+escHtml(statusTitle)+'</div><p>'+escHtml(statusExplanation)+'</p></div>'+
+   '</div>'+
+   '<div class="shariah-review-section-title"><b>المصادر التي تمت مراجعتها</b><span>'+sources.length+' مصادر</span></div>'+
    '<div class="shariah-source-list">'+sourceLines+'</div>'+
-   '<div class="shariah-search-note">⛔ النتيجة معلوماتية للتحقق فقط، وشرعية السهم مسؤوليتك. لا يتم اعتماد نتيجة غير موثقة.</div>'+
+   (result?.updated_at?'<div class="shariah-updated">◷ آخر تحديث منشور: '+escHtml(result.updated_at)+'</div>':'')+
+   '<div class="shariah-review-warning"><b>⚠ تنبيه مهم</b><p>لا يصدر SAS PRO حكمًا من عنده. عند غياب نتيجة مباشرة موثقة أو اختلاف المصادر، تبقى الحالة «غير واضح / يحتاج تحقق». هذه معلومات للمراجعة وليست فتوى، والتحقق النهائي مسؤولية المستخدم.</p></div>'+
    '</div>';
  }catch(e){
   el.innerHTML='<div class="shariah-search-card sh-unknown"><b>🕌 بحث الشرعية</b><p>⚠️ تعذر التحقق الآن؛ لم يتم تأليف أي نتيجة.</p></div>';
