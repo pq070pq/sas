@@ -417,6 +417,8 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     shariah = tech.get("shariah") or {}
     news_items = tech.get("news_items") or []
     events = tech.get("corporate_events") or tech.get("events") or []
+    split_analysis = tech.get("reverse_split_analysis") or tech.get("split_analysis") or {}
+    corporate_actions = tech.get("corporate_actions") or {}
 
     def esc(value):
         return html.escape(str(value or "").replace("\\\\n", "\n").strip())
@@ -523,6 +525,55 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         else:
             report.append("⚪ لا يوجد خبر حديث موثق في بيانات الرادار يفسّر الحركة.")
             report.append("لن ننسب الارتفاع إلى أرباح أو خبر من دون مصدر وتاريخ قابلين للتحقق.")
+
+    # Report reverse-split risk only when supplied corporate-action data or a
+    # dated event explicitly supports it; never infer a split from price action.
+    split_events = []
+    if isinstance(events, list):
+        for item in events:
+            if isinstance(item, dict):
+                text_value = " ".join(str(item.get(k) or "") for k in ("headline", "description", "title", "type", "label_ar"))
+                event_date = item.get("date") or item.get("datetime") or item.get("published_at")
+                if any(term in text_value.lower() for term in ("reverse split", "reverse stock split", "تقسيم عكسي", "تجزئة عكسية", "دمج الأسهم")):
+                    split_events.append((text_value.strip(), event_date))
+            elif isinstance(item, str) and any(term in item.lower() for term in ("reverse split", "reverse stock split", "تقسيم عكسي", "تجزئة عكسية", "دمج الأسهم")):
+                split_events.append((item.strip(), None))
+
+    split_detected = bool(
+        split_analysis.get("detected") is True
+        or split_analysis.get("is_reverse_split") is True
+        or corporate_actions.get("reverse_split") is True
+        or split_events
+    )
+    if split_detected:
+        split_date = first(split_analysis.get("date"), split_analysis.get("last_reverse_split_date"),
+                           corporate_actions.get("reverse_split_date"),
+                           split_events[0][1] if split_events else None)
+        split_ratio = first(split_analysis.get("ratio"), corporate_actions.get("reverse_split_ratio"))
+        split_verified = split_analysis.get("verified") is True or corporate_actions.get("verified") is True
+        report += ["", "━━━━━━━━━━━━━━━━━━", "", "⚠️ <b>نوع السهم ومخاطر التقسيم العكسي</b>"]
+        report.append("🏷️ <b>التصنيف:</b> سهم مرتبط بتقسيم عكسي — قد يكون ضمن أسهم عائدة من تقسيم")
+        if split_date:
+            report.append(f"📅 <b>تاريخ الحدث:</b> {esc(split_date)}")
+        if split_ratio:
+            report.append(f"🔀 <b>نسبة التقسيم المعلنة:</b> {esc(split_ratio)}")
+        report.append("🔴 <b>مستوى المخاطر: مرتفع</b> — التقسيم العكسي لا يرفع القيمة الاقتصادية للشركة بحد ذاته.")
+        report.append("• قد يستمر الهبوط بعد التقسيم، مع تذبذب وسيولة أضعف وفروقات سعرية أكبر.")
+        report.append("• افحص التخفيف بإصدار أسهم جديدة، والتمويل، والضمانات، ومتطلبات الإدراج قبل تقييم الارتداد.")
+        if split_verified:
+            report.append("✅ حدث التقسيم معلّم بأنه متحقق في بيانات المصدر.")
+        else:
+            report.append("🟠 تاريخ/تفاصيل التقسيم تحتاج تحققًا من إفصاح الشركة أو البورصة.")
+        if split_analysis.get("cycle_target_hit_after_split") is True:
+            report.append("⛔ دورة الارتداد: هدف الدورة بعد آخر تقسيم عكسي تحقق سابقًا؛ لا تُعرض كدورة جديدة.")
+        elif split_analysis.get("cycle_target_hit_after_split") is False:
+            report.append("🔎 دورة الارتداد: لا توجد إشارة مسجلة إلى تحقق الهدف بعد التقسيم؛ هذا لا يضمن تكرار الدورة.")
+        else:
+            report.append("🔎 دورة الارتداد: لم يتم التحقق من استهلاك الهدف بعد التقسيم؛ لا تفترض أنها دورة جديدة.")
+    else:
+        report += ["", "━━━━━━━━━━━━━━━━━━", "", "🏷️ <b>نوع السهم ومخاطر التقسيم</b>"]
+        report.append("⚪ لا توجد في بيانات هذا التقرير معلومة موثقة تكفي لتصنيف السهم كسهم عائد من تقسيم عكسي.")
+        report.append("ℹ️ عدم ظهور الحدث لا يثبت عدم وجود تقسيم؛ تحقق من إفصاحات الشركة عند الحاجة.")
 
     report += ["", "━━━━━━━━━━━━━━━━━━", "", "🎯 <b>خطة الرصد</b>"]
     report.append(f"🔵 السعر المرجعي: {_money(entry if entry is not None else price)}"
