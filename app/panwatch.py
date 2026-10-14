@@ -53,8 +53,14 @@ async def analyze(symbol: str):
         return r.json()
 
 
-async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
-    """Return observed OHLCV candles with explicit source diagnostics."""
+async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: int = 20, allow_twelve_data: bool = True):
+    """Return observed OHLCV candles with explicit source diagnostics.
+
+    min_candles lets indicator consumers require enough history without treating
+    a short response as a successful source. allow_twelve_data protects the
+    scanner quota while preserving Twelve Data for explicitly permitted calls.
+    """
+    minimum = max(20, min(int(min_candles), 260))
     base = settings.panwatch_base_url.rstrip("/")
     async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
         rows = []
@@ -69,12 +75,12 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
             payload = r.json()
             data = payload.get("data") or payload
             rows = data.get("klines", []) if isinstance(data, dict) else []
-            if len(rows) >= 20: source = "PanWatch"
+            if len(rows) >= minimum: source = "PanWatch"
             else: attempts.append("PanWatch:insufficient")
         except Exception as exc:
             attempts.append(f"PanWatch:{type(exc).__name__}")
 
-        if len(rows) < 20 and settings.twelve_data_api_key:
+        if len(rows) < minimum and allow_twelve_data and settings.twelve_data_api_key:
             try:
                 r = await twelve_call(
                     client.get,
@@ -170,7 +176,7 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
                         except (KeyError, TypeError, ValueError):
                             continue
                     normalized.sort(key=lambda item: item["datetime"])
-                    if len(normalized) >= 20:
+                    if len(normalized) >= minimum:
                         rows, source = normalized[-max(20, min(int(days), 365)):], "Financial Modeling Prep"
                         break
                     attempts.append("FMP:insufficient")
@@ -212,7 +218,7 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
                             })
                         except (IndexError, TypeError, ValueError):
                             continue
-                    if len(yahoo_rows) >= 20:
+                    if len(yahoo_rows) >= minimum:
                         rows, source = yahoo_rows, "Yahoo Finance"
                     else:
                         attempts.append("YahooFinance:insufficient")
@@ -235,7 +241,7 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d"):
             })
         except (TypeError, ValueError, KeyError):
             continue
-    return {"candles": candles, "source": source, "available": len(candles) >= 20, "diagnostic": " | ".join(attempts) if attempts else None}
+    return {"candles": candles, "source": source, "available": len(candles) >= minimum, "diagnostic": " | ".join(attempts) if attempts else None}
 
 
 async def technical_targets(symbol: str):
