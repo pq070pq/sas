@@ -281,10 +281,11 @@ async def _twelve_last_close(symbol: str):
 
 
 async def _stooq_quote(symbol: str):
-    """Keyless fallback for macro prices.
+    """Keyless fallback for stock quotes, including daily change when history exists.
 
-    Stooq exposes two useful CSV endpoints. Some environments return an empty
-    snapshot from q/l, while the daily endpoint still works, so we try both.
+    Prefer the latest snapshot price, but do not return before checking daily
+    history: the snapshot endpoint has no percentage-change field. The daily
+    endpoint provides the previous close needed to calculate a real change.
     """
     mapped = {
         "SPX": "^spx",
@@ -298,58 +299,105 @@ async def _stooq_quote(symbol: str):
         return None
 
     headers = {"User-Agent": "Mozilla/5.0 SAS-PRO/2.1"}
+    snapshot = None
     try:
         async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
-            # 1) Intraday/latest snapshot.
-            r = await client.get(
-                "https://stooq.com/q/l/",
-                params={"s": mapped, "f": "sd2t2ohlcvn", "e": "csv"},
-                headers=headers,
-            )
-            if r.status_code < 400:
-                rows = list(csv.DictReader(io.StringIO(r.text)))
-                row = rows[0] if rows else None
-                if isinstance(row, dict) and _valid_price(row.get("Close")):
-                    price = float(row["Close"])
-                    return {
-                        "symbol": symbol,
-                        "price": price,
-                        "change_pct": None,
-                        "source": "Stooq Snapshot",
-                        "is_extended_hours": False,
-                        "datetime": f"{row.get('Date', '')} {row.get('Time', '')}".strip(),
-                    }
+            # 1) Save the latest snapshot, but continue to daily history for change%.
+            try:
+                r = await client.get(
+                    "https://stooq.com/q/l/",
+                    params={"s": mapped, "f": "sd2t2ohlcvn", "e": "csv"},
+                    headers=headers,
+                )
+                if r.status_code < 400:
+                    rows = list(csv.DictReader(io.StringIO(r.text)))
+                    row = rows[0] if rows else None
+                    if isinstance(row, dict) and _valid_price(row.get("Close")):
+                        snapshot = {
+                            "price": float(row["Close"]),
+                            "date": str(row.get("Date", "")).strip(),
+                            "time": str(row.get("Time", "")).strip(),
+                        }
+            except Exception as exc:
+                logger.info("STOOQ_SNAPSHOT_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
 
-            # 2) Daily history. Calculate the change from the last two closes.
-            r = await client.get(
-                "https://stooq.com/q/d/l/",
-                params={"s": mapped, "i": "d"},
-                headers=headers,
-            )
-            if r.status_code >= 400:
-                return None
-            rows = list(csv.DictReader(io.StringIO(r.text)))
-            valid = [x for x in rows if isinstance(x, dict) and _valid_price(x.get("Close"))]
-            if not valid:
-                return None
-            latest = valid[-1]
-            previous = valid[-2] if len(valid) > 1 else None
-            price = float(latest["Close"])
-            change_pct = None
-            if previous and _valid_price(previous.get("Close")):
-                prev = float(previous["Close"])
-                change_pct = ((price - prev) / prev) * 100 if prev else None
-            return {
-                "symbol": symbol,
-                "price": price,
-                "change_pct": change_pct,
-                "source": "Stooq Last Close",
-                "is_extended_hours": False,
-                "datetime": latest.get("Date"),
-            }
+            # 2) Daily history provides a real previous close; never invent a change.
+            try:
+                r = await client.get(
+                    "https://stooq.com/q/d/l/",
+                    params={"s": mapped, "i": "d"},
+                    headers=headers,
+                )
+                if r.status_code < 400:
+                    rows = list(csv.DictReader(io.StringIO(r.text)))
+                    valid = [
+                        row for row in rows
+                        if isinstance(row, dict) and _valid_price(row.get("Close"))
+                    ]
+                    if valid:
+                        latest = valid[-1]
+                        snapshot_date = snapshot.get("date") if snapshot else ""
+                        latest_date = str(latest.get("Date", "")).strip()
+                        previous = None
+
+                        if snapshot:
+                            # If history already includes the snapshot's session,
+                            # use the preceding daily close; otherwise latest close
+                            # is the previous close for the newer snapshot.
+                            if snapshot_date and latest_date == snapshot_date:
+                                previous = valid[-2] if len(valid) > 1 else None
+                            elif snapshot_date and latest_date < snapshot_date:
+                                previous = latest
+                            else:
+                                before_snapshot = [
+                                    row for row in valid
+                                    if str(row.get("Date", "")).strip() < snapshot_date
+                                ] if snapshot_date else []
+                                previous = before_snapshot[-1] if before_snapshot else (
+                                    valid[-2] if len(valid) > 1 else None
+                                )
+                            price = snapshot["price"]
+                            change_source = "Stooq Snapshot"
+                            timestamp = " ".join(x for x in (snapshot_date, snapshot.get("time", "")) if x)
+                        else:
+                            price = float(latest["Close"])
+                            previous = valid[-2] if len(valid) > 1 else None
+                            change_source = "Stooq Last Close"
+                            timestamp = latest_date
+
+                        change_pct = None
+                        if previous and _valid_price(previous.get("Close")):
+                            prev_close = float(previous["Close"])
+                            if prev_close > 0:
+                                change_pct = ((price - prev_close) / prev_close) * 100
+
+                        return {
+                            "symbol": symbol,
+                            "price": price,
+                            "change_pct": change_pct,
+                            "previous_close": float(previous["Close"]) if previous and _valid_price(previous.get("Close")) else None,
+                            "source": change_source if change_pct is not None else (
+                                "Stooq Snapshot" if snapshot else "Stooq Last Close"
+                            ),
+                            "is_extended_hours": False,
+                            "datetime": timestamp,
+                        }
+            except Exception as exc:
+                logger.info("STOOQ_DAILY_HISTORY_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+
+            # Snapshot-only data may still be useful, but it has no verified change%.
+            if snapshot:
+                return {
+                    "symbol": symbol,
+                    "price": snapshot["price"],
+                    "change_pct": None,
+                    "source": "Stooq Snapshot",
+                    "is_extended_hours": False,
+                    "datetime": " ".join(x for x in (snapshot["date"], snapshot["time"]) if x),
+                }
     except Exception as exc:
         logger.warning("STOOQ_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
-        return None
+    return None
 
 
 async def _public_macro_quote(symbol: str):
@@ -728,34 +776,14 @@ async def quote(symbol: str, prefer_extended: bool = False):
     if fmp:
         return fmp
 
-    # 4) CUSP Wealth public asset page fallback. It may expose the latest
-    # displayed asset price and fundamental context; change remains null unless
-    # CUSP explicitly publishes a percentage. This is not an official CUSP API.
-    try:
-        from .cuspwealth_provider import get_cusp_asset
-        cusp = await get_cusp_asset(symbol)
-        if isinstance(cusp, dict) and _valid_price(cusp.get("price")):
-            return {
-                "symbol": symbol,
-                "price": float(cusp["price"]),
-                "change_pct": cusp.get("change_pct"),
-                "source": "CUSP Wealth",
-                "is_extended_hours": False,
-                "market_status": cusp.get("market_status"),
-                "datetime": cusp.get("data_timestamp"),
-                "cusp_metrics": cusp.get("metrics", {}),
-                "source_url": cusp.get("source_url"),
-            }
-    except Exception as exc:
-        logger.info("CUSP_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
-
-    # 5) Keyless last-close fallback. A provider outage must not kill private analysis.
+    # 4) Keyless Stooq fallback. Prefer quote sources that provide a real market change.
+    # Stooq fallback: daily history calculates change from a real previous close.
     stooq = await _stooq_quote(symbol)
     if stooq:
         return stooq
 
     logger.warning(
-        "QUOTE_UNAVAILABLE symbol=%s attempted_sources=Finnhub,TwelveData,FMP,CUSP,Stooq",
+        "QUOTE_UNAVAILABLE symbol=%s attempted_sources=Finnhub,TwelveData,FMP,Stooq",
         symbol,
     )
     return {
