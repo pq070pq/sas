@@ -3492,3 +3492,6 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 /* CUSP is a public-page fallback, not a guaranteed live quote. */
 .sas-terminal-live.sas-quote-delayed{color:#f4c879!important}
 .sas-terminal-live.sas-quote-delayed i{background:#f4c879!important;box-shadow:0 0 8px #f4c879!important}
+
+/* Calm, transparent quote-refresh note beside SAS PRO branding. */
+.sas-terminal-brand .sas-quote-note{display:block;margin-top:3px;font-size:10px;line-height:1.45;font-style:normal;font-weight:500;color:#b8c9d8;letter-spacing:0;white-space:normal;max-width:220px;text-align:center}
