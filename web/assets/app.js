@@ -1123,7 +1123,7 @@ async function analyzeSymbol(){
  if(!analysis){
    const errors=[qR,chartR,newsR,analysisR].filter(x=>x.status==='rejected').map(x=>x.reason?.message).filter(Boolean);
    el.innerHTML='<div class="fatal">⚠️ تعذر إكمال التحليل الكامل<br><small>لكن تم إبقاء البيانات التي نجح تحميلها.</small>'+(errors.length?'<br><small>'+escHtml(errors[0])+'</small>':'')+'</div>';
-   if(Number(q.price)>0||news.length||chart.candles?.length) renderPartialAnalysis(el,symbol,q,chart,news,miniR.status==='fulfilled'?miniR.value:null);
+   if(Number(q.price)>0||news.length||chart.candles?.length) renderPartialAnalysis(el,symbol,q,chart,news,miniR.status==='fulfilled'?miniR.value:null,cuspR.status==='fulfilled'?cuspR.value:null);
    return;
  }
  const perp=perpR.status==='fulfilled'&&perpR.value&&typeof perpR.value==='object'?perpR.value:{symbol,available:false,source_url:'https://perpequities.com/ar',message_ar:'تعذر تحميل بيانات PerpEquities.'};
@@ -1226,7 +1226,7 @@ if(!window.__sasPrivateAnalysisBound){
    openPrivateAnalysis(btn.getAttribute('data-private-analysis')||'');
  });
 }
-function renderPartialAnalysis(el,symbol,q,chart,news,miniData){
+function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
  const fallbackQuote=miniData?.quote&&typeof miniData.quote==='object'?miniData.quote:{};
  const displayQuote=(Number(q?.price)>0||Number.isFinite(Number(q?.change_pct)))?q:fallbackQuote;
  const price=Number(displayQuote?.price);
@@ -1247,7 +1247,8 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData){
    '<p class="mini-takeaway">'+escHtml(miniData?.mini_analysis?.takeaway||'تعذر تحميل تحليل SAS المختصر حاليًا.')+'</p>'+
    
  '</div>'+
- '<div class="chart-title"><b>📈 شارت السهم</b><div class="chart-title-actions"><small>شموع وحجم تداول • بيانات SAS PRO</small><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">↗ فتح GoCharting</a></div></div><div class="chart-box"><canvas id="stockCanvas" height="260"></canvas></div>'+
+ '<section class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth · بحث مالي إضافي</b><a href="'+escHtml(safeNewsUrl(cuspData?.source_url)||('https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol)))+'" target="_blank" rel="noopener noreferrer">فتح صفحة السهم ↗</a></div><p>'+escHtml(cuspData?.available?(cuspData.title||cuspData.description||'تم الوصول إلى صفحة CUSP، وقد تكون التفاصيل المالية محمّلة داخل الموقع.'): (cuspData?.message_ar||'بيانات CUSP غير متاحة آليًا الآن.'))+'</p><small>مصدر بحثي إضافي، وليس سعرًا حيًا أو توصية تداول.</small></section>'+
+ '<div class="chart-title"><b>📈 شارت السهم</b><div class="chart-title-actions"><small>شموع وحجم تداول • بيانات SAS PRO</small><a class="gocharting-link" href="https://stockanalysis.com/stocks/'+encodeURIComponent(symbol.toLowerCase())+'/history/" target="_blank" rel="noopener noreferrer">↗ الأسعار التاريخية</a><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">↗ فتح GoCharting</a></div></div><div class="chart-box"><canvas id="stockCanvas" height="260"></canvas></div>'+
  '<div class="news-list">'+renderNewsItems(news,5)+'</div>';
  const partialCandles=Array.isArray(chart?.candles)?chart.candles:[];
  requestAnimationFrame(()=>drawChart(partialCandles));
