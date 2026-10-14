@@ -1169,8 +1169,9 @@ async function analyzeSymbol(){
  const perp=perpR.status==='fulfilled'&&perpR.value&&typeof perpR.value==='object'?perpR.value:{symbol,available:false,source_url:'https://perpequities.com/ar',message_ar:'تعذر تحميل بيانات PerpEquities.'};
  const cusp=cuspR.status==='fulfilled'&&cuspR.value&&typeof cuspR.value==='object'?cuspR.value:{symbol,available:false,source_url:'https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol),message_ar:'تعذر تحميل بيانات CUSP الآن.'};
  const cuspMetricsHtml=renderCuspWealthMetrics(cusp);
+ const cuspFundamentalSummary=renderCuspFundamentalSummary(cusp,q.price);
  const cuspHtml='<section class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth · بيانات مالية إضافية</b><a href="'+escHtml(safeNewsUrl(cusp.source_url)||('https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol)))+'" target="_blank" rel="noopener noreferrer">فتح صفحة السهم ↗</a></div>'+
-   (cusp.available?'<p><b>'+escHtml(cusp.title||symbol)+'</b></p>'+(cusp.description?'<p>'+escHtml(cusp.description)+'</p>':'')+cuspMetricsHtml:'<p>'+escHtml(cusp.message_ar||'لا تتوفر بيانات قابلة للقراءة آليًا؛ افتح المصدر لمراجعة التفاصيل.')+'</p>')+
+   (cusp.available?'<p><b>'+escHtml(cusp.title||symbol)+'</b></p>'+(cusp.description?'<p>'+escHtml(cusp.description)+'</p>':'')+cuspFundamentalSummary+cuspMetricsHtml:'<p>'+escHtml(cusp.message_ar||'لا تتوفر بيانات قابلة للقراءة آليًا؛ افتح المصدر لمراجعة التفاصيل.')+'</p>')+
    '<small>مصدر مالي إضافي؛ السعر قد يمثل آخر سعر منشور لدى CUSP وليس بالضرورة سعرًا لحظيًا. القيم غير المتاحة لا تُقدّر.</small></section>';
  const tech=analysis.sas_pro?.targets||{};
  const sh=shariah||tech.shariah||{};
@@ -1225,7 +1226,7 @@ const miniAnalysisHtml=
     renderStockTerminalQuickMetrics(classification,tech,mini)+
     renderStockTerminalAverages(classification,tech)+
     '<section class="sas-terminal-panel" id="sasTerminalLevels"><div class="sas-terminal-section-title"><span>⌖</span><div><b>مستويات السهم</b><small>مستويات محرك SAS PRO دون قيم افتراضية</small></div></div><div class="level-grid"><div><small>الدخول</small><b>'+(Number.isFinite(entry)&&entry>0?'$'+money(entry):'غير متاح')+'</b></div><div><small>وقف الخسارة</small><b>'+(Number.isFinite(stop)&&stop>0?'$'+money(stop):'غير متاح')+'</b></div><div><small>الهدف الأول</small><b>'+(Number.isFinite(target1)&&target1>0?'$'+money(target1):'غير متاح')+'</b></div><div><small>العائد/المخاطرة</small><b>'+rr+'</b></div></div></section>'+
-    '<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت التفاعلي</b><small>شموع السعر وحجم التداول · SAS PRO</small></div><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a></div><div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">البيانات التاريخية غير متاحة حاليًا<br><small>لن يتم إنشاء شموع أو أسعار غير مستلمة من الخادم.</small></div>':'<canvas id="stockCanvas" height="290"></canvas>')+'</div><div id="perpEquitiesAnalysis"></div></section>'+
+    '<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت التفاعلي</b><small>شموع السعر وحجم التداول · SAS PRO</small></div><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a></div><div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">البيانات التاريخية غير متاحة حاليًا<br><small>'+escHtml(chart.diagnostic||chart.error||'لم يرسل الخادم تفاصيل إضافية.')+'</small><br><a href="https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الرسم والبيانات في CUSP Wealth ↗</a></div>':'<canvas id="stockCanvas" height="290"></canvas>')+'</div><div id="perpEquitiesAnalysis"></div></section>'+
     '<section class="sas-terminal-panel" id="sasTerminalFundamentals"><div class="sas-terminal-section-title"><span>▤</span><div><b>التحليل والبيانات الإضافية</b><small>ملخص المصدر والأبحاث المتاحة</small></div></div>'+cuspHtml+'<div class="ai-box"><b>'+(aiAvailable?'ملخص التحليل المتاح':'الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+'</section>'+
     '<section class="sas-terminal-panel" id="sasTerminalNews"><div class="sas-terminal-section-title"><span>▣</span><div><b>آخر أخبار السهم</b><small>الأخبار المتاحة من المصادر</small></div></div><div class="news-list">'+renderNewsItems(newsFromAnalysis,5,Array.isArray(ai.news_summaries)?ai.news_summaries:[])+'</div></section>'+
     '<section class="sas-terminal-panel" id="sasTerminalShariah">'+shHtml+'</section>'+
@@ -1295,6 +1296,23 @@ function renderVerifiedTechnicalCards(classification,targets,mini){
  ];
  return '<div class="sas-indicator-grid">'+cards.map(([label,value,note])=>'<div class="sas-indicator-card"><small>'+escHtml(label)+'</small><b>'+escHtml(value)+'</b><span>'+escHtml(note)+'</span></div>').join('')+'</div><small class="sas-data-integrity">✓ بيانات فعلية متاحة من محرك التحليل فقط؛ أي قيمة غير متاحة لم يتم تخمينها.</small>';
 }
+function renderCuspFundamentalSummary(cusp,currentQuote){
+ const data=cusp&&typeof cusp==='object'?cusp:{},m=data.metrics&&typeof data.metrics==='object'?data.metrics:{};
+ const parts=[];
+ const score=Number(m.valuation_score);
+ if(m.valuation_score!==undefined&&Number.isFinite(score))parts.push('تقييم CUSP المنشور '+score+'/100'+(m.valuation_label?' ('+String(m.valuation_label)+')':'')+'.');
+ if(m.pe_ratio)parts.push('مكرر الربحية: '+String(m.pe_ratio)+'.');
+ if(m.market_cap)parts.push('القيمة السوقية المنشورة: '+String(m.market_cap)+'.');
+ if(m.analyst_consensus)parts.push('إجماع المحللين: '+String(m.analyst_consensus)+'.');
+ const target=Number(String(m.analyst_target||'').replace(/[^0-9.\-]/g,''));
+ const price=Number(currentQuote);
+ if(m.analyst_target&&Number.isFinite(target)&&target>0&&Number.isFinite(price)&&price>0){
+  const upside=(target-price)/price*100;
+  parts.push('متوسط السعر المستهدف المنشور '+String(m.analyst_target)+'؛ الفرق الحسابي عن السعر المعروض '+(upside>=0?'+':'')+upside.toFixed(2)+'%. هذا حساب مقارنة وليس توقعًا مضمونًا.');
+ }
+ if(!parts.length)return '<p class="cusp-fundamental-summary">وصلت صفحة CUSP لكن لم تتوفر حقول كافية لبناء ملخص أساسي موثوق لهذا السهم.</p>';
+ return '<div class="cusp-fundamental-summary"><b>القراءة الأساسية من CUSP</b><p>'+escHtml(parts.join(' '))+'</p><small>المعلومات المالية ليست بديلًا عن المؤشرات الفنية، ولا تُعد توصية تداول.</small></div>';
+}
 function renderCuspWealthMetrics(cusp){
  const data=cusp&&typeof cusp==='object'?cusp:{};
  const metrics=data.metrics&&typeof data.metrics==='object'?data.metrics:{};
@@ -1337,6 +1355,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
  const quoteSource=displayQuote?.source||'مصدر السعر غير محدد';
  const cuspUrl=safeNewsUrl(cuspData?.source_url)||('https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol));
  const cuspMetricsHtml=renderCuspWealthMetrics(cuspData);
+ const cuspFundamentalSummary=renderCuspFundamentalSummary(cuspData,displayQuote?.price);
  const cuspText=cuspData?.available?(cuspData.title||cuspData.description||'تم الوصول إلى صفحة CUSP؛ قد تكون التفاصيل محمّلة داخل الموقع.'):(cuspData?.message_ar||'بيانات CUSP غير متاحة آليًا الآن.');
  const quickMetrics=renderStockTerminalQuickMetrics(classification,targets,mini);
  const averages=renderStockTerminalAverages(classification,targets);
@@ -1350,7 +1369,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
    quickMetrics+averages+
    '<section class="sas-terminal-panel" id="sasTerminalLevels"><div class="sas-terminal-section-title"><span>⌖</span><div><b>مستويات السهم</b><small>مستويات فعلية إذا وصلت من محرك التحليل</small></div></div><div class="level-grid"><div><small>الهدف</small><b>'+level(mini.target)+'</b></div><div><small>وقف الخسارة</small><b>'+level(mini.stop)+'</b></div><div><small>الزخم</small><b>'+escHtml(mini.momentum||'غير متاح')+'</b></div><div><small>السيولة</small><b>'+escHtml(mini.liquidity||'غير متاحة')+'</b></div></div>'+(mini.takeaway?'<p class="mini-takeaway">'+escHtml(mini.takeaway)+'</p>':'')+'</section>'+
    '<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت</b><small>شموع السعر وحجم التداول من البيانات المستلمة</small></div><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a></div><div class="chart-box"><canvas id="stockCanvas" height="290"></canvas></div></section>'+
-   '<section class="sas-terminal-panel" id="sasTerminalResearch"><div class="sas-terminal-section-title"><span>▤</span><div><b>بحث مالي إضافي</b><small>المصدر: CUSP Wealth</small></div></div><div class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth</b><a href="'+escHtml(cuspUrl)+'" target="_blank" rel="noopener noreferrer">فتح المصدر ↗</a></div><p>'+escHtml(cuspText)+'</p>'+cuspMetricsHtml+'<small>مصدر بحثي إضافي؛ السعر قد يكون آخر سعر معروض على صفحة المصدر وليس بالضرورة سعرًا لحظيًا.</small></div></section>'+
+   '<section class="sas-terminal-panel" id="sasTerminalResearch"><div class="sas-terminal-section-title"><span>▤</span><div><b>بحث مالي إضافي</b><small>المصدر: CUSP Wealth</small></div></div><div class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth</b><a href="'+escHtml(cuspUrl)+'" target="_blank" rel="noopener noreferrer">فتح المصدر ↗</a></div><p>'+escHtml(cuspText)+'</p>'+cuspFundamentalSummary+cuspMetricsHtml+'<small>مصدر بحثي إضافي؛ السعر قد يكون آخر سعر معروض على صفحة المصدر وليس بالضرورة سعرًا لحظيًا.</small></div></section>'+
    '<section class="sas-terminal-panel" id="sasTerminalNews"><div class="sas-terminal-section-title"><span>▣</span><div><b>آخر أخبار السهم</b><small>الأخبار التي تم استلامها من المصادر</small></div></div><div class="news-list">'+renderNewsItems(Array.isArray(news)?news:[],5)+'</div></section>'+
    '<div class="terminal-disclaimer">البيانات المتاحة جزئية وليست توصية شراء أو بيع. لا يتم إنشاء مؤشرات أو أسعار غير مستلمة من المصادر.</div>'+
   '</div>';
