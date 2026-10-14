@@ -2491,8 +2491,18 @@ async def dashboard_home(_: dict = Depends(require_pro)):
             payload.setdefault("symbol", row.symbol)
             payload.setdefault("created_at", row.created_at.isoformat() if row.created_at else None)
             payload.setdefault("session_date", row.session_date)
-            # المحفوظ يعرض الفرص المؤكدة النشطة فقط؛ المرشحات التي فقدت الشروط تبقى تاريخيًا.
-            if not is_current_active_opportunity(payload):
+            # أعلى الأسهم حركة تعرض أيضًا مرشحي المراقبة المسجلين في جلسة اليوم،
+            # مع إبقاء السجلات القديمة غير النشطة خارج القائمة.
+            opportunity_status = str(
+                payload.get("opportunity_status")
+                or (payload.get("classification") or {}).get("opportunity_status")
+                or "watch"
+            ).lower()
+            current_session_watch = (
+                str(row.session_date or "") == str(session_date)
+                and opportunity_status in {"watch", "confirmed"}
+            )
+            if not is_current_active_opportunity(payload) and not current_session_watch:
                 continue
             if row.symbol not in seen:
                 radar_stocks.append(payload)
@@ -4650,8 +4660,18 @@ async def dashboard_home(_: dict = Depends(require_pro)):
             payload.setdefault("symbol", row.symbol)
             payload.setdefault("created_at", row.created_at.isoformat() if row.created_at else None)
             payload.setdefault("session_date", row.session_date)
-            # المحفوظ يعرض الفرص المؤكدة النشطة فقط؛ المرشحات التي فقدت الشروط تبقى تاريخيًا.
-            if not is_current_active_opportunity(payload):
+            # أعلى الأسهم حركة تعرض أيضًا مرشحي المراقبة المسجلين في جلسة اليوم،
+            # مع إبقاء السجلات القديمة غير النشطة خارج القائمة.
+            opportunity_status = str(
+                payload.get("opportunity_status")
+                or (payload.get("classification") or {}).get("opportunity_status")
+                or "watch"
+            ).lower()
+            current_session_watch = (
+                str(row.session_date or "") == str(session_date)
+                and opportunity_status in {"watch", "confirmed"}
+            )
+            if not is_current_active_opportunity(payload) and not current_session_watch:
                 continue
             if row.symbol not in seen:
                 radar_stocks.append(payload)
