@@ -1112,24 +1112,35 @@ function mountPerpEquitiesAnalysis(root,data,symbol){
  const note=document.createElement('p');note.className='perp-analysis-disclaimer';note.textContent='بيانات العقود الدائمة قد تختلف عن سعر السهم الفوري. مصدر البيانات: PerpEquities. البيانات للمعلومات فقط وليست توصية تداول.';panel.appendChild(note);host.appendChild(panel);
 }
 
+function renderAvailableLevelPanel(title,subtitle,fields){
+ const available=(Array.isArray(fields)?fields:[]).filter(([,value])=>value!==null&&value!==undefined&&String(value).trim()!==''&&!['غير متاح','غير متاحة','—','-','NaN','undefined'].includes(String(value).trim()));
+ if(!available.length)return '';
+ return '<section class="sas-terminal-panel" id="sasTerminalLevels"><div class="sas-terminal-section-title"><span>⌖</span><div><b>'+escHtml(title)+'</b><small>'+escHtml(subtitle)+'</small></div></div><div class="level-grid">'+available.map(([label,value])=>'<div><small>'+escHtml(label)+'</small><b>'+escHtml(value)+'</b></div>').join('')+'</div></section>';
+}
 function renderStockTerminalQuickMetrics(classification,targets,mini){
  const c=classification&&typeof classification==='object'?classification:{},t=targets&&typeof targets==='object'?targets:{},m=mini&&typeof mini==='object'?mini:{};
  const nested=c.indicators&&typeof c.indicators==='object'?c.indicators:{},ind=t.indicators&&typeof t.indicators==='object'?t.indicators:{};
  const pick=(...v)=>v.find(x=>x!==null&&x!==undefined&&x!==''&&Number.isFinite(Number(x)));
- const fmt=(v,d=2)=>{const n=Number(v);return v===undefined||v===null||v===''||!Number.isFinite(n)?'غير متاح':n.toFixed(d);};
+ const fmt=(v,d=2)=>{const n=Number(v);return v===undefined||v===null||v===''||!Number.isFinite(n)?null:n.toFixed(d);};
+ const rsi=fmt(pick(c.rsi14,nested.rsi14,ind.rsi14));
+ const rvol=fmt(pick(m.rvol,c.rvol,nested.rvol,ind.rvol));
+ const atrValue=pick(c.atr14,c.atr,nested.atr14,ind.atr14,t.atr14);
+ const atr=atrValue!==undefined&&Number(atrValue)>0?'$'+money(atrValue):null;
  const data=[
-  {label:'الزخم (RSI 14)',value:fmt(pick(c.rsi14,nested.rsi14,ind.rsi14)),tone:'violet',note:'مؤشر القوة النسبية'},
-  {label:'السيولة (RVOL)',value:(pick(m.rvol,c.rvol,nested.rvol,ind.rvol)===undefined?'غير متاح':fmt(pick(m.rvol,c.rvol,nested.rvol,ind.rvol))+'×'),tone:'green',note:'الحجم النسبي'},
-  {label:'التقلب (ATR 14)',value:(pick(c.atr14,c.atr,nested.atr14,ind.atr14,t.atr14)===undefined?'غير متاح':'$'+money(pick(c.atr14,c.atr,nested.atr14,ind.atr14,t.atr14))),tone:'blue',note:'متوسط المدى الحقيقي'}
- ];
+  {label:'الزخم (RSI 14)',value:rsi,tone:'violet',note:'مؤشر القوة النسبية'},
+  {label:'السيولة (RVOL)',value:rvol===null?null:rvol+'×',tone:'green',note:'الحجم النسبي'},
+  {label:'التقلب (ATR 14)',value:atr,tone:'blue',note:'متوسط المدى الحقيقي'}
+ ].filter(x=>x.value!==null&&x.value!==undefined&&x.value!=='');
+ if(!data.length)return '';
  return '<div class="sas-terminal-metrics" id="sasTerminalMetrics">'+data.map(x=>'<article class="sas-terminal-metric '+x.tone+'"><div class="sas-terminal-metric-icon">'+(x.tone==='violet'?'◉':x.tone==='green'?'▥':'∿')+'</div><div><small>'+x.label+'</small><strong>'+x.value+'</strong><span>'+x.note+'</span></div></article>').join('')+'</div>';
 }
 function renderStockTerminalAverages(classification,targets){
  const c=classification&&typeof classification==='object'?classification:{},t=targets&&typeof targets==='object'?targets:{};
  const nested=c.indicators&&typeof c.indicators==='object'?c.indicators:{},ind=t.indicators&&typeof t.indicators==='object'?t.indicators:{};
  const pick=(...v)=>v.find(x=>x!==null&&x!==undefined&&x!==''&&Number.isFinite(Number(x))&&Number(x)>0);
- const rows=[['MA 20',pick(c.ma20,c.sma20,nested.ma20,nested.sma20,ind.ma20,ind.sma20)],['MA 50',pick(c.ma50,c.sma50,nested.ma50,nested.sma50,ind.ma50,ind.sma50)],['MA 100',pick(c.ma100,c.sma100,nested.ma100,nested.sma100,ind.ma100,ind.sma100)],['MA 200',pick(c.ma200,c.sma200,nested.ma200,nested.sma200,ind.ma200,ind.sma200)]];
- return '<section class="sas-terminal-panel" id="sasMovingAverages"><div class="sas-terminal-section-title"><span>▥</span><div><b>المتوسطات المتحركة</b><small>تُعرض القيم التي وصلت من مصدر التحليل فقط</small></div></div><div class="sas-terminal-averages">'+rows.map(([label,value])=>'<div><small>'+label+'</small><strong>'+(value===undefined?'غير متاح':'$'+money(value))+'</strong><span>'+(value===undefined?'لا توجد قيمة موثقة':'قيمة فعلية')+'</span></div>').join('')+'</div></section>';
+ const rows=[['MA 20',pick(c.ma20,c.sma20,nested.ma20,nested.sma20,ind.ma20,ind.sma20)],['MA 50',pick(c.ma50,c.sma50,nested.ma50,nested.sma50,ind.ma50,ind.sma50)],['MA 100',pick(c.ma100,c.sma100,nested.ma100,nested.sma100,ind.ma100,ind.sma100)],['MA 200',pick(c.ma200,c.sma200,nested.ma200,nested.sma200,ind.ma200,ind.sma200)]].filter(([,value])=>value!==undefined&&value!==null&&Number.isFinite(Number(value))&&Number(value)>0);
+ if(!rows.length)return '';
+ return '<section class="sas-terminal-panel" id="sasMovingAverages"><div class="sas-terminal-section-title"><span>▥</span><div><b>المتوسطات المتحركة</b><small>القيم الفعلية المستلمة من مصدر التحليل</small></div></div><div class="sas-terminal-averages">'+rows.map(([label,value])=>'<div><small>'+label+'</small><strong>$'+money(value)+'</strong><span>قيمة فعلية</span></div>').join('')+'</div></section>';
 }
 async function analyzeSymbol(){
  const input=document.getElementById('symbolSearch');
@@ -1225,8 +1236,8 @@ const miniAnalysisHtml=
     notice+
     renderStockTerminalQuickMetrics(classification,tech,mini)+
     renderStockTerminalAverages(classification,tech)+
-    '<section class="sas-terminal-panel" id="sasTerminalLevels"><div class="sas-terminal-section-title"><span>⌖</span><div><b>مستويات السهم</b><small>مستويات محرك SAS PRO دون قيم افتراضية</small></div></div><div class="level-grid"><div><small>الدخول</small><b>'+(Number.isFinite(entry)&&entry>0?'$'+money(entry):'غير متاح')+'</b></div><div><small>وقف الخسارة</small><b>'+(Number.isFinite(stop)&&stop>0?'$'+money(stop):'غير متاح')+'</b></div><div><small>الهدف الأول</small><b>'+(Number.isFinite(target1)&&target1>0?'$'+money(target1):'غير متاح')+'</b></div><div><small>العائد/المخاطرة</small><b>'+rr+'</b></div></div></section>'+
-    '<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت التفاعلي</b><small>شموع السعر وحجم التداول · SAS PRO</small></div><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a></div><div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">البيانات التاريخية غير متاحة حاليًا<br><small>'+escHtml(chart.diagnostic||chart.error||'لم يرسل الخادم تفاصيل إضافية.')+'</small><br><a href="https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الرسم والبيانات في CUSP Wealth ↗</a></div>':'<canvas id="stockCanvas" height="290"></canvas>')+'</div><div id="perpEquitiesAnalysis"></div></section>'+
+    renderAvailableLevelPanel('مستويات السهم','القيم الفعلية المستلمة من محرك SAS PRO',[['الدخول',Number.isFinite(entry)&&entry>0?'$'+money(entry):null],['وقف الخسارة',Number.isFinite(stop)&&stop>0?'$'+money(stop):null],['الهدف الأول',Number.isFinite(target1)&&target1>0?'$'+money(target1):null],['العائد/المخاطرة',rr==='—'?null:rr]])+
+    (Array.isArray(chart.candles)&&chart.candles.length?'<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت التفاعلي</b><small>شموع السعر وحجم التداول · SAS PRO</small></div><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a></div><div class="chart-box"><canvas id="stockCanvas" height="290"></canvas></div><div id="perpEquitiesAnalysis"></div></section>':'')+
     '<section class="sas-terminal-panel" id="sasTerminalFundamentals"><div class="sas-terminal-section-title"><span>▤</span><div><b>التحليل والبيانات الإضافية</b><small>ملخص المصدر والأبحاث المتاحة</small></div></div>'+cuspHtml+'<div class="ai-box"><b>'+(aiAvailable?'ملخص التحليل المتاح':'الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+'</section>'+
     '<section class="sas-terminal-panel" id="sasTerminalNews"><div class="sas-terminal-section-title"><span>▣</span><div><b>آخر أخبار السهم</b><small>الأخبار المتاحة من المصادر</small></div></div><div class="news-list">'+renderNewsItems(newsFromAnalysis,5,Array.isArray(ai.news_summaries)?ai.news_summaries:[])+'</div></section>'+
     '<section class="sas-terminal-panel" id="sasTerminalShariah">'+shHtml+'</section>'+
@@ -1283,18 +1294,19 @@ function renderVerifiedTechnicalCards(classification,targets,mini){
  const indicators=(t.indicators&&typeof t.indicators==='object'?t.indicators:{});
  const nested=(cls.indicators&&typeof cls.indicators==='object'?cls.indicators:{});
  const pick=(...values)=>values.find(v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v)));
- const number=(value,digits=2)=>{const n=Number(value);return value!==null&&value!==undefined&&value!==''&&Number.isFinite(n)?n.toFixed(digits):'غير متاح';};
- const price=(value)=>{const n=Number(value);return value!==null&&value!==undefined&&value!==''&&Number.isFinite(n)&&n>0?'$'+money(n):'غير متاح';};
+ const number=(value,digits=2)=>{const n=Number(value);return value!==null&&value!==undefined&&value!==''&&Number.isFinite(n)?n.toFixed(digits):null;};
+ const price=(value)=>{const n=Number(value);return value!==null&&value!==undefined&&value!==''&&Number.isFinite(n)&&n>0?'$'+money(n):null;};
  const cards=[
   ['RSI 14',number(pick(cls.rsi14,nested.rsi14,indicators.rsi14)), 'مؤشر القوة النسبية'],
-  ['RVOL',(()=>{const v=pick(m.rvol,cls.rvol,nested.rvol,indicators.rvol);return v===undefined?'غير متاح':number(v)+'×';})(), 'الحجم النسبي'],
+  ['RVOL',(()=>{const v=pick(m.rvol,cls.rvol,nested.rvol,indicators.rvol);const n=number(v);return n===null?null:n+'×';})(), 'الحجم النسبي'],
   ['ATR 14',price(pick(cls.atr14,cls.atr,nested.atr14,indicators.atr14,t.atr14)), 'متوسط المدى الحقيقي'],
   ['EMA 20',price(pick(cls.ema20,nested.ema20,indicators.ema20)), 'المتوسط الأسي'],
   ['EMA 50',price(pick(cls.ema50,nested.ema50,indicators.ema50)), 'المتوسط الأسي'],
   ['EMA 200',price(pick(cls.ema200,nested.ema200,indicators.ema200)), 'المتوسط الأسي'],
   ['ADX 14',number(pick(cls.adx14,nested.adx14,indicators.adx14)), 'قوة الاتجاه']
- ];
- return '<div class="sas-indicator-grid">'+cards.map(([label,value,note])=>'<div class="sas-indicator-card"><small>'+escHtml(label)+'</small><b>'+escHtml(value)+'</b><span>'+escHtml(note)+'</span></div>').join('')+'</div><small class="sas-data-integrity">✓ بيانات فعلية متاحة من محرك التحليل فقط؛ أي قيمة غير متاحة لم يتم تخمينها.</small>';
+ ].filter(([,value])=>value!==null&&value!==undefined&&value!=='');
+ if(!cards.length)return '';
+ return '<div class="sas-indicator-grid">'+cards.map(([label,value,note])=>'<div class="sas-indicator-card"><small>'+escHtml(label)+'</small><b>'+escHtml(value)+'</b><span>'+escHtml(note)+'</span></div>').join('')+'</div><small class="sas-data-integrity">✓ تُعرض المؤشرات التي وصلت بقيم فعلية فقط؛ لا تُعرض القيم المفقودة أو المخمّنة.</small>';
 }
 function renderCuspFundamentalSummary(cusp,currentQuote){
  const data=cusp&&typeof cusp==='object'?cusp:{},m=data.metrics&&typeof data.metrics==='object'?data.metrics:{};
@@ -1367,8 +1379,8 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
    '<nav class="sas-terminal-tabs" aria-label="أقسام تحليل السهم"><a href="#sasTerminalMetrics">المؤشرات</a><a href="#sasMovingAverages">المتوسطات</a><a href="#sasTerminalChart">الشارت</a><a href="#sasTerminalLevels">المستويات</a><a href="#sasTerminalNews">الأخبار</a><a href="#sasTerminalResearch">الأبحاث</a></nav>'+
    '<div class="partial-note">تعذر تحميل التحليل الكامل من الخادم؛ نعرض البيانات الجزئية التي وصلت فقط دون تخمين.</div>'+
    quickMetrics+averages+
-   '<section class="sas-terminal-panel" id="sasTerminalLevels"><div class="sas-terminal-section-title"><span>⌖</span><div><b>مستويات السهم</b><small>مستويات فعلية إذا وصلت من محرك التحليل</small></div></div><div class="level-grid"><div><small>الهدف</small><b>'+level(mini.target)+'</b></div><div><small>وقف الخسارة</small><b>'+level(mini.stop)+'</b></div><div><small>الزخم</small><b>'+escHtml(mini.momentum||'غير متاح')+'</b></div><div><small>السيولة</small><b>'+escHtml(mini.liquidity||'غير متاحة')+'</b></div></div>'+(mini.takeaway?'<p class="mini-takeaway">'+escHtml(mini.takeaway)+'</p>':'')+'</section>'+
-   '<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت</b><small>شموع السعر وحجم التداول من البيانات المستلمة</small></div><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a></div><div class="chart-box">'+(candles.length?'<canvas id="stockCanvas" height="290"></canvas>':'<div class="chart-unavailable">لا توجد شموع تاريخية كافية من مزودي الأسعار.<br><small>'+escHtml(chart?.diagnostic||chart?.error||'المصدر لم يُرجع بيانات OHLCV صالحة.')+'</small><br><a href="https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح صفحة السهم في CUSP Wealth ↗</a></div>')+'</div></section>'+
+   renderAvailableLevelPanel('مستويات السهم','القيم الفعلية المستلمة من محرك التحليل',[['الهدف',level(mini.target)],['وقف الخسارة',level(mini.stop)],['الزخم',mini.momentum],['السيولة',mini.liquidity]])+(mini.takeaway?'<section class="sas-terminal-panel"><p class="mini-takeaway">'+escHtml(mini.takeaway)+'</p></section>':'')+
+   (candles.length?'<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت</b><small>شموع السعر وحجم التداول من البيانات المستلمة</small></div><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a></div><div class="chart-box"><canvas id="stockCanvas" height="290"></canvas></div></section>':'')+
    '<section class="sas-terminal-panel" id="sasTerminalResearch"><div class="sas-terminal-section-title"><span>▤</span><div><b>بحث مالي إضافي</b><small>المصدر: CUSP Wealth</small></div></div><div class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth</b><a href="'+escHtml(cuspUrl)+'" target="_blank" rel="noopener noreferrer">فتح المصدر ↗</a></div><p>'+escHtml(cuspText)+'</p>'+cuspFundamentalSummary+cuspMetricsHtml+'<small>مصدر بحثي إضافي؛ السعر قد يكون آخر سعر معروض على صفحة المصدر وليس بالضرورة سعرًا لحظيًا.</small></div></section>'+
    '<section class="sas-terminal-panel" id="sasTerminalNews"><div class="sas-terminal-section-title"><span>▣</span><div><b>آخر أخبار السهم</b><small>الأخبار التي تم استلامها من المصادر</small></div></div><div class="news-list">'+renderNewsItems(Array.isArray(news)?news:[],5)+'</div></section>'+
    '<div class="terminal-disclaimer">البيانات المتاحة جزئية وليست توصية شراء أو بيع. لا يتم إنشاء مؤشرات أو أسعار غير مستلمة من المصادر.</div>'+
