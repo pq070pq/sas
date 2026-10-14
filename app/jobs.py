@@ -1014,13 +1014,7 @@ async def stock_radar_cycle():
                             "message": "لم تتوفر نتيجة تحقق موثقة.",
                             "sources": [],
                         }
-                        watch_report = build_report(symbol, q, tech, classification)
-                        watch_report += (
-                            "\\n\\n👀 <b>حالة الرادار: مرشح للمراقبة — ليست إشارة مؤكدة</b>"
-                            f"\\n🔎 <b>سبب عدم اكتمال التأكيد:</b> {channel_reason}"
-                            "\\n📋 أُرسل التقرير لإظهار ما تحقق وما لم يتحقق، وليس كتوصية تداول."
-                        )
-                        watch_report += _radar_criteria_explanation(row, q, False, channel_reason)
+                        watch_report = _compact_radar_report(symbol, q, tech, classification, row)
                         send_result = await send_message(settings.telegram_channel_id, watch_report)
                         watch_message_id = send_result.get("message_id") if isinstance(send_result, dict) else None
                         if watch_message_id:
@@ -1183,8 +1177,7 @@ async def stock_radar_cycle():
                     else "مرشح مرصود؛ بعض شروط التأكيد لم تكتمل"
                 )
                 tech["quality_score"] = row.get("quality_score")
-                report = build_report(symbol, q, tech, classification)
-                report += _radar_criteria_explanation(row, q, True, channel_reason)
+                report = _compact_radar_report(symbol, q, tech, classification, row)
 
                 try:
                     # احفظ نتيجة الرادار أولاً حتى تبقى بيانات السهم ظاهرة في
