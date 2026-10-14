@@ -3240,13 +3240,18 @@ async def stock_mini_analysis(symbol: str, _: dict = Depends(require_pro)):
                 avg_vol = sum(volumes[-21:-1]) / max(len(volumes[-21:-1]), 1)
                 rvol_fallback = volumes[-1] / avg_vol if avg_vol > 0 else None
                 trend = "صاعد" if last > sma20 and (sma50 is None or sma20 >= sma50) else ("هابط" if last < sma20 and (sma50 is None or sma20 <= sma50) else "عرضي")
-                cls.setdefault("behavior", trend)
-                cls.setdefault("rsi14", rsi)
-                cls.setdefault("rvol", rvol_fallback)
+                if not cls.get("behavior") or cls.get("behavior") == "غير واضح":
+                    cls["behavior"] = trend
+                if cls.get("rsi14") is None:
+                    cls["rsi14"] = rsi
+                if cls.get("rvol") is None:
+                    cls["rvol"] = rvol_fallback
                 cls.setdefault("score_breakdown", {})
                 if isinstance(cls["score_breakdown"], dict):
-                    cls["score_breakdown"].setdefault("momentum", 20 if rsi >= 60 else (10 if rsi >= 50 else 0))
-                    cls["score_breakdown"].setdefault("volume", 15 if rvol_fallback is not None and rvol_fallback >= 1.5 else 0)
+                    if not cls["score_breakdown"].get("momentum"):
+                        cls["score_breakdown"]["momentum"] = 20 if rsi >= 60 else (10 if rsi >= 50 else 0)
+                    if not cls["score_breakdown"].get("volume"):
+                        cls["score_breakdown"]["volume"] = 15 if rvol_fallback is not None and rvol_fallback >= 1.5 else 0
                 cls["fallback_source"] = history.get("source", "OHLCV")
                 cls["fallback_candles"] = len(valid)
                 # Mark the fallback as descriptive, not as a confirmed breakout signal.
