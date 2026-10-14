@@ -1177,6 +1177,30 @@ async def stock_radar_cycle():
                     else "مرشح مرصود؛ بعض شروط التأكيد لم تكتمل"
                 )
                 tech["quality_score"] = row.get("quality_score")
+
+                # Enrich the per-stock report with corporate-action evidence.
+                # This is display-only: it never changes the scanner's qualification.
+                try:
+                    from .news import yahoo_corporate_actions
+                    actions = await yahoo_corporate_actions(symbol)
+                    split_rows = actions.get("splits") if isinstance(actions, dict) else []
+                    split_rows = split_rows if isinstance(split_rows, list) else []
+                    reverse_splits = [
+                        event for event in split_rows
+                        if isinstance(event, dict) and event.get("label_ar") == "تقسيم عكسي"
+                    ]
+                    latest_reverse_split = reverse_splits[0] if reverse_splits else None
+                    tech["corporate_actions"] = {
+                        "status": actions.get("status", "unavailable") if isinstance(actions, dict) else "unavailable",
+                        "source": actions.get("source", "Yahoo Finance") if isinstance(actions, dict) else "Yahoo Finance",
+                        "reverse_split": bool(latest_reverse_split),
+                        "reverse_split_date": latest_reverse_split.get("date") if latest_reverse_split else None,
+                        "reverse_split_ratio": latest_reverse_split.get("ratio") if latest_reverse_split else None,
+                        "verified": bool(latest_reverse_split and actions.get("status") == "ok"),
+                    }
+                except Exception:
+                    logger.exception("Corporate-action report enrichment failed: %s", symbol)
+                    tech["corporate_actions"] = {"status": "unavailable", "verified": False}
                 report = _compact_radar_report(symbol, q, tech, classification, row)
 
                 try:
