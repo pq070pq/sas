@@ -929,7 +929,7 @@ function renderCards(el,rows){
    '</div></div>';
  if(!all.length){el.innerHTML=empty;return;}
  const heading=(title,count,description)=>'<div class="radar-list-heading" style="grid-column:1/-1;width:100%;box-sizing:border-box"><b>'+title+'</b><span>'+count.toLocaleString('ar-SA')+' سهم</span><small>'+description+'</small></div>';
- const group=(title,count,description,items,status)=>items.length?'<section class="radar-category" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 18px;width:100%;min-width:0">'+heading(title,count,description)+items.map(x=>stockCard({...x,_radarDisplayStatus:status})).join('')+'</section>':'';
+ const group=(title,count,description,items,status)=>items.length?'<section class="radar-category" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:10px;margin:0 0 18px;width:100%;min-width:0;box-sizing:border-box">'+heading(title,count,description)+items.map(x=>stockCard({...x,_radarDisplayStatus:status})).join('')+'</section>':'';
  const confirmedHtml=group('✅ الفرص المؤكدة',confirmed.length,'اجتازت شروط الرادار؛ راجع السعر والمستويات قبل اتخاذ القرار.',confirmed,'confirmed');
  const watchHtml=group('👀 أسهم تحت المراقبة',watch.length,'مرشحة للتحليل والمتابعة، لكنها لم تستكمل شروط الفرصة المؤكدة.',watch,'watch');
  el.innerHTML=confirmedHtml+watchHtml+(confirmed.length?'':(!watch.length?empty:''));
