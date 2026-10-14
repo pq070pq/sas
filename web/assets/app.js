@@ -1195,7 +1195,9 @@ async function analyzeSymbol(){
  const classification=Object.assign({},analysis.technical_analysis||{},analysis.sas_pro?.classification||analysis.classification||{});
  const indicatorHtml=renderVerifiedTechnicalCards(classification,tech,mini);
  const recommendationHtml='<section class="recommendation-box"><b>📌 القراءة الفنية</b><strong>'+escHtml(recommendation)+'</strong><small>قراءة آلية وليست توصية شراء أو بيع.</small></section>';
- const quotePriceDisplay=hasNumericValue(q.price)&&Number(q.price)>0?'
+ const quotePriceDisplay=hasNumericValue(q.price)&&Number(q.price)>0?String.fromCharCode(36)+money(q.price):'غير متاح';
+ const quoteChangeDisplay=hasNumericValue(q.change_pct)?pct(q.change_pct):'التغير غير متاح';
+ const quoteChangeClass=hasNumericValue(q.change_pct)?(Number(q.change_pct)>=0?'up':'down'):'';
  const shSources=Array.isArray(sh.sources)?sh.sources:[];
  const shHtml='<section class="shariah-box '+(sh.status==='halal'||sh.status==='compliant'?'sh-ok':(sh.status==='haram'||sh.status==='non_compliant'?'sh-bad':'sh-unknown'))+'"><div><b>🕌 التحقق الشرعي</b><strong>'+escHtml(sh.status_ar||'غير واضح / يحتاج تحقق')+'</strong></div><p>'+escHtml(sh.message||'لم تتوفر نتيجة موثقة؛ لم يتم التأليف.')+'</p><div class="shariah-help"><b>كيف تقرأ النتيجة؟</b><span>يقين = نتيجة السهم المنشورة مباشرة.</span><span>الراجحي وبنك البلاد = مراجع للمعايير الشرعية، وليس حكمًا مباشرًا على السهم.</span><span>فلترنا = مرجع فلترة؛ إذا لم تظهر نتيجة مباشرة فلا نعتمد حكمًا.</span></div>'+(sh.ai?.summary?'<p>🧠 '+escHtml(sh.ai.summary)+'</p>':'')+'<em>⛔ هذه معلومات للتحقق فقط وليست فتوى، وقرار الشرعية مسؤوليتك.</em></section>';
 const miniAnalysisHtml=
