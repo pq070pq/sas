@@ -432,7 +432,7 @@ def _compact_radar_report(symbol, quote_data, tech, classification, row):
         ctb_text = html.escape(ctb)
     float_text = html.escape(float_shares) if isinstance(float_shares, str) else fmt_number(float_shares)
     return "\\n".join([
-        "⚡ <b>SAS PRO | رصد زخم</b>",
+        "⚡ <b>SAS PRO | رصد 📡</b>",
         f"🔹 <b>الرمز:</b> {html.escape(str(symbol))} 🇺🇸",
         f"📈 <b>نوع الحركة:</b> {html.escape(move_type)}",
         f"💵 <b>السعر:</b> {('
@@ -1443,7 +1443,7 @@ from .scheduler import scheduler
         f"📊 <b>الحجم الكلي:</b> {fmt_number(volume)} سهم",
         f"💰 <b>تكلفة الاقتراض (CTB):</b> {ctb_text}",
         f"🗂️ <b>الإفصاح التنظيمي:</b> {html.escape(filing_text)}",
-        "⚠️ بيانات فعلية فقط؛ الحقول غير المتاحة لا تُخمّن. الرصد ليس توصية شراء أو بيع.",
+        "⚠️ لا يُعد توصية شراء أو بيع، ويبقى قرار التداول وإدارة المخاطر مسؤوليتك ⛔",
     ])
 
 
