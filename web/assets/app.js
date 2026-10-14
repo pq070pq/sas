@@ -1111,6 +1111,26 @@ function mountPerpEquitiesAnalysis(root,data,symbol){
  const frame=document.createElement('div');frame.className='perp-embed-frame';const iframe=document.createElement('iframe');iframe.title='شارت وتحليل '+symbol+' من PerpEquities';iframe.src=chartUrl;iframe.loading='lazy';iframe.referrerPolicy='strict-origin-when-cross-origin';iframe.allow='fullscreen';frame.appendChild(iframe);panel.appendChild(frame);
  const note=document.createElement('p');note.className='perp-analysis-disclaimer';note.textContent='بيانات العقود الدائمة قد تختلف عن سعر السهم الفوري. مصدر البيانات: PerpEquities. البيانات للمعلومات فقط وليست توصية تداول.';panel.appendChild(note);host.appendChild(panel);
 }
+
+function renderStockTerminalQuickMetrics(classification,targets,mini){
+ const c=classification&&typeof classification==='object'?classification:{},t=targets&&typeof targets==='object'?targets:{},m=mini&&typeof mini==='object'?mini:{};
+ const nested=c.indicators&&typeof c.indicators==='object'?c.indicators:{},ind=t.indicators&&typeof t.indicators==='object'?t.indicators:{};
+ const pick=(...v)=>v.find(x=>x!==null&&x!==undefined&&x!==''&&Number.isFinite(Number(x)));
+ const fmt=(v,d=2)=>{const n=Number(v);return v===undefined||v===null||v===''||!Number.isFinite(n)?'غير متاح':n.toFixed(d);};
+ const data=[
+  {label:'الزخم (RSI 14)',value:fmt(pick(c.rsi14,nested.rsi14,ind.rsi14)),tone:'violet',note:'مؤشر القوة النسبية'},
+  {label:'السيولة (RVOL)',value:(pick(m.rvol,c.rvol,nested.rvol,ind.rvol)===undefined?'غير متاح':fmt(pick(m.rvol,c.rvol,nested.rvol,ind.rvol))+'×'),tone:'green',note:'الحجم النسبي'},
+  {label:'التقلب (ATR 14)',value:(pick(c.atr14,c.atr,nested.atr14,ind.atr14,t.atr14)===undefined?'غير متاح':'$'+money(pick(c.atr14,c.atr,nested.atr14,ind.atr14,t.atr14))),tone:'blue',note:'متوسط المدى الحقيقي'}
+ ];
+ return '<div class="sas-terminal-metrics" id="sasTerminalMetrics">'+data.map(x=>'<article class="sas-terminal-metric '+x.tone+'"><div class="sas-terminal-metric-icon">'+(x.tone==='violet'?'◉':x.tone==='green'?'▥':'∿')+'</div><div><small>'+x.label+'</small><strong>'+x.value+'</strong><span>'+x.note+'</span></div></article>').join('')+'</div>';
+}
+function renderStockTerminalAverages(classification,targets){
+ const c=classification&&typeof classification==='object'?classification:{},t=targets&&typeof targets==='object'?targets:{};
+ const nested=c.indicators&&typeof c.indicators==='object'?c.indicators:{},ind=t.indicators&&typeof t.indicators==='object'?t.indicators:{};
+ const pick=(...v)=>v.find(x=>x!==null&&x!==undefined&&x!==''&&Number.isFinite(Number(x))&&Number(x)>0);
+ const rows=[['MA 20',pick(c.ma20,c.sma20,nested.ma20,nested.sma20,ind.ma20,ind.sma20)],['MA 50',pick(c.ma50,c.sma50,nested.ma50,nested.sma50,ind.ma50,ind.sma50)],['MA 100',pick(c.ma100,c.sma100,nested.ma100,nested.sma100,ind.ma100,ind.sma100)],['MA 200',pick(c.ma200,c.sma200,nested.ma200,nested.sma200,ind.ma200,ind.sma200)]];
+ return '<section class="sas-terminal-panel" id="sasMovingAverages"><div class="sas-terminal-section-title"><span>▥</span><div><b>المتوسطات المتحركة</b><small>تُعرض القيم التي وصلت من مصدر التحليل فقط</small></div></div><div class="sas-terminal-averages">'+rows.map(([label,value])=>'<div><small>'+label+'</small><strong>'+(value===undefined?'غير متاح':'$'+money(value))+'</strong><span>'+(value===undefined?'لا توجد قيمة موثقة':'قيمة فعلية')+'</span></div>').join('')+'</div></section>';
+}
 async function analyzeSymbol(){
  const input=document.getElementById('symbolSearch');
  const symbol=(input.value||'').trim().toUpperCase().replace(/[^A-Z.\-]/g,'');
@@ -1191,18 +1211,21 @@ const miniAnalysisHtml=
      '<p class="mini-takeaway">'+escHtml(mini.takeaway||summary)+'</p>'+
    '</section>';
  el.innerHTML=
-   '<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div><button onclick="toggleWatch(\''+escHtml(symbol)+'\')">'+(terminalState.watch.includes(symbol)?'★ محفوظ':'☆ حفظ')+'</button></div>'+
-   shHtml+
-   recommendationHtml+
-   '<div class="quote-line"><strong>&#36;'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><span>'+escHtml(q.source||'')+'</span></div>'+
-   notice+
-   miniAnalysisHtml+
-   cuspHtml+
-   '<div class="chart-title"><b>📈 شارت السهم</b><div class="chart-title-actions"><small>شموع وحجم تداول • بيانات SAS PRO</small>'+(me?.admin ? '<a class="gocharting-link" href="'+escHtml(safeNewsUrl(perp.chart_url||perp.source_url)||'https://perpequities.com/ar')+'" target="_blank" rel="noopener noreferrer">↗ فتح تحليل PerpEquities</a>' : '')+'</div></div><div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">📊 البيانات الفنية التاريخية غير متاحة حاليًا<br><small>لم يتم اختلاق هدف أو وقف أو إشارة. سيتم إظهارها عند توفر بيانات الشموع والحجم.</small></div>':'<canvas id="stockCanvas" height="230"></canvas>')+'</div><div id="perpEquitiesAnalysis"></div>'+
-   '<div class="level-grid"><div><small>🟦 الدخول</small><b>&#36;'+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>&#36;'+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>&#36;'+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+rr+'</b></div></div>'+
-   '<div class="ai-box"><b>'+(aiAvailable?'⏳ زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+
-   '<div class="news-list">'+renderNewsItems(newsFromAnalysis,5,Array.isArray(ai.news_summaries)?ai.news_summaries:[])+'</div>'+
-   '<div class="terminal-disclaimer">🛡️ AI يفسّر الأدلة فقط ولا يغيّر قرار الرادار أو المستويات.</div>';
+   '<div class="sas-stock-terminal">'+
+    '<header class="sas-terminal-stock-head"><button class="sas-terminal-back" type="button" onclick="document.getElementById(\'symbolResult\').innerHTML=\'\';document.getElementById(\'symbolSearch\').focus()" aria-label="رجوع">‹</button><div class="sas-terminal-brand"><b>SAS <span>PRO</span></b><small>تحليل الأسهم الأمريكية</small></div><button class="sas-terminal-watch" type="button" onclick="toggleWatch(\''+escHtml(symbol)+'\')">'+(terminalState.watch.includes(symbol)?'★':'☆')+'</button></header>'+
+    '<section class="sas-terminal-hero"><div class="sas-terminal-company"><div class="sas-terminal-symbol">'+escHtml(symbol.slice(0,4))+'</div><div><span class="eyebrow">SAS PRO · STOCK ANALYSIS</span><h2>'+escHtml(symbol)+'</h2><p>'+escHtml(q.name||q.company_name||q.company||'سهم أمريكي')+'</p><div class="sas-terminal-tags"><span>'+escHtml(q.exchange||q.mic||'السوق الأمريكي')+'</span><span>'+escHtml(q.currency||'USD')+'</span></div></div></div><div class="sas-terminal-price"><strong>$'+money(q.price)+'</strong><span class="'+(Number(q.change_pct)>=0?'up':'down')+'">'+pct(q.change_pct)+'</span><small>السعر حسب البيانات المستلمة</small><span class="sas-terminal-live"><i></i>'+escHtml(q.source||'مصدر السعر غير متاح')+'</span></div></section>'+
+    '<nav class="sas-terminal-tabs" aria-label="أقسام تحليل السهم"><a href="#sasTerminalMetrics">المؤشرات</a><a href="#sasMovingAverages">المتوسطات</a><a href="#sasTerminalChart">الشارت</a><a href="#sasTerminalLevels">المستويات</a><a href="#sasTerminalNews">الأخبار</a><a href="#sasTerminalShariah">الشرعية</a></nav>'+
+    notice+
+    renderStockTerminalQuickMetrics(classification,tech,mini)+
+    renderStockTerminalAverages(classification,tech)+
+    '<section class="sas-terminal-panel" id="sasTerminalLevels"><div class="sas-terminal-section-title"><span>⌖</span><div><b>مستويات السهم</b><small>مستويات محرك SAS PRO دون قيم افتراضية</small></div></div><div class="level-grid"><div><small>الدخول</small><b>'+(Number.isFinite(entry)&&entry>0?'$'+money(entry):'غير متاح')+'</b></div><div><small>وقف الخسارة</small><b>'+(Number.isFinite(stop)&&stop>0?'$'+money(stop):'غير متاح')+'</b></div><div><small>الهدف الأول</small><b>'+(Number.isFinite(target1)&&target1>0?'$'+money(target1):'غير متاح')+'</b></div><div><small>العائد/المخاطرة</small><b>'+rr+'</b></div></div></section>'+
+    '<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت التفاعلي</b><small>شموع السعر وحجم التداول · SAS PRO</small></div><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a></div><div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">البيانات التاريخية غير متاحة حاليًا<br><small>لن يتم إنشاء شموع أو أسعار غير مستلمة من الخادم.</small></div>':'<canvas id="stockCanvas" height="290"></canvas>')+'</div><div id="perpEquitiesAnalysis"></div></section>'+
+    '<section class="sas-terminal-panel" id="sasTerminalFundamentals"><div class="sas-terminal-section-title"><span>▤</span><div><b>التحليل والبيانات الإضافية</b><small>ملخص المصدر والأبحاث المتاحة</small></div></div>'+cuspHtml+'<div class="ai-box"><b>'+(aiAvailable?'ملخص التحليل المتاح':'الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+'</section>'+
+    '<section class="sas-terminal-panel" id="sasTerminalNews"><div class="sas-terminal-section-title"><span>▣</span><div><b>آخر أخبار السهم</b><small>الأخبار المتاحة من المصادر</small></div></div><div class="news-list">'+renderNewsItems(newsFromAnalysis,5,Array.isArray(ai.news_summaries)?ai.news_summaries:[])+'</div></section>'+
+    '<section class="sas-terminal-panel" id="sasTerminalShariah">'+shHtml+'</section>'+
+    '<div class="terminal-disclaimer">البيانات للتحليل والمعلومات فقط، وليست توصية شراء أو بيع. تحقق من الأسعار والمصادر قبل اتخاذ القرار.</div>'+
+   '</div>';
+
  mountPerpEquitiesAnalysis(el,perp,symbol);
  const chartCandles=Array.isArray(chart.candles)?chart.candles:[];
  requestAnimationFrame(()=>drawChart(chartCandles));
