@@ -115,6 +115,8 @@ def parse_asset_page(symbol, document, source_url):
             market_status = status
             break
 
+    valuation_score_match = re.search(r"(?:^|\\n)التقييم\\s*\\n\\s*(\\d{1,3})\\s*\\n", plain, re.I)
+    valuation_score = valuation_score_match.group(1) if valuation_score_match else None
     metrics = {
         "opening_price": value(["سعر الافتتاح", "Open price"]),
         "volume": value(["حجم التداول", "Trading volume", "Volume"]),
@@ -122,7 +124,7 @@ def parse_asset_page(symbol, document, source_url):
         "previous_close": value(["سعر إغلاق اليوم السابق", "Previous close"]),
         "day_range": value(["نطاق تداول اليوم", "Day range"]),
         "week_52_range": value(["نطاق 52 أسبوعًا", "52-week range"]),
-        "valuation_score": value(["نتيجة التقييم", "Valuation score"]),
+        "valuation_score": valuation_score,
         "valuation_label": value(["نتيجة التقييم", "Valuation score"]),
         "pe_ratio": value(["نسبة السعر إلى الأرباح", "Price to earnings ratio", "P/E ratio"]),
         "price_sales": value(["نسبة السعر إلى المبيعات", "Price to sales ratio"]),
