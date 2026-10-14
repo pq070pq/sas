@@ -2,6 +2,7 @@ import asyncio
 import csv
 import io
 import logging
+import time
 import httpx
 from .config import settings
 from .twelve_guard import call as twelve_call
@@ -543,6 +544,74 @@ async def _public_macro_quote(symbol: str):
 
     return None
 
+async def _yahoo_equity_quote(symbol: str):
+    """Fresh intraday/premarket quote from the already-used Yahoo chart source.
+
+    Only uses a recent timestamped 1-minute candle during an active US session.
+    It is deliberately disabled on holidays/closed sessions and never promotes
+    Yahoo's potentially stale regularMarketPrice to a live extended-hours quote.
+    """
+    symbol = str(symbol or "").strip().upper()
+    if not symbol or symbol in {"SPX", "IXIC", "DJI", "VIX", "BTC/USD", "XAU/USD"} or "/" in symbol:
+        return None
+    try:
+        from .market_calendar import market_status
+        status = market_status()
+        session = status.get("session")
+        if status.get("holiday") or session not in {"premarket", "main", "afterhours"}:
+            return None
+    except Exception:
+        return None
+
+    try:
+        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+            response = await client.get(
+                "https://query1.finance.yahoo.com/v8/finance/chart/" + symbol,
+                params={"range": "1d", "interval": "1m", "includePrePost": "true"},
+                headers={"User-Agent": "Mozilla/5.0 SAS-PRO/2.1"},
+            )
+            response.raise_for_status()
+            payload = response.json()
+            result = ((payload.get("chart") or {}).get("result") or [None])[0]
+            if not isinstance(result, dict):
+                return None
+            meta = result.get("meta") or {}
+            timestamps = result.get("timestamp") or []
+            quote_rows = ((result.get("indicators") or {}).get("quote") or [{}])[0]
+            closes = quote_rows.get("close") or []
+            now = int(time.time())
+            recent = []
+            for index, stamp in enumerate(timestamps):
+                if index >= len(closes) or not _valid_price(closes[index]):
+                    continue
+                try:
+                    stamp = int(stamp)
+                except (TypeError, ValueError, OverflowError):
+                    continue
+                if stamp <= now + 60 and now - stamp <= 20 * 60:
+                    recent.append((stamp, float(closes[index])))
+            if not recent:
+                logger.info("YAHOO_EQUITY_QUOTE_STALE symbol=%s session=%s", symbol, session)
+                return None
+            stamp, price = max(recent, key=lambda item: item[0])
+            previous = meta.get("chartPreviousClose") or meta.get("previousClose")
+            change_pct = None
+            if _valid_price(previous):
+                change_pct = (price - float(previous)) / float(previous) * 100
+            return {
+                "symbol": symbol,
+                "price": price,
+                "change_pct": change_pct,
+                "source": "Yahoo Finance Premarket" if session == "premarket" else ("Yahoo Finance After Hours" if session == "afterhours" else "Yahoo Finance Intraday"),
+                "is_extended_hours": session in {"premarket", "afterhours"},
+                "is_delayed": False,
+                "datetime": stamp,
+            }
+    except Exception as exc:
+        logger.info("YAHOO_EQUITY_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+        return None
+
+
 async def _yahoo_index_quote(symbol: str):
     """Last-resort US index quote during an active trading session only.
 
@@ -710,10 +779,23 @@ async def quote(symbol: str, prefer_extended: bool = False):
         except Exception as exc:
             logger.info("EXTENDED_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
 
+    # In premarket/after-hours, prefer a fresh Yahoo 1-minute extended-session
+    # candle if Twelve Data did not return an actual extended quote.
+    if prefer_extended:
+        yahoo_extended = await _yahoo_equity_quote(symbol)
+        if yahoo_extended:
+            return yahoo_extended
+
     # 1) Finnhub: rotate all independently configured keys.
     fallback = await _finnhub_quote(symbol)
     if fallback:
         return fallback
+
+    # Yahoo is already used for historical candles. Reuse it for a fresh
+    # timestamped intraday quote before falling back to older daily prices.
+    yahoo_quote = await _yahoo_equity_quote(symbol)
+    if yahoo_quote:
+        return yahoo_quote
 
     # 2) FMP independent fallback for equities when an FMP key is configured.
     # This is intentionally attempted after Finnhub/Twelve Data and before
