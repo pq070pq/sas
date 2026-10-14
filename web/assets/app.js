@@ -1041,7 +1041,10 @@ async function searchShariah(){
    else if(src.source==='يقين') meaning=src.verified?'نتيجة منشورة مباشرة للسهم.':'لم تظهر نتيجة مباشرة موثقة.';
    else if(src.source==='فلترنا') meaning='مرجع فلترة؛ لا نعتمد حكمًا للسهم إذا لم تظهر نتيجة مباشرة.';
    else meaning=src.verified?'نتيجة مباشرة موثقة.':'لا توجد نتيجة مباشرة موثقة.';
-   return '<div class="shariah-source-row"><span><b>'+name+'</b><small>'+escHtml(meaning)+'</small></span><b>'+statusText+'</b></div>';
+   const sourceState=String(src.status||'').toLowerCase();
+   const sourceClass=(sourceState==='compliant'||sourceState==='halal')?'source-ok':((sourceState==='non_compliant'||sourceState==='haram')?'source-bad':'source-unknown');
+   const sourceIcon=sourceClass==='source-ok'?'✓':(sourceClass==='source-bad'?'×':'?');
+   return '<div class="shariah-source-row '+sourceClass+'"><span><b>'+name+'</b><small>'+escHtml(meaning)+'</small></span><b><i aria-hidden="true">'+sourceIcon+'</i>'+statusText+'</b></div>';
   }).filter(Boolean).join(''):'<div class="shariah-source-row"><span>المصادر</span><b>لا توجد نتيجة موثقة كافية</b></div>';
   const statusTitle=cls==='sh-ok'?'متوافق بحسب النتيجة المنشورة':(cls==='sh-bad'?'غير متوافق بحسب النتيجة المنشورة':'غير واضح / يحتاج تحقق');
   const statusIcon=cls==='sh-ok'?'✓':(cls==='sh-bad'?'×':'?');
