@@ -12,7 +12,7 @@ from html.parser import HTMLParser
 import httpx
 
 _CACHE = {}
-_CACHE_TTL = 300
+_CACHE_TTL = 60
 
 
 class _VisibleText(HTMLParser):
@@ -155,6 +155,14 @@ def parse_asset_page(symbol, document, source_url):
             change_pct = float(change_match.group(1))
         except ValueError:
             pass
+
+    # If CUSP omits the daily percentage but publishes both the quote and
+    # previous close, calculate the percentage from those two real values.
+    # Do not derive it from unrelated chart candles.
+    if change_pct is None and price is not None:
+        previous_close = _numeric_after(plain, ["سعر إغلاق اليوم السابق", "Previous close"])
+        if previous_close is not None and previous_close > 0:
+            change_pct = ((price - previous_close) / previous_close) * 100
 
     available = bool(title or price or metrics or description)
     return {
