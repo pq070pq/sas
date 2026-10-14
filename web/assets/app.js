@@ -1169,24 +1169,26 @@ async function analyzeSymbol(){
  const recommendation=(partial||!Number.isFinite(entry)||!Number.isFinite(stop)||!Number.isFinite(target1)||entry<=stop||target1<=entry) ? '⚪ الحالة: البيانات غير مكتملة؛ راقب فقط حتى تتأكد الأسعار والمستويات.' : ((Number(rr)<1||Boolean(tech.risk_reward_warning)) ? '🔴 الحالة: المخاطرة مرتفعة مقارنة بالهدف؛ لا تدخل الآن.' : (Number(q.change_pct)>10 ? '🟡 الحالة: السهم ارتفع بسرعة؛ تجنب المطاردة وانتظر إعادة اختبار.' : (Number(tech.score||0)>=70 ? '🟢 الحالة: إعداد فني جيد للمراقبة؛ انتظر تأكيد الاختراق والسيولة.' : '🟡 الحالة: مراقبة فقط؛ التأكيد الفني غير كافٍ بعد.')));
  const summary=ai.key_takeaway||ai.headline_summary||'لا توجد خلاصة موثقة متاحة حاليًا.';
  const mini=analysis.mini_analysis||{};
+ const classification=Object.assign({},analysis.technical_analysis||{},analysis.sas_pro?.classification||analysis.classification||{});
+ const indicatorHtml=renderVerifiedTechnicalCards(classification,tech,mini);
  const recommendationHtml='<section class="recommendation-box"><b>📌 القراءة الفنية</b><strong>'+escHtml(recommendation)+'</strong><small>قراءة آلية وليست توصية شراء أو بيع.</small></section>';
  const shSources=Array.isArray(sh.sources)?sh.sources:[];
  const shHtml='<section class="shariah-box '+(sh.status==='halal'||sh.status==='compliant'?'sh-ok':(sh.status==='haram'||sh.status==='non_compliant'?'sh-bad':'sh-unknown'))+'"><div><b>🕌 التحقق الشرعي</b><strong>'+escHtml(sh.status_ar||'غير واضح / يحتاج تحقق')+'</strong></div><p>'+escHtml(sh.message||'لم تتوفر نتيجة موثقة؛ لم يتم التأليف.')+'</p><div class="shariah-help"><b>كيف تقرأ النتيجة؟</b><span>يقين = نتيجة السهم المنشورة مباشرة.</span><span>الراجحي وبنك البلاد = مراجع للمعايير الشرعية، وليس حكمًا مباشرًا على السهم.</span><span>فلترنا = مرجع فلترة؛ إذا لم تظهر نتيجة مباشرة فلا نعتمد حكمًا.</span></div>'+(sh.ai?.summary?'<p>🧠 '+escHtml(sh.ai.summary)+'</p>':'')+'<em>⛔ هذه معلومات للتحقق فقط وليست فتوى، وقرار الشرعية مسؤوليتك.</em></section>';
 const miniAnalysisHtml=
-   '<section class="mini-analysis">'+
-     '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO QUICK ANALYSIS</span><b>⏳ تحليل مختصر</b></div></div>'+
+   '<section class="mini-analysis sas-pro-technical">'+
+     '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO VERIFIED TECHNICAL</span><b>📊 التحليل الفني والمؤشرات</b><small>القيم الفعلية المتاحة من محرك التحليل</small></div></div>'+
      '<div class="mini-analysis-grid">'+
-       '<div><small>📊 الاتجاه</small><b>'+escHtml(mini.direction||'غير واضح')+'</b></div>'+
-       '<div><small>🚀 الزخم</small><b>'+escHtml(mini.momentum||'—')+'</b></div>'+
-       '<div><small>💧 السيولة</small><b>'+escHtml(mini.liquidity||'—')+'</b></div>'+
-       '<div><small>📈 الإشارة</small><b>'+escHtml(mini.signal||'محايدة')+'</b></div>'+
+       '<div><small>📈 الاتجاه</small><b>'+escHtml(mini.direction||'غير واضح')+'</b></div>'+
+       '<div><small>🚀 الزخم</small><b>'+escHtml(mini.momentum||'غير متاح')+'</b></div>'+
+       '<div><small>💧 السيولة</small><b>'+escHtml(mini.liquidity||'غير متاحة')+'</b></div>'+
+       '<div><small>🔎 الإشارة</small><b>'+escHtml(mini.signal||'غير متاحة')+'</b></div>'+
      '</div>'+
+     indicatorHtml+
      '<div class="mini-levels">'+
        '<span>🎯 الهدف <b>&#36;'+money(mini.target)+'</b></span>'+
        '<span>🛑 الوقف <b>&#36;'+money(mini.stop)+'</b></span>'+
      '</div>'+
      '<p class="mini-takeaway">'+escHtml(mini.takeaway||summary)+'</p>'+
-     
    '</section>';
  el.innerHTML=
    '<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div><button onclick="toggleWatch(\''+escHtml(symbol)+'\')">'+(terminalState.watch.includes(symbol)?'★ محفوظ':'☆ حفظ')+'</button></div>'+
@@ -1244,6 +1246,26 @@ if(!window.__sasPrivateAnalysisBound){
    openPrivateAnalysis(btn.getAttribute('data-private-analysis')||'');
  });
 }
+function renderVerifiedTechnicalCards(classification,targets,mini){
+ const cls=classification&&typeof classification==='object'?classification:{};
+ const t=targets&&typeof targets==='object'?targets:{};
+ const m=mini&&typeof mini==='object'?mini:{};
+ const indicators=(t.indicators&&typeof t.indicators==='object'?t.indicators:{});
+ const nested=(cls.indicators&&typeof cls.indicators==='object'?cls.indicators:{});
+ const pick=(...values)=>values.find(v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v)));
+ const number=(value,digits=2)=>{const n=Number(value);return value!==null&&value!==undefined&&value!==''&&Number.isFinite(n)?n.toFixed(digits):'غير متاح';};
+ const price=(value)=>{const n=Number(value);return value!==null&&value!==undefined&&value!==''&&Number.isFinite(n)&&n>0?'$'+money(n):'غير متاح';};
+ const cards=[
+  ['RSI 14',number(pick(cls.rsi14,nested.rsi14,indicators.rsi14)), 'مؤشر القوة النسبية'],
+  ['RVOL',(()=>{const v=pick(m.rvol,cls.rvol,nested.rvol,indicators.rvol);return v===undefined?'غير متاح':number(v)+'×';})(), 'الحجم النسبي'],
+  ['ATR 14',price(pick(cls.atr14,cls.atr,nested.atr14,indicators.atr14,t.atr14)), 'متوسط المدى الحقيقي'],
+  ['EMA 20',price(pick(cls.ema20,nested.ema20,indicators.ema20)), 'المتوسط الأسي'],
+  ['EMA 50',price(pick(cls.ema50,nested.ema50,indicators.ema50)), 'المتوسط الأسي'],
+  ['EMA 200',price(pick(cls.ema200,nested.ema200,indicators.ema200)), 'المتوسط الأسي'],
+  ['ADX 14',number(pick(cls.adx14,nested.adx14,indicators.adx14)), 'قوة الاتجاه']
+ ];
+ return '<div class="sas-indicator-grid">'+cards.map(([label,value,note])=>'<div class="sas-indicator-card"><small>'+escHtml(label)+'</small><b>'+escHtml(value)+'</b><span>'+escHtml(note)+'</span></div>').join('')+'</div><small class="sas-data-integrity">✓ بيانات فعلية متاحة من محرك التحليل فقط؛ أي قيمة غير متاحة لم يتم تخمينها.</small>';
+}
 function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
  const fallbackQuote=miniData?.quote&&typeof miniData.quote==='object'?miniData.quote:{};
  const displayQuote=(Number(q?.price)>0||Number.isFinite(Number(q?.change_pct)))?q:fallbackQuote;
@@ -1253,17 +1275,17 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
  const changeText=Number.isFinite(change)?pct(change):'—';
  el.innerHTML='<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div></div>'+
  '<div class="quote-line"><strong>&#36;'+priceText+'</strong><span class="'+(change>=0?'up':'down')+'">'+changeText+'</span><span>'+escHtml(q?.source||'')+'</span></div>'+
- '<div class="mini-analysis">'+
-   '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO QUICK ANALYSIS</span><b>⏳ التحليل الفني المختصر</b></div></div>'+
+ '<div class="mini-analysis sas-pro-technical">'+
+   '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO VERIFIED TECHNICAL</span><b>📊 التحليل الفني والمؤشرات</b><small>القيم الفعلية المتاحة من محرك التحليل</small></div></div>'+
    '<div class="mini-analysis-grid">'+
-   '<div><small>📊 الاتجاه</small><b>'+escHtml(miniData?.mini_analysis?.direction||'غير واضح')+'</b></div>'+
-   '<div><small>🚀 الزخم</small><b>'+escHtml(miniData?.mini_analysis?.momentum||'—')+'</b></div>'+
-   '<div><small>💧 السيولة</small><b>'+escHtml(miniData?.mini_analysis?.liquidity||'—')+'</b></div>'+
-   '<div><small>📈 الإشارة</small><b>'+escHtml(miniData?.mini_analysis?.signal||'محايدة')+'</b></div>'+
+   '<div><small>📈 الاتجاه</small><b>'+escHtml(miniData?.mini_analysis?.direction||'غير واضح')+'</b></div>'+
+   '<div><small>🚀 الزخم</small><b>'+escHtml(miniData?.mini_analysis?.momentum||'غير متاح')+'</b></div>'+
+   '<div><small>💧 السيولة</small><b>'+escHtml(miniData?.mini_analysis?.liquidity||'غير متاحة')+'</b></div>'+
+   '<div><small>🔎 الإشارة</small><b>'+escHtml(miniData?.mini_analysis?.signal||'غير متاحة')+'</b></div>'+
    '</div>'+
+   renderVerifiedTechnicalCards(miniData?.classification||{},miniData?.targets||{},miniData?.mini_analysis||{})+
    '<div class="mini-levels"><span>🎯 الهدف <b>&#36;'+money(miniData?.mini_analysis?.target)+'</b></span><span>🛑 الوقف <b>&#36;'+money(miniData?.mini_analysis?.stop)+'</b></span></div>'+
    '<p class="mini-takeaway">'+escHtml(miniData?.mini_analysis?.takeaway||'تعذر تحميل تحليل SAS المختصر حاليًا.')+'</p>'+
-   
  '</div>'+
  '<section class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth · بحث مالي إضافي</b><a href="'+escHtml(safeNewsUrl(cuspData?.source_url)||('https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol)))+'" target="_blank" rel="noopener noreferrer">فتح صفحة السهم ↗</a></div><p>'+escHtml(cuspData?.available?(cuspData.title||cuspData.description||'تم الوصول إلى صفحة CUSP، وقد تكون التفاصيل المالية محمّلة داخل الموقع.'): (cuspData?.message_ar||'بيانات CUSP غير متاحة آليًا الآن.'))+'</p><small>مصدر بحثي إضافي، وليس سعرًا حيًا أو توصية تداول.</small></section>'+
  '<div class="chart-title"><b>📈 شارت السهم</b><div class="chart-title-actions"><small>شموع وحجم تداول • بيانات SAS PRO</small><a class="gocharting-link" href="https://stockanalysis.com/stocks/'+encodeURIComponent(symbol.toLowerCase())+'/history/" target="_blank" rel="noopener noreferrer">↗ الأسعار التاريخية</a><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">↗ فتح GoCharting</a></div></div><div class="chart-box"><canvas id="stockCanvas" height="260"></canvas></div>'+
