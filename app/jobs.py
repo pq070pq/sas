@@ -52,9 +52,50 @@ async def _attach_reverse_split_data(tech: dict, symbol: str) -> dict:
         cycle_evidence = "لا توجد بيانات كافية للتحقق"
         if latest and split_date:
             try:
-                # Only count a target as reached when SAS has a persisted,
-                # same-symbol radar outcome dated on/after the split and the
-                # outcome tracker recorded at least one achieved target.
+                # Inspect observed daily OHLCV since the split date. Historical
+                # extremes are context only; only SAS target records can confirm
+                # a consumed target without inventing a target level.
+                from .panwatch import ohlcv as shared_ohlcv
+                candles_result = await shared_ohlcv(
+                    str(symbol).upper(), days=365, interval="1d",
+                    min_candles=20, allow_twelve_data=True,
+                )
+                candles = candles_result.get("candles") or candles_result.get("data") or []
+                post_split = []
+                for candle in candles:
+                    if not isinstance(candle, dict):
+                        continue
+                    stamp = candle.get("datetime") or candle.get("date") or candle.get("timestamp")
+                    if isinstance(stamp, (int, float)):
+                        try:
+                            stamp = datetime.fromtimestamp(stamp, timezone.utc).date().isoformat()
+                        except (ValueError, OSError, OverflowError):
+                            continue
+                    elif isinstance(stamp, str):
+                        stamp = stamp[:10]
+                    else:
+                        continue
+                    try:
+                        if stamp >= split_date:
+                            low = float(candle.get("low"))
+                            high = float(candle.get("high"))
+                            close = float(candle.get("close"))
+                            if low > 0 and high >= low and close > 0:
+                                post_split.append({"date": stamp, "low": low, "high": high, "close": close})
+                    except (TypeError, ValueError):
+                        continue
+                if post_split:
+                    post_low = min(post_split, key=lambda x: x["low"])
+                    post_high = max(post_split, key=lambda x: x["high"])
+                    latest_close = post_split[-1]["close"]
+                    cycle_evidence = (
+                        f"بيانات يومية بعد التقسيم: أدنى قاع مرصود ${post_low['low']:.4f} "
+                        f"({post_low['date']})، وأعلى قمة ${post_high['high']:.4f} "
+                        f"({post_high['date']})، وآخر إغلاق مرصود ${latest_close:.4f}. "
+                        "هذه نطاقات سعرية تاريخية وليست إثباتًا وحدها لاكتمال هدف الدورة."
+                    )
+                else:
+                    cycle_evidence = "لم تتوفر شموع يومية كافية بعد تاريخ التقسيم للتحقق من مسار السعر."
                 async with SessionLocal() as db:
                     outcome = (await db.execute(
                         select(RadarOutcome)
@@ -69,14 +110,15 @@ async def _attach_reverse_split_data(tech: dict, symbol: str) -> dict:
                     )).scalars().first()
                 if outcome is not None:
                     cycle_target_hit = True
-                    cycle_evidence = (
-                        f"سجل SAS هدفًا محققًا بعد التقسيم بتاريخ {outcome.session_date} "
-                        f"(الهدف رقم {outcome.achieved_target})"
+                    cycle_evidence += (
+                        f" وسجل SAS هدفًا محققًا بتاريخ {outcome.session_date} "
+                        f"(الهدف رقم {outcome.achieved_target})."
                     )
-                else:
-                    cycle_evidence = "لم يُعثر على سجل SAS لهدف محقق بعد تاريخ التقسيم؛ هذا لا يثبت أن الدورة لم تصل إلى هدفها"
+                elif post_split:
+                    cycle_evidence += " لم يُعثر على سجل SAS لهدف محقق بعد التقسيم؛ لا يمكن الجزم بأن الدورة مستهلكة أو جديدة."
             except Exception:
-                logger.exception("Post-split cycle outcome lookup failed for %s", symbol)
+                logger.exception("Post-split cycle historical lookup failed for %s", symbol)
+                cycle_evidence = "تعذر إكمال الفحص التاريخي؛ حالة الدورة غير محسومة."
         enriched["corporate_actions"] = {
             "source": actions.get("source") or "Yahoo Finance",
             "status": actions.get("status") or "unavailable",
