@@ -669,7 +669,15 @@ async def quote(symbol: str, prefer_extended: bool = False):
     if fallback:
         return fallback
 
-    # 2) Twelve Data: twelve_guard rotates its own key pool.
+    # 2) FMP independent fallback for equities when an FMP key is configured.
+    # This is intentionally attempted after Finnhub/Twelve Data and before
+    # the keyless daily-close source; no synthetic price is ever returned.
+    fmp = await _fmp_quote(symbol)
+    if fmp:
+        return fmp
+
+
+    # 3) Twelve Data: twelve_guard rotates its own key pool.
     if settings.twelve_data_api_key or settings.twelve_data_api_keys:
         try:
             async with httpx.AsyncClient(timeout=12) as client:
@@ -721,13 +729,6 @@ async def quote(symbol: str, prefer_extended: bool = False):
         except Exception as exc:
             logger.warning("TWELVE_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
 
-    # 3) FMP independent fallback for equities when an FMP key is configured.
-    # This is intentionally attempted after Finnhub/Twelve Data and before
-    # the keyless daily-close source; no synthetic price is ever returned.
-    fmp = await _fmp_quote(symbol)
-    if fmp:
-        return fmp
-
     # 4) CUSP Wealth public asset page fallback. It may expose the latest
     # displayed asset price and fundamental context; change remains null unless
     # CUSP explicitly publishes a percentage. This is not an official CUSP API.
@@ -740,6 +741,7 @@ async def quote(symbol: str, prefer_extended: bool = False):
                 "price": float(cusp["price"]),
                 "change_pct": cusp.get("change_pct"),
                 "source": "CUSP Wealth",
+                "is_delayed": True,
                 "is_extended_hours": False,
                 "market_status": cusp.get("market_status"),
                 "datetime": cusp.get("data_timestamp"),
