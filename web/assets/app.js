@@ -1233,35 +1233,44 @@ function miniDataSource(analysis){
 }
 function formatObservedLevel(value){
  const n=Number(value);
- return value!==null&&value!==undefined&&value!==''&&Number.isFinite(n)&&n>0?'
+ return value!==null&&value!==undefined&&value!==''&&Number.isFinite(n)&&n>0?'$'+money(n):'غير متاح';
+}
+function renderSasIndicators(mini,analysis,chart){
+ const cls=analysis?.classification||analysis?.technical_analysis||analysis?.sas_pro?.classification||analysis||{};
+ const raw=[['RSI (14)',mini?.rsi14??cls?.rsi14,''],['RVOL',mini?.rvol??cls?.rvol,'×'],['ATR (14)',mini?.atr14??cls?.atr14,''],['MA20',mini?.ma20??cls?.ma20,'$'],['MA50',mini?.ma50??cls?.ma50,'$']];
+ return raw.map(([label,value,suffix])=>{
+  const n=Number(value),ok=value!==null&&value!==undefined&&value!==''&&Number.isFinite(n);
+  const shown=ok?(label.startsWith('MA')?'$'+money(n):money(n)+(suffix==='×'?'×':'')):'غير متاح';
+  return '<div class="sas-indicator-card"><small>'+escHtml(label)+'</small><b>'+escHtml(shown)+'</b><span>'+(ok?'من البيانات المستلمة':'لا توجد قيمة موثقة')+'</span></div>';
+ }).join('');
+}
+function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
  const fallbackQuote=miniData?.quote&&typeof miniData.quote==='object'?miniData.quote:{};
  const displayQuote=(Number(q?.price)>0||Number.isFinite(Number(q?.change_pct)))?q:fallbackQuote;
- const price=Number(displayQuote?.price);
- const change=Number(displayQuote?.change_pct);
+ const price=Number(displayQuote?.price),change=Number(displayQuote?.change_pct);
  const priceText=Number.isFinite(price)&&price>0?money(price):'—';
  const changeText=Number.isFinite(change)?pct(change):'—';
  el.innerHTML='<div class="detail-head"><div><span class="eyebrow">SAS PRO STOCK</span><h2>'+escHtml(symbol)+'</h2></div></div>'+
  '<div class="quote-line"><strong>&#36;'+priceText+'</strong><span class="'+(change>=0?'up':'down')+'">'+changeText+'</span><span>'+escHtml(q?.source||'')+'</span></div>'+
- '<div class="mini-analysis">'+
-   '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO QUICK ANALYSIS</span><b>⏳ التحليل الفني المختصر</b></div></div>'+
-   '<div class="mini-analysis-grid">'+
-   '<div><small>📊 الاتجاه</small><b>'+escHtml(miniData?.mini_analysis?.direction||'غير واضح')+'</b></div>'+
-   '<div><small>🚀 الزخم</small><b>'+escHtml(miniData?.mini_analysis?.momentum||'—')+'</b></div>'+
-   '<div><small>💧 السيولة</small><b>'+escHtml(miniData?.mini_analysis?.liquidity||'—')+'</b></div>'+
-   '<div><small>📈 الإشارة</small><b>'+escHtml(miniData?.mini_analysis?.signal||'محايدة')+'</b></div>'+
-   '</div>'+
-   '<div class="mini-levels"><span>🎯 الهدف <b>&#36;'+money(miniData?.mini_analysis?.target)+'</b></span><span>🛑 الوقف <b>&#36;'+money(miniData?.mini_analysis?.stop)+'</b></span></div>'+
-   '<p class="mini-takeaway">'+escHtml(miniData?.mini_analysis?.takeaway||'تعذر تحميل تحليل SAS المختصر حاليًا.')+'</p>'+
-   
- '</div>'+
+ '<section class="mini-analysis sas-pro-technical">'+
+ '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO · TECHNICAL SNAPSHOT</span><b>📊 التحليل الفني المختصر</b></div><small>مصدر: '+escHtml(miniDataSource(miniData))+'</small></div>'+
+ '<div class="mini-analysis-grid">'+
+ '<div><small>📈 الاتجاه</small><b>'+escHtml(miniData?.mini_analysis?.direction||'غير متاح من المصدر')+'</b></div>'+
+ '<div><small>🚀 الزخم</small><b>'+escHtml(miniData?.mini_analysis?.momentum||'غير متاح')+'</b></div>'+
+ '<div><small>💧 السيولة (RVOL)</small><b>'+escHtml(miniData?.mini_analysis?.liquidity||'غير متاحة')+'</b></div>'+
+ '<div><small>🎯 الإشارة</small><b>'+escHtml(miniData?.mini_analysis?.signal||'غير متاحة')+'</b></div>'+
+ '</div><div class="sas-indicator-grid">'+renderSasIndicators(miniData?.mini_analysis,miniData,chart)+'</div>'+
+ '<div class="mini-levels"><span>🎯 الهدف <b>'+formatObservedLevel(miniData?.mini_analysis?.target)+'</b></span><span>🛑 الوقف <b>'+formatObservedLevel(miniData?.mini_analysis?.stop)+'</b></span></div>'+
+ '<p class="mini-takeaway">'+escHtml(miniData?.mini_analysis?.takeaway||'لا تتوفر قراءة فنية كافية من المصدر الحالي.')+'</p>'+
+ '<small class="sas-data-integrity">● بيانات فعلية فقط · لا تخمين. أي قيمة غير متاحة تبقى غير معروضة.</small></section>'+
  '<section class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth · بحث مالي إضافي</b><a href="'+escHtml(safeNewsUrl(cuspData?.source_url)||('https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol)))+'" target="_blank" rel="noopener noreferrer">فتح صفحة السهم ↗</a></div><p>'+escHtml(cuspData?.available?(cuspData.title||cuspData.description||'تم الوصول إلى صفحة CUSP، وقد تكون التفاصيل المالية محمّلة داخل الموقع.'): (cuspData?.message_ar||'بيانات CUSP غير متاحة آليًا الآن.'))+'</p><small>مصدر بحثي إضافي، وليس سعرًا حيًا أو توصية تداول.</small></section>'+
  '<div class="chart-title"><b>📈 شارت السهم</b><div class="chart-title-actions"><small>شموع وحجم تداول • بيانات SAS PRO</small><a class="gocharting-link" href="https://stockanalysis.com/stocks/'+encodeURIComponent(symbol.toLowerCase())+'/history/" target="_blank" rel="noopener noreferrer">↗ الأسعار التاريخية</a><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">↗ فتح GoCharting</a></div></div><div class="chart-box"><canvas id="stockCanvas" height="260"></canvas></div>'+
  '<div class="news-list">'+renderNewsItems(news,5)+'</div>';
  const partialCandles=Array.isArray(chart?.candles)?chart.candles:[];
  requestAnimationFrame(()=>drawChart(partialCandles));
  if(!partialCandles.length){
-   const box=el.querySelector('.chart-box');
-   if(box)box.insertAdjacentHTML('beforeend','<div class="chart-status">لم تصل بيانات شموع تاريخية من الخادم؛ السعر المعروض لا يكفي لرسم شارت.'+(chart?.diagnostic?'<br><small>تفاصيل المصادر: '+escHtml(chart.diagnostic)+'</small>':'')+'</div>');
+  const box=el.querySelector('.chart-box');
+  if(box)box.insertAdjacentHTML('beforeend','<div class="chart-status">لم تصل بيانات شموع تاريخية من الخادم؛ السعر المعروض لا يكفي لرسم شارت.'+(chart?.diagnostic?'<br><small>تفاصيل المصادر: '+escHtml(chart.diagnostic)+'</small>':'')+'</div>');
  }
 }
 function drawChart(candles,attempt=0){
