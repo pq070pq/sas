@@ -124,10 +124,12 @@ async def _fmp_quote(symbol: str):
         keys.insert(0, settings.fmp_api_key.strip())
     # Preserve order while removing duplicate keys.
     keys = list(dict.fromkeys(keys))
-    if not keys or symbol not in FMP_SYMBOLS:
+    if not keys:
         return None
 
-    mapped_symbols = FMP_SYMBOLS[symbol]
+    # Use dedicated benchmark aliases where needed; for ordinary US equities
+    # query the exact ticker (e.g. NOK) as an independent quote fallback.
+    mapped_symbols = FMP_SYMBOLS.get(symbol, [symbol])
     if isinstance(mapped_symbols, str):
         mapped_symbols = [mapped_symbols]
     async with httpx.AsyncClient(timeout=10) as c:
@@ -719,11 +721,29 @@ async def quote(symbol: str, prefer_extended: bool = False):
         except Exception as exc:
             logger.warning("TWELVE_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
 
-    # 3) Keyless last-close fallback. A provider outage must not kill private analysis.
+    # 3) FMP independent fallback for equities when an FMP key is configured.
+    # This is intentionally attempted after Finnhub/Twelve Data and before
+    # the keyless daily-close source; no synthetic price is ever returned.
+    fmp = await _fmp_quote(symbol)
+    if fmp:
+        return fmp
+
+    # 4) Keyless last-close fallback. A provider outage must not kill private analysis.
     stooq = await _stooq_quote(symbol)
     if stooq:
         return stooq
-    return {"symbol": symbol, "price": None, "change_pct": None, "source": "unavailable"}
+
+    logger.warning(
+        "QUOTE_UNAVAILABLE symbol=%s attempted_sources=Finnhub,TwelveData,FMP,Stooq",
+        symbol,
+    )
+    return {
+        "symbol": symbol,
+        "price": None,
+        "change_pct": None,
+        "source": "unavailable",
+        "diagnostic": "no_provider_returned_a_valid_price",
+    }
 
 
 _TICKER_CACHE = {}
