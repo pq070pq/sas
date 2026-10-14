@@ -3457,3 +3457,128 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-pro-technical .mini-levels span{display:flex;flex-direction:column;gap:5px}
 .sas-pro-technical .mini-levels b{color:#d9f5ff}
 @media(max-width:380px){.sas-indicator-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sas-pro-technical .mini-analysis-head small{width:100%}}
+
+
+/* SAS PRO Premium Technical Analysis — dark trading terminal visual refresh */
+.symbol-result .sas-pro-technical,
+#stockAnalysis .sas-pro-technical,
+.sas-pro-technical{
+  position:relative!important;
+  isolation:isolate!important;
+  overflow:hidden!important;
+  margin:16px 0!important;
+  padding:clamp(15px,2.3vw,24px)!important;
+  border:1px solid rgba(41,210,255,.32)!important;
+  border-radius:22px!important;
+  background:
+    radial-gradient(ellipse at 100% 0%,rgba(0,190,255,.13),transparent 34%),
+    radial-gradient(ellipse at 0% 100%,rgba(0,255,190,.055),transparent 38%),
+    linear-gradient(145deg,#071a2b 0%,#04111f 48%,#020a14 100%)!important;
+  box-shadow:0 18px 42px rgba(0,0,0,.28),0 0 0 1px rgba(67,208,255,.035),inset 0 1px rgba(255,255,255,.045)!important;
+  color:#e9f7ff!important;
+}
+.sas-pro-technical:before{
+  content:"";position:absolute;inset:0 0 auto;height:2px;z-index:-1;
+  background:linear-gradient(90deg,transparent,#22d3ee 22%,#31f4bc 58%,transparent);
+  opacity:.9;
+}
+.sas-pro-technical .mini-analysis-head{
+  display:flex!important;align-items:center!important;justify-content:space-between!important;
+  gap:12px!important;margin:0 0 17px!important;padding:0 0 14px!important;
+  border-bottom:1px solid rgba(108,190,219,.15)!important;
+}
+.sas-pro-technical .mini-analysis-head>div{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:5px!important}
+.sas-pro-technical .mini-analysis-head .eyebrow{
+  display:inline-flex!important;align-items:center!important;gap:7px!important;
+  width:max-content!important;max-width:100%!important;padding:5px 9px!important;
+  border:1px solid rgba(39,211,255,.23)!important;border-radius:7px!important;
+  background:rgba(9,88,115,.19)!important;color:#65e3f6!important;
+  font-size:9px!important;font-weight:800!important;letter-spacing:1.1px!important;
+}
+.sas-pro-technical .mini-analysis-head b{font-size:clamp(17px,2.1vw,23px)!important;font-weight:850!important;line-height:1.4!important;color:#f1fbff!important}
+.sas-pro-technical .mini-analysis-head small{color:#83aebf!important;font-size:11px!important;line-height:1.6!important}
+.sas-pro-technical .mini-analysis-grid{
+  display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:9px!important;margin:0 0 16px!important;
+}
+.sas-pro-technical .mini-analysis-grid>div{
+  position:relative!important;display:flex!important;flex-direction:column!important;gap:9px!important;
+  min-width:0!important;min-height:86px!important;padding:13px 12px!important;
+  border:1px solid rgba(100,168,198,.17)!important;border-radius:14px!important;
+  background:linear-gradient(145deg,rgba(13,43,64,.78),rgba(5,21,35,.94))!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.025)!important;
+}
+.sas-pro-technical .mini-analysis-grid>div:after{
+  content:"";position:absolute;right:12px;left:12px;bottom:0;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,rgba(41,211,255,.45),transparent);
+}
+.sas-pro-technical .mini-analysis-grid small{color:#8eafc2!important;font-size:11px!important;line-height:1.5!important}
+.sas-pro-technical .mini-analysis-grid b{color:#f1faff!important;font-size:clamp(13px,1.35vw,17px)!important;font-weight:800!important;line-height:1.4!important;overflow-wrap:anywhere!important}
+.sas-indicator-grid{
+  display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:9px!important;margin:0 0 10px!important;
+}
+.sas-indicator-card{
+  position:relative!important;min-width:0!important;min-height:91px!important;
+  justify-content:center!important;align-items:flex-start!important;gap:7px!important;
+  padding:13px 12px!important;text-align:right!important;
+  border:1px solid rgba(71,166,202,.19)!important;border-radius:14px!important;
+  background:linear-gradient(155deg,rgba(8,33,52,.94),rgba(3,15,27,.98))!important;
+  transition:border-color .18s ease,transform .18s ease,background .18s ease!important;
+}
+.sas-indicator-card:before{
+  content:"";position:absolute;top:12px;right:0;width:3px;height:24px;border-radius:3px 0 0 3px;
+  background:linear-gradient(180deg,#23d9f5,#16b9a0);opacity:.85;
+}
+.sas-indicator-card:hover{border-color:rgba(43,219,255,.48)!important;transform:translateY(-2px)!important;background:linear-gradient(155deg,rgba(10,45,68,.98),rgba(3,17,30,.99))!important}
+.sas-indicator-card small{color:#8eafc2!important;font-size:10px!important;white-space:normal!important;line-height:1.45!important}
+.sas-indicator-card b{color:#f0fbff!important;font-size:clamp(15px,1.55vw,19px)!important;font-weight:850!important;line-height:1.35!important;overflow-wrap:anywhere!important}
+.sas-indicator-card span{color:#7797aa!important;font-size:10px!important;line-height:1.5!important}
+.sas-data-integrity{
+  display:flex!important;align-items:flex-start!important;gap:8px!important;
+  margin:11px 0 15px!important;padding:10px 12px!important;
+  border:1px solid rgba(50,210,172,.16)!important;border-radius:10px!important;
+  background:rgba(9,92,74,.10)!important;color:#74d9bd!important;font-size:10px!important;line-height:1.7!important;
+}
+.sas-pro-technical .mini-levels{
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;
+  margin:14px 0!important;padding:0!important;border:0!important;background:transparent!important;
+}
+.sas-pro-technical .mini-levels span{
+  min-width:0!important;display:flex!important;flex-direction:row!important;align-items:center!important;
+  justify-content:space-between!important;gap:10px!important;padding:13px 14px!important;
+  border:1px solid rgba(70,183,212,.2)!important;border-radius:13px!important;
+  background:rgba(6,25,40,.82)!important;color:#90b4c5!important;font-size:12px!important;
+}
+.sas-pro-technical .mini-levels span:first-child{border-right:3px solid #24d8f0!important}
+.sas-pro-technical .mini-levels span:last-child{border-right:3px solid #ff727c!important}
+.sas-pro-technical .mini-levels b{color:#effaff!important;font-size:15px!important;font-weight:850!important}
+.sas-pro-technical .mini-takeaway{
+  margin:10px 0 0!important;padding:13px 14px!important;border-radius:12px!important;
+  border:1px solid rgba(85,159,188,.15)!important;background:rgba(5,17,29,.68)!important;
+  color:#b7d0dc!important;font-size:12px!important;line-height:1.9!important;
+}
+.symbol-result .quote-line{margin:12px 0!important;padding:13px 15px!important;border:1px solid rgba(75,174,208,.16)!important;border-radius:14px!important;background:linear-gradient(110deg,rgba(8,32,50,.9),rgba(4,17,29,.85))!important}
+.symbol-result .chart-title{margin:20px 0 10px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;flex-wrap:wrap!important}
+.symbol-result .chart-title>b{color:#eafaff!important;font-size:16px!important}
+.symbol-result .chart-box{border-radius:18px!important;border:1px solid rgba(43,195,233,.25)!important;background:radial-gradient(ellipse at 50% 0%,rgba(0,116,159,.08),transparent 55%),#020b14!important;box-shadow:inset 0 1px rgba(255,255,255,.025)!important}
+.symbol-result .level-grid{gap:9px!important;margin:12px 0!important}
+.symbol-result .level-grid>div{padding:13px!important;border-radius:13px!important;border:1px solid rgba(77,177,207,.16)!important;background:linear-gradient(145deg,rgba(8,31,49,.9),rgba(3,14,25,.96))!important}
+.symbol-result .level-grid small{color:#83a9bb!important}
+.symbol-result .level-grid b{font-size:clamp(14px,1.5vw,18px)!important;color:#effaff!important;overflow-wrap:anywhere!important}
+@media(max-width:700px){
+ .sas-pro-technical{padding:14px!important;border-radius:17px!important}
+ .sas-pro-technical .mini-analysis-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+ .sas-pro-technical .mini-analysis-grid>div{min-height:76px!important;padding:11px!important}
+ .sas-indicator-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+ .sas-indicator-card{min-height:82px!important;padding:11px!important}
+ .sas-pro-technical .mini-levels span{align-items:flex-start!important;flex-direction:column!important;gap:7px!important;padding:11px!important}
+ .sas-pro-technical .mini-levels b{font-size:14px!important}
+ .symbol-result .level-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:360px){
+ .sas-pro-technical .mini-analysis-head b{font-size:16px!important}
+ .sas-pro-technical .mini-analysis-grid>div{padding:9px!important}
+ .sas-indicator-card b{font-size:14px!important}
+ .sas-pro-technical .mini-levels{gap:7px!important}
+}
