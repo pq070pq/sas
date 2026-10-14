@@ -1181,9 +1181,11 @@ async function analyzeSymbol(){
  const cusp=cuspR.status==='fulfilled'&&cuspR.value&&typeof cuspR.value==='object'?cuspR.value:{symbol,available:false,source_url:'https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol),message_ar:'تعذر تحميل بيانات CUSP الآن.'};
  const cuspMetricsHtml=renderCuspWealthMetrics(cusp);
  const cuspFundamentalSummary=renderCuspFundamentalSummary(cusp,q.price);
- const cuspHtml='<section class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth · بيانات مالية إضافية</b><a href="'+escHtml(safeNewsUrl(cusp.source_url)||('https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol)))+'" target="_blank" rel="noopener noreferrer">فتح صفحة السهم ↗</a></div>'+
-   (cusp.available?'<p><b>'+escHtml(cusp.title||symbol)+'</b></p>'+(cusp.description?'<p>'+escHtml(cusp.description)+'</p>':'')+cuspFundamentalSummary+cuspMetricsHtml:'<p>'+escHtml(cusp.message_ar||'لا تتوفر بيانات قابلة للقراءة آليًا؛ افتح المصدر لمراجعة التفاصيل.')+'</p>')+
-   '<small>مصدر مالي إضافي؛ السعر قد يمثل آخر سعر منشور لدى CUSP وليس بالضرورة سعرًا لحظيًا. القيم غير المتاحة لا تُقدّر.</small></section>';
+ const cuspHasData=Boolean((cusp.available&&(cusp.title||cusp.description))||cuspMetricsHtml.includes('cusp-metrics-grid'));
+ const cuspHtml=cuspHasData?'<section class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth · بيانات مالية إضافية</b><a href="'+escHtml(safeNewsUrl(cusp.source_url)||('https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol)))+'" target="_blank" rel="noopener noreferrer">فتح صفحة السهم ↗</a></div>'+
+   (cusp.available?'<p><b>'+escHtml(cusp.title||symbol)+'</b></p>'+(cusp.description?'<p>'+escHtml(cusp.description)+'</p>':'')+cuspFundamentalSummary+cuspMetricsHtml:cuspMetricsHtml)+
+   '<small>مصدر مالي إضافي؛ السعر قد يمثل آخر سعر منشور لدى CUSP وليس بالضرورة سعرًا لحظيًا. القيم غير المتاحة لا تُقدّر.</small></section>':'';
+
  const tech=analysis.sas_pro?.targets||{};
  const sh=shariah||tech.shariah||{};
  const ai=analysis.analysis||{};
@@ -1244,6 +1246,7 @@ const miniAnalysisHtml=
     '<div class="terminal-disclaimer">البيانات للتحليل والمعلومات فقط، وليست توصية شراء أو بيع. تحقق من الأسعار والمصادر قبل اتخاذ القرار.</div>'+
    '</div>';
 
+ pruneUnavailableAnalysis(el);
  mountPerpEquitiesAnalysis(el,perp,symbol);
  const chartCandles=Array.isArray(chart.candles)?chart.candles:[];
  requestAnimationFrame(()=>drawChart(chartCandles));
@@ -1350,6 +1353,32 @@ function renderCuspWealthMetrics(cusp){
  if(!cards.length)return '<p class="cusp-no-metrics">لم تُستخرج أرقام مالية قابلة للتحقق من صفحة CUSP لهذا السهم.</p>';
  return '<div class="cusp-metrics-grid">'+cards.map(([label,value])=>'<div><small>'+escHtml(label)+'</small><b>'+escHtml(value)+'</b></div>').join('')+'</div><small class="cusp-data-note">المصدر: صفحة CUSP Wealth · تُعرض القيم كما نُشرت، دون تقدير القيم المفقودة.</small>';
 }
+function pruneUnavailableAnalysis(root){
+ if(!root)return;
+ const missing=/^(?:غير متاح(?:ة)?|غير واضح|لا توجد قيمة موثقة|لا توجد قيمة موثوقة|—|-|N\/A|NaN|undefined)$/i;
+ const selectors=['.sas-terminal-metric','.sas-indicator-card','.sas-terminal-averages > div','.level-grid > div','.mini-analysis-grid > div','.mini-levels > span','.cusp-metrics-grid > div'];
+ selectors.forEach(selector=>root.querySelectorAll(selector).forEach(card=>{
+  const value=card.querySelector('strong,b');
+  if(value&&missing.test(value.textContent.trim()))card.remove();
+ }));
+ [['#sasTerminalMetrics','.sas-terminal-metric'],['#sasMovingAverages','.sas-terminal-averages > div'],['#sasTerminalLevels','.level-grid > div']].forEach(([section,items])=>{
+  const panel=root.querySelector(section);
+  if(panel&&!panel.querySelector(items))panel.remove();
+ });
+ root.querySelectorAll('.news-list').forEach(list=>{
+  if(!list.querySelector('.news-entry'))list.closest('#sasTerminalNews')?.remove();
+ });
+ root.querySelectorAll('.sas-terminal-tabs').forEach(nav=>{
+  nav.querySelectorAll('a[href^="#"]').forEach(link=>{
+   const target=link.getAttribute('href');
+   if(!target||!root.querySelector(target))link.remove();
+  });
+  if(!nav.querySelector('a'))nav.remove();
+ });
+ root.querySelectorAll('.sas-terminal-panel').forEach(panel=>{
+  if(panel.id==='sasTerminalResearch'&&!panel.querySelector('.cusp-metrics-grid > div')&&!panel.querySelector('.cusp-fundamental-summary p')&&!panel.querySelector('.ai-box p'))panel.remove();
+ });
+}
 function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
  const fallbackQuote=miniData?.quote&&typeof miniData.quote==='object'?miniData.quote:{};
  const hasNumericValue=(v)=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v));
@@ -1369,6 +1398,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
  const cuspMetricsHtml=renderCuspWealthMetrics(cuspData);
  const cuspFundamentalSummary=renderCuspFundamentalSummary(cuspData,displayQuote?.price);
  const cuspText=cuspData?.available?(cuspData.title||cuspData.description||'تم الوصول إلى صفحة CUSP؛ قد تكون التفاصيل محمّلة داخل الموقع.'):(cuspData?.message_ar||'بيانات CUSP غير متاحة آليًا الآن.');
+ const cuspHasData=Boolean((cuspData?.available&&(cuspData.title||cuspData.description))||cuspMetricsHtml.includes('cusp-metrics-grid'));
  const quickMetrics=renderStockTerminalQuickMetrics(classification,targets,mini);
  const averages=renderStockTerminalAverages(classification,targets);
  const level=(v)=>{const n=Number(v);return Number.isFinite(n)&&n>0?'$'+money(n):'غير متاح';};
@@ -1377,14 +1407,14 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
    '<header class="sas-terminal-stock-head"><button class="sas-terminal-back" type="button" onclick="document.getElementById(\'symbolResult\').innerHTML=\'\';document.getElementById(\'symbolSearch\').focus()" aria-label="رجوع">‹</button><div class="sas-terminal-brand"><b>SAS <span>PRO</span></b><small>تحليل الأسهم الأمريكية</small></div><button class="sas-terminal-watch" type="button" onclick="toggleWatch(\''+escHtml(symbol)+'\')">'+(terminalState.watch.includes(symbol)?'★':'☆')+'</button></header>'+
    '<section class="sas-terminal-hero"><div class="sas-terminal-company"><div class="sas-terminal-symbol">'+escHtml(symbol.slice(0,4))+'</div><div><span class="eyebrow">SAS PRO · STOCK ANALYSIS</span><h2>'+escHtml(symbol)+'</h2><p>'+escHtml(displayQuote?.name||displayQuote?.company_name||displayQuote?.company||'سهم أمريكي')+'</p><div class="sas-terminal-tags"><span>'+escHtml(displayQuote?.exchange||displayQuote?.mic||'السوق الأمريكي')+'</span><span>'+escHtml(displayQuote?.currency||'USD')+'</span></div></div></div><div class="sas-terminal-price"><strong>'+priceText+'</strong><span class="'+(change>=0?'up':'down')+'">'+changeText+'</span><small>السعر حسب البيانات المستلمة</small><span class="sas-terminal-live"><i></i>'+escHtml(quoteSource)+'</span></div></section>'+
    '<nav class="sas-terminal-tabs" aria-label="أقسام تحليل السهم"><a href="#sasTerminalMetrics">المؤشرات</a><a href="#sasMovingAverages">المتوسطات</a><a href="#sasTerminalChart">الشارت</a><a href="#sasTerminalLevels">المستويات</a><a href="#sasTerminalNews">الأخبار</a><a href="#sasTerminalResearch">الأبحاث</a></nav>'+
-   '<div class="partial-note">تعذر تحميل التحليل الكامل من الخادم؛ نعرض البيانات الجزئية التي وصلت فقط دون تخمين.</div>'+
    quickMetrics+averages+
    renderAvailableLevelPanel('مستويات السهم','القيم الفعلية المستلمة من محرك التحليل',[['الهدف',level(mini.target)],['وقف الخسارة',level(mini.stop)],['الزخم',mini.momentum],['السيولة',mini.liquidity]])+(mini.takeaway?'<section class="sas-terminal-panel"><p class="mini-takeaway">'+escHtml(mini.takeaway)+'</p></section>':'')+
    (candles.length?'<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت</b><small>شموع السعر وحجم التداول من البيانات المستلمة</small></div><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a></div><div class="chart-box"><canvas id="stockCanvas" height="290"></canvas></div></section>':'')+
-   '<section class="sas-terminal-panel" id="sasTerminalResearch"><div class="sas-terminal-section-title"><span>▤</span><div><b>بحث مالي إضافي</b><small>المصدر: CUSP Wealth</small></div></div><div class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth</b><a href="'+escHtml(cuspUrl)+'" target="_blank" rel="noopener noreferrer">فتح المصدر ↗</a></div><p>'+escHtml(cuspText)+'</p>'+cuspFundamentalSummary+cuspMetricsHtml+'<small>مصدر بحثي إضافي؛ السعر قد يكون آخر سعر معروض على صفحة المصدر وليس بالضرورة سعرًا لحظيًا.</small></div></section>'+
-   '<section class="sas-terminal-panel" id="sasTerminalNews"><div class="sas-terminal-section-title"><span>▣</span><div><b>آخر أخبار السهم</b><small>الأخبار التي تم استلامها من المصادر</small></div></div><div class="news-list">'+renderNewsItems(Array.isArray(news)?news:[],5)+'</div></section>'+
+   (cuspHasData?'<section class="sas-terminal-panel" id="sasTerminalResearch"><div class="sas-terminal-section-title"><span>▤</span><div><b>بحث مالي إضافي</b><small>المصدر: CUSP Wealth</small></div></div><div class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth</b><a href="'+escHtml(cuspUrl)+'" target="_blank" rel="noopener noreferrer">فتح المصدر ↗</a></div><p>'+escHtml(cuspText)+'</p>'+cuspFundamentalSummary+cuspMetricsHtml+'<small>مصدر بحثي إضافي؛ السعر قد يكون آخر سعر منشور على صفحة المصدر وليس بالضرورة سعرًا لحظيًا.</small></div></section>':'')+
+   (Array.isArray(news)&&news.length?'<section class="sas-terminal-panel" id="sasTerminalNews"><div class="sas-terminal-section-title"><span>▣</span><div><b>آخر أخبار السهم</b><small>الأخبار التي تم استلامها من المصادر</small></div></div><div class="news-list">'+renderNewsItems(news,5)+'</div></section>':'')+
    '<div class="terminal-disclaimer">البيانات المتاحة جزئية وليست توصية شراء أو بيع. لا يتم إنشاء مؤشرات أو أسعار غير مستلمة من المصادر.</div>'+
   '</div>';
+ pruneUnavailableAnalysis(el);
  requestAnimationFrame(()=>drawChart(candles));
  if(!candles.length){
   const box=el.querySelector('.chart-box');
