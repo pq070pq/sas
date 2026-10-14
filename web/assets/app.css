@@ -3492,3 +3492,56 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 /* CUSP is a public-page fallback, not a guaranteed live quote. */
 .sas-terminal-live.sas-quote-delayed{color:#f4c879!important}
 .sas-terminal-live.sas-quote-delayed i{background:#f4c879!important;box-shadow:0 0 8px #f4c879!important}.sas-terminal-live.sas-price-freshness{font-size:9px!important;line-height:1.5;max-width:260px;color:#d7bd8b!important;opacity:.92}
+
+
+/* SAS PRO Shariah review — verdict-first visual hierarchy */
+.shariah-search-card.shariah-review{padding:0!important;overflow:hidden;border-radius:22px!important;background:linear-gradient(145deg,rgba(5,19,32,.98),rgba(2,10,20,.99))!important;box-shadow:0 18px 44px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.035)!important}
+.shariah-review .shariah-review-hero{display:grid;grid-template-columns:145px minmax(0,1fr);gap:18px;align-items:center;padding:22px 20px;border-bottom:1px solid rgba(97,172,207,.2);background:radial-gradient(circle at 12% 50%,rgba(25,139,174,.14),transparent 44%),linear-gradient(115deg,rgba(5,32,49,.75),rgba(3,15,27,.45))}
+.shariah-emblem{width:132px;height:132px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;border:2px solid rgba(255,204,91,.72);background:radial-gradient(circle,rgba(255,197,67,.13),rgba(3,16,29,.9) 68%);box-shadow:inset 0 0 22px rgba(255,198,73,.1),0 0 22px rgba(255,198,73,.08);color:#ffd36b}
+.shariah-emblem-mark{display:flex;align-items:center;justify-content:center;width:54px;height:54px;border:2px solid currentColor;border-radius:50%;font-size:34px;font-weight:900;line-height:1}
+.shariah-emblem-caption{font-size:10px;letter-spacing:2px;font-weight:900;opacity:.8}
+.shariah-emblem.sh-ok{color:#40e6a2;border-color:rgba(64,230,162,.75);background:radial-gradient(circle,rgba(30,190,125,.16),rgba(3,16,29,.9) 68%);box-shadow:inset 0 0 22px rgba(64,230,162,.1),0 0 22px rgba(64,230,162,.08)}
+.shariah-emblem.sh-bad{color:#ff7585;border-color:rgba(255,117,133,.75);background:radial-gradient(circle,rgba(220,55,75,.16),rgba(3,16,29,.9) 68%)}
+.shariah-verdict{min-width:0;text-align:right}
+.shariah-eyebrow{font-size:11px;letter-spacing:.7px;color:#79b8d5;font-weight:800}
+.shariah-verdict h3{margin:5px 0 10px;font-size:30px;letter-spacing:.4px;color:#f0f8ff}
+.shariah-verdict-state{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:900;color:#ffda79}
+.shariah-verdict-state>span{display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px;border:1px solid currentColor;border-radius:50%;font-size:17px}
+.shariah-verdict-state.sh-ok{color:#45e4a3}.shariah-verdict-state.sh-bad{color:#ff7e8c}
+.shariah-verdict p{font-size:13px;line-height:1.9;color:#c1d2df;margin:11px 0 0}
+.shariah-review-section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 20px 8px;color:#dff5ff}
+.shariah-review-section-title>b{font-size:14px}.shariah-review-section-title>span{font-size:10px;color:#76a9c2}
+.shariah-review .shariah-source-list{padding:0 20px 12px}
+.shariah-review .shariah-source-row{align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(114,168,194,.12);font-size:12px}
+.shariah-review .shariah-source-row:last-child{border-bottom:0}
+.shariah-review .shariah-source-row>span{min-width:0;flex:1}
+.shariah-review .shariah-source-row>span>b{font-size:13px;color:#e4f4ff}
+.shariah-review .shariah-source-row>span>small{font-size:11px;color:#8fa8ba;line-height:1.65}
+.shariah-review .shariah-source-row> b{max-width:48%;text-align:left;font-size:11px;line-height:1.5;color:#ffd36b}
+.shariah-review.sh-ok .shariah-source-row> b{color:#64e6b1}
+.shariah-review.sh-bad .shariah-source-row> b{color:#ff8795}
+.shariah-updated{padding:0 20px 12px;font-size:11px;color:#7f9eb4}
+.shariah-review-warning{margin:4px 16px 16px;padding:13px 15px;border:1px solid rgba(255,190,71,.35);border-radius:13px;background:linear-gradient(110deg,rgba(48,35,12,.35),rgba(4,16,27,.72));color:#f5d58d}
+.shariah-review-warning>b{font-size:12px}
+.shariah-review-warning>p{margin:5px 0 0;font-size:11px;line-height:1.9;color:#bdcbd6}
+@media(max-width:600px){
+ .shariah-search-card.shariah-review{border-radius:17px!important}
+ .shariah-review .shariah-review-hero{grid-template-columns:78px minmax(0,1fr);gap:12px;padding:16px 12px}
+ .shariah-emblem{width:74px;height:74px;border-width:1px;gap:4px}
+ .shariah-emblem-mark{width:34px;height:34px;font-size:22px;border-width:1px}
+ .shariah-emblem-caption{font-size:7px;letter-spacing:1px}
+ .shariah-verdict h3{font-size:25px;margin:4px 0 7px}
+ .shariah-eyebrow{font-size:9px}
+ .shariah-verdict-state{font-size:13px;gap:6px;align-items:flex-start}
+ .shariah-verdict-state>span{width:20px;height:20px;min-width:20px;font-size:13px}
+ .shariah-verdict p{font-size:11px;line-height:1.8;margin-top:8px}
+ .shariah-review-section-title{padding:13px 13px 6px}
+ .shariah-review .shariah-source-list{padding:0 13px 10px}
+ .shariah-review .shariah-source-row{gap:8px;padding:10px 0}
+ .shariah-review .shariah-source-row>span> b{font-size:12px}
+ .shariah-review .shariah-source-row>span>small{font-size:10px}
+ .shariah-review .shariah-source-row> b{font-size:10px;max-width:45%}
+ .shariah-updated{padding:0 13px 10px;font-size:10px}
+ .shariah-review-warning{margin:4px 10px 11px;padding:11px}
+ .shariah-review-warning>p{font-size:10px}
+}
