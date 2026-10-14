@@ -1163,7 +1163,7 @@ const miniAnalysisHtml=
        '<div><small>💧 السيولة (RVOL)</small><b>'+escHtml(mini.liquidity||'غير متاحة')+'</b></div>'+
        '<div><small>🎯 الإشارة</small><b>'+escHtml(mini.signal||'غير متاحة')+'</b></div>'+
      '</div>'+
-     '<div class="sas-indicator-grid">'+renderSasIndicators(mini,tech,chart)+'</div>'+
+     '<div class="sas-indicator-grid">'+renderSasIndicators(mini,analysis,chart)+'</div>'+
      '<div class="mini-levels"><span>🎯 الهدف <b>'+formatObservedLevel(mini.target)+'</b></span><span>🛑 الوقف <b>'+formatObservedLevel(mini.stop)+'</b></span></div>'+
      '<p class="mini-takeaway">'+escHtml(mini.takeaway||'لا تتوفر قراءة فنية كافية من المصدر الحالي.')+'</p>'+
      '<small class="sas-data-integrity">● بيانات فعلية فقط · لا تخمين. أي قيمة غير متاحة تبقى غير معروضة.</small>'+
@@ -2263,7 +2263,7 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
 +money(n):'غير متاح';
 }
 function renderSasIndicators(mini,tech,chart){
- const cls=tech?.classification||tech?.technical_analysis||{};
+ const cls=tech?.classification||tech?.technical_analysis||tech?.sas_pro?.classification||tech||{};
  const raw=[['RSI (14)',mini?.rsi14??cls?.rsi14,''],['RVOL',mini?.rvol??cls?.rvol,'×'],['ATR (14)',mini?.atr14??cls?.atr14,''],['MA20',mini?.ma20??cls?.ma20,'
  const fallbackQuote=miniData?.quote&&typeof miniData.quote==='object'?miniData.quote:{};
  const displayQuote=(Number(q?.price)>0||Number.isFinite(Number(q?.change_pct)))?q:fallbackQuote;
