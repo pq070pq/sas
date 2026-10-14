@@ -7,7 +7,7 @@ import re
 
 logger = logging.getLogger(__name__)
 from .config import settings
-from .panwatch import technical_targets, _stooq_ohlcv
+from .panwatch import technical_targets, _stooq_ohlcv, ohlcv as shared_ohlcv
 from .news import company_news, select_catalyst, score_catalyst, earnings_calendar_window
 from .market import quote
 from .perpequities_provider import get_equity_perpetuals
@@ -849,7 +849,7 @@ async def discover_low_price_stocks():
     # مشتركًا وتزامنًا أعلى مع مهلة مستقلة لكل سهم حتى لا يحتجز سهم واحد
     # الدورة كلها.
     semaphore = asyncio.Semaphore(12)
-    analysis_timeout = 10
+    analysis_timeout = 24
     stage_stats = {
         "candle_error": 0,
         "insufficient_candles": 0,
@@ -1025,10 +1025,12 @@ async def discover_low_price_stocks():
 
 
 async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool = False, min_candles: int = 30):
-    """Get daily OHLCV with caching and a strictly limited Twelve Data fallback."""
-    global _twelve_data_quota_exhausted
+    """Use the same OHLCV source chain as the chart and technical targets.
+
+    Scanner calls keep Twelve Data disabled by default to protect its quota;
+    explicit/manual analysis can opt in through allow_twelve_fallback.
+    """
     key = symbol.upper()
-    now = time.monotonic()
     cached = _candle_cache.get(key)
     if cached:
         cached_candles = cached.get("candles") or []
@@ -1036,80 +1038,33 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
         if len(cached_candles) >= min_candles:
             return cached_candles, cached_source
 
-    base = settings.panwatch_base_url.rstrip("/")
-    candles = []
-
-    # Primary: PanWatch, rate-limited and bounded so one slow request
-    # cannot leave the whole radar waiting behind the semaphore.
     try:
-        async with asyncio.timeout(8):
-            async with _panwatch_semaphore:
-                r = await client.get(
-                    f"{base}/api/klines/{key}",
-                    params={"market": "US", "days": 260, "interval": "1d"},
-                    timeout=7,
-                )
-            r.raise_for_status()
-            payload = r.json()
-            data = payload.get("data") or payload
-            candles = _parse_candles(data.get("klines", []))
-            if len(candles) >= min_candles:
-                _candle_cache.put(key, {"candles": candles, "source": "PanWatch"})
-                return candles, "PanWatch"
-    except (asyncio.TimeoutError, httpx.HTTPError, Exception):
-        candles = []
-
-    # Only the most important shortlist symbols get a single Twelve Data fallback.
-    # This prevents 429 storms when 100+ symbols have no PanWatch candles.
-    if (
-        allow_twelve_fallback
-        and not _twelve_data_quota_exhausted
-        and bool(settings.twelve_data_api_key)
-    ):
-        try:
-            async with asyncio.timeout(8):
-                async with _twelvedata_fallback_semaphore:
-                    r = await twelve_call(client.get, "https://api.twelvedata.com/time_series",
-                        params={
-                            "symbol": key,
-                            "interval": "1day",
-                            "outputsize": 260,
-                            "apikey": settings.twelve_data_api_key,
-                        },
-                        timeout=7,
-                    )
-                if r.status_code == 429:
-                    _twelve_data_quota_exhausted = True
-                    raise httpx.HTTPStatusError("Twelve Data quota exhausted", request=r.request, response=r)
-                r.raise_for_status()
-                payload = r.json()
-                candles = _parse_candles(payload.get("values", []))
-                if len(candles) >= min_candles:
-                    candles.reverse()
-                    _candle_cache.put(key, {"candles": candles, "source": "Twelve Data"})
-                    return candles, "Twelve Data"
-        except (asyncio.TimeoutError, httpx.HTTPError, Exception):
-            pass
-
-    # Final keyless fallback for manual/explicit SAS analysis.
-    # PanWatch may be unavailable while the quote still works (for example via
-    # Finnhub fallback). In that case SAS must use observed daily OHLCV rather
-    # than returning an empty classification. Stooq is historical OHLCV only;
-    # it does not invent prices or signals.
-    try:
-        async with asyncio.timeout(12):
-            candles = _parse_candles(await _stooq_ohlcv(key, 260))
+        # Share PanWatch -> (optional) Twelve Data -> Finnhub -> FMP -> Yahoo -> Stooq.
+        # Pass the required history threshold through so a short response from
+        # one source does not prevent the existing fallback chain from running.
+        async with asyncio.timeout(22):
+            history = await shared_ohlcv(
+                key,
+                days=260,
+                interval="1d",
+                min_candles=min_candles,
+                allow_twelve_data=allow_twelve_fallback,
+            )
+        candles = _parse_candles(history.get("candles") if isinstance(history, dict) else [])
+        source = str(history.get("source") or "unavailable") if isinstance(history, dict) else "unavailable"
         if len(candles) >= min_candles:
-            _candle_cache.put(key, {"candles": candles, "source": "Stooq"})
-            return candles, "Stooq"
-    except Exception:
-        pass
+            _candle_cache.put(key, {"candles": candles, "source": source})
+            return candles, source
+        diagnostic = history.get("diagnostic") if isinstance(history, dict) else None
+        logger.warning(
+            "OHLCV_INSUFFICIENT symbol=%s count=%d required=%d source=%s diagnostic=%s",
+            key, len(candles), min_candles, source, diagnostic,
+        )
+    except Exception as exc:
+        logger.warning("OHLCV_SHARED_PIPELINE_FAILED symbol=%s error=%s", key, type(exc).__name__)
 
-    # Cache the failure briefly too, so the same unavailable symbol is not hammered
-    # again on every 30-minute cycle.
     _candle_cache.put(key, {"candles": [], "source": "unavailable"})
     return [], "unavailable"
-
 
 
 _benchmark_cache = SmartMemory(_CANDLE_CACHE_TTL, max_items=8)
