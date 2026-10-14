@@ -3441,3 +3441,19 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .macro-grid .macro-card>b{grid-column:2!important;grid-row:2!important;font-size:clamp(13px,3.4vw,17px)!important}
  .macro-grid .macro-card>em{grid-column:2!important;grid-row:3!important;justify-self:start!important}
 }
+
+
+/* SAS PRO verified technical snapshot */
+.sas-pro-technical{border:1px solid rgba(30,202,239,.42);background:linear-gradient(145deg,rgba(3,26,42,.97),rgba(2,12,24,.98));box-shadow:0 0 22px rgba(0,174,220,.08),inset 0 1px rgba(255,255,255,.025)}
+.sas-pro-technical .mini-analysis-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.sas-pro-technical .mini-analysis-head b{color:#e6f8ff;letter-spacing:.1px}
+.sas-pro-technical .mini-analysis-head small{color:#70cbdc;font-size:10px}
+.sas-indicator-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:12px 0}
+.sas-indicator-card{min-width:0;padding:10px 7px;border:1px solid rgba(69,166,197,.24);border-radius:12px;background:linear-gradient(150deg,rgba(8,35,52,.92),rgba(3,16,29,.95));display:flex;flex-direction:column;gap:5px;text-align:center}
+.sas-indicator-card small{color:#91b6c8;font-size:10px;white-space:nowrap}
+.sas-indicator-card b{color:#e5f9ff;font-size:14px;overflow-wrap:anywhere}
+.sas-indicator-card span{color:#7fa6b6;font-size:9px;line-height:1.35}
+.sas-data-integrity{display:block;margin-top:10px;padding-top:8px;border-top:1px solid rgba(70,158,185,.18);color:#61d8bf;font-size:10px;line-height:1.6}
+.sas-pro-technical .mini-levels span{display:flex;flex-direction:column;gap:5px}
+.sas-pro-technical .mini-levels b{color:#d9f5ff}
+@media(max-width:380px){.sas-indicator-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sas-pro-technical .mini-analysis-head small{width:100%}}
