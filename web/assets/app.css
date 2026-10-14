@@ -3545,3 +3545,33 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .shariah-review-warning{margin:4px 10px 11px;padding:11px}
  .shariah-review-warning>p{font-size:10px}
 }
+
+
+/* Interactive Shariah search control + evidence-based source states */
+.shariah-search-btn-pro{position:relative!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;min-height:62px!important;padding:10px 13px!important;border:1px solid rgba(40,204,255,.48)!important;border-radius:15px!important;background:linear-gradient(125deg,rgba(9,65,91,.98),rgba(5,26,43,.98))!important;color:#e6f9ff!important;box-shadow:inset 0 1px rgba(255,255,255,.08),0 6px 22px rgba(0,170,255,.09)!important;overflow:hidden!important;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease!important}
+.shariah-search-btn-pro:before{content:"";position:absolute;inset:0 auto 0 -65%;width:45%;background:linear-gradient(90deg,transparent,rgba(150,239,255,.16),transparent);transform:skewX(-18deg);transition:left .45s ease;pointer-events:none}
+.shariah-search-btn-pro:hover:before,.shariah-search-btn-pro:focus-visible:before{left:130%}
+.shariah-search-btn-pro:hover,.shariah-search-btn-pro:focus-visible{transform:translateY(-2px)!important;border-color:rgba(53,225,255,.9)!important;box-shadow:inset 0 1px rgba(255,255,255,.1),0 0 0 2px rgba(37,195,255,.12),0 10px 26px rgba(0,170,255,.15)!important;outline:none!important}
+.shariah-search-btn-icon{display:flex;align-items:center;justify-content:center;flex:0 0 38px;width:38px;height:38px;border:1px solid rgba(61,207,255,.38);border-radius:12px;background:rgba(2,15,28,.58);color:#68dcff;box-shadow:inset 0 0 15px rgba(32,182,255,.08)}
+.shariah-search-btn-icon svg{width:23px;height:23px}
+.shariah-search-btn-copy{display:flex;flex:1;min-width:0;flex-direction:column;align-items:flex-start;gap:3px}
+.shariah-search-btn-copy b{font-size:13px;font-weight:900;color:#f1fbff}
+.shariah-search-btn-copy small{font-size:9px;font-weight:500;color:#8fbcd1}
+.shariah-search-btn-arrow{font-size:27px;line-height:1;color:#73dcff;transition:transform .18s ease}
+.shariah-search-btn-pro:hover .shariah-search-btn-arrow{transform:translateX(-3px)}
+.shariah-review .shariah-source-row> b{display:inline-flex;align-items:center;justify-content:flex-start;gap:5px}
+.shariah-review .shariah-source-row> b i{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;flex:0 0 18px;border-radius:50%;border:1px solid currentColor;font-size:11px;font-style:normal;font-weight:900}
+.shariah-review .shariah-source-row.source-ok> b{color:#56e5ad}
+.shariah-review .shariah-source-row.source-bad> b{color:#ff7f91}
+.shariah-review .shariah-source-row.source-unknown> b{color:#ffd36b}
+.shariah-review .shariah-source-row.source-unknown> b i{border-style:dashed}
+.shariah-search-result{scroll-margin-top:90px}
+@media(max-width:600px){
+ .shariah-search-btn-pro{min-height:56px!important;padding:8px 9px!important;gap:7px!important;border-radius:13px!important}
+ .shariah-search-btn-icon{width:32px;height:32px;flex-basis:32px;border-radius:10px}
+ .shariah-search-btn-icon svg{width:20px;height:20px}
+ .shariah-search-btn-copy b{font-size:11px}
+ .shariah-search-btn-copy small{font-size:8px}
+ .shariah-search-btn-arrow{font-size:23px}
+}
+@media(prefers-reduced-motion:reduce){.shariah-search-btn-pro,.shariah-search-btn-pro:before,.shariah-search-btn-arrow{transition:none!important}}
