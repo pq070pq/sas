@@ -2605,8 +2605,11 @@ async def stock_chart(symbol: str, _: dict = Depends(require_pro)):
             return {"symbol": normalize_crypto_symbol(raw_symbol), "candles": [], "available": False, "source": "Binance Spot", "error": f"{type(exc).__name__}: {str(exc)[:180]}"}
     data = await ohlcv(raw_symbol, days=90, interval="1d")
     if isinstance(data, list):
-        return {"symbol": raw_symbol, "candles": data, "available": len(data) >= 20, "source": "legacy"}
-    return {"symbol": raw_symbol, **data}
+        return {"symbol": raw_symbol, "candles": data, "available": len(data) > 0, "enough_data": len(data) >= 20, "source": "legacy"}
+    candles = data.get("candles") or []
+    # The chart can draw real candles even when there are fewer than 20;
+    # technical indicators still require enough bars and must not be fabricated.
+    return {"symbol": raw_symbol, **data, "available": len(candles) > 0, "enough_data": len(candles) >= 20}
 
 @app.get("/api/stocks/{symbol}/perpequities")
 async def stock_perpequities_analysis(symbol: str, _: dict = Depends(require_pro)):
