@@ -928,10 +928,12 @@ function renderCards(el,rows){
     '<div class="radar-empty-help" hidden>الفرصة المؤكدة تحتاج اجتياز الاستراتيجية وتوفر سعر حي ومستويات فنية صالحة ونسبة عائد إلى مخاطرة لا تقل عن 1.5. المرشح تحت المراقبة ليس توصية دخول.</div>'+
    '</div></div>';
  if(!all.length){el.innerHTML=empty;return;}
- const heading=(title,count,description)=>'<div class="radar-list-heading"><b>'+title+'</b><span>'+count.toLocaleString('ar-SA')+' سهم</span><small>'+description+'</small></div>';
- const confirmedHtml=confirmed.length?heading('✅ الفرص المؤكدة',confirmed.length,'اجتازت شروط الرادار؛ راجع السعر والمستويات قبل اتخاذ القرار.')+confirmed.map(x=>stockCard({...x,_radarDisplayStatus:'confirmed'})).join(''):'';
- const watchHtml=watch.length?heading('👀 أسهم تحت المراقبة',watch.length,'مرشحة للتحليل والمتابعة، لكنها لم تستكمل شروط الفرصة المؤكدة.')+watch.map(x=>stockCard({...x,_radarDisplayStatus:'watch'})).join(''):'';
+ const heading=(title,count,description)=>'<div class="radar-list-heading" style="grid-column:1/-1;width:100%;box-sizing:border-box"><b>'+title+'</b><span>'+count.toLocaleString('ar-SA')+' سهم</span><small>'+description+'</small></div>';
+ const group=(title,count,description,items,status)=>items.length?'<section class="radar-category" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 18px;width:100%;min-width:0">'+heading(title,count,description)+items.map(x=>stockCard({...x,_radarDisplayStatus:status})).join('')+'</section>':'';
+ const confirmedHtml=group('✅ الفرص المؤكدة',confirmed.length,'اجتازت شروط الرادار؛ راجع السعر والمستويات قبل اتخاذ القرار.',confirmed,'confirmed');
+ const watchHtml=group('👀 أسهم تحت المراقبة',watch.length,'مرشحة للتحليل والمتابعة، لكنها لم تستكمل شروط الفرصة المؤكدة.',watch,'watch');
  el.innerHTML=confirmedHtml+watchHtml+(confirmed.length?'':(!watch.length?empty:''));
+
 }
 function toggleRadarEmptyHelp(button){
  const help=button.closest('.radar-empty-content')?.querySelector('.radar-empty-help');
@@ -994,7 +996,7 @@ function stockCard(x){
  '<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
  '<div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div>'+
  '<div class="stock-gates">'+gate(gates.sas_core!==false,'SAS Core')+gate(gates.liquidity!==false,'السيولة')+gate(gates.target!==false,'الهدف')+gate(gates.live_levels!==false,'المستويات')+'</div>'+
- ' <button type="button" class="stock-shariah stock-shariah-action '+shClass+'" onclick="event.stopPropagation();openShariah(\''+raw+'\')"><span class="stock-shariah-icon-label"><span class="stock-shariah-icon" aria-hidden="true">🕌</span><b>الشرعية</b></span><strong>'+(shClass==='sh-unknown'?'اضغط للتحقق':escHtml(shLabel))+'</strong><span class="shariah-action-arrow">‹</span></button>'+
+ ' <button type="button" title="اضغط للتحقق من شرعية السهم" aria-label="تحقق من شرعية '+s+'" class="stock-shariah stock-shariah-action '+shClass+'" style="min-height:30px;padding:5px 8px;gap:6px" onclick="event.stopPropagation();openShariah(\''+raw+'\')"><span class="stock-shariah-icon-label"><span class="stock-shariah-icon" aria-hidden="true">🕌</span><b>تحقق الشرعية</b></span><strong style="font-size:10px">'+(shClass==='sh-unknown'?'تحقق':escHtml(shLabel))+'</strong></button>'+
 
  '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+'<span>'+catalystLabel+(catalyst>0?' '+catalyst+'/100':'')+'</span>'+(x.live_price_source?'<span>📡 '+escHtml(x.live_price_source)+'</span>':'')+'</div>'+
  perpContext+
