@@ -1025,11 +1025,8 @@ async def discover_low_price_stocks():
 
 
 async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool = False, min_candles: int = 30):
-    """Use the same OHLCV source chain as the chart and technical targets.
-
-    Scanner calls keep Twelve Data disabled by default to protect its quota;
-    explicit/manual analysis can opt in through allow_twelve_fallback.
-    """
+    """Get observed daily OHLCV using existing sources and quota-safe fallbacks."""
+    global _twelve_data_quota_exhausted
     key = symbol.upper()
     cached = _candle_cache.get(key)
     if cached:
@@ -1038,30 +1035,81 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
         if len(cached_candles) >= min_candles:
             return cached_candles, cached_source
 
+    base = settings.panwatch_base_url.rstrip("/")
+    candles = []
     try:
-        # Share PanWatch -> (optional) Twelve Data -> Finnhub -> FMP -> Yahoo -> Stooq.
-        # Pass the required history threshold through so a short response from
-        # one source does not prevent the existing fallback chain from running.
+        # Fast primary path retained for radar throughput.
+        async with asyncio.timeout(8):
+            async with _panwatch_semaphore:
+                r = await client.get(
+                    f"{base}/api/klines/{key}",
+                    params={"market": "US", "days": 260, "interval": "1d"},
+                    timeout=7,
+                )
+            r.raise_for_status()
+            payload = r.json()
+            data = payload.get("data") or payload
+            candles = _parse_candles(data.get("klines", []))
+            if len(candles) >= min_candles:
+                _candle_cache.put(key, {"candles": candles, "source": "PanWatch"})
+                return candles, "PanWatch"
+    except Exception as exc:
+        logger.debug("OHLCV_PANWATCH_FAILED symbol=%s error=%s", key, type(exc).__name__)
+
+    # Preserve the existing, explicitly limited Twelve Data fallback. The broad
+    # fallback chain below always disables Twelve Data to avoid draining credits.
+    if allow_twelve_fallback and not _twelve_data_quota_exhausted and settings.twelve_data_api_key:
+        try:
+            async with asyncio.timeout(8):
+                async with _twelvedata_fallback_semaphore:
+                    r = await twelve_call(
+                        client.get,
+                        "https://api.twelvedata.com/time_series",
+                        params={
+                            "symbol": key,
+                            "interval": "1day",
+                            "outputsize": 260,
+                            "apikey": settings.twelve_data_api_key,
+                        },
+                        timeout=7,
+                    )
+                if r.status_code == 429:
+                    _twelve_data_quota_exhausted = True
+                    raise httpx.HTTPStatusError("Twelve Data quota exhausted", request=r.request, response=r)
+                r.raise_for_status()
+                payload = r.json()
+                candles = _parse_candles(payload.get("values", []))
+                if len(candles) >= min_candles:
+                    candles.reverse()
+                    _candle_cache.put(key, {"candles": candles, "source": "Twelve Data"})
+                    return candles, "Twelve Data"
+        except Exception as exc:
+            logger.debug("OHLCV_TWELVE_DATA_FAILED symbol=%s error=%s", key, type(exc).__name__)
+
+    # Reuse the chart's existing fallback chain for Finnhub/FMP/Yahoo/Stooq.
+    # Twelve Data is deliberately disabled here; its quota guard above remains
+    # the only path that can spend credits.
+    try:
         async with asyncio.timeout(22):
             history = await shared_ohlcv(
                 key,
                 days=260,
                 interval="1d",
                 min_candles=min_candles,
-                allow_twelve_data=allow_twelve_fallback,
+                allow_twelve_data=False,
             )
-        candles = _parse_candles(history.get("candles") if isinstance(history, dict) else [])
+        fallback_candles = _parse_candles(history.get("candles") if isinstance(history, dict) else [])
         source = str(history.get("source") or "unavailable") if isinstance(history, dict) else "unavailable"
-        if len(candles) >= min_candles:
-            _candle_cache.put(key, {"candles": candles, "source": source})
-            return candles, source
+        if len(fallback_candles) >= min_candles:
+            _candle_cache.put(key, {"candles": fallback_candles, "source": source})
+            return fallback_candles, source
         diagnostic = history.get("diagnostic") if isinstance(history, dict) else None
         logger.warning(
             "OHLCV_INSUFFICIENT symbol=%s count=%d required=%d source=%s diagnostic=%s",
-            key, len(candles), min_candles, source, diagnostic,
+            key, len(fallback_candles), min_candles, source, diagnostic,
         )
     except Exception as exc:
-        logger.warning("OHLCV_SHARED_PIPELINE_FAILED symbol=%s error=%s", key, type(exc).__name__)
+        logger.warning("OHLCV_SHARED_FALLBACK_FAILED symbol=%s error=%s", key, type(exc).__name__)
 
     _candle_cache.put(key, {"candles": [], "source": "unavailable"})
     return [], "unavailable"
