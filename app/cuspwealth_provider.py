@@ -115,7 +115,7 @@ def parse_asset_page(symbol, document, source_url):
             market_status = status
             break
 
-    valuation_score_match = re.search(r"(?:^|\\n)التقييم\\s*\\n\\s*(\\d{1,3})\\s*\\n", plain, re.I)
+    valuation_score_match = re.search(r"(?:^|\n)التقييم\s*\n\s*(\d{1,3})\s*\n", plain, re.I)
     valuation_score = valuation_score_match.group(1) if valuation_score_match else None
     metrics = {
         "opening_price": value(["سعر الافتتاح", "Open price"]),
