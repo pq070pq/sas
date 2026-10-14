@@ -55,9 +55,30 @@ async def _quote_for_current_session(symbol: str):
     cached = _SESSION_QUOTE_CACHE.get(key)
     if cached and now - cached[0] < _SESSION_QUOTE_CACHE_TTL:
         return dict(cached[1])
-    result = await quote(key[0], prefer_extended=prefer_extended)
+    result = None
+    # quote() already walks the configured provider fallback chain. If every
+    # provider returns no valid price, repeat the full chain once before giving
+    # up; never cache missing/invalid values.
+    for attempt in range(2):
+        try:
+            candidate = await quote(key[0], prefer_extended=prefer_extended)
+            if isinstance(candidate, dict) and candidate.get("price"):
+                result = candidate
+                break
+            result = candidate
+            logger.warning(
+                "STOCK_QUOTE_RESCAN symbol=%s session=%s attempt=%s reason=no_valid_price",
+                key[0], session, attempt + 1,
+            )
+        except Exception as exc:
+            logger.warning(
+                "STOCK_QUOTE_RESCAN symbol=%s session=%s attempt=%s error=%s",
+                key[0], session, attempt + 1, type(exc).__name__,
+            )
+        if attempt == 0:
+            await asyncio.sleep(0.35)
     if isinstance(result, dict) and result.get("price"):
-        _SESSION_QUOTE_CACHE[key] = (now, dict(result))
+        _SESSION_QUOTE_CACHE[key] = (time.monotonic(), dict(result))
         if len(_SESSION_QUOTE_CACHE) > 256:
             for old_key in list(_SESSION_QUOTE_CACHE)[:128]:
                 _SESSION_QUOTE_CACHE.pop(old_key, None)
