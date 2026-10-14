@@ -1099,7 +1099,7 @@ async function analyzeSymbol(){
  if(!symbol)return;
  const el=document.getElementById('symbolResult');
  startStockAnalysisLoader(el,symbol);
- const [qR,chartR,newsR,analysisR,miniR,shariahR,perpR]=await Promise.allSettled([
+ const [qR,chartR,newsR,analysisR,miniR,shariahR,perpR,cuspR]=await Promise.allSettled([
    api('/api/stocks/'+encodeURIComponent(symbol)+'/quote'),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/chart'),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/news'),
