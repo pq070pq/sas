@@ -52,18 +52,17 @@ def _number_token(text):
         return None
 
 
-def _value_after(text, labels, window=150):
+def _value_after(text, labels, window=180):
     for label in labels:
         match = re.search(re.escape(label), text, re.I)
-        if match:
-            segment = text[match.end():match.end() + window]
-            # Skip separators and capture the first visible value only.
-            segment = re.sub(r"^[\s:：|—–-]+", "", segment)
-            value = re.match(r"([^\n]{1,90})", segment)
-            if value:
-                candidate = _clean(value.group(1))
-                if candidate:
-                    return candidate
+        if not match:
+            continue
+        segment = text[match.end():match.end() + window]
+        segment = re.sub(r"^[\s:：|—–-]+", "", segment)
+        for line in segment.splitlines():
+            candidate = _clean(line)
+            if candidate and candidate.casefold() not in {str(label).casefold(), "—", "-"}:
+                return candidate[:120]
     return None
 
 
@@ -88,8 +87,10 @@ def _first_currency_number(text):
 def parse_asset_page(symbol, document, source_url):
     parser = _VisibleText()
     parser.feed(document[:2_500_000])
-    text = _clean("\n".join(parser.parts))
-    # Keep a line-oriented version for extracting labels and values.
+    text = html.unescape("\n".join(parser.parts))
+    # Keep block boundaries so label/value pairs remain separable.
+    text = re.sub(r"[ \t\r\f\v]+", " ", text)
+    text = re.sub(r"\n\s*\n+", "\n", text)
     lines = [re.sub(r"\s+", " ", html.unescape(x)).strip() for x in text.splitlines()]
     lines = [x for x in lines if x]
     plain = "\n".join(lines)
