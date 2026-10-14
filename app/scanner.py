@@ -24,6 +24,9 @@ MIN_PRICE = 0.30
 MAX_PRICE = 15.00
 MAX_RADAR_RESULTS = 30
 MAX_SECTION_RESULTS = 15
+
+# Symbols with cycle-by-cycle diagnostics while investigating radar visibility.
+RADAR_DIAGNOSTIC_SYMBOLS = {"AEHL"}
 MIN_DAILY_DOLLAR_VOLUME = 1_000_000.0
 ALLOWED_EXCHANGES = {"NASDAQ", "NYSE", "AMEX"}
 
@@ -782,6 +785,21 @@ async def discover_low_price_stocks():
             return_exceptions=True,
         )
 
+    # Visibility diagnostics: log whether the configured symbols reached each provider adapter.
+    # Provider adapters may already filter invalid price/volume/exchange rows; absence here
+    # therefore means the symbol did not survive that source adapter in this cycle.
+    for source_name, source_rows in zip(source_names, sources):
+        if isinstance(source_rows, Exception) or not source_rows:
+            continue
+        for observed in source_rows:
+            observed_symbol = str(observed.get("symbol") or "").upper().strip()
+            if observed_symbol in RADAR_DIAGNOSTIC_SYMBOLS:
+                logger.info(
+                    "RADAR_SYMBOL_DIAGNOSTIC symbol=%s stage=provider_return source=%s price=%s change_pct=%s volume=%s exchange=%s",
+                    observed_symbol, source_name, observed.get("price"), observed.get("change_pct"),
+                    observed.get("volume"), observed.get("exchange"),
+                )
+
     merged = {}
     for source_name, source_rows in zip(source_names, sources):
         if isinstance(source_rows, Exception):
@@ -804,6 +822,25 @@ async def discover_low_price_stocks():
                 merged[symbol] = dict(row)
 
     universe = list(merged.values())
+    for diagnostic_symbol in RADAR_DIAGNOSTIC_SYMBOLS:
+        matched_sources = [
+            source_name for source_name, source_rows in zip(source_names, sources)
+            if not isinstance(source_rows, Exception) and any(
+                str(row.get("symbol") or "").upper().strip() == diagnostic_symbol
+                for row in (source_rows or [])
+            )
+        ]
+        merged_row = merged.get(diagnostic_symbol)
+        logger.info(
+            "RADAR_SYMBOL_DIAGNOSTIC symbol=%s stage=universe source_matches=%s merged=%s universe_size=%d",
+            diagnostic_symbol, matched_sources, bool(merged_row), len(universe),
+        )
+        if merged_row:
+            logger.info(
+                "RADAR_SYMBOL_DIAGNOSTIC symbol=%s stage=merged price=%s change_pct=%s volume=%s exchange=%s source=%s",
+                diagnostic_symbol, merged_row.get("price"), merged_row.get("change_pct"),
+                merged_row.get("volume"), merged_row.get("exchange"), merged_row.get("source"),
+            )
     if not universe:
         logger.warning("RADAR_DISCOVERY_EMPTY sources=%s errors=%s", source_counts, source_errors)
         return []
@@ -844,6 +881,13 @@ async def discover_low_price_stocks():
         ),
         reverse=True,
     )[:min(settings.radar_staging_limit, 240)]
+    for diagnostic_symbol in RADAR_DIAGNOSTIC_SYMBOLS:
+        logger.info(
+            "RADAR_SYMBOL_DIAGNOSTIC symbol=%s stage=staging staged=%s selected_for_analysis=%s staging_limit=%s",
+            diagnostic_symbol, diagnostic_symbol in staged,
+            any(str(row.get("symbol") or "").upper() == diagnostic_symbol for row in candidates),
+            min(settings.radar_staging_limit, 240),
+        )
     # مرحلة التأكيد اليومية كانت نقطة الاختناق: 500 سهم × طلبات OHLCV
     # بتزامن 8 كانت تجعل دورة الرادار تتجاوز 10 دقائق. نستخدم عميل HTTP
     # مشتركًا وتزامنًا أعلى مع مهلة مستقلة لكل سهم حتى لا يحتجز سهم واحد
@@ -867,12 +911,22 @@ async def discover_low_price_stocks():
                     candles, source = await _get_analysis_candles(
                         client, symbol, allow_twelve_fallback=False
                     )
-            except (asyncio.TimeoutError, httpx.HTTPError, Exception):
+            except (asyncio.TimeoutError, httpx.HTTPError, Exception) as exc:
                 stage_stats["candle_error"] += 1
                 logger.warning("RADAR_STAGE_TIMEOUT_OR_ERROR symbol=%s", symbol)
+                if symbol in RADAR_DIAGNOSTIC_SYMBOLS:
+                    logger.warning(
+                        "RADAR_SYMBOL_DIAGNOSTIC symbol=%s stage=technical_data result=rejected reason=candle_fetch_error error_type=%s",
+                        symbol, type(exc).__name__,
+                    )
                 return None
         if len(candles) < 30:
             stage_stats["insufficient_candles"] += 1
+            if symbol in RADAR_DIAGNOSTIC_SYMBOLS:
+                logger.warning(
+                    "RADAR_SYMBOL_DIAGNOSTIC symbol=%s stage=technical_data result=rejected reason=insufficient_candles candle_count=%d source=%s",
+                    symbol, len(candles), source,
+                )
             return None
 
         closes = [x["close"] for x in candles]
@@ -933,6 +987,13 @@ async def discover_low_price_stocks():
         )
         if not (accumulation_signal or movement_signal or breakout_setup or early_mover):
             stage_stats["no_technical_signal"] += 1
+            if symbol in RADAR_DIAGNOSTIC_SYMBOLS:
+                logger.info(
+                    "RADAR_SYMBOL_DIAGNOSTIC symbol=%s stage=technical_filter result=rejected reason=no_technical_signal price=%s change_pct=%s volume=%s rvol=%s dollar_volume=%s near_support=%s higher_lows=%s compression=%s selling_dry=%s accumulation=%s movement=%s breakout_setup=%s early_mover=%s candle_source=%s",
+                    symbol, price, change, row.get("volume"), round(rvol, 3), round(dollar_volume, 2),
+                    near_support, higher_lows, compression, selling_dry, accumulation_signal,
+                    movement_signal, breakout_setup, early_mover, source,
+                )
             return None
 
         if accumulation_signal:
@@ -942,6 +1003,12 @@ async def discover_low_price_stocks():
         elif breakout_setup:
             stage_stats["accepted_breakout_setup"] += 1
 
+        if symbol in RADAR_DIAGNOSTIC_SYMBOLS:
+            logger.info(
+                "RADAR_SYMBOL_DIAGNOSTIC symbol=%s stage=technical_filter result=accepted lane=%s price=%s change_pct=%s volume=%s rvol=%s dollar_volume=%s source=%s",
+                symbol, "accumulation" if accumulation_signal else "movement" if (movement_signal or breakout_setup) else "early_mover",
+                price, change, row.get("volume"), round(rvol, 3), round(dollar_volume, 2), source,
+            )
         result = dict(row)
         result.update({
             "momentum_section": "accumulation" if accumulation_signal else "movement" if (movement_signal or breakout_setup) else "early_mover",
