@@ -1178,7 +1178,7 @@ const miniAnalysisHtml=
    notice+
    miniAnalysisHtml+
    cuspHtml+
-   '<div class="chart-title"><b>📈 شارت السهم</b><div class="chart-title-actions"><small>شموع وحجم تداول • بيانات SAS PRO</small>'+(me?.admin ? '<a class="gocharting-link" href="'+escHtml(safeNewsUrl(perp.chart_url||perp.source_url)||'https://perpequities.com/ar')+'" target="_blank" rel="noopener noreferrer">↗ فتح تحليل PerpEquities</a>' : '')+'</div></div><div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">📊 البيانات الفنية التاريخية غير متاحة حاليًا<br><small>لم يتم اختلاق هدف أو وقف أو إشارة. سيتم إظهارها عند توفر بيانات الشموع والحجم.</small></div>':'<canvas id="stockCanvas" height="230"></canvas>')+'</div><div id="perpEquitiesAnalysis"></div>'+
+   '<div class="chart-title"><b>📈 شارت السهم</b><div class="chart-title-actions"><small>شموع وحجم تداول • بيانات SAS PRO</small>'+(me?.admin ? '<a class="gocharting-link" href="'+escHtml(safeNewsUrl(perp.chart_url||perp.source_url)||'https://perpequities.com/ar')+'" target="_blank" rel="noopener noreferrer">↗ فتح تحليل PerpEquities</a>' : '')+'</div></div><div class="chart-box">'+(chart.available===false?'<div class="chart-unavailable">📊 البيانات الفنية التاريخية غير متاحة حاليًا<br><small>لم يتم اختلاق هدف أو وقف أو إشارة. سيتم إظهارها عند توفر بيانات الشموع والحجم.</small>'+(chart.diagnostic?'<small>تفاصيل تعذّر المصدر: '+escHtml(chart.diagnostic)+'</small>':'')+'</div>':'<canvas id="stockCanvas" height="230"></canvas>')+'</div><div id="perpEquitiesAnalysis"></div>'+
    '<div class="level-grid"><div><small>🟦 الدخول</small><b>&#36;'+money(entry)+'</b></div><div><small>🛑 الوقف</small><b>&#36;'+money(stop)+'</b></div><div><small>🎯 الهدف 1</small><b>&#36;'+money(target1)+'</b></div><div><small>⚖️ R:R</small><b>'+rr+'</b></div></div>'+
    '<div class="ai-box"><b>'+(aiAvailable?'⏳ زبدة تحليل AI':'📐 الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+
    '<div class="news-list">'+renderNewsItems(newsFromAnalysis,5,Array.isArray(ai.news_summaries)?ai.news_summaries:[])+'</div>'+
@@ -1254,7 +1254,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
  requestAnimationFrame(()=>drawChart(partialCandles));
  if(!partialCandles.length){
    const box=el.querySelector('.chart-box');
-   if(box)box.insertAdjacentHTML('beforeend','<div class="chart-status">لم تصل بيانات شموع تاريخية من الخادم؛ السعر المعروض لا يكفي لرسم شارت.</div>');
+   if(box)box.insertAdjacentHTML('beforeend','<div class="chart-status">لم تصل بيانات شموع تاريخية من الخادم؛ السعر المعروض لا يكفي لرسم شارت.'+(chart?.diagnostic?'<br><small>تفاصيل المصادر: '+escHtml(chart.diagnostic)+'</small>':'')+'</div>');
  }
 }
 function drawChart(candles,attempt=0){
