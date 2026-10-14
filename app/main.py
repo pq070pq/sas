@@ -41,6 +41,29 @@ from .shariah import check_shariah
 from .smart_memory import SmartMemory
 from .binance_spot import is_crypto_symbol, normalize_symbol as normalize_crypto_symbol, quote as binance_quote, analyze as binance_analyze, candles as binance_candles
 
+# Quote cache is deliberately short: avoid duplicate API calls from the quote
+# card and analysis request while keeping pre/after-market prices fresh.
+_SESSION_QUOTE_CACHE = {}
+_SESSION_QUOTE_CACHE_TTL = 10
+
+async def _quote_for_current_session(symbol: str):
+    status = market_status()
+    session = str(status.get("session") or "closed")
+    prefer_extended = session in {"premarket", "afterhours"}
+    key = (str(symbol or "").upper().strip(), session)
+    now = time.monotonic()
+    cached = _SESSION_QUOTE_CACHE.get(key)
+    if cached and now - cached[0] < _SESSION_QUOTE_CACHE_TTL:
+        return dict(cached[1])
+    result = await quote(key[0], prefer_extended=prefer_extended)
+    if isinstance(result, dict) and result.get("price"):
+        _SESSION_QUOTE_CACHE[key] = (now, dict(result))
+        if len(_SESSION_QUOTE_CACHE) > 256:
+            for old_key in list(_SESSION_QUOTE_CACHE)[:128]:
+                _SESSION_QUOTE_CACHE.pop(old_key, None)
+    return result
+
+
 logger = logging.getLogger(__name__)
 
 scheduler_task = None
@@ -2671,7 +2694,7 @@ async def stock_quote(symbol: str, _: dict = Depends(require_pro)):
             return await binance_quote(raw_symbol)
         except Exception as exc:
             return {"symbol": normalize_crypto_symbol(raw_symbol), "price": None, "change_pct": None, "source": "Binance Spot", "market": "crypto_spot", "error": f"{type(exc).__name__}: {str(exc)[:180]}"}
-    result = await quote(raw_symbol)
+    result = await _quote_for_current_session(raw_symbol)
     # Only attach already-cached PerpEquities context: do not delay live spot quotes.
     try:
         from .perpequities_provider import get_cached_equity_perpetual
@@ -2772,7 +2795,7 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     cached = _cache_get(_analysis_memory, symbol, _ANALYSIS_CACHE_TTL)
     if cached is not None:
         try:
-            live_quote = await quote(symbol)
+            live_quote = await _quote_for_current_session(symbol)
             if isinstance(live_quote, dict) and live_quote.get("price"):
                 cached["quote"] = live_quote
         except Exception:
@@ -2807,7 +2830,7 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
     results = await asyncio.gather(
         _optional_agent_analysis(),
         technical_targets(symbol),
-        quote(symbol),
+        _quote_for_current_session(symbol),
         return_exceptions=True,
     )
     result, targets, q = results
