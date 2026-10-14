@@ -65,7 +65,7 @@ async def _attach_reverse_split_data(tech: dict, symbol: str) -> dict:
                 for candle in candles:
                     if not isinstance(candle, dict):
                         continue
-                    stamp = candle.get("datetime") or candle.get("date") or candle.get("timestamp")
+                    stamp = candle.get("datetime") or candle.get("date") or candle.get("time") or candle.get("timestamp")
                     if isinstance(stamp, (int, float)):
                         try:
                             stamp = datetime.fromtimestamp(stamp, timezone.utc).date().isoformat()
