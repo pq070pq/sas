@@ -3214,6 +3214,48 @@ async def stock_mini_analysis(symbol: str, _: dict = Depends(require_pro)):
     if not isinstance(cls, dict):
         cls = {"pass": False, "behavior": "غير واضح"}
 
+    # If the primary classifier cannot provide indicators, calculate a conservative
+    # fallback from observed historical OHLCV candles (never from the quote alone).
+    if cls.get("rsi14") is None or cls.get("rvol") is None:
+        try:
+            history = await asyncio.wait_for(ohlcv(symbol, days=90, interval="1d"), timeout=18.0)
+            candles = history.get("candles", []) if isinstance(history, dict) else []
+            valid = [x for x in candles if all(x.get(k) is not None for k in ("close", "high", "low"))]
+            if len(valid) >= 20:
+                closes = [float(x["close"]) for x in valid]
+                highs = [float(x["high"]) for x in valid]
+                lows = [float(x["low"]) for x in valid]
+                volumes = [float(x.get("volume") or 0) for x in valid]
+                last = closes[-1]
+                sma20 = sum(closes[-20:]) / 20
+                sma50 = sum(closes[-50:]) / 50 if len(closes) >= 50 else None
+                gains, losses = [], []
+                for a, b in zip(closes[-15:-1], closes[-14:]):
+                    delta = b - a
+                    gains.append(max(delta, 0))
+                    losses.append(max(-delta, 0))
+                avg_gain = sum(gains) / max(len(gains), 1)
+                avg_loss = sum(losses) / max(len(losses), 1)
+                rsi = 100.0 if avg_loss == 0 and avg_gain > 0 else (50.0 if avg_loss == 0 else 100 - 100 / (1 + avg_gain / avg_loss))
+                avg_vol = sum(volumes[-21:-1]) / max(len(volumes[-21:-1]), 1)
+                rvol_fallback = volumes[-1] / avg_vol if avg_vol > 0 else None
+                trend = "صاعد" if last > sma20 and (sma50 is None or sma20 >= sma50) else ("هابط" if last < sma20 and (sma50 is None or sma20 <= sma50) else "عرضي")
+                cls.setdefault("behavior", trend)
+                cls.setdefault("rsi14", rsi)
+                cls.setdefault("rvol", rvol_fallback)
+                cls.setdefault("score_breakdown", {})
+                if isinstance(cls["score_breakdown"], dict):
+                    cls["score_breakdown"].setdefault("momentum", 20 if rsi >= 60 else (10 if rsi >= 50 else 0))
+                    cls["score_breakdown"].setdefault("volume", 15 if rvol_fallback is not None and rvol_fallback >= 1.5 else 0)
+                cls["fallback_source"] = history.get("source", "OHLCV")
+                cls["fallback_candles"] = len(valid)
+                # Mark the fallback as descriptive, not as a confirmed breakout signal.
+                cls.setdefault("strategy_pass", False)
+                cls.setdefault("breakout_confirmed", False)
+                cls.setdefault("accumulation", False)
+        except Exception:
+            pass
+
     try:
         targets = await asyncio.wait_for(technical_targets(symbol), timeout=15.0)
     except Exception:
