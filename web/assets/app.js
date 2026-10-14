@@ -188,7 +188,8 @@ async function load(){
  loadStarted=true;
  const watchdog=setTimeout(()=>{
   if(!loadStarted)return;
-  showAccountLoadError('تأخر رد الخادم أثناء التحقق. تحقق من الاتصال ثم أعد المحاولة.');
+  loadStarted=false;
+  showAccountLoadError('انتهت مهلة التحقق من الحساب. اضغط إعادة المحاولة أو أغلق التطبيق وافتحه من داخل Telegram.');
  },12000);
  try{
   refreshTelegramWebApp();
