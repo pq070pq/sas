@@ -3271,6 +3271,18 @@ async def stock_mini_analysis(symbol: str, _: dict = Depends(require_pro)):
     entry = targets.get("price") or q.get("price")
     stop = targets.get("exit") or targets.get("stop") or targets.get("support")
     target = target_list[0] if target_list else targets.get("target1")
+    # Only calculate illustrative ATR levels when real candles exist and the
+    # primary target service returned no levels; never derive levels from price alone.
+    if entry and (stop is None or target is None):
+        try:
+            if len(valid) >= 20:
+                atr = sum((float(x["high"]) - float(x["low"])) for x in valid[-14:]) / 14
+                if atr > 0:
+                    if stop is None: stop = round(float(entry) - 1.5 * atr, 4)
+                    if target is None: target = round(float(entry) + 2.0 * atr, 4)
+                    cls["levels_source"] = "ATR from historical OHLCV"
+        except (NameError, TypeError, ValueError, KeyError):
+            pass
 
     behavior = str(cls.get("behavior") or "غير واضح")
     if cls.get("market_structure_bearish") or cls.get("bearish_head_shoulders"):
