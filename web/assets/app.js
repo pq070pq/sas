@@ -183,6 +183,19 @@ async function joinFromWelcome(){
  finally{if(button){button.disabled=false;button.textContent='🚀 الانضمام للقناة';}}
 }
 
+window.addEventListener('error',event=>{
+ const name=document.getElementById('userName');
+ const grid=document.getElementById('subscriptionStatusGrid');
+ if(name&&grid?.getAttribute('aria-busy')==='true'){
+  showAccountLoadError('توقف تحميل الواجهة بسبب خطأ JavaScript: '+String(event.message||'خطأ غير معروف').slice(0,160));
+ }
+});
+window.addEventListener('unhandledrejection',event=>{
+ const grid=document.getElementById('subscriptionStatusGrid');
+ if(grid?.getAttribute('aria-busy')==='true'){
+  showAccountLoadError('تعذر إكمال التحقق: '+String(event.reason?.message||event.reason||'خطأ غير معروف').slice(0,160));
+ }
+});
 async function load(){
  if(loadStarted)return;
  loadStarted=true;
@@ -233,7 +246,11 @@ async function load(){
  }
 }
 
-const terminalState={ticker:[],radar:[],perpAssets:{},watch:JSON.parse(localStorage.getItem('saspro_watchlist')||'[]'),timer:null,tickerTimer:null,moversTimer:null,moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
+function readLocalJson(key,fallback){
+ try{const raw=localStorage.getItem(key);return raw?JSON.parse(raw):fallback;}
+ catch(error){console.warn('SAS PRO local cache ignored:',key,error?.message||error);return fallback;}
+}
+const terminalState={ticker:[],radar:[],perpAssets:{},watch:readLocalJson('saspro_watchlist',[]),timer:null,tickerTimer:null,moversTimer:null,moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
 function escHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 function safeNewsUrl(value){
  try{
