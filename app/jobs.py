@@ -34,6 +34,37 @@ logger.propagate = False
 
 from .radar_policy import is_confirmed_opportunity
 
+
+
+async def _attach_reverse_split_data(tech: dict, symbol: str) -> dict:
+    """Attach source-backed reverse-split facts to an outgoing stock report."""
+    enriched = dict(tech or {})
+    try:
+        actions = await yahoo_corporate_actions(symbol)
+        splits = actions.get("splits") or []
+        reverse_splits = [
+            event for event in splits
+            if event.get("label_ar") == "تقسيم عكسي"
+        ]
+        latest = reverse_splits[0] if reverse_splits else None
+        enriched["corporate_actions"] = {
+            "source": actions.get("source") or "Yahoo Finance",
+            "status": actions.get("status") or "unavailable",
+            "reverse_split": bool(latest),
+            "reverse_split_date": latest.get("date") if latest else None,
+            "reverse_split_ratio": latest.get("ratio") if latest else None,
+            # A source response can verify the event, but not whether the
+            # subsequent technical cycle has already reached its target.
+            "verified": bool(latest and actions.get("status") == "ok"),
+        }
+    except Exception:
+        logger.exception("Reverse-split lookup failed for %s", symbol)
+        enriched["corporate_actions"] = {
+            "source": "Yahoo Finance", "status": "unavailable",
+            "reverse_split": False, "verified": False,
+        }
+    return enriched
+
 def _money(value):
     try:
         return f"${float(value):,.4f}".rstrip("0").rstrip(".")
@@ -1233,6 +1264,7 @@ async def stock_radar_cycle():
                 except Exception:
                     logger.exception("Corporate-action report enrichment failed: %s", symbol)
                     tech["corporate_actions"] = {"status": "unavailable", "verified": False}
+                tech = await _attach_reverse_split_data(tech, symbol)
                 report = _compact_radar_report(symbol, q, tech, classification, row)
 
                 try:
