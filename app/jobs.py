@@ -47,15 +47,45 @@ async def _attach_reverse_split_data(tech: dict, symbol: str) -> dict:
             if event.get("label_ar") == "تقسيم عكسي"
         ]
         latest = reverse_splits[0] if reverse_splits else None
+        split_date = latest.get("date") if latest else None
+        cycle_target_hit = None
+        cycle_evidence = "لا توجد بيانات كافية للتحقق"
+        if latest and split_date:
+            try:
+                # Only count a target as reached when SAS has a persisted,
+                # same-symbol radar outcome dated on/after the split and the
+                # outcome tracker recorded at least one achieved target.
+                async with SessionLocal() as db:
+                    outcome = (await db.execute(
+                        select(RadarOutcome)
+                        .join(RadarSignal, RadarOutcome.radar_signal_id == RadarSignal.id)
+                        .where(
+                            RadarSignal.symbol == str(symbol).upper(),
+                            RadarOutcome.session_date >= split_date,
+                            RadarOutcome.achieved_target > 0,
+                        )
+                        .order_by(RadarOutcome.session_date.desc())
+                        .limit(1)
+                    )).scalars().first()
+                if outcome is not None:
+                    cycle_target_hit = True
+                    cycle_evidence = (
+                        f"سجل SAS هدفًا محققًا بعد التقسيم بتاريخ {outcome.session_date} "
+                        f"(الهدف رقم {outcome.achieved_target})"
+                    )
+                else:
+                    cycle_evidence = "لم يُعثر على سجل SAS لهدف محقق بعد تاريخ التقسيم؛ هذا لا يثبت أن الدورة لم تصل إلى هدفها"
+            except Exception:
+                logger.exception("Post-split cycle outcome lookup failed for %s", symbol)
         enriched["corporate_actions"] = {
             "source": actions.get("source") or "Yahoo Finance",
             "status": actions.get("status") or "unavailable",
             "reverse_split": bool(latest),
-            "reverse_split_date": latest.get("date") if latest else None,
+            "reverse_split_date": split_date,
             "reverse_split_ratio": latest.get("ratio") if latest else None,
-            # A source response can verify the event, but not whether the
-            # subsequent technical cycle has already reached its target.
             "verified": bool(latest and actions.get("status") == "ok"),
+            "cycle_target_hit_after_split": cycle_target_hit,
+            "cycle_evidence": cycle_evidence,
         }
     except Exception:
         logger.exception("Reverse-split lookup failed for %s", symbol)
@@ -489,6 +519,11 @@ def _compact_radar_report(symbol, quote_data, tech, classification, row):
             "🔴 <b>مستوى المخاطر: مرتفع</b> — التقسيم العكسي لا يضيف قيمة اقتصادية للشركة بحد ذاته.",
             "• مخاطر استمرار الهبوط والتذبذب العالي وضعف السيولة وفروقات الأسعار.",
             "• راجع الإصدارات الجديدة والتمويل والضمانات ومتطلبات الإدراج.",
+            (
+                "⛔ <b>دورة الرادار:</b> سُجل هدف محقق بعد التقسيم؛ لا تُصنّف تلقائيًا كدورة جديدة."
+                if actions.get("cycle_target_hit_after_split") is True
+                else "🟠 <b>دورة الرادار:</b> " + html.escape(str(actions.get("cycle_evidence") or "لم يتم التحقق من دورة ما بعد التقسيم."))
+            ),
             "📚 <b>مصدر الحدث:</b> Yahoo Finance — تحقق من إفصاح الشركة قبل اتخاذ القرار.",
         ]
     elif actions.get("status") == "ok":
