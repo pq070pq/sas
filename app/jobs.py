@@ -441,7 +441,7 @@ def _compact_radar_report(symbol, quote_data, tech, classification, row):
         f"🗂️ <b>الإفصاح التنظيمي:</b> {html.escape(filing_text)}",
         "⚠️ لا يُعد توصية شراء أو بيع، ويبقى قرار التداول وإدارة المخاطر مسؤوليتك ⛔",
     ]
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def _radar_criteria_explanation(row, quote_data, gate_passed, gate_reason):
