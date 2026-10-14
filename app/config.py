@@ -63,8 +63,8 @@ class Settings(BaseSettings):
     market_brief_enabled: bool = True
     market_brief_window_minutes: int = 65
     radar_interval_minutes: int = 10
-    radar_staging_limit: int = 120
-    radar_shortlist_limit: int = 60
+    radar_staging_limit: int = 180
+    radar_shortlist_limit: int = 90
     # Channel limit 0 means publish every detected candidate; Mini App keeps its own active-opportunity limit.
     radar_channel_daily_limit: int = 0
     radar_app_daily_limit: int = 15
