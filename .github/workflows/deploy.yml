@@ -151,8 +151,8 @@ jobs:
             echo "SAS_PRO_CONTAINER_ID=$container_id"
 
             # تحقق أن الصورة المشغلة تحتوي فعلًا على سطر التشخيص الجديد، لا مجرد health 200.
-            if ! docker compose exec -T saspro grep -q 'نوع الخطأ' /app/app/main.py; then
-              echo "❌ Running container does not contain the expected private-analysis diagnostic."
+            if ! docker compose exec -T saspro grep -q 'اضغط أيقونة' /app/app/main.py; then
+              echo "❌ Running container does not contain the updated private-chat analysis redirect."
               exit 1
             fi
             echo "✅ Private-analysis diagnostic code is present in the running container."
