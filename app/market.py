@@ -710,18 +710,17 @@ async def quote(symbol: str, prefer_extended: bool = False):
         except Exception as exc:
             logger.info("EXTENDED_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
 
-    # 1) Finnhub: rotate all independently configured keys.
-    fallback = await _finnhub_quote(symbol)
-    if fallback:
-        return fallback
-
-    # 2) FMP independent fallback for equities when an FMP key is configured.
-    # This is intentionally attempted after Finnhub/Twelve Data and before
-    # the keyless daily-close source; no synthetic price is ever returned.
+    # Prefer FMP's direct equity quote before Finnhub because the current
+    # session can advance while a provider's last quote remains behind.
+    # Both are existing configured sources; this does not consume Twelve Data credits.
     fmp = await _fmp_quote(symbol)
     if fmp:
         return fmp
 
+    # Finnhub: rotate all independently configured keys if FMP has no valid quote.
+    fallback = await _finnhub_quote(symbol)
+    if fallback:
+        return fallback
 
     # 3) Twelve Data: twelve_guard rotates its own key pool.
     if settings.twelve_data_api_key or settings.twelve_data_api_keys:
