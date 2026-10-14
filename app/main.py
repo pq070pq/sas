@@ -3675,116 +3675,18 @@ async def process_telegram_update(data: dict):
                 "🔒 <b>تحليل الأسهم الخاص متاح لمشتركي SAS PRO.</b>\n\n"
                 "افتح Mini App لتفعيل التجربة أو الاشتراك، ثم أرسل رمز السهم مثل <code>AAPL</code> هنا.")
             return {"ok": True}
-        # لا ننفذ التحليل الثقيل داخل طلب Telegram نفسه؛ يجب أن نعيد 200 بسرعة
-        # حتى لا يعيد Telegram إرسال نفس الرسالة بسبب تأخر مزودي البيانات.
-        async def _safe_send(text_to_send: str):
-            try:
-                await send_message(chat_id, text_to_send)
-                logger.info("Telegram private response sent: chat_id=%s symbol=%s", chat_id, symbol)
-            except Exception as exc:
-                logger.exception("Telegram sendMessage failed: chat_id=%s symbol=%s error=%s", chat_id, symbol, exc)
-
-        # Return from the webhook immediately; Telegram must not wait for
-        # external APIs, database work, or the private-analysis pipeline.
-        await _safe_send(
-            f"🔎 <b>تم استلام {html.escape(symbol)}</b>\nجارٍ تجهيز التحليل الكامل وإرساله هنا..."
-        )
-
-        async def _run_private_analysis():
-            from .private_analysis import build_private_analysis
-            last_exc = None
-            for attempt in range(3):
-                try:
-                    logger.warning("Private analysis started: symbol=%s attempt=%s", symbol, attempt + 1)
-                    report = await asyncio.wait_for(build_private_analysis(symbol), timeout=75)
-                    await _safe_send(report)
-                    logger.warning("Private analysis completed: symbol=%s attempt=%s", symbol, attempt + 1)
-                    return
-                except asyncio.TimeoutError as exc:
-                    last_exc = exc
-                    logger.error("Private stock analysis timeout: symbol=%s attempt=%s", symbol, attempt + 1)
-                except Exception as exc:
-                    last_exc = exc
-                    logger.exception("Private stock analysis failed: symbol=%s attempt=%s error=%s", symbol, attempt + 1, exc)
-                if attempt < 2:
-                    await asyncio.sleep(2 * (attempt + 1))
-            # Keep the private chat useful even when the full multi-provider
-            # analysis fails: try a minimal live-quote report as a final fallback.
-            fallback_report = None
-            try:
-                from .market import quote, _stooq_quote
-                from .config import settings
-                from .twelve_guard import call as twelve_call
-                import httpx
-
-                q = None
-                # Fallback order intentionally differs from the primary quote:
-                # try Twelve Data first, then Stooq, then the normal provider pool.
-                if settings.twelve_data_api_key or settings.twelve_data_api_keys:
-                    try:
-                        async with httpx.AsyncClient(timeout=9) as client:
-                            response = await twelve_call(
-                                client.get,
-                                "https://api.twelvedata.com/quote",
-                                params={"symbol": symbol, "prepost": "true"},
-                            )
-                            response.raise_for_status()
-                            data = response.json()
-                            raw_price = data.get("extended_price") or data.get("price") or data.get("close")
-                            if raw_price is not None and float(raw_price) > 0:
-                                q = {
-                                    "symbol": symbol,
-                                    "price": float(raw_price),
-                                    "change_pct": data.get("extended_percent_change") or data.get("percent_change"),
-                                    "source": "Twelve Data Fallback",
-                                    "datetime": data.get("datetime"),
-                                    "is_extended_hours": bool(data.get("extended_price")),
-                                }
-                    except Exception as provider_exc:
-                        logger.warning("PRIVATE_FALLBACK_TWELVE_FAILED symbol=%s error=%s", symbol, type(provider_exc).__name__)
-                if not q:
-                    try:
-                        q = await asyncio.wait_for(_stooq_quote(symbol), timeout=12)
-                        if q and q.get("price") is not None:
-                            q["source"] = "Stooq Fallback (last available quote)"
-                        else:
-                            q = None
-                    except Exception as provider_exc:
-                        logger.warning("PRIVATE_FALLBACK_STOOQ_FAILED symbol=%s error=%s", symbol, type(provider_exc).__name__)
-                if not q:
-                    q = await asyncio.wait_for(quote(symbol), timeout=12)
-                if isinstance(q, dict) and q.get("price") is not None:
-                    price = float(q["price"])
-                    change = q.get("change_pct")
-                    change_text = f" | التغير: <b>{float(change):+.2f}%</b>" if change is not None else ""
-                    freshness = " | جلسة ممتدة" if q.get("is_extended_hours") else ""
-                    when = f"\n🕒 وقت البيانات: {html.escape(str(q.get('datetime')))}" if q.get("datetime") else ""
-                    fallback_report = (
-                        f"📊 <b>SAS PRO | تقرير بديل للسهم {html.escape(symbol)}</b>\n"
-                        "━━━━━━━━━━━━━━━━━━\n"
-                        f"💵 السعر المتاح: <b>${price:,.4f}</b>{change_text}{freshness}\n"
-                        f"📡 المصدر المستخدم: <b>{html.escape(str(q.get('source') or 'مصدر بديل'))}</b>{when}\n"
-                        "⚠️ تعذر بناء التحليل الفني الكامل؛ لذلك لم نعرض أهدافًا أو وقفًا غير موثوقين.\n"
-                        "⚠️ السعر قد يكون آخر سعر متاح وليس سعرًا لحظيًا؛ تحقق من وقت البيانات قبل التداول.\n"
-                        "⚠️ معلومات تعليمية فقط وليست توصية تداول."
-                    )
-            except Exception as fallback_exc:
-                logger.exception("Private analysis fallback quote failed: symbol=%s error=%s", symbol, fallback_exc)
-            if fallback_report:
-                await _safe_send(fallback_report)
-            else:
-                error_name = type(last_exc).__name__ if last_exc else "UnknownError"
-                logger.error("Private analysis exhausted retries: symbol=%s error_type=%s", symbol, error_name)
-                await _safe_send(
-                    "❌ تعذر إكمال التحليل الكامل أو جلب السعر الحي بعد 3 محاولات.\n"
-                    f"نوع الخطأ المسجل: <code>{html.escape(error_name)}</code>\n"
-                    "لم يتم تخمين سعر أو أهداف. أرسل هذه الرسالة للدعم إذا استمرت المشكلة."
-                )
-
-        global private_analysis_task
-        private_analysis_task = asyncio.create_task(
-            _run_private_analysis(),
-            name=f"saspro-private-analysis-{symbol}",
+        # Private messages no longer run or send fallback stock analysis.
+        # Direct the subscriber to the Analysis icon in the SAS PRO app instead.
+        await send_message(
+            chat_id,
+            f"📊 <b>SAS PRO | تحليل السهم {html.escape(symbol)}</b>\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "للحصول على تحليل السهم ومؤشراته بشكل واضح ومحدّث،\n"
+            "📱 افتح تطبيق <b>SAS PRO</b> واضغط أيقونة <b>تحليل السهم</b>، ثم ابحث عن الرمز.\n"
+            f"🔎 رمز السهم: <code>{html.escape(symbol)}</code>\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "ℹ️ ستظهر البيانات المتاحة داخل التطبيق مع مصدرها، دون عرض أهداف أو مستويات غير موثوقة.\n"
+            "⚠️ المعلومات تعليمية فقط وليست توصية استثمارية."
         )
         return {"ok": True}
 
@@ -5848,116 +5750,18 @@ async def process_telegram_update(data: dict):
                 "🔒 <b>تحليل الأسهم الخاص متاح لمشتركي SAS PRO.</b>\n\n"
                 "افتح Mini App لتفعيل التجربة أو الاشتراك، ثم أرسل رمز السهم مثل <code>AAPL</code> هنا.")
             return {"ok": True}
-        # لا ننفذ التحليل الثقيل داخل طلب Telegram نفسه؛ يجب أن نعيد 200 بسرعة
-        # حتى لا يعيد Telegram إرسال نفس الرسالة بسبب تأخر مزودي البيانات.
-        async def _safe_send(text_to_send: str):
-            try:
-                await send_message(chat_id, text_to_send)
-                logger.info("Telegram private response sent: chat_id=%s symbol=%s", chat_id, symbol)
-            except Exception as exc:
-                logger.exception("Telegram sendMessage failed: chat_id=%s symbol=%s error=%s", chat_id, symbol, exc)
-
-        # Return from the webhook immediately; Telegram must not wait for
-        # external APIs, database work, or the private-analysis pipeline.
-        await _safe_send(
-            f"🔎 <b>تم استلام {html.escape(symbol)}</b>\nجارٍ تجهيز التحليل الكامل وإرساله هنا..."
-        )
-
-        async def _run_private_analysis():
-            from .private_analysis import build_private_analysis
-            last_exc = None
-            for attempt in range(3):
-                try:
-                    logger.warning("Private analysis started: symbol=%s attempt=%s", symbol, attempt + 1)
-                    report = await asyncio.wait_for(build_private_analysis(symbol), timeout=75)
-                    await _safe_send(report)
-                    logger.warning("Private analysis completed: symbol=%s attempt=%s", symbol, attempt + 1)
-                    return
-                except asyncio.TimeoutError as exc:
-                    last_exc = exc
-                    logger.error("Private stock analysis timeout: symbol=%s attempt=%s", symbol, attempt + 1)
-                except Exception as exc:
-                    last_exc = exc
-                    logger.exception("Private stock analysis failed: symbol=%s attempt=%s error=%s", symbol, attempt + 1, exc)
-                if attempt < 2:
-                    await asyncio.sleep(2 * (attempt + 1))
-            # Keep the private chat useful even when the full multi-provider
-            # analysis fails: try a minimal live-quote report as a final fallback.
-            fallback_report = None
-            try:
-                from .market import quote, _stooq_quote
-                from .config import settings
-                from .twelve_guard import call as twelve_call
-                import httpx
-
-                q = None
-                # Fallback order intentionally differs from the primary quote:
-                # try Twelve Data first, then Stooq, then the normal provider pool.
-                if settings.twelve_data_api_key or settings.twelve_data_api_keys:
-                    try:
-                        async with httpx.AsyncClient(timeout=9) as client:
-                            response = await twelve_call(
-                                client.get,
-                                "https://api.twelvedata.com/quote",
-                                params={"symbol": symbol, "prepost": "true"},
-                            )
-                            response.raise_for_status()
-                            data = response.json()
-                            raw_price = data.get("extended_price") or data.get("price") or data.get("close")
-                            if raw_price is not None and float(raw_price) > 0:
-                                q = {
-                                    "symbol": symbol,
-                                    "price": float(raw_price),
-                                    "change_pct": data.get("extended_percent_change") or data.get("percent_change"),
-                                    "source": "Twelve Data Fallback",
-                                    "datetime": data.get("datetime"),
-                                    "is_extended_hours": bool(data.get("extended_price")),
-                                }
-                    except Exception as provider_exc:
-                        logger.warning("PRIVATE_FALLBACK_TWELVE_FAILED symbol=%s error=%s", symbol, type(provider_exc).__name__)
-                if not q:
-                    try:
-                        q = await asyncio.wait_for(_stooq_quote(symbol), timeout=12)
-                        if q and q.get("price") is not None:
-                            q["source"] = "Stooq Fallback (last available quote)"
-                        else:
-                            q = None
-                    except Exception as provider_exc:
-                        logger.warning("PRIVATE_FALLBACK_STOOQ_FAILED symbol=%s error=%s", symbol, type(provider_exc).__name__)
-                if not q:
-                    q = await asyncio.wait_for(quote(symbol), timeout=12)
-                if isinstance(q, dict) and q.get("price") is not None:
-                    price = float(q["price"])
-                    change = q.get("change_pct")
-                    change_text = f" | التغير: <b>{float(change):+.2f}%</b>" if change is not None else ""
-                    freshness = " | جلسة ممتدة" if q.get("is_extended_hours") else ""
-                    when = f"\n🕒 وقت البيانات: {html.escape(str(q.get('datetime')))}" if q.get("datetime") else ""
-                    fallback_report = (
-                        f"📊 <b>SAS PRO | تقرير بديل للسهم {html.escape(symbol)}</b>\n"
-                        "━━━━━━━━━━━━━━━━━━\n"
-                        f"💵 السعر المتاح: <b>${price:,.4f}</b>{change_text}{freshness}\n"
-                        f"📡 المصدر المستخدم: <b>{html.escape(str(q.get('source') or 'مصدر بديل'))}</b>{when}\n"
-                        "⚠️ تعذر بناء التحليل الفني الكامل؛ لذلك لم نعرض أهدافًا أو وقفًا غير موثوقين.\n"
-                        "⚠️ السعر قد يكون آخر سعر متاح وليس سعرًا لحظيًا؛ تحقق من وقت البيانات قبل التداول.\n"
-                        "⚠️ معلومات تعليمية فقط وليست توصية تداول."
-                    )
-            except Exception as fallback_exc:
-                logger.exception("Private analysis fallback quote failed: symbol=%s error=%s", symbol, fallback_exc)
-            if fallback_report:
-                await _safe_send(fallback_report)
-            else:
-                error_name = type(last_exc).__name__ if last_exc else "UnknownError"
-                logger.error("Private analysis exhausted retries: symbol=%s error_type=%s", symbol, error_name)
-                await _safe_send(
-                    "❌ تعذر إكمال التحليل الكامل أو جلب السعر الحي بعد 3 محاولات.\n"
-                    f"نوع الخطأ المسجل: <code>{html.escape(error_name)}</code>\n"
-                    "لم يتم تخمين سعر أو أهداف. أرسل هذه الرسالة للدعم إذا استمرت المشكلة."
-                )
-
-        global private_analysis_task
-        private_analysis_task = asyncio.create_task(
-            _run_private_analysis(),
-            name=f"saspro-private-analysis-{symbol}",
+        # Private messages no longer run or send fallback stock analysis.
+        # Direct the subscriber to the Analysis icon in the SAS PRO app instead.
+        await send_message(
+            chat_id,
+            f"📊 <b>SAS PRO | تحليل السهم {html.escape(symbol)}</b>\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "للحصول على تحليل السهم ومؤشراته بشكل واضح ومحدّث،\n"
+            "📱 افتح تطبيق <b>SAS PRO</b> واضغط أيقونة <b>تحليل السهم</b>، ثم ابحث عن الرمز.\n"
+            f"🔎 رمز السهم: <code>{html.escape(symbol)}</code>\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "ℹ️ ستظهر البيانات المتاحة داخل التطبيق مع مصدرها، دون عرض أهداف أو مستويات غير موثوقة.\n"
+            "⚠️ المعلومات تعليمية فقط وليست توصية استثمارية."
         )
         return {"ok": True}
 
