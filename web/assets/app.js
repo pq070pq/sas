@@ -566,8 +566,12 @@ function renderRadarMovementSignals(){
  const stocks=(Array.isArray(terminalState.radar)?terminalState.radar:[])
   .filter(x=>x&&String(x.symbol||x.ticker||'').trim())
   .map(x=>({...x,_move:Number(x.live_change_pct??x.change_pct??x.change_percent??x.day_change_pct??x.change)}))
-  .filter(x=>Number.isFinite(x._move)&&Number(x.live_price??x.price??x.entry_price)>0)
-  .sort((a,b)=>Math.abs(b._move)-Math.abs(a._move) || Number(b.opening_opportunity_score||0)-Number(a.opening_opportunity_score||0))
+  .filter(x=>{
+   const exchange=String(x.exchange||'').toUpperCase();
+   const usEquity=['NASDAQ','NYSE','AMEX','US'].includes(exchange);
+   return Number.isFinite(x._move)&&x._move>0&&Number(x.live_price??x.price??x.entry_price)>0&&usEquity;
+  })
+  .sort((a,b)=>b._move-a._move || Number(b.opening_opportunity_score||0)-Number(a.opening_opportunity_score||0))
   .slice(0,12);
  const pct=v=>(v>0?'+':'')+v.toFixed(2)+'%';
  const price=v=>{const n=Number(v);return Number.isFinite(n)&&n>0?'$'+n.toFixed(2):'—';};
@@ -594,7 +598,7 @@ function renderRadarMovementSignals(){
   return tags.slice(0,6);
  };
  if(!stocks.length){
-  el.innerHTML='<div class="sas-radar-movers-empty"><span>⌁</span><b>لا توجد فرص مؤكدة في آخر رصد</b><small>ستظهر الأسهم هنا بعد اجتياز شروط الرادار الفعلية، مع توضيح الشروط التي حققها كل سهم.</small></div>';
+  el.innerHTML='<div class="sas-radar-movers-empty"><span>⌁</span><b>لا توجد أسهم رابحة رصدها النظام في آخر دورة</b><small>يعرض هذا القسم الأسهم الأمريكية الرابحة التي سجلها الرادار في الجلسة الحالية، بما فيها المرشحات تحت المراقبة. لن تُعرض قائمة مستقلة أو بيانات مخمّنة.</small></div>';
   return;
  }
  el.innerHTML=stocks.map((x,index)=>{
