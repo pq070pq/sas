@@ -441,6 +441,38 @@ def _compact_radar_report(symbol, quote_data, tech, classification, row):
         f"🗂️ <b>الإفصاح التنظيمي:</b> {html.escape(filing_text)}",
         "⚠️ لا يُعد توصية شراء أو بيع، ويبقى قرار التداول وإدارة المخاطر مسؤوليتك ⛔",
     ]
+    actions = tech.get("corporate_actions") if isinstance(tech.get("corporate_actions"), dict) else {}
+    if actions.get("reverse_split") is True:
+        lines += [
+            "",
+            "⚠️ <b>نوع السهم ومخاطر التقسيم العكسي</b>",
+            "🏷️ <b>التصنيف:</b> سهم لديه تقسيم عكسي مسجل — قد يكون عائدًا من تقسيم.",
+        ]
+        split_date = actions.get("reverse_split_date")
+        split_ratio = actions.get("reverse_split_ratio")
+        if split_date:
+            lines.append("📅 <b>تاريخ التقسيم:</b> " + html.escape(str(split_date)))
+        if split_ratio:
+            lines.append("🔀 <b>نسبة التقسيم:</b> " + html.escape(str(split_ratio)))
+        lines += [
+            "🔴 <b>مستوى المخاطر: مرتفع</b> — التقسيم العكسي لا يضيف قيمة اقتصادية للشركة بحد ذاته.",
+            "• مخاطر استمرار الهبوط والتذبذب العالي وضعف السيولة وفروقات الأسعار.",
+            "• راجع الإصدارات الجديدة والتمويل والضمانات ومتطلبات الإدراج.",
+            "📚 <b>مصدر الحدث:</b> Yahoo Finance — تحقق من إفصاح الشركة قبل اتخاذ القرار.",
+        ]
+    elif actions.get("status") == "ok":
+        lines += [
+            "",
+            "🏷️ <b>نوع السهم ومخاطر التقسيم</b>",
+            "⚪ لم يظهر تقسيم عكسي في أحداث الشركات التي جرى فحصها؛ هذا لا يضمن عدم وجود حدث أحدث أو غير مدرج.",
+        ]
+    else:
+        lines += [
+            "",
+            "🏷️ <b>نوع السهم ومخاطر التقسيم</b>",
+            "🟠 تعذر التحقق من أحداث التقسيم في مصدر البيانات؛ نوع السهم غير محسوم ولا ينبغي افتراض خلوه من التقسيم.",
+        ]
+    lines.append("⚠️ لا يُعد توصية شراء أو بيع، ويبقى قرار التداول وإدارة المخاطر مسؤوليتك ⛔")
     return "\n".join(lines)
 
 
