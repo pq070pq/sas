@@ -6,6 +6,61 @@ from .config import settings
 
 logger = logging.getLogger(__name__)
 
+_translation_cache: dict[str, tuple[float, str]] = {}
+_TRANSLATION_CACHE_TTL = 24 * 60 * 60
+
+
+async def _mymemory_translate(text: str) -> str:
+    """No-key English-to-Arabic fallback; keep requests small and cache results."""
+    source = " ".join(str(text or "").split()).strip()[:380]
+    if not source:
+        return ""
+    import time
+    now = time.monotonic()
+    cached = _translation_cache.get(source)
+    if cached and now - cached[0] < _TRANSLATION_CACHE_TTL:
+        return cached[1]
+    try:
+        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+            response = await client.get(
+                "https://api.mymemory.translated.net/get",
+                params={"q": source, "langpair": "en|ar", "mt": "1"},
+                headers={"User-Agent": "SASPRO-MarketNews/1.0"},
+            )
+            response.raise_for_status()
+            payload = response.json()
+        translated = str((payload.get("responseData") or {}).get("translatedText") or "").strip()
+        if translated and str(payload.get("responseStatus", "200")) == "200":
+            _translation_cache[source] = (now, translated[:1200])
+            return translated[:1200]
+    except Exception as exc:
+        logger.info("MyMemory Arabic fallback unavailable: %s", type(exc).__name__)
+    return ""
+
+
+async def _fallback_translate_items(items: list[dict]) -> list[dict]:
+    translated_items = []
+    for item in items[:5]:
+        url = str(item.get("url") or "")
+        headline = str(item.get("headline") or "").strip()
+        if not headline or not url:
+            continue
+        translated_headline = await _mymemory_translate(headline)
+        if not translated_headline:
+            continue
+        summary_text = str(item.get("ai_summary") or item.get("summary") or "").strip()
+        translated_summary = await _mymemory_translate(summary_text[:360]) if summary_text else ""
+        translated_items.append({
+            "url": url,
+            "headline": headline,
+            "translated_headline": translated_headline,
+            "summary": translated_summary,
+            "basis": "article_or_headline" if translated_summary else "headline_only",
+            "source": str(item.get("source") or ""),
+            "translation_provider": "MyMemory fallback",
+        })
+    return translated_items
+
 
 async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
     """Translate a small set of verified headlines/summaries; preserve original evidence."""
@@ -19,7 +74,7 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
     ]
     provider = next((p for p in providers if p[0] and p[1]), None)
     if not provider:
-        return []
+        return await _fallback_translate_items(selected)
     api_key, base_url, model = provider
     payload = [
         {"url": str(item.get("url") or ""), "headline": str(item.get("headline") or "")[:500],
@@ -66,5 +121,5 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
                 })
             return result
     except Exception as exc:
-        logger.warning("Stock news Arabic translation unavailable for %s: %s", symbol, type(exc).__name__)
-        return []
+        logger.warning("Stock news AI translation unavailable for %s: %s; using fallback", symbol, type(exc).__name__)
+        return await _fallback_translate_items(selected)
