@@ -4581,3 +4581,17 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @media(max-width:600px){
   #marketTicker .ticker-track{animation-duration:46s!important}
 }
+
+
+/* SAS PRO Shariah verification recovery card */
+.shariah-error-card{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr);align-items:center;column-gap:12px;row-gap:7px;padding:18px;border-color:rgba(255,194,103,.48)!important;background:radial-gradient(circle at 92% 12%,rgba(255,194,103,.12),transparent 38%),linear-gradient(145deg,rgba(8,25,36,.98),rgba(3,12,21,.98))!important;box-shadow:0 12px 32px rgba(0,0,0,.22),inset 0 0 22px rgba(45,244,255,.035)}
+.shariah-error-icon{grid-row:span 2;display:grid;place-items:center;width:46px;height:46px;border-radius:15px;border:1px solid rgba(255,194,103,.55);color:#ffd477;background:rgba(255,194,103,.09);font-size:23px;box-shadow:0 0 18px rgba(255,194,103,.10)}
+.shariah-error-card>b{font-size:15px;color:#ffe0a0;line-height:1.5}
+.shariah-error-card>p{grid-column:2;margin:0;color:#c0d2da;font-size:12px;line-height:1.8}
+.shariah-retry-btn{grid-column:2;justify-self:start;display:inline-flex;align-items:center;justify-content:center;gap:8px;margin-top:5px;padding:9px 14px;border-radius:12px;border:1px solid rgba(45,244,255,.46);background:linear-gradient(120deg,rgba(0,155,190,.22),rgba(0,55,83,.4));color:#d9fbff;font-size:12px;font-weight:800;box-shadow:0 0 18px rgba(45,244,255,.08)}
+.shariah-retry-btn span{display:inline-grid;place-items:center;width:23px;height:23px;border-radius:50%;background:rgba(45,244,255,.12);color:#52f4ff;font-size:20px;line-height:1;transition:transform .25s ease}
+.shariah-retry-btn:hover{border-color:#2df4ff;box-shadow:0 0 22px rgba(45,244,255,.18);transform:translateY(-1px)}
+.shariah-retry-btn:hover span{transform:rotate(90deg)}
+.shariah-retry-btn:focus-visible{outline:2px solid #2df4ff;outline-offset:3px}
+.shariah-retry-btn:disabled{opacity:.55;cursor:wait}
+@media(max-width:420px){.shariah-error-card{grid-template-columns:40px minmax(0,1fr);padding:13px;column-gap:10px}.shariah-error-icon{width:39px;height:39px;border-radius:12px}.shariah-error-card>b{font-size:13px}.shariah-retry-btn{width:100%;justify-self:stretch}}
