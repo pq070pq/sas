@@ -1,6 +1,6 @@
 /* SAS PRO deployment trigger */
 /* SAS PRO final deploy trigger */
-/* SAS PRO calm news ribbon and refreshed news icon: 20261015-news-ribbon-calm-3 */
+/* SAS PRO news ribbon and admin news panel: 20261015-news-admin-4 */
 let tg=window.Telegram&&window.Telegram.WebApp;
 function refreshTelegramWebApp(){
  tg=window.Telegram&&window.Telegram.WebApp||tg;
@@ -1909,6 +1909,7 @@ function openDeployActions(){
 const ADMIN_ACCORDION_ITEMS=[
  ['adminOverview','⌂','نظرة عامة','الحالة العامة والإحصاءات والتنبيهات'],
  ['adminRadarPreviewPanel','📡','حالة الرادار','آخر دورة، أفضل الفرص وأسباب الاستبعاد'],
+ ['adminNewsPanel','▤','أخبار السوق','آخر أخبار السوق الأمريكي ومصادرها'],
  ['adminUsersPanel','👥','المشتركون','البحث وإدارة المستخدمين'],
  ['termsAdminPanel','📋','موافقات الشروط','الموافقات ونسخة الشروط'],
  ['adminSubscriptionPanel','💎','الاشتراكات','التجربة والباقات وإعدادات الاشتراك'],
@@ -2032,6 +2033,22 @@ let adminHealthTimer=null;
 let adminHealthBusy=false;
 let adminHealthLastSignature='';
 
+async function loadAdminNewsPreview(){
+ const box=document.getElementById('adminNewsPreview');
+ const status=document.getElementById('adminNewsStatus');
+ if(!box)return;
+ box.innerHTML='<div class="empty-state">جارٍ تحميل الأخبار الموثقة…</div>';
+ try{
+  const data=await api('/api/market/news',{timeoutMs:14000,retries:0});
+  const items=Array.isArray(data)?data:(Array.isArray(data?.items)?data.items:[]);
+  const valid=items.filter(n=>n&&safeNewsUrl(n.url)&&String(n.headline||'').trim()).sort((a,b)=>Number(b.datetime||0)-Number(a.datetime||0));
+  box.innerHTML=renderNewsItems(valid,12);
+  if(status)status.textContent=valid.length+' خبر موثق • '+new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit'})+' الرياض';
+ }catch(e){
+  box.innerHTML='<div class="empty-state">تعذر تحميل الأخبار: '+escHtml(e?.message||'خطأ غير معروف')+'</div>';
+  if(status)status.textContent='تعذر التحديث';
+ }
+}
 function renderAdminHealth(items){
  const list=document.getElementById('adminAlertsList');
  const summary=document.getElementById('adminAlertsSummary');
@@ -2124,6 +2141,7 @@ async function adminRefresh(){
  const p=me?.admin_permissions||[];
  const permissionRules={
   adminRadarPreviewPanel:p.includes('radar'),
+  adminNewsPanel:p.includes('settings')||p.includes('radar'),
   adminUsersPanel:p.includes('users'),
   termsAdminPanel:p.includes('users'),
   subscriberStatusPanel:p.includes('users'),
