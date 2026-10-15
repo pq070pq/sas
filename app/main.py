@@ -2554,6 +2554,7 @@ async def market_news_endpoint(_: dict = Depends(require_pro)):
             "translated_headline": str(translation.get("translated_headline") or ""),
             "translated_summary": str(translation.get("summary") or ""),
             "translation_basis": str(translation.get("basis") or ""),
+            "translation_provider": str(translation.get("translation_provider") or ""),
         })
     return {
         "items": result,
