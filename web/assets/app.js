@@ -29,8 +29,13 @@ async function api(path,opt={}){
  let lastError=null;
  for(let attempt=0;attempt<=retries;attempt++){
   const controller=new AbortController();
+  const externalSignal=fetchOptions.signal;
+  const abortFromCaller=()=>controller.abort();
+  if(externalSignal?.aborted)controller.abort();
+  else externalSignal?.addEventListener('abort',abortFromCaller,{once:true});
   const timeout=setTimeout(()=>controller.abort(),timeoutMs);
   try{
+   if(controller.signal.aborted)throw new DOMException('Aborted','AbortError');
    refreshTelegramWebApp();
    fetchOptions.headers=Object.assign(headers(),fetchOptions.headers||{});
    fetchOptions.signal=controller.signal;
@@ -54,7 +59,7 @@ async function api(path,opt={}){
     await sleep(350*(attempt+1));
     continue;
    }
-  }finally{clearTimeout(timeout);}
+  }finally{clearTimeout(timeout);externalSignal?.removeEventListener('abort',abortFromCaller);}
  }
  if(lastError?.name==='AbortError')throw new Error('تعذر تحديث البيانات في الوقت المحدد. سيُعاد الاتصال تلقائيًا عند المحاولة التالية.');
  throw lastError||new Error('تعذر تنفيذ العملية');
@@ -64,6 +69,7 @@ const normalizeEnglishDigits=root=>{if(!root)return;const w=document.createTreeW
 const fmtDate=v=>v?enDigits(new Date(v).toLocaleDateString('ar-SA')):'—';
 const fmtDays=(a,b)=>{if(!a||!b)return'—';const n=Math.ceil((new Date(b)-new Date(a))/86400000);return n>0?n+' يوم':'منتهي';};
 let me=null,plans=null,termAction=null;
+let activeSymbolSearchController=null;
 let loadStarted=false;
 
 function showAccountLoadError(message){
@@ -287,6 +293,7 @@ function renderNewsItems(items,limit=5,translatedItems=[]){
 function money(v){const n=Number(v);return Number.isFinite(n)&&n>0?n.toLocaleString('en-US',{minimumFractionDigits:n<10?2:0,maximumFractionDigits:4}):'—';}
 function pct(v){const n=Number(v);return Number.isFinite(n)?(n>=0?'+':'')+n.toFixed(2)+'%':'—';}
 function switchTerminalTab(tab){
+ if(tab!=='search'&&activeSymbolSearchController){activeSymbolSearchController.abort();activeSymbolSearchController=null;}
  terminalState.tab=tab;
  document.querySelectorAll('.terminal-tab').forEach(x=>x.classList.toggle('active',x.id==='tab-'+tab));
  document.querySelectorAll('.terminal-tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
@@ -1028,7 +1035,7 @@ async function searchShariah(){
  el.hidden=false;
  el.innerHTML='<div class="shariah-search-card sh-unknown"><b>🕌 بحث الشرعية — '+escHtml(symbol)+'</b><p>⏳ جاري التحقق من النتيجة المنشورة...</p></div>';
  try{
-  const result=await api('/api/stocks/'+encodeURIComponent(symbol)+'/shariah',{timeoutMs:12000});
+  const result=await api('/api/stocks/'+encodeURIComponent(symbol)+'/shariah',{timeoutMs:12000,signal:searchController.signal});
   const status=result?.status;
   const label=result?.status_ar||'غير واضح / يحتاج تحقق';
   const cls=status==='compliant'||status==='halal'?'sh-ok':(status==='non_compliant'||status==='haram'?'sh-bad':'sh-unknown');
@@ -1163,6 +1170,8 @@ function renderStockTerminalAverages(classification,targets){
  return '<section class="sas-terminal-panel" id="sasMovingAverages"><div class="sas-terminal-section-title"><span>▥</span><div><b>المتوسطات المتحركة</b><small>القيم الفعلية المستلمة من مصدر التحليل</small></div></div><div class="sas-terminal-averages">'+rows.map(([label,value])=>'<div><small>'+label+'</small><strong>$'+money(value)+'</strong><span>قيمة فعلية</span></div>').join('')+'</div></section>';
 }
 async function analyzeSymbol(){
+ if(activeSymbolSearchController)activeSymbolSearchController.abort();
+ const searchController=new AbortController();activeSymbolSearchController=searchController;
  const actionBtn=document.getElementById('analyzeSymbolBtn');
  if(actionBtn?.disabled)return;
  if(actionBtn){actionBtn.disabled=true;actionBtn.classList.add('is-working');actionBtn.setAttribute('aria-busy','true');}
@@ -1172,16 +1181,17 @@ async function analyzeSymbol(){
  const el=document.getElementById('symbolResult');
  startStockAnalysisLoader(el,symbol);
  const [qR,chartR,newsR,analysisR,miniR,shariahR,perpR,cuspR]=await Promise.allSettled([
-   api('/api/stocks/'+encodeURIComponent(symbol)+'/quote'),
-   api('/api/stocks/'+encodeURIComponent(symbol)+'/chart'),
-   api('/api/stocks/'+encodeURIComponent(symbol)+'/news'),
-   api('/api/stocks/'+encodeURIComponent(symbol)+'/analyze',{method:'POST',timeoutMs:30000}),
-   api('/api/stocks/'+encodeURIComponent(symbol)+'/mini-analysis',{timeoutMs:30000}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/quote',{signal:searchController.signal}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/chart',{signal:searchController.signal}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/news',{signal:searchController.signal}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/analyze',{method:'POST',timeoutMs:30000,signal:searchController.signal}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/mini-analysis',{timeoutMs:30000,signal:searchController.signal}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/shariah',{timeoutMs:12000}),
-   api('/api/stocks/'+encodeURIComponent(symbol)+'/perpequities',{timeoutMs:10000}),
-   api('/api/stocks/'+encodeURIComponent(symbol)+'/cusp',{timeoutMs:9000})
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/perpequities',{timeoutMs:10000,signal:searchController.signal}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/cusp',{timeoutMs:9000,signal:searchController.signal})
  ]);
  stopStockAnalysisLoader();
+ if(searchController.signal.aborted){if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}return;}
  if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}
  const qRaw=qR.status==='fulfilled'&&qR.value&&typeof qR.value==='object'?qR.value:{symbol,price:null,change_pct:null,source:'غير متاح'};
  const miniPayload=miniR.status==='fulfilled'&&miniR.value&&typeof miniR.value==='object'?miniR.value:null;
@@ -1615,13 +1625,15 @@ async function openChannel(){
  const button=document.querySelector('#tab-dashboard .sas-action-card[onclick="openChannel()"]');
  if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
  try{
-  const d=await api('/api/channel/access',{timeoutMs:20000,retries:1});
+  showActionNotice('channel','جاري تجهيز رابط القناة… لا تقفل التطبيق.');
+  const d=await api('/api/channel/access',{timeoutMs:12000,retries:0});
   if(tg?.openTelegramLink)tg.openTelegramLink(d.url);
   else if(tg?.openLink)tg.openLink(d.url);
   else window.open(d.url,'_blank');
+  const notice=document.getElementById('channelActionNotice');if(notice)notice.hidden=true;
  }catch(e){
   const msg=String(e?.message||'تعذر تجهيز رابط القناة.');
-  showActionNotice('channel',msg.includes('الوقت المحدد')?'تأخر إنشاء رابط القناة من تيليجرام. جرّب مرة ثانية بعد قليل.':msg);
+  showActionNotice('channel',msg.includes('الوقت المحدد')?'تأخر إنشاء رابط القناة. انتهت مهلة الاتصال؛ جرّب مرة ثانية.':msg);
  }
  finally{
   sasChannelOpening=false;
