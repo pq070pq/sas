@@ -3717,3 +3717,30 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @keyframes sasActionPulse{0%,100%{box-shadow:0 0 0 rgba(30,205,255,0)}50%{box-shadow:0 0 22px rgba(30,205,255,.28)}}
 @media(max-width:620px){#tab-search .search-terminal{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:9px!important}#tab-search .search-terminal input{grid-column:1/-1!important}#tab-search .symbol-action-btn{min-height:88px!important;gap:7px!important;padding:10px 9px!important;border-radius:16px!important}#tab-search .symbol-action-icon{flex-basis:40px;width:40px;height:40px;border-radius:12px}#tab-search .symbol-action-icon svg{width:23px;height:23px}#tab-search .symbol-action-copy b{font-size:12px}#tab-search .symbol-action-copy small{font-size:9px}#tab-search .symbol-action-arrow{font-size:20px}}
 @media(prefers-reduced-motion:reduce){#tab-search .symbol-action-btn,#tab-search .symbol-action-btn:before,#tab-search .symbol-action-icon,#tab-search .symbol-action-arrow{animation:none!important;transition:none!important}}
+
+/* SAS PRO Radar header - interactive scan control */
+#tab-radar>.terminal-panel-head{gap:18px;align-items:center;padding:20px 22px;border:1px solid rgba(55,191,226,.24);border-radius:22px;background:radial-gradient(ellipse at 90% 10%,rgba(0,184,220,.13),transparent 45%),linear-gradient(125deg,rgba(3,20,32,.97),rgba(4,13,24,.99));box-shadow:inset 0 1px rgba(255,255,255,.035),0 12px 30px rgba(0,0,0,.17)}
+#tab-radar>.terminal-panel-head>div{min-width:0;display:flex;flex-direction:column;gap:8px}
+#tab-radar>.terminal-panel-head h2{font-size:clamp(21px,3vw,30px);line-height:1.35;letter-spacing:-.3px;margin:0;color:#f0faff}
+#tab-radar>.terminal-panel-head small{display:block;color:#8eacbf;line-height:1.8;font-size:12px}
+#tab-radar>.terminal-panel-head .eyebrow{font-size:10px;letter-spacing:2.3px;color:#50defb;text-shadow:0 0 14px rgba(50,219,255,.24)}
+#tab-radar .radar-scan-action{position:relative;isolation:isolate;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:12px;flex:0 0 auto;min-width:210px;min-height:88px;padding:14px 16px;border:1px solid rgba(43,216,255,.7);border-radius:22px;background:radial-gradient(circle at 18% 50%,rgba(48,224,255,.22),transparent 50%),linear-gradient(130deg,#087ba5,#064364 75%,#062a43);color:#effcff;text-align:right;box-shadow:inset 0 1px rgba(255,255,255,.16),0 9px 26px rgba(0,145,202,.18),0 0 22px rgba(29,197,241,.08);cursor:pointer;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease,filter .2s ease}
+#tab-radar .radar-scan-action:before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(110deg,transparent 20%,rgba(255,255,255,.2) 48%,transparent 72%);transform:translateX(-130%);transition:transform .55s ease;pointer-events:none}
+#tab-radar .radar-scan-action:hover:before,#tab-radar .radar-scan-action:focus-visible:before{transform:translateX(130%)}
+#tab-radar .radar-scan-action:hover,#tab-radar .radar-scan-action:focus-visible{transform:translateY(-3px);border-color:#8af1ff;box-shadow:inset 0 1px rgba(255,255,255,.2),0 13px 32px rgba(0,145,202,.26),0 0 28px rgba(29,197,241,.17);outline:2px solid rgba(88,225,255,.25);outline-offset:3px}
+#tab-radar .radar-scan-action:active{transform:scale(.98)}
+#tab-radar .radar-scan-action:disabled{opacity:.8;cursor:wait;transform:none}
+#tab-radar .radar-scan-icon{display:grid;place-items:center;flex:0 0 52px;width:52px;height:52px;border:1px solid rgba(142,240,255,.56);border-radius:17px;background:rgba(2,32,51,.55);color:#7af0ff;box-shadow:inset 0 1px rgba(255,255,255,.1),0 0 18px rgba(34,211,247,.14);transition:transform .25s ease,box-shadow .25s ease}
+#tab-radar .radar-scan-icon svg{width:34px;height:34px;display:block}
+#tab-radar .radar-scan-copy{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+#tab-radar .radar-scan-copy b{font-size:clamp(14px,1.6vw,18px);line-height:1.4;white-space:nowrap}
+#tab-radar .radar-scan-copy small{font-size:10px;color:#c0e9f3;line-height:1.5;white-space:normal}
+#tab-radar .radar-scan-arrow{font-size:28px;color:#8cf0ff;transition:transform .2s ease}
+#tab-radar .radar-scan-action:hover .radar-scan-icon,#tab-radar .radar-scan-action:focus-visible .radar-scan-icon{transform:rotate(-9deg) scale(1.06);box-shadow:0 0 24px rgba(50,222,255,.25)}
+#tab-radar .radar-scan-action:hover .radar-scan-arrow{transform:translateX(-4px)}
+#tab-radar .radar-scan-action.is-scanning .radar-scan-icon svg{animation:radarScanSweep 2.1s linear infinite}
+#tab-radar .radar-scan-action.is-scanning .radar-scan-copy b:after{content:"…";display:inline-block;animation:radarScanDots 1.1s steps(3,end) infinite;width:1.1em;text-align:left}
+@keyframes radarScanSweep{to{transform:rotate(360deg)}}
+@keyframes radarScanDots{0%{opacity:.2}100%{opacity:1}}
+@media(max-width:620px){#tab-radar>.terminal-panel-head{align-items:stretch;flex-direction:column;padding:16px;gap:14px;border-radius:18px}#tab-radar>.terminal-panel-head h2{font-size:23px}#tab-radar>.terminal-panel-head small{font-size:11px}#tab-radar .radar-scan-action{width:100%;min-width:0;min-height:76px;padding:11px 13px;border-radius:17px}#tab-radar .radar-scan-icon{flex-basis:46px;width:46px;height:46px;border-radius:14px}#tab-radar .radar-scan-icon svg{width:30px;height:30px}#tab-radar .radar-scan-copy b{font-size:15px}}
+@media(prefers-reduced-motion:reduce){#tab-radar .radar-scan-action,#tab-radar .radar-scan-action:before,#tab-radar .radar-scan-icon,#tab-radar .radar-scan-arrow{animation:none!important;transition:none!important}}
