@@ -4087,3 +4087,8 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .sas-news-ribbon-bottom{font-size:9px}
 }
 @media(prefers-reduced-motion:reduce){.sas-news-ribbon-lane{animation:none!important;overflow-x:auto}.sas-market-news-track{overflow-x:auto!important}}
+
+
+/* Full news text: never clamp or cut headlines/summaries */
+.sas-news-ribbon-card>strong{overflow:visible!important;display:block!important;-webkit-line-clamp:unset!important;-webkit-box-orient:initial!important}
+.sas-news-ribbon-card>p{display:block!important;overflow:visible!important;-webkit-line-clamp:unset!important;-webkit-box-orient:initial!important;white-space:normal!important;max-height:none!important}
