@@ -81,6 +81,20 @@
 <section class="market-ticker-wrap" aria-label="أسعار الأسواق">
       <div id="marketTicker" class="market-ticker"><div class="loading">جاري تحميل الأسعار...</div></div>
     </section>
+    <section id="sasMarketNews" class="sas-market-news" aria-label="آخر أخبار السوق الأمريكي">
+      <div class="sas-market-news-head">
+        <div class="sas-market-news-brand"><span class="sas-market-news-icon" aria-hidden="true">📰</span><div><strong>أخبار السوق الأمريكي</strong><small><i></i> أخبار مؤثرة فقط • مصادر موثوقة</small></div></div>
+        <div class="sas-market-news-controls" role="group" aria-label="تصفية أخبار السوق">
+          <button type="button" class="is-active" data-news-filter="all" aria-pressed="true">الكل</button>
+          <button type="button" data-news-filter="fed" aria-pressed="false">الفدرالي والفائدة</button>
+          <button type="button" data-news-filter="economy" aria-pressed="false">الاقتصاد</button>
+          <button type="button" data-news-filter="stocks" aria-pressed="false">الأسهم</button>
+          <button type="button" id="sasMarketNewsRefresh" aria-label="تحديث الأخبار" title="تحديث الأخبار">⟳</button>
+        </div>
+      </div>
+      <div id="sasMarketNewsTrack" class="sas-market-news-track" aria-live="polite"><div class="sas-market-news-loading"><span class="sas-news-pulse"></span> جارٍ جلب آخر أخبار السوق الأمريكي…</div></div>
+      <div class="sas-market-news-foot"><span id="sasMarketNewsStatus">يتم التحقق من الأخبار ذات التأثير المحتمل على السوق</span><span>المصدر والرابط الأصلي لكل خبر</span></div>
+    </section>
     <nav class="terminal-tabs">
       <button class="active" data-tab="dashboard" onclick="switchTerminalTab('dashboard')">⌂ الرئيسية</button>
       <button data-tab="radar" onclick="switchTerminalTab('radar')">📡 الرادار</button>
