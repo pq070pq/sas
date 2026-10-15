@@ -1,6 +1,9 @@
 import asyncio
 import time
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     from scrapling.fetchers import Fetcher
