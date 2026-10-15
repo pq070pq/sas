@@ -2541,7 +2541,7 @@ async def market_news_feed(_: dict = Depends(require_pro)):
         if now - _market_news_translation_cache["at"] > 900:
             try:
                 translated = await asyncio.wait_for(
-                    translate_stock_news("US_MARKET", items[:5]), timeout=12
+                    translate_stock_news("US_MARKET", items[:12]), timeout=22
                 )
                 translated_by_url = {
                     str(row.get("url") or ""): row for row in translated
