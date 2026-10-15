@@ -2608,11 +2608,6 @@ function renderGiftMessagePreview(){
  if(node)node.textContent=Number.isInteger(days)&&days>0?String(days):'7';
 }
 document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays')renderGiftMessagePreview();});
-+money(price)+'</span><span class="sas-card-chart-chevron">⌄</span></button><div class="sas-card-chart-panel" hidden><div class="sas-card-chart-status" role="status">اضغط لعرض الشارت من بيانات المصدر.</div><div class="sas-card-chart-plot"></div><div class="sas-card-chart-bottom"><span>السعر في البطاقة</span><b>
- '<div class="stock-actions stock-card-actions"><button class="stock-chart-action" onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">🔍 تحليل السهم</button></div><footer class="sas-card-copyright">SAS PRO RADAR · © جميع الحقوق محفوظة · معلومات تعليمية وليست توصية استثمارية</footer></article>';
-}
-
-
 
 
 function showCardScreenshotHint(button){const card=button.closest('.stock-card')||button.closest('article');if(!card)return;card.classList.add('sas-card-screenshot-focus');const old=button.querySelector('.sas-screenshot-status');if(old)old.remove();const status=document.createElement('span');status.className='sas-screenshot-status';status.setAttribute('role','status');status.textContent='البطاقة جاهزة للتصوير — التقط لقطة شاشة من جهازك لمشاركتها.';button.appendChild(status);button.setAttribute('aria-expanded','true');setTimeout(()=>{card.classList.remove('sas-card-screenshot-focus');button.setAttribute('aria-expanded','false');},4500);}
