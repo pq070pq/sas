@@ -226,14 +226,18 @@ jobs:
             echo "✅ Production HTML has neither the market-news section nor the removed ticker."
             echo "===== END SAS PRO SERVED PAGE VERIFICATION ====="
 
-            # Verify the actual served Mini App HTML reflects the requested ticker removal.
-            docker compose exec -T saspro sh -lc '! grep -q "market-ticker-wrap" /app/web/index.html && ! grep -q "sasMarketNews" /app/web/index.html'
+            # Verify the new market-pulse UI is present and only obsolete component IDs are absent.
+            docker compose exec -T saspro sh -lc 'grep -q "id=\"sasMarketNewsTrack\"" /app/web/index.html && grep -q "id=\"sasMarketIndicesTrack\"" /app/web/index.html && ! grep -q "class=\"market-ticker-wrap\"" /app/web/index.html && ! grep -q "id=\"marketTicker\"" /app/web/index.html'
             curl -fsS --max-time 5 http://127.0.0.1:8000/ -o /tmp/saspro_home_live.html
-            if grep -q 'market-ticker-wrap\|id="marketTicker"\|sasMarketNews\|نبض السوق الأمريكي\|الأخبار المؤثرة في لوحة واحدة' /tmp/saspro_home_live.html; then
-              echo "❌ Production HTML still serves a removed market component."
+            if ! grep -q 'id="sasMarketNewsTrack"' /tmp/saspro_home_live.html || ! grep -q 'id="sasMarketIndicesTrack"' /tmp/saspro_home_live.html; then
+              echo "❌ Production HTTP HTML is missing the new market-news or market-indices ribbon."
               exit 1
             fi
-            echo "✅ Production HTTP route serves the UI with market ticker removed."
+            if grep -q 'class="market-ticker-wrap"\|id="marketTicker"\|id="sasMarketNews"' /tmp/saspro_home_live.html; then
+              echo "❌ Production HTML still serves an obsolete market component."
+              exit 1
+            fi
+            echo "✅ Production HTTP route serves the new market news and indices ribbons."
 
             echo "===== VERIFY FRONTEND ASSETS AND CACHE HEADERS ====="
             for asset in app-ticker-fix-20261015.js app-ticker-fix-20261015.css; do
