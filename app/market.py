@@ -779,13 +779,6 @@ async def quote(symbol: str, prefer_extended: bool = False):
         except Exception as exc:
             logger.info("EXTENDED_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
 
-    # If the extended quote endpoint did not provide a fresh value, use the
-    # already-integrated Yahoo chart only when its newest minute candle is recent.
-    if prefer_extended:
-        yahoo_extended = await _yahoo_equity_quote(symbol)
-        if yahoo_extended:
-            return yahoo_extended
-
     # Prefer FMP's direct equity quote before Finnhub because the current
     # session can advance while a provider's last quote remains behind.
     # Both are existing configured sources; this does not consume Twelve Data credits.
@@ -797,11 +790,6 @@ async def quote(symbol: str, prefer_extended: bool = False):
     fallback = await _finnhub_quote(symbol)
     if fallback:
         return fallback
-
-    # Reuse existing Yahoo minute candles before spending a Twelve Data request.
-    yahoo_quote = await _yahoo_equity_quote(symbol)
-    if yahoo_quote:
-        return yahoo_quote
 
     # 3) Twelve Data: twelve_guard rotates its own key pool.
     if settings.twelve_data_api_key or settings.twelve_data_api_keys:
@@ -884,7 +872,7 @@ async def quote(symbol: str, prefer_extended: bool = False):
         logger.info("CUSP_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
 
     logger.warning(
-        "QUOTE_UNAVAILABLE symbol=%s attempted_sources=Finnhub,FMP,TwelveData,Stooq,CUSP",
+        "QUOTE_UNAVAILABLE symbol=%s attempted_sources=FMP,Finnhub,TwelveData,Stooq,CUSP",
         symbol,
     )
     return {
