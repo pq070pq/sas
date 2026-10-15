@@ -1009,7 +1009,7 @@ function stockCard(x){
  '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+'<span>'+catalystLabel+(catalyst>0?' '+catalyst+'/100':'')+'</span>'+(x.live_price_source?'<span>📡 '+escHtml(x.live_price_source)+'</span>':'')+'</div>'+
  perpContext+
  '<div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||cls.reason||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div>'+
- '<div class="stock-actions stock-card-actions"><button class="stock-chart-action" onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">🔍 تحليل السهم</button><button class="stock-share-action stock-share-save-combined" onclick="event.stopPropagation();shareOpportunityCard(this.closest(\\'.stock-card\\')||this.closest(\\'article\\'),\''+raw+'\',false)">↗ مشاركة / حفظ البطاقة</button></div><footer class="sas-card-copyright">SAS PRO RADAR · © جميع الحقوق محفوظة · معلومات تعليمية وليست توصية استثمارية</footer></article>';
+ '<div class="stock-actions stock-card-actions"><button class="stock-chart-action" onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">🔍 تحليل السهم</button><button class="stock-share-action stock-share-save-combined" onclick="event.stopPropagation();shareOpportunityCard(this.closest(\'.stock-card\')||this.closest(\'article\'),\''+raw+'\',false)">↗ مشاركة / حفظ البطاقة</button></div><footer class="sas-card-copyright">SAS PRO RADAR · © جميع الحقوق محفوظة · معلومات تعليمية وليست توصية استثمارية</footer></article>';
 }
 
 
