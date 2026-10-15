@@ -888,6 +888,8 @@ async def market_news(limit: int = 24):
             rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
         else:
             rows = []
+    if cutoff is not None and rows:
+        rows = [row for row in rows if int(row.get("datetime") or 0) >= cutoff]
     if not rows:
         rows = await _rss_market_news(limit)
 
