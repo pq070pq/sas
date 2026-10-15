@@ -1038,8 +1038,6 @@ async function searchShariah(){
    const name='<span class="shariah-source-identity"><span class="shariah-source-brand-icon" aria-hidden="true">'+sourceGlyph+'</span><b>'+escHtml(sourceName)+'</b></span>';
    const statusText=escHtml(src.status_ar||'غير واضح / يحتاج تحقق');
    let meaning='';
-   if(src.source==='مصرف الراجحي') meaning='يعرض طريقة الإشراف الشرعي عند المصرف، لكنه ما يحكم على السهم هذا مباشرة.';
-   else if(src.source==='بنك البلاد') meaning='يعرض طريقة الإشراف الشرعي عند البنك، لكنه ما يفحص السهم هذا بنفسه.';
    else if(src.source==='يقين') meaning=src.verified?'نتيجة منشورة مباشرة للسهم.':'لم تظهر نتيجة مباشرة موثقة.';
    else meaning=src.verified?'نتيجة مباشرة موثقة.':'لا توجد نتيجة مباشرة موثقة.';
    const sourceState=String(src.status||'').toLowerCase();
@@ -1056,7 +1054,7 @@ async function searchShariah(){
     '<div class="shariah-emblem '+cls+'" aria-hidden="true"><span class="shariah-emblem-mark">'+statusIcon+'</span><span class="shariah-emblem-caption">SAS PRO</span></div>'+
     '<div class="shariah-verdict"><span class="shariah-eyebrow">التحقق من شرعية السهم</span><h3 dir="ltr">'+escHtml(symbol)+'</h3><div class="shariah-verdict-state '+cls+'"><span aria-hidden="true">'+statusIcon+'</span>'+escHtml(statusTitle)+'</div><p>'+escHtml(statusExplanation)+'</p></div>'+
    '</div>'+
-   '<div class="shariah-review-section-title"><b>المصادر التي تمت مراجعتها</b><span>'+sources.length+' مصادر</span></div>'+
+   '<div class="shariah-review-section-title"><b>مصدر التحقق</b><span>'+sources.length+' مصدر</span></div>'+
    '<div class="shariah-source-list">'+sourceLines+'</div>'+
    (result?.updated_at?'<div class="shariah-updated">◷ آخر تحديث منشور: '+escHtml(result.updated_at)+'</div>':'')+
    '<div class="shariah-review-warning"><b>⚠ تنبيه مهم</b><p>لا يصدر SAS PRO حكمًا من عنده. عند غياب نتيجة مباشرة موثقة أو اختلاف المصادر، تبقى الحالة «غير واضح / يحتاج تحقق». هذه معلومات للمراجعة وليست فتوى، والتحقق النهائي مسؤولية المستخدم.</p></div>'+
@@ -1230,7 +1228,7 @@ async function analyzeSymbol(){
  const quoteChangeDisplay=hasNumericValue(q.change_pct)?pct(q.change_pct):'التغير غير متاح';
  const quoteChangeClass=hasNumericValue(q.change_pct)?(Number(q.change_pct)>=0?'up':'down'):'';
  const shSources=Array.isArray(sh.sources)?sh.sources:[];
- const shHtml='<section class="shariah-box '+(sh.status==='halal'||sh.status==='compliant'?'sh-ok':(sh.status==='haram'||sh.status==='non_compliant'?'sh-bad':'sh-unknown'))+'"><div><b>🕌 التحقق الشرعي</b><strong>'+escHtml(sh.status_ar||'غير واضح / يحتاج تحقق')+'</strong></div><p>'+escHtml(sh.message||'لم تتوفر نتيجة موثقة؛ لم يتم التأليف.')+'</p><div class="shariah-help"><b>كيف تقرأ النتيجة؟</b><span>يقين: نتيجة منشورة تخص السهم نفسه إذا كانت متوفرة.</span><span>الراجحي وبنك البلاد يوضحون طريقة الإشراف الشرعي عندهم، لكن هذا لحاله ما يعني إن السهم شرعي.</span><span>إذا ما فيه نتيجة واضحة ومباشرة، نخلي الحالة «غير واضح / يحتاج تحقق».</span></div>'+(sh.ai?.summary?'<p>🧠 '+escHtml(sh.ai.summary)+'</p>':'')+'<em>⛔ هذه معلومات للتحقق فقط وليست فتوى، وقرار الشرعية مسؤوليتك.</em></section>';
+ const shHtml='<section class="shariah-box '+(sh.status==='halal'||sh.status==='compliant'?'sh-ok':(sh.status==='haram'||sh.status==='non_compliant'?'sh-bad':'sh-unknown'))+'"><div><b>🕌 التحقق الشرعي</b><strong>'+escHtml(sh.status_ar||'غير واضح / يحتاج تحقق')+'</strong></div><p>'+escHtml(sh.message||'لم تتوفر نتيجة موثقة؛ لم يتم التأليف.')+'</p><div class="shariah-help"><b>كيف تقرأ النتيجة؟</b><span>يقين: نتيجة منشورة تخص السهم نفسه إذا كانت متوفرة.</span><span></span><span>إذا ما ظهرت نتيجة مباشرة من يقين، بتكون الحالة «غير واضح / يحتاج تحقق» بدون تخمين.</span></div>'+(sh.ai?.summary?'<p>🧠 '+escHtml(sh.ai.summary)+'</p>':'')+'<div class="shariah-red-disclaimer"><b>⚠️ إبراء ذمّة</b><span>هذا اجتهاد في عرض المعلومات المنشورة، وليس فتوى شرعية ولا ضمانًا لصحة الحكم. تحقّق بنفسك قبل اتخاذ قرارك.</span></div></section>';
 const miniAnalysisHtml=
    '<section class="mini-analysis sas-pro-technical">'+
      '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO VERIFIED TECHNICAL</span><b>📊 التحليل الفني والمؤشرات</b><small>القيم الفعلية المتاحة من محرك التحليل</small></div></div>'+
