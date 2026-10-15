@@ -3804,3 +3804,29 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 /* Compact, reassuring price-freshness note beside SAS PRO */
 .sas-price-delay-note{display:inline-flex;align-self:center;justify-content:center;margin-top:4px;padding:3px 8px;border:1px solid rgba(244,200,121,.24);border-radius:999px;background:rgba(244,200,121,.07);color:#d9c59b;font-size:9px;font-weight:500;line-height:1.5;white-space:normal;max-width:100%;text-align:center;letter-spacing:0;text-shadow:none;font-style:normal}
 @media(max-width:420px){.sas-price-delay-note{font-size:8px;padding:2px 6px;max-width:270px}}
+
+/* Green interactive price chart inside the expanded stock card */
+.sas-card-chart{margin:10px 0 12px;border:1px solid rgba(59,218,167,.36);border-radius:15px;overflow:hidden;background:linear-gradient(145deg,rgba(4,37,43,.88),rgba(3,16,29,.98));direction:rtl}
+.sas-card-chart-toggle{width:100%;display:flex;align-items:center;gap:10px;padding:11px 12px;border:0;background:linear-gradient(105deg,rgba(15,84,78,.42),rgba(4,32,49,.5));color:#d9fff0;text-align:right;cursor:pointer}
+.sas-card-chart-icon{width:39px;height:36px;display:grid;place-items:center;flex:0 0 auto;border:1px solid rgba(63,231,177,.42);border-radius:10px;background:rgba(29,163,119,.12);color:#4ce7b0;box-shadow:0 0 15px rgba(52,225,169,.12)}
+.sas-card-chart-icon svg{width:28px;height:22px;filter:drop-shadow(0 0 3px rgba(65,235,179,.35))}
+.sas-card-chart-title{display:flex;flex-direction:column;gap:3px;font-size:13px;font-weight:800;flex:1}
+.sas-card-chart-title small{font-size:10px;font-weight:500;color:#85b8ad}
+.sas-card-chart-price{font-size:12px;font-weight:800;color:#55e7b0;direction:ltr}
+.sas-card-chart-chevron{font-size:18px;color:#63e9b7}
+.sas-card-chart-panel{padding:9px 10px 11px;border-top:1px solid rgba(59,218,167,.17)}
+.sas-card-chart-panel[hidden]{display:none!important}
+.sas-card-chart-status{font-size:10px;line-height:1.7;color:#91b5b7;padding:3px 0 7px}
+.sas-card-chart-plot{width:100%;overflow:hidden;border-radius:10px;background:radial-gradient(ellipse at 45% 0,rgba(17,112,81,.19),transparent 70%)}
+.sas-card-chart-svg{display:block;width:100%;height:auto;touch-action:pan-y}
+.sas-card-chart-grid path{fill:none;stroke:rgba(137,203,184,.12);stroke-width:1;stroke-dasharray:4 5}
+.sas-card-chart-line{fill:none;stroke:#48e7ae;stroke-width:2.8;stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 0 4px rgba(58,233,171,.45))}
+.sas-card-chart-reference{stroke:#f0ce7a;stroke-width:1.2;stroke-dasharray:5 4}
+.sas-card-chart-reference-label{font-size:11px;fill:#f0ce7a;paint-order:stroke;stroke:#071822;stroke-width:3px;stroke-linejoin:round}
+.sas-card-chart-dot{fill:#e8fff8;stroke:#43e5ac;stroke-width:2.5;filter:drop-shadow(0 0 4px rgba(58,233,171,.7))}
+.sas-card-chart-crosshair{stroke:rgba(87,237,187,.55);stroke-width:1;stroke-dasharray:3 4}
+.sas-card-chart-last-label{font-size:12px;fill:#e4fff5;paint-order:stroke;stroke:#071822;stroke-width:3px;stroke-linejoin:round}
+.sas-card-chart-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:7px;border-top:1px solid rgba(100,187,160,.15);font-size:10px;color:#8daeb1}
+.sas-card-chart-bottom b{direction:ltr;color:#f0ce7a}
+.sas-card-share-hint{margin-top:7px;text-align:center;font-size:10px;line-height:1.6;color:#d8c27b}
+.sas-card-chart-retry{margin-inline-start:7px;border:1px solid rgba(72,231,174,.4);background:#073b35;color:#b9ffe3;border-radius:7px;padding:4px 8px;font-size:10px}
