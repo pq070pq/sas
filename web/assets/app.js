@@ -2599,24 +2599,16 @@ function renderMarketNews(){
  const track=document.getElementById('sasMarketNewsTrack');if(!track)return;
  const cats={fed:'الفدرالي والفائدة',economy:'الاقتصاد والبيانات',stocks:'الأسهم الأمريكية',other:'أخبار السوق'};
  const icons={fed:'🏦',economy:'📊',stocks:'📈',other:'🇺🇸'};
- const filtered=terminalState.newsItems.filter(n=>n&&String(n.translated_headline||n.headline||'').trim()).slice(0,18);
+ const filtered=terminalState.newsItems.filter(n=>n&&String(n.translated_headline||n.headline||'').trim()).slice(0,12);
  if(!filtered.length){track.classList.remove('is-ticking');track.innerHTML='<div class="sas-market-news-empty"><span>◌</span><b>لا توجد أخبار مؤثرة موثقة حاليًا</b><small>لن نعرض أخبارًا غير واضحة الصلة بالسوق الأمريكي.</small></div>';return;}
- const makeCard=n=>{
+ const cards=filtered.map(n=>{
   const url=safeNewsUrl(n.url),cat=sasNewsCategory(n),title=escHtml(n.translated_headline||n.headline||'خبر السوق');
-  const original=n.translated_headline&&n.headline&&n.translated_headline!==n.headline?'<small class="sas-news-ribbon-original" lang="en" dir="ltr">'+escHtml(n.headline)+'</small>':'';
   const summary=String(n.translated_summary||n.summary||'').trim();
   const source=escHtml(n.source||'مصدر موثوق');
-  return '<article class="sas-news-ribbon-card"><div class="sas-news-ribbon-top"><i aria-hidden="true">'+(icons[cat]||icons.other)+'</i><b>'+cats[cat]+'</b><time>'+sasNewsTime(n.datetime)+'</time></div><strong>'+title+'</strong>'+original+(summary?'<p>'+escHtml(summary.slice(0,420))+'</p>':'')+'<div class="sas-news-ribbon-bottom"><span>'+source+'</span>'+(url?'<a href="'+escHtml(url)+'" target="_blank" rel="noopener noreferrer">قراءة المصدر الأصلي ↗</a>':'')+'</div></article>';
- };
- const groups=[filtered.filter((_,i)=>i%2===0),filtered.filter((_,i)=>i%2===1)];
- const lanes=groups.map((group,index)=>{
-  const list=group.length?group:filtered;
-  const cards=list.map(makeCard).join('');
-  const copies=list.map(n=>makeCard(n).replace('<article class="sas-news-ribbon-card">','<article class="sas-news-ribbon-card sas-news-ribbon-copy" aria-hidden="true">')).join('');
-  return '<div class="sas-news-ribbon-row sas-news-ribbon-row-'+(index+1)+'"><div class="sas-news-ribbon-lane">'+cards+'<span class="sas-news-ribbon-separator" aria-hidden="true">◆</span>'+copies+'<span class="sas-news-ribbon-separator" aria-hidden="true">◆</span></div></div>';
+  return '<article class="sas-news-compact-card"><div class="sas-news-compact-meta"><span class="sas-news-compact-category">'+(icons[cat]||icons.other)+' '+cats[cat]+'</span><time>'+sasNewsTime(n.datetime)+'</time></div><strong>'+title+'</strong>'+(summary?'<p>'+escHtml(summary.slice(0,220))+'</p>':'')+'<div class="sas-news-compact-bottom"><span>'+source+'</span>'+(url?'<a href="'+escHtml(url)+'" target="_blank" rel="noopener noreferrer">المصدر الأصلي ↗</a>':'')+'</div></article>';
  }).join('');
- track.classList.add('is-ticking');
- track.innerHTML='<div class="sas-news-ribbon-stack">'+lanes+'</div>';
+ track.classList.remove('is-ticking');
+ track.innerHTML='<div class="sas-news-single-lane" aria-label="أخبار السوق الأمريكي، اسحب أفقيًا لاستعراض المزيد">'+cards+'</div>';
 }
 async function refreshMarketNews(){
  const track=document.getElementById('sasMarketNewsTrack');const status=document.getElementById('sasMarketNewsStatus');
