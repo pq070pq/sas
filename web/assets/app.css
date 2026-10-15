@@ -3691,3 +3691,29 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 /* Startup loading state: never leave the account panel looking frozen */
 .account-load-error:not([hidden]){display:flex!important;visibility:visible!important;position:relative;z-index:8;min-height:76px;border-color:rgba(255,103,123,.58);background:linear-gradient(135deg,rgba(72,15,27,.42),rgba(9,20,31,.98));box-shadow:0 0 18px rgba(255,65,90,.08)}
 .account-load-error span{overflow-wrap:anywhere}
+
+/* SAS PRO search actions - premium interactive icon buttons */
+#tab-search .search-terminal{align-items:stretch!important;gap:12px!important}
+#tab-search .symbol-action-btn{position:relative!important;isolation:isolate;overflow:hidden;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;min-width:0!important;min-height:82px!important;padding:12px 13px!important;border-radius:19px!important;text-align:right!important;white-space:normal!important;cursor:pointer!important;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,filter .18s ease!important}
+#tab-search .symbol-action-btn:before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(112deg,transparent 20%,rgba(255,255,255,.13) 48%,transparent 70%);transform:translateX(-130%);transition:transform .55s ease;pointer-events:none}
+#tab-search .symbol-action-btn:hover:before,#tab-search .symbol-action-btn:focus-visible:before{transform:translateX(130%)}
+#tab-search .symbol-action-btn:hover,#tab-search .symbol-action-btn:focus-visible{transform:translateY(-2px)!important;outline:2px solid rgba(81,220,255,.28)!important;outline-offset:2px;filter:brightness(1.08)}
+#tab-search .symbol-action-btn:active{transform:scale(.98)!important}
+#tab-search .symbol-action-btn:disabled{opacity:.78;cursor:wait!important;transform:none!important}
+#tab-search .symbol-action-icon{display:grid;place-items:center;flex:0 0 48px;width:48px;height:48px;border-radius:15px;border:1px solid rgba(90,224,255,.35);background:linear-gradient(145deg,rgba(7,33,51,.8),rgba(4,19,31,.98));color:#66e6ff;box-shadow:inset 0 1px rgba(255,255,255,.08),0 0 18px rgba(0,195,255,.10);transition:transform .2s ease,box-shadow .2s ease}
+#tab-search .symbol-action-icon svg{width:27px;height:27px;display:block}
+#tab-search .symbol-action-copy{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+#tab-search .symbol-action-copy b{font-size:clamp(12px,1.6vw,16px);line-height:1.4;color:#effaff}
+#tab-search .symbol-action-copy small{font-size:10px;line-height:1.5;color:#94b5c8;font-weight:500}
+#tab-search .symbol-action-arrow{flex:0 0 auto;color:#70e6ff;font-size:26px;line-height:1;transition:transform .18s ease}
+#tab-search .analyze-action-btn{border:1px solid rgba(30,178,231,.65)!important;background:radial-gradient(circle at 15% 50%,rgba(16,177,230,.22),transparent 48%),linear-gradient(135deg,#07557b,#06283f)!important;box-shadow:inset 0 1px rgba(255,255,255,.1),0 8px 24px rgba(0,123,180,.15)!important}
+#tab-search .analyze-action-btn .symbol-action-icon{color:#7be8ff;border-color:rgba(91,224,255,.45)}
+#tab-search .shariah-search-btn-pro{min-width:0!important}
+#tab-search .shariah-search-btn-pro .shariah-search-btn-icon{width:28px;height:28px}
+#tab-search .symbol-action-btn:hover .symbol-action-icon,#tab-search .symbol-action-btn:focus-visible .symbol-action-icon{transform:scale(1.06);box-shadow:0 0 23px rgba(33,202,245,.23)}
+#tab-search .symbol-action-btn:hover .symbol-action-arrow,#tab-search .symbol-action-btn:focus-visible .symbol-action-arrow{transform:translateX(-4px)}
+#tab-search .symbol-action-btn.is-working .symbol-action-icon{animation:sasActionPulse 1s ease-in-out infinite}
+#tab-search .shariah-search-btn-pro.is-searching .shariah-search-btn-copy b{color:#8df0ff}
+@keyframes sasActionPulse{0%,100%{box-shadow:0 0 0 rgba(30,205,255,0)}50%{box-shadow:0 0 22px rgba(30,205,255,.28)}}
+@media(max-width:620px){#tab-search .search-terminal{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:9px!important}#tab-search .search-terminal input{grid-column:1/-1!important}#tab-search .symbol-action-btn{min-height:88px!important;gap:7px!important;padding:10px 9px!important;border-radius:16px!important}#tab-search .symbol-action-icon{flex-basis:40px;width:40px;height:40px;border-radius:12px}#tab-search .symbol-action-icon svg{width:23px;height:23px}#tab-search .symbol-action-copy b{font-size:12px}#tab-search .symbol-action-copy small{font-size:9px}#tab-search .symbol-action-arrow{font-size:20px}}
+@media(prefers-reduced-motion:reduce){#tab-search .symbol-action-btn,#tab-search .symbol-action-btn:before,#tab-search .symbol-action-icon,#tab-search .symbol-action-arrow{animation:none!important;transition:none!important}}
