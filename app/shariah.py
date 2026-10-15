@@ -56,6 +56,8 @@ async def _zoya(symbol):
         status = _normalize((report or {}).get("status"))
         return {"source":"Zoya","methodology":"AAOIFI","status":status,
                 "status_ar":{"compliant":"شرعي","non_compliant":"غير شرعي","doubtful":"محل نظر"}.get(status,"غير واضح"),
+                "verified": bool(status and report),
+                "reason": "نتيجة مباشرة من Zoya وفق منهجية AAOIFI." if status and report else "لم يعرض Zoya نتيجة مباشرة موثقة لهذا الرمز.",
                 "updated_at":(report or {}).get("reportDate"),
                 "purification_ratio":(report or {}).get("purificationRatio")}
     except Exception as e:
