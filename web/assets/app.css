@@ -3761,3 +3761,6 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .stock-shariah-action strong{color:#f2d58b!important}
 .sas-terminal-share{width:42px;height:42px;border-radius:13px;border:1px solid rgba(225,190,95,.68);background:rgba(71,54,18,.35);color:#f5d991;font-size:23px;cursor:pointer}
 @media(max-width:420px){.stock-card-actions{grid-template-columns:1fr 1fr!important}.stock-card-actions button{font-size:12px!important;padding:10px 6px!important}}
+
+.stock-share-save-combined{grid-column:1/-1!important;border:1px solid rgba(227,190,94,.76)!important;background:linear-gradient(125deg,#075878,#073247 58%,#332813)!important;color:#f6e2a7!important;box-shadow:inset 0 1px rgba(255,255,255,.08),0 0 18px rgba(49,196,232,.10)!important;font-size:14px!important;min-height:54px!important}
+.stock-share-save-combined:active{transform:scale(.985);filter:brightness(1.12)}
