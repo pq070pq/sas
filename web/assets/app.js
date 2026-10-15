@@ -2042,7 +2042,7 @@ async function loadAdminNewsPreview(){
  if(!box)return;
  box.innerHTML='<div class="empty-state">جارٍ تحميل الأخبار الموثقة…</div>';
  try{
-  const data=await api('/api/market/news',{timeoutMs:14000,retries:0});
+  const data=await api('/api/market/news',{timeoutMs:26000,retries:0});
   const items=Array.isArray(data)?data:(Array.isArray(data?.items)?data.items:[]);
   const valid=items.filter(n=>n&&safeNewsUrl(n.url)&&String(n.headline||'').trim()).sort((a,b)=>Number(b.datetime||0)-Number(a.datetime||0));
   box.innerHTML=renderNewsItems(valid,12);
