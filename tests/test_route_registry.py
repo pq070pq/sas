@@ -59,8 +59,8 @@ class MiniAppRollbackContractTests(unittest.TestCase):
             end = js.index("let stockAnalysisLoaderTimer", start)
             handler = js[start:end]
             self.assertNotIn("signal:searchController.signal", handler)
-            self.assertIn("class=\\\"shariah-retry-btn\\\"", handler)
-            self.assertIn("onclick=\\\"searchShariah()\\\"", handler)
+            self.assertIn('class="shariah-retry-btn"', handler)
+            self.assertIn('onclick="searchShariah()"', handler)
 
 
 if __name__ == "__main__":
