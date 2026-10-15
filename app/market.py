@@ -858,21 +858,36 @@ async def ticker():
         if symbol in {"SPX", "IXIC", "DJI"}
         and not _valid_price((_TICKER_CACHE.get(symbol) or {}).get("price"))
     ]
-    # Try the keyless Stooq daily snapshot first, then FRED's verified daily close.
-    # Both are explicitly marked as last-close data, never as a live intraday quote.
-    for provider_name, provider in (("Stooq", _stooq_quote), ("FRED", _fred_index_quote)):
-        if not missing_indices:
-            break
-        try:
-            fallbacks = await asyncio.wait_for(
-                asyncio.gather(*(provider(symbol) for symbol, _ in missing_indices)),
-                timeout=3.0,
-            )
-        except Exception as exc:
-            logger.info("MARKET_INDEX_%s_FALLBACK_FAILED: %s", provider_name.upper(), type(exc).__name__)
-            fallbacks = []
-        unresolved = []
-        for (symbol, label), item in zip(missing_indices, fallbacks):
+    # Run both no-key providers concurrently. The previous sequential 3-second
+    # caps cancelled Stooq/FRED before their own HTTP timeouts, leaving cards blank.
+    # Only verified daily closes are returned from this path and are marked stale.
+    if missing_indices:
+        async def resolve_index(item):
+            symbol, label = item
+            try:
+                results = await asyncio.wait_for(
+                    asyncio.gather(
+                        _stooq_quote(symbol),
+                        _fred_index_quote(symbol),
+                        return_exceptions=True,
+                    ),
+                    timeout=8.0,
+                )
+            except asyncio.TimeoutError:
+                logger.info("MARKET_INDEX_FALLBACK_TIMEOUT symbol=%s", symbol)
+                return item, None, None
+            stooq, fred = results
+            if isinstance(stooq, dict) and _valid_price(stooq.get("price")):
+                return item, stooq, "Stooq"
+            if isinstance(fred, dict) and _valid_price(fred.get("price")):
+                return item, fred, "FRED"
+            errors = [type(x).__name__ for x in results if isinstance(x, Exception)]
+            if errors:
+                logger.info("MARKET_INDEX_FALLBACK_FAILED symbol=%s errors=%s", symbol, ",".join(errors))
+            return item, None, None
+
+        resolved = await asyncio.gather(*(resolve_index(item) for item in missing_indices))
+        for (symbol, label), item, provider_name in resolved:
             if isinstance(item, dict) and _valid_price(item.get("price")):
                 saved = dict(item)
                 saved["symbol"] = symbol
@@ -880,8 +895,5 @@ async def ticker():
                 saved["stale"] = True
                 saved["source"] = str(saved.get("source") or provider_name) + " — آخر إغلاق موثق"
                 _TICKER_CACHE[symbol] = saved
-            else:
-                unresolved.append((symbol, label))
-        missing_indices = unresolved
     cached_rows = snapshot()
     return cached_rows
