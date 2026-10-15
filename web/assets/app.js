@@ -1033,7 +1033,9 @@ async function searchShariah(){
   const sources=Array.isArray(result?.sources)?result.sources:[];
   const sourceLines=sources.length?sources.map(src=>{
    if(!src||typeof src!=='object')return '';
-   const name=escHtml(src.source||'مصدر');
+   const sourceName=String(src.source||'مصدر');
+   const sourceGlyph=sourceName==='مصرف الراجحي'?'🏦':(sourceName==='بنك البلاد'?'🏛️':(sourceName==='يقين'?'🔎':(sourceName==='فلترنا'?'📋':(sourceName==='Zoya'?'◈':'◎'))));
+   const name='<span class="shariah-source-identity"><span class="shariah-source-brand-icon" aria-hidden="true">'+sourceGlyph+'</span><b>'+escHtml(sourceName)+'</b></span>';
    const statusText=escHtml(src.status_ar||'غير واضح / يحتاج تحقق');
    let meaning='';
    if(src.source==='مصرف الراجحي') meaning='المعيار الشرعي المستخدم للتحقق، وليس حكمًا مباشرًا على السهم.';
@@ -1044,7 +1046,7 @@ async function searchShariah(){
    const sourceState=String(src.status||'').toLowerCase();
    const sourceClass=(sourceState==='compliant'||sourceState==='halal')?'source-ok':((sourceState==='non_compliant'||sourceState==='haram')?'source-bad':'source-unknown');
    const sourceIcon=sourceClass==='source-ok'?'✓':(sourceClass==='source-bad'?'×':'?');
-   return '<div class="shariah-source-row '+sourceClass+'"><span><b>'+name+'</b><small>'+escHtml(meaning)+'</small></span><b><i aria-hidden="true">'+sourceIcon+'</i>'+statusText+'</b></div>';
+   return '<div class="shariah-source-row '+sourceClass+'"><span class="shariah-source-description">'+name+'<small>'+escHtml(meaning)+'</small></span><b class="shariah-source-status"><i aria-hidden="true">'+sourceIcon+'</i>'+statusText+'</b></div>';
   }).filter(Boolean).join(''):'<div class="shariah-source-row"><span>المصادر</span><b>لا توجد نتيجة موثقة كافية</b></div>';
   const isDoubtful=status==='doubtful'||status==='questionable';
   const statusTitle=isDoubtful?'محل نظر بحسب المصدر المنشور':(cls==='sh-ok'?'متوافق بحسب النتيجة المنشورة':(cls==='sh-bad'?'غير متوافق بحسب النتيجة المنشورة':'غير واضح / يحتاج تحقق'));
