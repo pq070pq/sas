@@ -77,7 +77,10 @@ jobs:
 
       - name: Deploy to OVH
         uses: appleboy/ssh-action@v1.2.2
+        env:
+          MARKETAUX_API_KEY: ${{ secrets.MARKETAUX_API_KEY }}
         with:
+          envs: MARKETAUX_API_KEY
           host: ${{ secrets.OVH_HOST }}
           username: ${{ secrets.OVH_USER || 'root' }}
           key_path: ${{ runner.temp }}/ovh_key
