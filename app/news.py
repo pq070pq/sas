@@ -517,3 +517,63 @@ async def company_fundamentals(symbol: str):
         return data
     except Exception:
         return {}
+
+
+_MARKET_NEWS_CACHE = {"at": 0.0, "items": []}
+_MARKET_NEWS_TTL = 300
+_MARKET_IMPACT_TERMS = (
+    "federal reserve", "federal open market", "fomc", "fed rate", "interest rate",
+    "rate cut", "rate hike", "inflation", "cpi", "ppi", "powell", "treasury yield",
+    "bond yield", "jobs report", "nonfarm payroll", "unemployment", "gdp",
+    "recession", "tariff", "trade war", "sanctions", "government shutdown",
+    "debt ceiling", "s&p 500", "nasdaq", "dow jones", "wall street", "stock futures",
+    "earnings", "market rally", "stocks fall", "stocks rise", "equities",
+    "oil prices", "crude oil", "banking crisis", "liquidity", "economic data",
+)
+
+async def market_news(limit: int = 24):
+    """Recent source-linked US-market headlines with explicit market-impact relevance."""
+    now = time.monotonic()
+    cached = _MARKET_NEWS_CACHE
+    if cached["items"] and now - cached["at"] < _MARKET_NEWS_TTL:
+        return cached["items"][:max(1, min(40, int(limit)))]
+    payload = await _finnhub_get("news", {"category": "general"}, timeout=10)
+    if not isinstance(payload, list):
+        return cached["items"][:max(1, min(40, int(limit)))] if cached["items"] else []
+    rows = []
+    seen = set()
+    cutoff = int(time.time()) - 7 * 86400
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        headline = re.sub(r"\\s+", " ", str(item.get("headline") or "")).strip()
+        url = str(item.get("url") or "").strip()
+        stamp = item.get("datetime")
+        if not headline or not url.startswith(("https://", "http://")):
+            continue
+        try:
+            stamp = int(stamp or 0)
+        except (TypeError, ValueError):
+            stamp = 0
+        if stamp < cutoff or stamp > int(time.time()) + 3600:
+            continue
+        normal = headline.lower()
+        if not any(term in normal for term in _MARKET_IMPACT_TERMS):
+            continue
+        key = re.sub(r"[^a-z0-9]+", " ", normal).strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        rows.append({
+            "headline": headline,
+            "source": str(item.get("source") or "Finnhub"),
+            "url": url,
+            "datetime": stamp,
+            "summary": re.sub(r"<[^>]+>", " ", str(item.get("summary") or "")).strip()[:500],
+            "category": str(item.get("category") or "general"),
+            "related": str(item.get("related") or ""),
+            "provider": "Finnhub",
+        })
+    rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
+    _MARKET_NEWS_CACHE.update({"at": now, "items": rows[:40]})
+    return rows[:max(1, min(40, int(limit)))]
