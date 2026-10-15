@@ -202,14 +202,14 @@ async function load(){
  const watchdog=setTimeout(()=>{
   if(!loadStarted)return;
   loadStarted=false;
-  showAccountLoadError('انتهت مهلة التحقق من الحساب. اضغط إعادة المحاولة أو أغلق التطبيق وافتحه من داخل Telegram.');
- },12000);
+  showAccountLoadError('التحقق تأخر وما اكتمل. اضغط «إعادة المحاولة»، أو أغلق SAS PRO وافتحه من تيليجرام من جديد.');
+ },8000);
  try{
   refreshTelegramWebApp();
   if(!tg)throw new Error('تعذر الوصول إلى Telegram WebApp. افتح SAS PRO من داخل Telegram.');
-  const initData=await waitForTelegramInitData(5000);
+  const initData=await waitForTelegramInitData(3500);
   if(!initData)throw new Error('لم تصل بيانات Telegram الموثقة إلى التطبيق. أغلق Mini App وافتحه من زر SAS PRO داخل Telegram ثم أعد المحاولة.');
-  me=await api('/api/me');
+  me=await api('/api/me',{timeoutMs:6500,retries:0});
   // Verification succeeded; stop the startup watchdog before loading the dashboard.
   clearTimeout(watchdog);
   if(me.admin){
@@ -227,8 +227,8 @@ async function load(){
   }
   document.getElementById('userName').textContent=me.user?.first_name||me.user?.username||'مستخدم SAS PRO';
   renderStatus(me);
-  const cfg=await api('/api/subscription/config');
-  plans=await api('/api/subscription/plans');
+  const cfg=await api('/api/subscription/config',{timeoutMs:6500,retries:0});
+  plans=await api('/api/subscription/plans',{timeoutMs:6500,retries:0});
   renderTrialCard(cfg.trial_days);
   document.getElementById('paidPlansSection').hidden=!cfg.paid_plans_visible;
   renderPlans(plans.plans||{});
