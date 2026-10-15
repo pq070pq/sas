@@ -51,7 +51,7 @@ async function api(path,opt={}){
      await sleep(350*(attempt+1));
      continue;
     }
-    throw new Error(msg);
+    const apiError=new Error(msg);apiError.status=r.status;throw apiError;
    }
    return await r.json();
   }catch(e){
@@ -2630,7 +2630,7 @@ async function refreshMarketNews(){
  }catch(e){
   console.warn('SAS PRO market news refresh failed:',e?.message||e);
   if(!terminalState.newsItems.length)track.innerHTML='<div class="sas-market-news-empty"><span>↻</span><b>تعذر تحميل الأخبار مؤقتًا</b><small>اضغط زر التحديث للمحاولة مجددًا.</small></div>';
-  if(status)status.textContent='تعذر تحديث الأخبار؛ لم يتم إنشاء عناوين بديلة.';
+  if(status)status.textContent=(e?.status===401||e?.status===403)?'تعذر التحقق من صلاحية الأخبار؛ أغلق SAS PRO وافتحه من تيليجرام مجددًا.':(e?.status>=500?'خدمة الأخبار تواجه خطأ مؤقتًا؛ ستتم إعادة المحاولة تلقائيًا.':'تعذر الاتصال بخدمة الأخبار؛ ستتم إعادة المحاولة تلقائيًا.');
  }finally{
   terminalState.newsLoading=false;if(refresh)refresh.classList.remove('is-loading');
  }
