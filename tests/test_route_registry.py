@@ -56,6 +56,13 @@ class MiniAppRollbackContractTests(unittest.TestCase):
         self.assertIn("async def market_news_endpoint", main)
         self.assertIn("translate_stock_news", main)
 
+    def test_deploy_smoke_test_accepts_new_market_pulse_ui(self):
+        workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
+        self.assertIn('id="sasMarketNewsTrack"', workflow)
+        self.assertIn('id="sasMarketIndicesTrack"', workflow)
+        self.assertIn("new market-news or market-indices ribbon", workflow)
+        self.assertNotIn("! grep -q \"sasMarketNews\" /app/web/index.html", workflow)
+
     def test_shariah_search_does_not_reference_an_out_of_scope_controller(self):
         for relative in ("web/assets/app.js", "web/assets/app-ticker-fix-20261015.js"):
             js = (ROOT / relative).read_text(encoding="utf-8")
