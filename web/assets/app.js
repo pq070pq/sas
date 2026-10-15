@@ -1031,7 +1031,7 @@ function stockCard(x){
  '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+'<span>'+catalystLabel+(catalyst>0?' '+catalyst+'/100':'')+'</span>'+(x.live_price_source?'<span>📡 '+escHtml(x.live_price_source)+'</span>':'')+'</div>'+
  perpContext+
  '<div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||cls.reason||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div>'+
-  '<div class="sas-card-chart"><button type="button" class="sas-card-chart-toggle" aria-expanded="false" onclick="event.stopPropagation();toggleSasCardChart(this,\\''+raw+'\\','+String(price)+')"><span class="sas-card-chart-icon" aria-hidden="true"><svg viewBox="0 0 32 24"><path d="M2 20 L8 14 L13 17 L20 7 L25 11 L30 3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="30" cy="3" r="2" fill="currentColor"/></svg></span><span class="sas-card-chart-title">شارت السهم <small>عرض الحركة السعرية</small></span><span class="sas-card-chart-price">
+  '<div class="sas-card-chart"><button type="button" class="sas-card-chart-toggle" aria-expanded="false" onclick=\"event.stopPropagation();toggleSasCardChart(this)\" data-symbol=\"'+raw+'\" data-price=\"'+String(price)+'\"><span class="sas-card-chart-icon" aria-hidden="true"><svg viewBox="0 0 32 24"><path d="M2 20 L8 14 L13 17 L20 7 L25 11 L30 3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="30" cy="3" r="2" fill="currentColor"/></svg></span><span class="sas-card-chart-title">شارت السهم <small>عرض الحركة السعرية</small></span><span class="sas-card-chart-price">
  '<div class="stock-actions stock-card-actions"><button class="stock-chart-action" onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">🔍 تحليل السهم</button></div><footer class="sas-card-copyright">SAS PRO RADAR · © جميع الحقوق محفوظة · معلومات تعليمية وليست توصية استثمارية</footer></article>';
 }
 
@@ -1040,7 +1040,8 @@ function stockCard(x){
 
 
 const sasCardChartCache=new Map();
-async function toggleSasCardChart(button,symbol,cardPrice){
+async function toggleSasCardChart(button){
+ const symbol=button.dataset.symbol,cardPrice=Number(button.dataset.price);
  const card=button.closest('.stock-card');if(!card)return;
  const panel=card.querySelector('.sas-card-chart-panel');if(!panel)return;
  const opening=panel.hidden;panel.hidden=!opening;button.setAttribute('aria-expanded',String(opening));
@@ -1062,7 +1063,7 @@ async function toggleSasCardChart(button,symbol,cardPrice){
   panel.dataset.loaded='1';
   const svg=plot.querySelector('svg');
   svg?.addEventListener('pointermove',ev=>{const rect=svg.getBoundingClientRect(),x=(ev.clientX-rect.left)/rect.width*W,idx=Math.max(0,Math.min(coords.length-1,Math.round((x-P)/(W-2*P)*(coords.length-1)))),p=coords[idx],line=svg.querySelector('.sas-card-chart-crosshair'),label=svg.querySelector('.sas-card-chart-last-label');if(line){line.setAttribute('x1',p.x);line.setAttribute('x2',p.x);}if(label){label.textContent='$'+p.p.close.toFixed(4);label.setAttribute('x',Math.min(W-10,p.x-7));label.setAttribute('y',Math.max(16,p.y-10));}});
- }catch(err){status.textContent='تعذر جلب الشارت الآن. حاول مرة ثانية؛ لن نعرض بيانات أو حركة وهمية.';const retry=document.createElement('button');retry.type='button';retry.className='sas-card-chart-retry';retry.textContent='إعادة المحاولة';retry.onclick=()=>{panel.dataset.loaded='';sasCardChartCache.delete(symbol);toggleSasCardChart(button,symbol,cardPrice);};status.appendChild(retry);}
+ }catch(err){status.textContent='تعذر جلب الشارت الآن. حاول مرة ثانية؛ لن نعرض بيانات أو حركة وهمية.';const retry=document.createElement('button');retry.type='button';retry.className='sas-card-chart-retry';retry.textContent='إعادة المحاولة';retry.onclick=()=>{panel.dataset.loaded='';sasCardChartCache.delete(symbol);toggleSasCardChart(button);};status.appendChild(retry);}
 }
 
 function showCardScreenshotHint(button){const card=button.closest('.stock-card')||button.closest('article');if(!card)return;card.classList.add('sas-card-screenshot-focus');const old=button.querySelector('.sas-screenshot-status');if(old)old.remove();const status=document.createElement('span');status.className='sas-screenshot-status';status.setAttribute('role','status');status.textContent='البطاقة جاهزة للتصوير — التقط لقطة شاشة من جهازك لمشاركتها.';button.appendChild(status);button.setAttribute('aria-expanded','true');setTimeout(()=>{card.classList.remove('sas-card-screenshot-focus');button.setAttribute('aria-expanded','false');},4500);}
