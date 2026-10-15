@@ -1034,7 +1034,7 @@ async function searchShariah(){
   const sourceLines=sources.length?sources.map(src=>{
    if(!src||typeof src!=='object')return '';
    const sourceName=String(src.source||'مصدر');
-   const sourceGlyph=sourceName==='مصرف الراجحي'?'🏦':(sourceName==='بنك البلاد'?'🏛️':(sourceName==='يقين'?'🔎':(sourceName==='فلترنا'?'📋':'◎')));
+   const sourceGlyph=sourceName==='مصرف الراجحي'?'🏦':(sourceName==='بنك البلاد'?'🏛️':(sourceName==='يقين'?'🔎':(sourceName==='فلترنا'?'📋':(sourceName==='Zoya'?'◈':'◎'))));
    const name='<span class="shariah-source-identity"><span class="shariah-source-brand-icon" aria-hidden="true">'+sourceGlyph+'</span><b>'+escHtml(sourceName)+'</b></span>';
    const statusText=escHtml(src.status_ar||'غير واضح / يحتاج تحقق');
    let meaning='';
