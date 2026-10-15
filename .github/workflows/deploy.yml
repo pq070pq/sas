@@ -238,31 +238,31 @@ jobs:
             fi
             echo "✅ Production HTTP route serves the restored pre-news market UI."
 
-echo "===== VERIFY FRESH TICKER ASSETS AND CACHE HEADERS ====="
-for asset in app-ticker-fix-20261015.js app-ticker-fix-20261015.css; do
-  if ! docker compose exec -T saspro test -s "/app/web/assets/$asset"; then
-    echo "❌ Missing deployed frontend asset: $asset"
-    exit 1
-  fi
-  code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:8000/assets/$asset")
-  headers=$(curl -sSI --max-time 10 "http://127.0.0.1:8000/assets/$asset" | tr -d '\r')
-  echo "ASSET=$asset HTTP=$code"
-  printf '%s\n' "$headers" | grep -iE '^(cache-control|pragma|expires):' || true
-  if [ "$code" != "200" ]; then
-    echo "❌ Fresh asset did not return HTTP 200: $asset"
-    exit 1
-  fi
-  if ! printf '%s\n' "$headers" | grep -qi '^cache-control:.*no-store'; then
-    echo "❌ Missing no-store header for asset: $asset"
-    exit 1
-  fi
-done
-if ! grep -q 'app-ticker-fix-20261015.js' /tmp/saspro_home_live.html || ! grep -q 'app-ticker-fix-20261015.css' /tmp/saspro_home_live.html; then
-  echo "❌ Production HTML does not reference both new cache-busting assets."
-  exit 1
-fi
-echo "✅ New JS/CSS assets are present, served with no-store, and referenced by production HTML."
-echo "===== END FRESH TICKER ASSET VERIFICATION ====="
+            echo "===== VERIFY FRESH TICKER ASSETS AND CACHE HEADERS ====="
+            for asset in app-ticker-fix-20261015.js app-ticker-fix-20261015.css; do
+              if ! docker compose exec -T saspro test -s "/app/web/assets/$asset"; then
+                echo "❌ Missing deployed frontend asset: $asset"
+                exit 1
+              fi
+              code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:8000/assets/$asset")
+              headers=$(curl -sSI --max-time 10 "http://127.0.0.1:8000/assets/$asset" | tr -d '\r')
+              echo "ASSET=$asset HTTP=$code"
+              printf '%s\n' "$headers" | grep -iE '^(cache-control|pragma|expires):' || true
+              if [ "$code" != "200" ]; then
+                echo "❌ Fresh asset did not return HTTP 200: $asset"
+                exit 1
+              fi
+              if ! printf '%s\n' "$headers" | grep -qi '^cache-control:.*no-store'; then
+                echo "❌ Missing no-store header for asset: $asset"
+                exit 1
+              fi
+            done
+            if ! grep -q 'app-ticker-fix-20261015.js' /tmp/saspro_home_live.html || ! grep -q 'app-ticker-fix-20261015.css' /tmp/saspro_home_live.html; then
+              echo "❌ Production HTML does not reference both new cache-busting assets."
+              exit 1
+            fi
+            echo "✅ New JS/CSS assets are present, served with no-store, and referenced by production HTML."
+            echo "===== END FRESH TICKER ASSET VERIFICATION ====="
 
             echo "===== SAS PRO MARKET NEWS LIVE DIAGNOSTIC ====="
             # Exercise the exact backend news handler inside the production container.
