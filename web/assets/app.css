@@ -4092,3 +4092,30 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 /* Full news text: never clamp or cut headlines/summaries */
 .sas-news-ribbon-card>strong{overflow:visible!important;display:block!important;-webkit-line-clamp:unset!important;-webkit-box-orient:initial!important}
 .sas-news-ribbon-card>p{display:block!important;overflow:visible!important;-webkit-line-clamp:unset!important;-webkit-box-orient:initial!important;white-space:normal!important;max-height:none!important}
+
+
+/* SAS PRO unified market overview: prices and news inside one coherent panel */
+.sas-market-overview{position:relative;isolation:isolate;margin:0 clamp(8px,1.5vw,16px) 18px;overflow:hidden;border:1px solid rgba(42,199,230,.34);border-radius:0 0 23px 23px;background:radial-gradient(ellipse at 100% 0,rgba(0,177,224,.12),transparent 42%),linear-gradient(150deg,#041c2b 0%,#03131f 55%,#020e18 100%);box-shadow:0 14px 32px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.04)}
+.sas-market-overview:before{content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;background:linear-gradient(110deg,transparent 0%,rgba(30,196,229,.035) 48%,transparent 70%)}
+.sas-market-overview-title{display:flex;align-items:center;gap:10px;padding:13px 15px 11px;border-bottom:1px solid rgba(63,177,210,.17)}
+.sas-market-pulse{width:9px;height:9px;flex:0 0 9px;border-radius:50%;background:#20e2a0;box-shadow:0 0 12px rgba(32,226,160,.55)}
+.sas-market-overview-title>div{display:flex;flex-direction:column;gap:2px}
+.sas-market-overview-title strong{color:#eafaff;font-size:14px;font-weight:900}
+.sas-market-overview-title small{color:#7f9eaf;font-size:10px}
+.sas-market-overview-live{margin-inline-start:auto;padding:4px 8px;border:1px solid rgba(36,218,170,.23);border-radius:999px;color:#64e8bd;background:rgba(9,103,81,.12);font-size:9px;font-weight:900;letter-spacing:1px}
+.sas-market-prices{padding:0 7px;border-bottom:1px solid rgba(64,178,209,.2);background:linear-gradient(90deg,rgba(0,146,191,.045),transparent 55%)}
+.sas-market-prices .market-ticker{margin:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+.sas-market-overview .sas-market-news{margin:0!important;padding:12px 12px 10px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+.sas-market-overview .sas-market-news-head{padding:0 2px 10px!important;border-bottom:1px solid rgba(71,184,216,.14)!important}
+.sas-market-overview .sas-market-news-track,.sas-market-overview .sas-market-news-track.is-ticking{padding:9px 0 3px!important}
+.sas-market-overview .sas-news-ribbon-stack{gap:7px}
+.sas-market-overview .sas-news-ribbon-row{border-color:rgba(49,167,201,.19);background:linear-gradient(100deg,rgba(3,30,46,.75),rgba(2,15,25,.82))}
+.sas-market-overview .sas-news-ribbon-card{background:linear-gradient(135deg,rgba(5,33,50,.96),rgba(3,17,29,.98));border-color:rgba(48,158,192,.2)}
+.sas-market-overview .sas-market-news-foot{padding-top:8px!important;border-top:1px solid rgba(71,184,216,.1);font-size:9px}
+@media(max-width:600px){
+ .sas-market-overview{margin:0 6px 13px;border-radius:0 0 18px 18px}
+ .sas-market-overview-title{padding:11px 12px 9px}
+ .sas-market-overview-title strong{font-size:13px}
+ .sas-market-overview .sas-market-news{padding:10px 8px 8px!important}
+ .sas-market-overview .sas-news-ribbon-card{flex-basis:clamp(255px,78vw,350px)}
+}
