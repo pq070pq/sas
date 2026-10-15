@@ -23,7 +23,7 @@ FMP_SYMBOLS = {
     "IXIC": ["^IXIC"],
     "DJI": ["^DJI"],
     "XAU/USD": ["GCUSD", "GLD"],
-    "VIX": ["^VIX", "VIXY"],
+    "VIX": ["^VIX"],
 }
 
 async def _finnhub_quote(symbol: str):
