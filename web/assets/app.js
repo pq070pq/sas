@@ -1924,7 +1924,7 @@ function openDeployActions(){
  if(tg?.openLink)tg.openLink(url);else window.open(url,'_blank');
 }
 
-const ADMIN_ACCORDION_ITEMS=[
+var ADMIN_ACCORDION_ITEMS=[
  ['adminOverview','⌂','نظرة عامة','الحالة العامة والإحصاءات والتنبيهات'],
  ['adminRadarPreviewPanel','📡','حالة الرادار','آخر دورة، أفضل الفرص وأسباب الاستبعاد'],
  ['adminUsersPanel','👥','المشتركون','البحث وإدارة المستخدمين'],
