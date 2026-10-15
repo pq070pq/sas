@@ -2552,7 +2552,7 @@ async def market_news_endpoint(_: dict = Depends(require_pro)):
     # The ribbon displays up to 16 cards. Translate all visible headlines and
     # keep the whole endpoint below the frontend request timeout.
     try:
-        translated = await asyncio.wait_for(translate_stock_news("MARKET", rows[:16]), timeout=10.0)
+        translated = await asyncio.wait_for(translate_stock_news("MARKET", rows[:16]), timeout=12.0)
     except Exception as exc:
         logger.info("Market news Arabic translation unavailable: %s", type(exc).__name__)
         translated = []
