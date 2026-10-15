@@ -4944,3 +4944,7 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 #sasMarketPulse .sas-index-card .sas-index-card-top{
  justify-content:flex-start!important;
 }
+
+
+/* Remove only the redundant legacy market indicators grid at page bottom. Keep the moving ribbon near news intact. */
+#macroGrid,.section-title:has(.market-indicators-icon){display:none!important;}
