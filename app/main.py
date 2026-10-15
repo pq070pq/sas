@@ -2545,21 +2545,37 @@ async def market_news_feed(_: dict = Depends(require_pro)):
             logger.warning("US market RSS fallback failed: %s", type(rss_exc).__name__)
 
     now = time.monotonic()
-    translated_by_url = _market_news_translation_cache["by_url"]
-    if items and now - _market_news_translation_cache["at"] > 900:
+    translated_by_url = dict(_market_news_translation_cache["by_url"])
+    # Translate every newly fetched headline in small parallel batches. Previously only
+    # the first eight items were translated, leaving the majority of the ribbon in English.
+    missing = [
+        row for row in items
+        if isinstance(row, dict) and row.get("url")
+        and str(row.get("url")) not in translated_by_url
+    ]
+    if missing:
         try:
-            translated = await asyncio.wait_for(
-                translate_stock_news("US_MARKET", items[:8]), timeout=6
+            batches = [missing[i:i + 8] for i in range(0, min(len(missing), 24), 8)]
+            results = await asyncio.wait_for(
+                asyncio.gather(*(
+                    translate_stock_news("US_MARKET", batch)
+                    for batch in batches
+                ), return_exceptions=True),
+                timeout=16,
             )
-            fresh_translations = {
-                str(row.get("url") or ""): row for row in translated
-                if isinstance(row, dict) and row.get("url") and row.get("translated_headline")
-            }
+            fresh_translations = {}
+            for result in results:
+                if isinstance(result, list):
+                    fresh_translations.update({
+                        str(row.get("url") or ""): row for row in result
+                        if isinstance(row, dict) and row.get("url") and row.get("translated_headline")
+                    })
             if fresh_translations:
-                translated_by_url = fresh_translations
+                translated_by_url.update(fresh_translations)
                 _market_news_translation_cache.update({"at": now, "by_url": translated_by_url})
+            logger.info("US market news Arabic translation: translated=%d requested=%d", len(fresh_translations), min(len(missing), 24))
         except Exception as translation_exc:
-            # Keep the verified English headline/source visible even if translation is slow.
+            # Keep source-linked news visible while the next refresh retries translation.
             logger.info("Market news Arabic translation deferred: %s", type(translation_exc).__name__)
 
     enriched = []
