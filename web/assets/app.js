@@ -789,6 +789,7 @@ function renderMacro(){
      ? '<div class="ticker-run">'+tickerItems+'</div><div class="ticker-run" aria-hidden="true">'+tickerItems+'</div>'
      : '<div class="empty-state">لا تتوفر أسعار السوق حاليًا.</div>';
    ticker.classList.toggle('ticker-empty',!tickerItems);
+   ticker.classList.toggle('ticker-has-items',Boolean(tickerItems));
  }
 }
 async function runRadar(show=true){
@@ -2610,7 +2611,9 @@ function renderMarketNews(){
   return '<article class="sas-news-compact-card"><div class="sas-news-compact-meta"><span class="sas-news-compact-category">'+(icons[cat]||icons.other)+' '+cats[cat]+'</span><time>'+sasNewsTime(n.datetime)+'</time></div><strong>'+title+'</strong>'+(summary?'<p>'+escHtml(summary.slice(0,220))+'</p>':'')+'<div class="sas-news-compact-bottom"><span>'+source+'</span>'+(url?'<a href="'+escHtml(url)+'" target="_blank" rel="noopener noreferrer">المصدر الأصلي ↗</a>':'')+'</div></article>';
  }).join('');
  track.classList.remove('is-ticking');
- track.innerHTML='<div class="sas-news-single-lane" aria-label="أخبار السوق الأمريكي، اسحب أفقيًا لاستعراض المزيد">'+cards+'</div>';
+ // Duplicate the complete news lane and animate the lane as one track.
+ // This keeps all cards in sequence and prevents clipped, static side cards.
+ track.innerHTML='<div class="sas-news-single-lane" aria-label="أخبار السوق الأمريكي">'+cards+cards+'</div>';
 }
 async function refreshMarketNews(){
  const track=document.getElementById('sasMarketNewsTrack');const status=document.getElementById('sasMarketNewsStatus');
