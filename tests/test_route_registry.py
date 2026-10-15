@@ -44,13 +44,17 @@ class MiniAppRollbackContractTests(unittest.TestCase):
         self.assertIn("/assets/app-ticker-fix-20261015.js", html)
         self.assertIn("/assets/app-ticker-fix-20261015.css", html)
 
-    def test_removed_market_ticker_and_news_panel_stay_absent(self):
+    def test_market_pulse_ribbon_and_index_rail_are_present(self):
         html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
         js = (ROOT / "web" / "assets" / "app-ticker-fix-20261015.js").read_text(encoding="utf-8")
-        for marker in ('market-ticker-wrap', 'id="marketTicker"', 'sasMarketNews'):
-            self.assertNotIn(marker, html)
-        for marker in ("marketTicker", "refreshTickerOnly", "sasMarketNews"):
-            self.assertNotIn(marker, js)
+        css = (ROOT / "web" / "assets" / "app-ticker-fix-20261015.css").read_text(encoding="utf-8")
+        main = (ROOT / "app" / "main.py").read_text(encoding="utf-8")
+        self.assertIn('id="sasMarketNewsTrack"', html)
+        self.assertIn('id="sasMarketIndicesTrack"', html)
+        self.assertIn("sasMarketNewsScroll", css)
+        self.assertIn("/api/market/news", js)
+        self.assertIn("async def market_news_endpoint", main)
+        self.assertIn("translate_stock_news", main)
 
     def test_shariah_search_does_not_reference_an_out_of_scope_controller(self):
         for relative in ("web/assets/app.js", "web/assets/app-ticker-fix-20261015.js"):
