@@ -3276,7 +3276,7 @@ function showActionNotice(kind,message){
  if(!box){box=document.createElement('div');box.id=id;box.className='sas-action-notice';box.setAttribute('role','status');const anchor=kind==='channel'?document.querySelector('#tab-dashboard .sas-action-card[onclick="openChannel()"]'):document.getElementById('radarDiagnostics');(anchor?.parentElement||document.getElementById('tab-'+(kind==='channel'?'dashboard':'radar')))?.insertBefore(box,anchor?.nextSibling||null);}
  box.textContent=message;box.hidden=false;
 }
-let sasChannelOpening=false;
+
 async function openChannel(){
  if(sasChannelOpening)return;
  sasChannelOpening=true;
@@ -4831,7 +4831,7 @@ function showActionNotice(kind,message){
  if(!box){box=document.createElement('div');box.id=id;box.className='sas-action-notice';box.setAttribute('role','status');const anchor=kind==='channel'?document.querySelector('#tab-dashboard .sas-action-card[onclick="openChannel()"]'):document.getElementById('radarDiagnostics');(anchor?.parentElement||document.getElementById('tab-'+(kind==='channel'?'dashboard':'radar')))?.insertBefore(box,anchor?.nextSibling||null);}
  box.textContent=message;box.hidden=false;
 }
-let sasChannelOpening=false;
+
 async function openChannel(){
  if(sasChannelOpening)return;
  sasChannelOpening=true;
@@ -6386,7 +6386,7 @@ function showActionNotice(kind,message){
  if(!box){box=document.createElement('div');box.id=id;box.className='sas-action-notice';box.setAttribute('role','status');const anchor=kind==='channel'?document.querySelector('#tab-dashboard .sas-action-card[onclick="openChannel()"]'):document.getElementById('radarDiagnostics');(anchor?.parentElement||document.getElementById('tab-'+(kind==='channel'?'dashboard':'radar')))?.insertBefore(box,anchor?.nextSibling||null);}
  box.textContent=message;box.hidden=false;
 }
-let sasChannelOpening=false;
+
 async function openChannel(){
  if(sasChannelOpening)return;
  sasChannelOpening=true;
