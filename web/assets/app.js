@@ -291,7 +291,7 @@ function switchTerminalTab(tab){
  document.querySelectorAll('.terminal-tab').forEach(x=>x.classList.toggle('active',x.id==='tab-'+tab));
  document.querySelectorAll('.terminal-tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
  document.querySelectorAll('.sas-mobile-dock button').forEach(x=>x.classList.toggle('is-active',x.getAttribute('onclick')?.includes("'"+tab+"'")));
- if(tab==='radar')renderRadar();
+ if(tab==='radar'){renderRadar();if(!terminalState.radarScanning&&(!Array.isArray(terminalState.radar)||terminalState.radar.length===0))void runRadar(false);}
  if(tab==='watch')renderWatchlist();
 }
 async function refreshTickerOnly(){
@@ -1602,6 +1602,12 @@ async function continueTerms(){
   alert(e.message);
  }
 }
+function showActionNotice(kind,message){
+ const id=kind==='channel'?'channelActionNotice':'radarActionNotice';
+ let box=document.getElementById(id);
+ if(!box){box=document.createElement('div');box.id=id;box.className='sas-action-notice';box.setAttribute('role','status');const anchor=kind==='channel'?document.querySelector('#tab-dashboard .sas-action-card[onclick="openChannel()"]'):document.getElementById('radarDiagnostics');(anchor?.parentElement||document.getElementById('tab-'+(kind==='channel'?'dashboard':'radar')))?.insertBefore(box,anchor?.nextSibling||null);}
+ box.textContent=message;box.hidden=false;
+}
 let sasChannelOpening=false;
 async function openChannel(){
  if(sasChannelOpening)return;
@@ -1609,11 +1615,14 @@ async function openChannel(){
  const button=document.querySelector('#tab-dashboard .sas-action-card[onclick="openChannel()"]');
  if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
  try{
-  const d=await api('/api/channel/access',{timeoutMs:8000,retries:0});
+  const d=await api('/api/channel/access',{timeoutMs:20000,retries:1});
   if(tg?.openTelegramLink)tg.openTelegramLink(d.url);
   else if(tg?.openLink)tg.openLink(d.url);
   else window.open(d.url,'_blank');
- }catch(e){alert(e.message);}
+ }catch(e){
+  const msg=String(e?.message||'تعذر تجهيز رابط القناة.');
+  showActionNotice('channel',msg.includes('الوقت المحدد')?'تأخر إنشاء رابط القناة من تيليجرام. جرّب مرة ثانية بعد قليل.':msg);
+ }
  finally{
   sasChannelOpening=false;
   if(button){button.disabled=false;button.removeAttribute('aria-busy');}
