@@ -106,31 +106,15 @@ async def check_shariah(symbol):
                     "reason":"تعذر الوصول إلى صفحة يقين الآن؛ لم يتم تأليف أي نتيجة.","error":type(e).__name__,
                     "url":YAAQEEN_URL.format(symbol=symbol)}
 
-    async def fetch_filterna():
-        try:
-            async with httpx.AsyncClient(timeout=8, follow_redirects=True,
-                                         headers={"User-Agent":"SAS-PRO-Shariah/1.0"}) as client:
-                r = await client.get("https://filterna.com/")
-                r.raise_for_status()
-                text = re.sub(r"<[^>]+>", " ", r.text)
-                method = "القرار رقم ( 485 )" in text or "القرار رقم (485)" in text
-                return {"source":"فلترنا","status":None,"status_ar":"غير واضح / يحتاج تحقق","verified":False,
-                        "methodology_verified":method,
-                        "reason":"نتيجة السهم المباشرة غير متاحة كبيانات عامة قابلة للتحقق؛ لم يتم تأليف نتيجة.",
-                        "methodology":"فلترنا يذكر اعتماده على ضوابط قرار الهيئة الشرعية للراجحي رقم 485 وتعديله.",
-                        "url":"https://filterna.com/"}
-        except Exception as e:
-            return {"source":"فلترنا","status":None,"status_ar":"غير متاح","verified":False,"error":type(e).__name__}
-
     # Check independent direct sources in parallel; unavailable sources never count as a verdict.
-    direct = await asyncio.gather(fetch_yaaqeen(), fetch_filterna())
+    direct = await asyncio.gather(fetch_yaaqeen())
     direct = [item for item in direct if item is not None]
     refs = [
-        {"source":"مصرف الراجحي","role":"مرجع منهجي","status":"reference","status_ar":"مرجع","verified":True,
-         "reason":"لا ننسب للراجحي حكم سهم محدد دون نتيجة منشورة قابلة للتحقق.",
+        {"source":"مصرف الراجحي","role":"معيار شرعي عام","status":"reference","status_ar":"معيار عام","verified":True,
+         "reason":"هذه الصفحة توضح المعايير والحوكمة الشرعية لدى المصرف، ولا تعطي حكمًا مباشرًا على هذا السهم.",
          "url":"https://www.alrajhibank.com.sa/About-alrajhi-bank/Shariah-Group"},
         {"source":"بنك البلاد","role":"مرجع منهجي","status":"reference","status_ar":"مرجع","verified":True,
-         "reason":"لا ننسب لبنك البلاد حكم سهم محدد دون نتيجة منشورة قابلة للتحقق.",
+         "reason":"هذه معلومات عن الهيئة والحوكمة الشرعية لدى البنك، وليست نتيجة فحص مباشرة لهذا السهم.",
          "url":"https://www.bankalbilad.com/"}
     ]
     usable = [x.get("status") for x in direct if x.get("verified") and x.get("status") in {"compliant", "non_compliant", "doubtful"}]
