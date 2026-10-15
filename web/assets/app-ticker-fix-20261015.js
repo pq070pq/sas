@@ -409,9 +409,10 @@ async function refreshTerminal(){
     if(!Array.isArray(ticker))return ticker;
     // Paint real/cached market prices immediately; fetch missing gold separately.
     terminalState.ticker=ticker;
-    window.__sasLastTicker=ticker;
     renderMacro();
-    window.dispatchEvent(new CustomEvent('saspro:ticker-updated',{detail:{ticker}}));
+    const sharedTicker=Array.isArray(window.__sasMacroRenderedTicker)?window.__sasMacroRenderedTicker:ticker;
+    window.__sasLastTicker=sharedTicker;
+    window.dispatchEvent(new CustomEvent('saspro:ticker-updated',{detail:{ticker:sharedTicker}}));
     const gold=ticker.find(x=>String(x?.symbol||'').toUpperCase()==='XAU/USD' || String(x?.label||'').toUpperCase()==='GOLD');
     if(!gold || !(Number(gold.price)>0)){
      fetchPublicGoldFallback().then(directGold=>{
@@ -735,6 +736,8 @@ function renderMacro(){
   }catch(e){}
   return found?{...found,label:item.label,source:'جارٍ تحديث الأسعار'}:{label:item.label,price:null,change_pct:null,source:'بانتظار بيانات المزود',diagnostic:'quote_refresh_in_progress'};
  }).filter(Boolean);
+ // Share the legacy cards' normalized rows, including their last-valid-price fallback.
+ window.__sasMacroRenderedTicker=rows;
  const cards=rows.map(x=>{
   const valid=Number(x.price)>0;
   const labelKey=String(x.label||'').toLowerCase();
