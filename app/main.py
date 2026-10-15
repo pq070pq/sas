@@ -2529,16 +2529,46 @@ async def market_ticker(_: dict = Depends(require_pro)):
     return await ticker()
 
 
+_market_news_translation_cache = {"at": 0.0, "by_url": {}}
+
 @app.get("/api/market/news")
 async def market_news_feed(_: dict = Depends(require_pro)):
-    """Recent source-linked headlines filtered for material US-market relevance."""
+    """Fresh source-linked U.S.-market headlines with cached Arabic translations."""
     try:
         items = await asyncio.wait_for(market_news(limit=24), timeout=12)
-        return {"items": items, "updated_at": datetime.now(timezone.utc).isoformat(), "source": "Finnhub", "filtered_for_market_impact": True}
+        now = time.monotonic()
+        translated_by_url = _market_news_translation_cache["by_url"]
+        if now - _market_news_translation_cache["at"] > 900:
+            try:
+                translated = await asyncio.wait_for(
+                    translate_stock_news("US_MARKET", items[:5]), timeout=12
+                )
+                translated_by_url = {
+                    str(row.get("url") or ""): row for row in translated
+                    if isinstance(row, dict) and row.get("url") and row.get("translated_headline")
+                }
+                _market_news_translation_cache.update({"at": now, "by_url": translated_by_url})
+            except Exception as translation_exc:
+                logger.info("Market news Arabic translation unavailable: %s", type(translation_exc).__name__)
+        enriched = []
+        for item in items:
+            row = dict(item)
+            translation = translated_by_url.get(str(row.get("url") or ""))
+            if translation:
+                row["translated_headline"] = translation.get("translated_headline")
+                row["translated_summary"] = translation.get("summary") or ""
+                row["translation_basis"] = translation.get("basis") or "headline_only"
+            enriched.append(row)
+        return {
+            "items": enriched,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "source": "Finnhub",
+            "filtered_for_market_impact": True,
+            "translation": "Arabic AI translation when configured; original headline retained",
+        }
     except Exception as exc:
         logger.warning("US market news feed unavailable: %s", type(exc).__name__)
         return {"items": [], "updated_at": datetime.now(timezone.utc).isoformat(), "source": "Finnhub", "filtered_for_market_impact": True, "message_ar": "تعذر تحميل أخبار السوق مؤقتًا."}
-
 
 @app.get("/api/dashboard/home")
 async def dashboard_home(_: dict = Depends(require_pro)):
