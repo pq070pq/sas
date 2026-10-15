@@ -2627,7 +2627,7 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
  function newsCategory(item){const s=(String(item.category||'')+' '+String(item.headline||'')+' '+String(item.translated_headline||'')).toLowerCase();if(/federal|fed |fomc|powell|interest rate|الفيدرالي|الفائدة|جيروم باول|قرار الفائدة/.test(s))return {label:'الفيدرالي والفائدة',cls:'fed'};if(/inflation|cpi|ppi|jobs report|payroll|gdp|التضخم|الوظائف|الناتج المحلي/.test(s))return {label:'الاقتصاد',cls:''};if(/earnings|revenue|quarter|profit|نتائج|أرباح|إيرادات/.test(s))return {label:'الأرباح',cls:''};if(/nasdaq|s&p|dow|stock|market|shares|أسهم|السوق/.test(s))return {label:'السوق والأسهم',cls:''};return {label:'أخبار مؤثرة',cls:''};}
  function renderNews(items){
   const track=$('sasMarketNewsTrack');if(!track)return;
-  const hasArabic=value=>/[\\u0600-\\u06FF]/.test(String(value||''));
+  const hasArabic=value=>/[ء-ي]/u.test(String(value||''));
   // لا تُخفِ الأخبار الموثقة إذا تعطلت خدمة الترجمة؛ اعرض تنبيهًا عربيًا واضحًا بدل إسقاط الشريط كله.
   const valid=(Array.isArray(items)?items:[]).filter(x=>x&&safeUrl(x.url)&&String(x.headline||'').trim()).sort((a,b)=>Number(b.datetime||0)-Number(a.datetime||0)).slice(0,16);
   const key=valid.map(x=>String(x.url)+'|'+String(x.translated_headline||'')).join('|');
