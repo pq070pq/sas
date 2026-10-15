@@ -5051,3 +5051,18 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-tv-chart-fallback{min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:#c5dbe5;background:radial-gradient(ellipse at top,rgba(20,102,133,.24),rgba(3,12,20,.98));border:1px dashed rgba(45,244,255,.25);border-radius:12px}
 .sas-tv-chart-fallback p{max-width:440px;margin:0;font-size:12px;line-height:1.9}
 .sas-tv-chart-fallback a{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:9px 14px;border:1px solid rgba(45,244,255,.38);border-radius:10px;background:rgba(6,67,87,.38);color:#54e7f3;text-decoration:none;font-size:12px;font-weight:700}
+
+
+/* SAS PRO market index ribbon: larger unmistakable icons and readable verified-price states */
+.sas-index-card{min-width:148px!important;min-height:154px!important;padding:12px 13px!important;gap:5px!important;border:1px solid color-mix(in srgb,var(--index-tone) 34%,transparent)!important;border-radius:16px!important;background:linear-gradient(145deg,rgba(6,20,31,.98),rgba(2,9,16,.98))!important;box-shadow:inset 0 1px rgba(255,255,255,.035),0 8px 24px rgba(0,0,0,.2)!important;text-align:right!important;}
+.sas-index-card-top{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;}
+.sas-index-symbol{font-size:10px!important;font-weight:900!important;letter-spacing:.3px!important;color:#c9e5ee!important;}
+.sas-index-icon{display:grid!important;place-items:center!important;flex:0 0 36px!important;width:36px!important;height:36px!important;border-radius:12px!important;border:1px solid color-mix(in srgb,var(--index-tone) 48%,transparent)!important;background:color-mix(in srgb,var(--index-tone) 12%,rgba(2,9,16,.9))!important;color:var(--index-tone)!important;font-size:23px!important;line-height:1!important;box-shadow:0 0 18px color-mix(in srgb,var(--index-tone) 15%,transparent)!important;}
+.sas-index-name{font-size:11px!important;font-weight:800!important;color:#e8f8ff!important;}
+.sas-index-price{font-size:clamp(15px,3.8vw,19px)!important;font-variant-numeric:tabular-nums!important;letter-spacing:-.25px!important;white-space:nowrap!important;}
+.sas-index-change{font-size:11px!important;font-weight:900!important;font-variant-numeric:tabular-nums!important;}
+.sas-index-card small{font-size:9px!important;line-height:1.5!important;color:#8da8b4!important;}
+.sas-index-card.is-cached{border-style:dashed!important;}
+.sas-index-card.is-stale .sas-index-price{color:#d5e2e8!important;}
+.sas-index-card:focus-visible{outline:2px solid var(--index-tone)!important;outline-offset:2px!important;}
+@media(max-width:520px){.sas-index-card{min-width:137px!important;min-height:149px!important;padding:10px!important}.sas-index-icon{flex-basis:32px!important;width:32px!important;height:32px!important;font-size:21px!important}.sas-index-price{font-size:15px!important}}
