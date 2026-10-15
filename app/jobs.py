@@ -332,6 +332,13 @@ async def evaluate_radar_outcomes():
             try:
                 from .market import quote
                 q = await quote(signal.symbol)
+                quote_source = str(q.get("source") or "").strip()
+                if q.get("is_delayed") or quote_source.casefold() == "cusp wealth":
+                    logger.info(
+                        "Radar target evaluation skipped delayed quote: symbol=%s source=%s",
+                        signal.symbol, quote_source or "unknown",
+                    )
+                    continue
                 price = q.get("price")
                 if price is None:
                     continue
@@ -377,31 +384,31 @@ async def evaluate_radar_outcomes():
                     profit_text = ""
                     if existing.entry_price and existing.entry_price > 0:
                         profit = ((price / existing.entry_price) - 1.0) * 100.0
-                        profit_text = f"\\n📈 العائد من دخول الرصد: <b>{profit:+.2f}%</b>"
+                        profit_text = f"\n📈 العائد من دخول الرصد: <b>{profit:+.2f}%</b>"
                     stop_text = (
-                        f"\\n🛡 الوقف الجديد: <b>\\x24{_money(existing.current_stop)}</b>"
+                        f"\n🛡 الوقف الجديد: <b>{_money(existing.current_stop)}</b>"
                         if existing.current_stop is not None else ""
                     )
                     final = idx == len(ordered_targets)
-                    title = "📢 <b>تنبيه أهداف ✅</b>\\n\\n🏆 تحقق آخر هدف" if final else f"📢 <b>تنبيه أهداف ✅</b>\\n\\n🎯 تحقق الهدف {idx}"
+                    title = "📢 <b>تنبيه أهداف ✅</b>\n\n🏆 تحقق آخر هدف" if final else f"📢 <b>تنبيه أهداف ✅</b>\n\n🎯 تحقق الهدف {idx}"
                     next_target = ordered_targets[idx] if idx < len(ordered_targets) else None
                     next_text = (
-                        f"\\n🎯 الهدف التالي: <b>\\x24{_money(next_target)}</b>"
-                        if next_target is not None else "\\n🏆 اكتملت جميع الأهداف المسجلة."
+                        f"\n🎯 الهدف التالي: <b>{_money(next_target)}</b>"
+                        if next_target is not None else "\n🏆 اكتملت جميع الأهداف المسجلة."
                     )
                     quote_source = str(q.get("source") or "").strip()
-                    source_text = f"\\n🔎 مصدر السعر: <b>{html.escape(quote_source)}</b>" if quote_source else ""
+                    source_text = f"\n🔎 مصدر السعر: <b>{html.escape(quote_source)}</b>" if quote_source else ""
                     checked_at = utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
                     await send_message(
                         settings.telegram_channel_id,
-                        f"{title} — لسهم <b>\\x24{signal.symbol}</b>\\n\\n"
-                        f"💵 السعر الحالي: <b>\\x24{_money(price)}</b>"
-                        f"{profit_text}\\n"
-                        f"🎯 الهدف المحقق: <b>\\x24{_money(target)}</b>"
-                        f"{stop_text}{next_text}{source_text}\\n"
-                        "━━━━━━━━━━━━━━━━━━\\n"
-                        f"📌 حالة الرصد: <b>{'مستمر إذا استمر الزخم' if next_target is not None else 'اكتملت الأهداف المسجلة'}</b>\\n"
-                        f"⏱ تم التحقق: <b>{checked_at}</b>\\n\\n"
+                        f"{title} — لسهم <b>${signal.symbol}</b>\n\n"
+                        f"💵 السعر الحالي: <b>{_money(price)}</b>"
+                        f"{profit_text}\n"
+                        f"🎯 الهدف المحقق: <b>{_money(target)}</b>"
+                        f"{stop_text}{next_text}{source_text}\n"
+                        "━━━━━━━━━━━━━━━━━━\n"
+                        f"📌 حالة الرصد: <b>{'مستمر إذا استمر الزخم' if next_target is not None else 'اكتملت الأهداف المسجلة'}</b>\n"
+                        f"⏱ تم التحقق: <b>{checked_at}</b>\n\n"
                         "📡 <b>SAS PRO</b>",
                         reply_to_message_id=int(signal.telegram_message_id),
                     )
@@ -437,8 +444,8 @@ async def evaluate_radar_outcomes():
                     await send_message(
                         settings.telegram_channel_id,
                         "❌ <b>لم تتحقق الفرصة</b> — \x24" + signal.symbol + "\n\n"
-                        f"💵 السعر عند الإنهاء: <b>\x24{_money(price)}</b>\n"
-                        f"🛡 الوقف المفعّل: <b>\x24{_money(existing.current_stop)}</b>\n"
+                        f"💵 السعر عند الإنهاء: <b>{_money(price)}</b>\n"
+                        f"🛡 الوقف المفعّل: <b>{_money(existing.current_stop)}</b>\n"
                         f"🎯 الأهداف المحققة: <b>{existing.achieved_target}</b>\n"
                         "🚫 <b>الاستراتيجية ملغية</b>\n"
                         "📌 لم يتحقق الهدف المطلوب وتم تفعيل الوقف، لذلك تم إنهاء الرصد.",
