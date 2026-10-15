@@ -1104,7 +1104,7 @@ async function searchShariah(){
  el.hidden=false;
  el.innerHTML='<div class="shariah-search-card sh-unknown"><b>🕌 بحث الشرعية — '+escHtml(symbol)+'</b><p>⏳ جاري التحقق من النتيجة المنشورة...</p></div>';
  try{
-  const result=await api('/api/stocks/'+encodeURIComponent(symbol)+'/shariah',{timeoutMs:12000,signal:searchController.signal});
+  const result=await api('/api/stocks/'+encodeURIComponent(symbol)+'/shariah',{timeoutMs:12000});
   const status=result?.status;
   const label=result?.status_ar||'غير واضح / يحتاج تحقق';
   const cls=status==='compliant'||status==='halal'?'sh-ok':(status==='non_compliant'||status==='haram'?'sh-bad':'sh-unknown');
@@ -1139,7 +1139,7 @@ async function searchShariah(){
    '<div class="shariah-review-warning"><b>⚠ تنبيه مهم</b><p>لا يصدر SAS PRO حكمًا من عنده. عند غياب نتيجة مباشرة موثقة أو اختلاف المصادر، تبقى الحالة «غير واضح / يحتاج تحقق». هذه معلومات للمراجعة وليست فتوى، والتحقق النهائي مسؤولية المستخدم.</p></div>'+
    '</div>';
  }catch(e){
-  el.innerHTML='<div class="shariah-search-card sh-unknown"><b>🕌 بحث الشرعية</b><p>⚠️ تعذر التحقق الآن؛ لم يتم تأليف أي نتيجة.</p></div>';
+  el.innerHTML='<div class="shariah-search-card sh-unknown shariah-error-card" role="status" aria-live="polite"><div class="shariah-error-icon" aria-hidden="true">⚠</div><b>تعذر الاتصال بمصدر التحقق</b><p>لم تصلنا نتيجة موثقة الآن. جرّب إعادة الفحص؛ لن نخمن الحكم الشرعي.</p><button type="button" class="shariah-retry-btn" onclick="searchShariah()" aria-label="إعادة التحقق من شرعية السهم"><span aria-hidden="true">↻</span> إعادة التحقق الآن</button></div>';
  }finally{
   if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-searching');actionBtn.removeAttribute('aria-busy');}
  }
