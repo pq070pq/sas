@@ -1009,11 +1009,13 @@ function stockCard(x){
  '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+'<span>'+catalystLabel+(catalyst>0?' '+catalyst+'/100':'')+'</span>'+(x.live_price_source?'<span>📡 '+escHtml(x.live_price_source)+'</span>':'')+'</div>'+
  perpContext+
  '<div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||cls.reason||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div>'+
- '<div class="stock-actions stock-card-actions"><button class="stock-chart-action" onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">🔍 تحليل السهم</button><button class="stock-share-action" onclick="event.stopPropagation();shareOpportunityCard(this.closest(\'.stock-card\'),\''+raw+'\',false)">↗ مشاركة البطاقة</button><button class="stock-save-card-action" onclick="event.stopPropagation();shareOpportunityCard(this.closest(\'.stock-card\'),\''+raw+'\',true)">▣ حفظ البطاقة</button></div><footer class="sas-card-copyright">SAS PRO RADAR · © جميع الحقوق محفوظة · معلومات تعليمية وليست توصية استثمارية</footer></article>';
+ '<div class="stock-actions stock-card-actions"><button class="stock-chart-action" onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">🔍 تحليل السهم</button><button class="stock-share-action stock-share-save-combined" onclick="event.stopPropagation();shareOpportunityCard(this.closest('.stock-card')||this.closest('article'),\''+raw+'\',false)">↗ مشاركة / حفظ البطاقة</button></div><footer class="sas-card-copyright">SAS PRO RADAR · © جميع الحقوق محفوظة · معلومات تعليمية وليست توصية استثمارية</footer></article>';
 }
 
+
+function downloadOpportunityImage(blob,filename){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename; a.style.display='none';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}
 async function shareOpportunityCard(card,symbol,downloadOnly=false){
- if(!card)return;
+ if(!card){showActionNotice('radar','تعذر تحديد بطاقة السهم. حدّث الصفحة وجرب مرة ثانية.');return;}
  const btns=card.querySelectorAll('.stock-card-actions button');btns.forEach(b=>b.disabled=true);
  try{
   const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1350;
@@ -1037,8 +1039,10 @@ async function shareOpportunityCard(card,symbol,downloadOnly=false){
   ctx.strokeStyle='rgba(55,177,207,.25)';ctx.beginPath();ctx.moveTo(65,1132);ctx.lineTo(1015,1132);ctx.stroke();rtl('SAS PRO • رادار الأسهم الأمريكية',1000,1180,26,'#5cddf8','700');rtl('© جميع الحقوق محفوظة',1000,1223,22,'#9ab1c1','500');rtl('معلومات تعليمية وليست توصية شراء أو بيع',1000,1262,20,'#9ab1c1','500');
   const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('تعذر إنشاء صورة البطاقة.')),'image/png'));
   const file=new File([blob],'SAS-PRO-'+symbol+'.png',{type:'image/png'});
-  if(!downloadOnly&&navigator.share&&navigator.canShare?.({files:[file]}))await navigator.share({title:'SAS PRO — '+symbol,text:'بطاقة سهم من رادار SAS PRO. ليست توصية شراء أو بيع.',files:[file]});
-  else{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);}
+  if(!downloadOnly&&navigator.share&&navigator.canShare?.({files:[file]})){
+   try{await navigator.share({title:'SAS PRO — '+symbol,text:'بطاقة سهم من رادار SAS PRO. ليست توصية شراء أو بيع.',files:[file]});}
+   catch(shareError){if(shareError?.name==='AbortError')return;downloadOpportunityImage(blob,file.name);showActionNotice('radar','تعذرت المشاركة المباشرة؛ تم تجهيز تنزيل البطاقة على جهازك.');}
+  }else{downloadOpportunityImage(blob,file.name);showActionNotice('radar','تم تجهيز صورة البطاقة للحفظ على جهازك.');}
  }catch(e){if(e?.name!=='AbortError')showActionNotice('radar',e?.message||'تعذر إنشاء البطاقة.');}
  finally{btns.forEach(b=>b.disabled=false);}
 }
