@@ -258,7 +258,7 @@ function readLocalJson(key,fallback){
  try{const raw=localStorage.getItem(key);return raw?JSON.parse(raw):fallback;}
  catch(error){console.warn('SAS PRO local cache ignored:',key,error?.message||error);return fallback;}
 }
-const terminalState={ticker:[],radar:[],perpAssets:{},watch:readLocalJson('saspro_watchlist',[]),timer:null,tickerTimer:null,moversTimer:null,newsTimer:null,newsItems:[],newsFilter:'all',moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
+const terminalState={ticker:[],radar:[],perpAssets:{},watch:readLocalJson('saspro_watchlist',[]),timer:null,moversTimer:null,newsTimer:null,newsItems:[],newsFilter:'all',moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
 function escHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 function safeNewsUrl(value){
  try{
@@ -305,22 +305,6 @@ function switchTerminalTab(tab){
  if(tab==='radar'){renderRadar();if(!terminalState.radarScanning&&(!Array.isArray(terminalState.radar)||terminalState.radar.length===0))void runRadar(false);}
 
 }
-async function refreshTickerOnly(){
- if(terminalState.tickerRefreshing)return;
- terminalState.tickerRefreshing=true;
- try{
-  const ticker=await api('/api/market/ticker',{timeoutMs:7000,retries:0});
-  if(Array.isArray(ticker)){
-   terminalState.ticker=ticker;
-   renderMacro();
-  }
- }catch(e){
-  console.warn('SAS PRO ticker refresh failed:',e?.message||e);
- }finally{
-  terminalState.tickerRefreshing=false;
- }
-}
-
 async function initTerminal(){
  const backBtn=document.getElementById('adminBackBtn');
  if(backBtn)backBtn.hidden=!Boolean(me?.admin);
@@ -329,13 +313,9 @@ async function initTerminal(){
  document.getElementById('accountPlan').textContent=(me.user?.plan||'SAS PRO')+' • وصول فعّال';
  renderAccount();
  if(terminalState.timer)clearInterval(terminalState.timer);
- if(terminalState.tickerTimer)clearInterval(terminalState.tickerTimer);
  if(terminalState.moversTimer)clearInterval(terminalState.moversTimer);
  await Promise.allSettled([refreshTerminal(),refreshMoversOnly()]);
  terminalState.timer=setInterval(refreshTerminal,20000);
- // Quotes refresh independently every 5 seconds, so they appear as soon as
- // the backend's first provider request finishes instead of waiting for a full dashboard cycle.
- terminalState.tickerTimer=setInterval(refreshTickerOnly,5000);
  // Refresh winning/losing equity prices every five minutes, independently of the dashboard's faster refresh.
  terminalState.moversTimer=setInterval(refreshMoversOnly,300000);
 }
@@ -744,79 +724,15 @@ function renderMacro(){
  if(!window.__sasMacroCardInteraction){
   window.__sasMacroCardInteraction=true;
   document.addEventListener('click',function(event){
-   const tickerItem=event.target.closest('.ticker-item[data-ticker-label]');
    const macroCard=event.target.closest('.macro-card[data-macro-label]');
-   const key=tickerItem?.dataset.tickerLabel||macroCard?.dataset.macroLabel;
+   const key=macroCard?.dataset.macroLabel;
    if(!key)return;
    const target=Array.from(document.querySelectorAll('.macro-card[data-macro-label]')).find(el=>el.dataset.macroLabel===key);
    document.querySelectorAll('.macro-card.is-selected').forEach(el=>el.classList.remove('is-selected'));
    if(target){target.classList.add('is-selected');target.scrollIntoView({behavior:'smooth',block:'center'});window.setTimeout(()=>target.classList.remove('is-selected'),2200);}
   });
  }
- const ticker=document.getElementById('marketTicker');
- if(ticker){
-   const tickerItems=rows.map(x=>{
-     const valid=Number(x.price)>0;
-     const changeValid=x.change_pct!==null&&x.change_pct!==undefined&&Number.isFinite(Number(x.change_pct));
-     const cls=changeValid?(Number(x.change_pct)>=0?'up':'down'):'neutral';
-     const cachedKey='saspro_macro_'+String(x.label).replace(/\s+/g,'_');
-     let displayPrice=valid?money(x.price):'—';
-     let displayChange=valid&&changeValid?pct(Number(x.change_pct)):'—';
-     if(valid){
-       try{localStorage.setItem(cachedKey,JSON.stringify({price:x.price,change_pct:x.change_pct,updated_at:Date.now()}));}catch(e){}
-     }else{
-       try{
-         const cached=JSON.parse(localStorage.getItem(cachedKey)||'null');
-         if(cached && Number(cached.price)>0){
-           displayPrice=money(cached.price);
-           displayChange=cached.change_pct!==null&&cached.change_pct!==undefined&&Number.isFinite(Number(cached.change_pct))?pct(Number(cached.change_pct)):'—';
-         }
-       }catch(e){}
-     }
-     const labelKey=String(x.label||'').toLowerCase();
-      const tickerIconSlots={'btc':'icon-bitcoin','gold':'icon-gold','s&p 500':'icon-sp500','nasdaq':'icon-nasdaq','dow jones':'icon-dow-jones','vix':'icon-vix'};
-      const tickerIconSlot=tickerIconSlots[labelKey];
-      const tickerIconUrl=tickerIconSlot?terminalState.siteMedia?.[tickerIconSlot]?.url:null;
-      const glyph=labelKey==='btc'?'₿':labelKey==='gold'?'🪙':labelKey==='vix'?'🌡️':labelKey==='s&p 500'?'📈':labelKey==='nasdaq'?'💹':labelKey==='dow jones'?'🏛️':'◈';
-      const tickerIcon=tickerIconUrl?'<img src="'+esc(tickerIconUrl)+'" alt="">':glyph;
-      const tickerDisplayLabels={'s&p 500':'S&P 500','nasdaq':'ناسداك','dow jones':'داو جونز','vix':'مؤشر VIX','btc':'البتكوين','gold':'الذهب'};
-      const tickerDisplayLabel=tickerDisplayLabels[labelKey]||x.label;
-      return '<button type="button" class="ticker-item" data-ticker-label="'+escHtml(labelKey)+'" aria-label="عرض تفاصيل '+escHtml(tickerDisplayLabel)+'" title="اضغط لعرض تفاصيل '+escHtml(tickerDisplayLabel)+'"><span class="ticker-icon" aria-hidden="true">'+tickerIcon+'</span><span class="ticker-label">'+escHtml(tickerDisplayLabel)+'</span><b>'+displayPrice+'</b><em class="'+cls+'">'+displayChange+'</em></button>';
-   }).join('');
-   // Keep the animated track DOM stable during quote refreshes. Replacing
-   // ticker.innerHTML every 5 seconds restarts its CSS animation at frame zero,
-   // making the ribbon appear frozen and repeatedly repainting the whole strip.
-   const desiredTickerHtml=tickerItems
-     ? '<div class="ticker-track"><div class="ticker-run">'+tickerItems+'</div><div class="ticker-run" aria-hidden="true">'+tickerItems+'</div></div>'
-     : '<div class="empty-state">لا تتوفر أسعار السوق حاليًا.</div>';
-   if(tickerItems){
-     const currentRuns=Array.from(ticker.querySelectorAll('.ticker-run'));
-     const nextWrap=document.createElement('div');
-     nextWrap.innerHTML=desiredTickerHtml;
-     const nextRuns=Array.from(nextWrap.querySelectorAll('.ticker-run'));
-     const canPatch=currentRuns.length===2&&nextRuns.length===2&&currentRuns.every((run,i)=>run.querySelectorAll('.ticker-item').length===nextRuns[i].querySelectorAll('.ticker-item').length);
-     if(canPatch){
-       currentRuns.forEach((run,i)=>{
-         const oldItems=Array.from(run.querySelectorAll('.ticker-item'));
-         const newItems=Array.from(nextRuns[i].querySelectorAll('.ticker-item'));
-         oldItems.forEach((oldItem,j)=>{
-           const newItem=newItems[j];
-           ['data-ticker-label','aria-label','title'].forEach(attr=>{
-             if(newItem.hasAttribute(attr))oldItem.setAttribute(attr,newItem.getAttribute(attr));
-             else oldItem.removeAttribute(attr);
-           });
-           oldItem.replaceChildren(...Array.from(newItem.childNodes).map(node=>node.cloneNode(true)));
-         });
-       });
-     }else if(ticker.innerHTML!==desiredTickerHtml){
-       ticker.innerHTML=desiredTickerHtml;
-     }
-   }else if(ticker.innerHTML!==desiredTickerHtml){
-     ticker.innerHTML=desiredTickerHtml;
-   }
-   ticker.classList.toggle('ticker-empty',!tickerItems);
-   ticker.classList.toggle('ticker-has-items',Boolean(tickerItems));
- }
+
 }
 async function runRadar(show=true){
  if(terminalState.radarScanning)return;
