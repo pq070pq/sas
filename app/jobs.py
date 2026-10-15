@@ -1409,7 +1409,7 @@ async def stock_radar_cycle():
 
         # Send a quiet status at most once per hour while scans find no
         # channel-worthy opportunity. Real opportunity reports are unaffected.
-        if channel_gate_passed > 0 or cycle_stats.get("sent", 0) > 0:
+        if cycle_stats.get("sent", 0) > 0:
             _radar_no_opportunity_announced = False
             _radar_no_opportunity_last_sent = 0.0
         elif (
