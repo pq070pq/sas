@@ -78,11 +78,9 @@
       <div class="hero-shade"></div>
       <button id="adminBackBtn" class="secondary-btn admin-user-back" aria-label="العودة إلى الإدارة" title="العودة إلى الإدارة" hidden onclick="returnToAdminView()">↩</button>
     </section>
-<section class="sas-market-overview" aria-label="ملخص السوق الأمريكي">
-  <div class="sas-market-overview-title"><span class="sas-market-pulse"></span><div><strong>نبض السوق الأمريكي</strong><small>أسعار السوق الأمريكي ومؤشراته</small></div><span class="sas-market-overview-live">LIVE</span></div>
-  <div class="sas-market-prices"><div id="marketTicker" class="market-ticker"><div class="loading">جاري تحميل الأسعار...</div></div></div>
-
-</section>
+<section class="market-ticker-wrap" aria-label="أسعار الأسواق">
+      <div id="marketTicker" class="market-ticker"><div class="loading">جاري تحميل الأسعار...</div></div>
+    </section>
     <nav class="terminal-tabs">
       <button class="active" data-tab="dashboard" onclick="switchTerminalTab('dashboard')">⌂ الرئيسية</button>
       <button data-tab="radar" onclick="switchTerminalTab('radar')">📡 الرادار</button>
