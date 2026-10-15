@@ -746,11 +746,15 @@ function renderMacro(){
  const cards=rows.map(x=>{
   const valid=Number(x.price)>0;
   const labelKey=String(x.label||'').toLowerCase();
-  const iconSlots={'btc':'icon-bitcoin','gold':'icon-gold','s&p 500':'icon-sp500','nasdaq':'icon-nasdaq','dow jones':'icon-dow-jones','vix':'icon-vix'};
-  const iconSlot=iconSlots[labelKey]||null;
-  const iconFallback=labelKey==='btc'?'₿':labelKey==='gold'?'🪙':labelKey==='vix'?'🌡️':labelKey==='s&p 500'?'📈':labelKey==='nasdaq'?'💹':labelKey==='dow jones'?'🏛️':'◈';
-  const iconUrl=iconSlot?terminalState.siteMedia?.[iconSlot]?.url:null;
-  const iconHtml='<span class="macro-card-icon" aria-hidden="true">'+(iconUrl?'<img src="'+esc(iconUrl)+'" alt="">':iconFallback)+'</span>';
+  const iconMarkup={
+   's&p 500':'<svg viewBox="0 0 48 48" focusable="false"><path d="M7 38V10M7 38H42" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><rect x="12" y="25" width="6" height="10" rx="1.5" fill="currentColor" opacity=".55"/><rect x="22" y="18" width="6" height="17" rx="1.5" fill="currentColor" opacity=".75"/><rect x="32" y="9" width="6" height="26" rx="1.5" fill="currentColor"/><path d="m11 21 9-6 7 2 10-10" fill="none" stroke="#62f5c5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+   'nasdaq':'<svg viewBox="0 0 48 48" focusable="false"><path d="M6 36H42" stroke="currentColor" stroke-width="2" opacity=".45"/><path d="m7 30 8-8 7 4 8-13 5 5 6-11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="41" cy="7" r="3" fill="#62f5c5"/></svg>',
+   'dow jones':'<svg viewBox="0 0 48 48" focusable="false"><path d="M7 39H42" stroke="currentColor" stroke-width="2" opacity=".5"/><rect x="9" y="24" width="7" height="15" rx="1.5" fill="currentColor" opacity=".5"/><rect x="21" y="16" width="7" height="23" rx="1.5" fill="currentColor" opacity=".75"/><rect x="33" y="8" width="7" height="31" rx="1.5" fill="currentColor"/></svg>',
+   'vix':'<svg viewBox="0 0 48 48" focusable="false"><path d="M5 25h8l5-13 8 25 6-17 4 5h7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="26" cy="37" r="2.5" fill="#ff9d64"/></svg>',
+   'btc':'<svg viewBox="0 0 48 48" focusable="false"><circle cx="24" cy="24" r="19" fill="currentColor" opacity=".16"/><circle cx="24" cy="24" r="17" fill="none" stroke="currentColor" stroke-width="2"/><text x="24" y="32" text-anchor="middle" font-size="25" font-weight="800" fill="currentColor">₿</text></svg>',
+   'gold':'<svg viewBox="0 0 48 48" focusable="false"><ellipse cx="24" cy="25" rx="17" ry="18" fill="currentColor" opacity=".18"/><circle cx="24" cy="24" r="16" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="24" cy="24" r="11" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".7"/><path d="m24 12 3.5 8.5 8.5 3.5-8.5 3.5L24 36l-3.5-8.5L12 24l8.5-3.5Z" fill="currentColor" opacity=".8"/></svg>'
+  };
+  const iconHtml='<span class="macro-card-icon market-style-icon" aria-hidden="true">'+(iconMarkup[labelKey]||iconMarkup['s&p 500'])+'</span>';
   const changeValid=x.change_pct!==null&&x.change_pct!==undefined&&Number.isFinite(Number(x.change_pct));
   const changeText=changeValid?pct(Number(x.change_pct)):'—';
   const changeClass=changeValid?(Number(x.change_pct)>=0?'up':'down'):'neutral';
@@ -1797,12 +1801,6 @@ const SITE_MEDIA_MANAGED_ITEMS=[
 
  {slot:'icon-live-movers',label:'أيقونة بطاقة أعلى الأسهم حركة',fallback:'📈',target:'.sas-insight-grid .sas-insight-panel .sas-insight-title > span'},
  {slot:'icon-perp-movers',label:'أيقونة بطاقة الأكثر تحركًا خلال 24 ساعة',fallback:'↕️',target:'.sas-perp-movers-panel .sas-insight-title > span'},
- {slot:'icon-bitcoin',label:'أيقونة البتكوين — مؤشرات السوق',fallback:'₿',target:'.macro-card[data-macro-label="btc"] .macro-card-icon'},
- {slot:'icon-gold',label:'أيقونة الذهب — مؤشرات السوق',fallback:'🪙',target:'.macro-card[data-macro-label="gold"] .macro-card-icon'},
- {slot:'icon-sp500',label:'أيقونة S&P 500',fallback:'📈',target:'.macro-card[data-macro-label="s&p 500"] .macro-card-icon'},
- {slot:'icon-nasdaq',label:'أيقونة ناسداك',fallback:'💹',target:'.macro-card[data-macro-label="nasdaq"] .macro-card-icon'},
- {slot:'icon-dow-jones',label:'أيقونة داو جونز',fallback:'🏛️',target:'.macro-card[data-macro-label="dow jones"] .macro-card-icon'},
- {slot:'icon-vix',label:'أيقونة VIX',fallback:'🌡️',target:'.macro-card[data-macro-label="vix"] .macro-card-icon'},
  {slot:'icon-market-indicators',label:'أيقونة عنوان مؤشرات السوق',fallback:'📊',target:'.section-title .market-indicators-icon'},
  {slot:'icon-shariah',label:'أيقونة الشرعية في بطاقة السهم',fallback:'🕌',target:'.stock-shariah-icon'},
  {slot:'icon-disclaimer-alert',label:'أيقونة التنبيه القانوني أسفل الصفحة',fallback:'⛔',target:'.sas-disclaimer-bar .disclaimer-badge .disclaimer-icon'}
@@ -2622,12 +2620,12 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
  const $=id=>document.getElementById(id);
  let newsBusy=false,newsTimer=null,lastNewsKey='';
  const indices=[
-  {label:'S&P 500',keys:['S&P 500','SPX','^GSPC','SPY'],cache:'S&P_500',icon:'📈',tone:'#35e7ff'},
-  {label:'NASDAQ',keys:['NASDAQ','IXIC','^IXIC','QQQ'],cache:'NASDAQ',icon:'💹',tone:'#4b9dff'},
-  {label:'DOW JONES',keys:['DOW JONES','DJI','^DJI','DIA'],cache:'DOW_JONES',icon:'🏛️',tone:'#ffd447'},
-  {label:'VIX',keys:['VIX','^VIX'],cache:'VIX_INDEX',icon:'🌡️',tone:'#ff9d64'},
-  {label:'BITCOIN',keys:['BTC','BTC/USD','BTCUSD','BTCUSDT'],cache:'BTC',icon:'₿',tone:'#ffb54d'},
-  {label:'GOLD',keys:['GOLD','XAU/USD','XAUUSD','GCUSD','GLD'],cache:'GOLD',icon:'🪙',tone:'#ffd447'}
+  {label:'S&P 500',keys:['S&P 500','SPX','^GSPC','SPY'],cache:'S&P_500',icon:'<svg viewBox="0 0 48 48"><path d="M7 38V10M7 38H42" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><rect x="12" y="25" width="6" height="10" rx="1.5" fill="currentColor" opacity=".55"/><rect x="22" y="18" width="6" height="17" rx="1.5" fill="currentColor" opacity=".75"/><rect x="32" y="9" width="6" height="26" rx="1.5" fill="currentColor"/><path d="m11 21 9-6 7 2 10-10" fill="none" stroke="#62f5c5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',tone:'#35e7ff'},
+  {label:'NASDAQ',keys:['NASDAQ','IXIC','^IXIC','QQQ'],cache:'NASDAQ',icon:'<svg viewBox="0 0 48 48"><path d="M6 36H42" stroke="currentColor" stroke-width="2" opacity=".45"/><path d="m7 30 8-8 7 4 8-13 5 5 6-11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="41" cy="7" r="3" fill="#62f5c5"/></svg>',tone:'#4b9dff'},
+  {label:'DOW JONES',keys:['DOW JONES','DJI','^DJI','DIA'],cache:'DOW_JONES',icon:'<svg viewBox="0 0 48 48"><path d="M7 39H42" stroke="currentColor" stroke-width="2" opacity=".5"/><rect x="9" y="24" width="7" height="15" rx="1.5" fill="currentColor" opacity=".5"/><rect x="21" y="16" width="7" height="23" rx="1.5" fill="currentColor" opacity=".75"/><rect x="33" y="8" width="7" height="31" rx="1.5" fill="currentColor"/></svg>',tone:'#ffd447'},
+  {label:'VIX',keys:['VIX','^VIX'],cache:'VIX_INDEX',icon:'<svg viewBox="0 0 48 48"><path d="M5 25h8l5-13 8 25 6-17 4 5h7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="26" cy="37" r="2.5" fill="#ff9d64"/></svg>',tone:'#ff9d64'},
+  {label:'BITCOIN',keys:['BTC','BTC/USD','BTCUSD','BTCUSDT'],cache:'BTC',icon:'<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="19" fill="currentColor" opacity=".16"/><circle cx="24" cy="24" r="17" fill="none" stroke="currentColor" stroke-width="2"/><text x="24" y="32" text-anchor="middle" font-size="25" font-weight="800" fill="currentColor">₿</text></svg>',tone:'#ffb54d'},
+  {label:'GOLD',keys:['GOLD','XAU/USD','XAUUSD','GCUSD','GLD'],cache:'GOLD',icon:'<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="24" cy="24" r="11" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".7"/><path d="m24 12 3.5 8.5 8.5 3.5-8.5 3.5L24 36l-3.5-8.5L12 24l8.5-3.5Z" fill="currentColor" opacity=".8"/></svg>',tone:'#ffd447'}
  ];
  function safeUrl(value){try{const u=new URL(String(value||''));return u.protocol==='https:'?u.href:'';}catch(e){return '';}}
  function escapeText(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
