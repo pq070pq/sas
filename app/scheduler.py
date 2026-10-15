@@ -6,19 +6,72 @@ respective modules and are imported lazily from app.jobs to preserve backwards
 compatibility during the incremental refactor.
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+from sqlalchemy import select
 
 from .config import settings
 from .holiday_radar import publish_holiday_radar, publish_btc_holiday_update
 from .holiday_news import publish_holiday_news
 from .market_calendar import market_status
 from .maintenance import cleanup_old_data
-from .timeutil import utcnow
+from .timeutil import utcnow, aware
+from .db import SessionLocal, RadarRun
 from .market_brief import publish_market_brief
 from .radar_learning import learn_radar_profile
 
 logger = logging.getLogger(__name__)
+
+
+async def recover_interrupted_radar_runs(stale_after_minutes=20):
+    """Close radar runs left 'running' after a process/container restart."""
+    now = utcnow()
+    cutoff = now - timedelta(minutes=max(1, int(stale_after_minutes)))
+    recovered = 0
+    try:
+        async with SessionLocal() as db:
+            result = await db.execute(
+                select(RadarRun).where(RadarRun.status == "running")
+            )
+            rows = result.scalars().all()
+            for run in rows:
+                started = aware(run.started_at)
+                if started is None or started > cutoff:
+                    continue
+                run.status = "failed"
+                run.finished_at = now
+                run.duration_seconds = round(max(0.0, (now - started).total_seconds()), 2)
+                run.error_type = "InterruptedRadarRun"
+                run.error_message = (
+                    "انقطعت دورة الرادار قبل اكتمالها، غالبًا بسبب إعادة تشغيل الخدمة "
+                    "أو تعطل الدورة؛ لم تُحتسب كمسح ناجح."
+                )
+                try:
+                    diagnostics = json.loads(run.diagnostics or "{}")
+                except (TypeError, ValueError):
+                    diagnostics = {}
+                if not isinstance(diagnostics, dict):
+                    diagnostics = {}
+                diagnostics["interrupted_run_recovery"] = {
+                    "recovered_at": now.isoformat(),
+                    "stale_after_minutes": max(1, int(stale_after_minutes)),
+                }
+                run.diagnostics = json.dumps(diagnostics, ensure_ascii=False)
+                db.add(run)
+                recovered += 1
+            if recovered:
+                await db.commit()
+        if recovered:
+            logger.warning(
+                "RADAR_RECOVERY: marked %d stale running cycle(s) as failed after restart.",
+                recovered,
+            )
+        else:
+            logger.info("RADAR_RECOVERY: no stale running radar cycles found.")
+    except Exception:
+        logger.exception("RADAR_RECOVERY: could not reconcile stale radar runs.")
+        return 0
+    return recovered
 
 
 async def scheduler():
@@ -33,6 +86,7 @@ async def scheduler():
     )
 
     logger.info("SAS PRO scheduler started.")
+    await recover_interrupted_radar_runs()
     await asyncio.sleep(60)
     logger.info("SAS PRO initial scheduler grace period completed.")
     last_cleanup_at = None
