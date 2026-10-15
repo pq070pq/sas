@@ -4382,3 +4382,8 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
   #marketTicker.market-ticker.ticker-has-items,
   #sasMarketNewsTrack .sas-news-single-lane{animation-duration:180s!important}
 }
+
+
+/* Final seam correction: identical duplicate sequences must have identical widths. */
+#sasMarketNewsTrack .sas-news-single-lane{gap:0!important}
+#sasMarketNewsTrack .sas-news-compact-card{margin-inline-end:9px!important}
