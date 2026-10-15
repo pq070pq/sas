@@ -796,7 +796,7 @@ async function runRadar(show=true){
  try{
   if(show)switchTerminalTab('radar');
   const existing=terminalState.radar.length;
-  if(button){button.disabled=true;button.textContent='⏳ جارٍ الفحص…';}
+  if(button){button.disabled=true;button.classList.add('is-scanning');button.setAttribute('aria-busy','true');button.innerHTML='<span class="radar-scan-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><circle cx="14" cy="14" r="9.5" stroke="currentColor" stroke-width="1.8"/><circle cx="14" cy="14" r="4.5" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/><path d="M14 4.5v4M23.5 14h-4M14 23.5v-4M4.5 14h4M21 21l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 14 20.5 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span class="radar-scan-copy"><b>جارٍ المسح</b><small>نفحص الأسهم الآن</small></span><span class="radar-scan-arrow" aria-hidden="true">‹</span>';}
   scanButtons.forEach(b=>{b.disabled=true;b.dataset.originalText=b.textContent;b.textContent='⏳ جارٍ المسح…';});
   if(radarVisual)radarVisual.disabled=true;
   if(copyText)copyText.textContent='سيتم المسح الآن… نبحث عن الأسهم النشطة ونراجع الحركة والسيولة والشروط الفنية قبل عرض النتائج.';
@@ -903,7 +903,7 @@ async function runRadar(show=true){
  }finally{
    if(elapsedTimer)clearInterval(elapsedTimer);
    progress?.remove();
-   if(button){button.disabled=false;button.textContent='🔎 مسح الأسهم';}
+   if(button){button.disabled=false;button.classList.remove('is-scanning');button.removeAttribute('aria-busy');button.innerHTML='<span class="radar-scan-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><circle cx="14" cy="14" r="9.5" stroke="currentColor" stroke-width="1.8"/><circle cx="14" cy="14" r="4.5" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/><path d="M14 4.5v4M23.5 14h-4M14 23.5v-4M4.5 14h4M21 21l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 14 20.5 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span class="radar-scan-copy"><b>مسح الأسهم</b><small>ابدأ فحص الفرص الآن</small></span><span class="radar-scan-arrow" aria-hidden="true">‹</span>';}
    scanButtons.forEach(b=>{b.disabled=false;b.textContent=b.dataset.originalText||'⟳ ابدأ مسحًا جديدًا';delete b.dataset.originalText;});
    if(radarVisual)radarVisual.disabled=false;
    terminalState.radarScanning=false;
