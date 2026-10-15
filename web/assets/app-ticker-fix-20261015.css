@@ -4948,3 +4948,15 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 
 /* Remove only the redundant legacy market indicators grid at page bottom. Keep the moving ribbon near news intact. */
 #macroGrid,.section-title:has(.market-indicators-icon){display:none!important;}
+
+
+/* SAS PRO — responsive TradingView stock chart panel */
+.sas-tv-chart-shell{margin:10px 0 14px;padding:12px;border:1px solid rgba(52,174,220,.28);border-radius:16px;background:linear-gradient(145deg,rgba(5,22,37,.98),rgba(2,10,19,.98));box-shadow:inset 0 1px 0 rgba(130,220,255,.04)}
+.sas-tv-chart-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.sas-tv-chart-heading b{font-size:13px;color:#e8f8ff}
+.sas-tv-chart-heading span{font-size:10px;color:#6bc9e9;border:1px solid rgba(65,185,224,.2);background:rgba(12,77,105,.18);padding:5px 8px;border-radius:999px}
+.sas-tv-chart{width:100%;height:420px;min-height:360px;overflow:hidden;border-radius:11px;background:#07111c}
+.sas-tv-chart .tradingview-widget-container,.sas-tv-chart .sas-tv-widget-container{width:100%!important;height:100%!important;min-height:360px}
+.sas-tv-chart .tradingview-widget-container__widget{width:100%!important;height:calc(100% - 24px)!important}
+.sas-tv-chart-note{margin:8px 2px 0;color:#93aabd;font-size:10px;line-height:1.7}
+@media(max-width:620px){.sas-tv-chart-shell{padding:9px;margin:8px 0 12px}.sas-tv-chart{height:360px;min-height:320px}.sas-tv-chart .tradingview-widget-container,.sas-tv-chart .sas-tv-widget-container{min-height:320px}.sas-tv-chart-heading b{font-size:12px}}
