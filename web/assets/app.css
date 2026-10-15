@@ -4276,3 +4276,30 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
     min-height:74px!important;padding:9px 10px!important;
   }
 }
+
+
+/* FIX: seamless ticker loop. Two identical runs mean the track must move
+   exactly half its total width, not the full width (which creates a blank gap). */
+@keyframes marketTickerSeamless{
+  from{transform:translate3d(0,0,0)}
+  to{transform:translate3d(-50%,0,0)}
+}
+.sas-market-prices{display:block!important;overflow:hidden!important;width:100%!important;min-width:0!important}
+#marketTicker.market-ticker{
+  display:flex!important;flex-wrap:nowrap!important;align-items:stretch!important;
+  justify-content:flex-start!important;overflow:visible!important;
+  width:max-content!important;min-width:max-content!important;max-width:none!important;
+  direction:ltr!important;gap:0!important;
+}
+#marketTicker .ticker-run{
+  display:flex!important;flex:0 0 auto!important;flex-wrap:nowrap!important;
+  align-items:stretch!important;width:max-content!important;min-width:max-content!important;
+  gap:0!important;white-space:nowrap!important;
+  animation:marketTickerSeamless 108s linear infinite!important;
+  animation-play-state:running!important;will-change:transform!important;
+}
+#marketTicker .ticker-run[aria-hidden="true"]{pointer-events:none!important}
+#marketTicker .ticker-item{flex-shrink:0!important}
+@media(max-width:600px){
+  #marketTicker .ticker-run{animation-duration:100s!important}
+}
