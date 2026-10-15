@@ -914,7 +914,7 @@ async def _refresh_ticker_cache():
         # live providers are queried. This prevents blank cards during cold start.
         if symbol in {"SPX", "IXIC", "DJI"} and not _valid_price((_TICKER_CACHE.get(symbol) or {}).get("price")):
             try:
-                seed = await asyncio.wait_for(_fred_index_quote(symbol), timeout=2.5)
+                seed = await asyncio.wait_for(_fred_index_quote(symbol), timeout=9.0)
                 if seed and _valid_price(seed.get("price")):
                     seed["label"] = label
                     seed["stale"] = True
@@ -988,7 +988,7 @@ async def ticker():
     # already have prices. Otherwise a partial cache can hide pending index data.
     if any(not _valid_price(row.get("price")) for row in cached_rows):
         try:
-            await asyncio.wait_for(asyncio.shield(_TICKER_REFRESH_TASK), timeout=3.0)
+            await asyncio.wait_for(asyncio.shield(_TICKER_REFRESH_TASK), timeout=10.0)
         except asyncio.TimeoutError:
             pass
         except Exception as exc:
