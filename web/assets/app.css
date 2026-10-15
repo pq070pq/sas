@@ -4563,3 +4563,21 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
   #sasMarketNewsTrack .sas-news-single-lane{animation-duration:90s!important}
   #sasMarketNewsTrack .sas-news-compact-card{flex-basis:76vw!important;width:76vw!important}
 }
+
+
+/* Final live ticker fix: visible speed and a stable animation target. */
+#marketTicker.market-ticker.ticker-has-items{animation:none!important;transform:none!important}
+#marketTicker .ticker-track{
+  animation-name:sasRibbonTranslateLeft!important;
+  animation-duration:54s!important;
+  animation-timing-function:linear!important;
+  animation-iteration-count:infinite!important;
+  animation-play-state:running!important;
+  animation-fill-mode:both!important;
+  transform:translate3d(0,0,0);
+}
+#marketTicker .ticker-run{animation:none!important;transform:none!important}
+#marketTicker .ticker-item{transition:none!important}
+@media(max-width:600px){
+  #marketTicker .ticker-track{animation-duration:46s!important}
+}
