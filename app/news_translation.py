@@ -119,7 +119,7 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
                     "basis": "headline_only" if translated.get("basis") == "headline_only" else "article_or_headline",
                     "source": str(item.get("source") or ""),
                 })
-            return result
+            return result or await _fallback_translate_items(selected)
     except Exception as exc:
         logger.warning("Stock news AI translation unavailable for %s: %s; using fallback", symbol, type(exc).__name__)
         return await _fallback_translate_items(selected)
