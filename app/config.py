@@ -12,7 +12,6 @@ class Settings(BaseSettings):
     telegram_channel_link: str = ""
     owner_telegram_id: int = 0
     twelve_data_api_key: str = ""
-    zoya_api_key: str = ""
     twelve_data_api_keys: str = ""
     finnhub_api_key: str = ""
     finnhub_api_keys: str = ""
