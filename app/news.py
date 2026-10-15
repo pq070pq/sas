@@ -643,7 +643,7 @@ async def _newsfilter_market_news(limit: int = 24):
     for item in articles:
         if not isinstance(item, dict):
             continue
-        headline = re.sub(r"\\s+", " ", str(item.get("title") or item.get("headline") or "")).strip()
+        headline = re.sub(r"\s+", " ", str(item.get("title") or item.get("headline") or "")).strip()
         url = str(item.get("url") or "").strip()
         published = item.get("publishedAt") or item.get("published_at") or item.get("datetime")
         try:
@@ -705,7 +705,7 @@ async def market_news(limit: int = 24):
             for item in payload:
                 if not isinstance(item, dict):
                     continue
-                headline = re.sub(r"\\s+", " ", str(item.get("headline") or "")).strip()
+                headline = re.sub(r"\s+", " ", str(item.get("headline") or "")).strip()
                 url = str(item.get("url") or "").strip()
                 try:
                     stamp = int(item.get("datetime") or 0)
