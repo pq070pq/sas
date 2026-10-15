@@ -3613,3 +3613,21 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .shariah-review .shariah-source-row> b i{width:17px;height:17px;margin-inline-end:4px}
 }
 @media(prefers-reduced-motion:reduce){.shariah-search-btn-pro,.shariah-search-btn-pro:after,.shariah-search-btn-orbit,.shariah-search-btn-icon,.shariah-search-loader{animation:none!important;transition:none!important}}
+
+
+/* Shariah provider identities: visible, consistent icons beside every source */
+.shariah-review .shariah-source-row{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.shariah-review .shariah-source-description{display:flex;flex:1;min-width:0;flex-direction:column;gap:8px}
+.shariah-source-identity{display:inline-flex;align-items:center;gap:9px;direction:rtl;font-weight:800;color:#e4f4ff}
+.shariah-source-brand-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 29px;width:29px;height:29px;border-radius:9px;border:1px solid rgba(86,202,240,.42);background:linear-gradient(145deg,rgba(22,118,153,.35),rgba(3,18,31,.8));color:#83e4ff;font-size:15px;box-shadow:inset 0 0 10px rgba(53,197,238,.08)}
+.shariah-review .shariah-source-status{display:inline-flex;align-items:center;justify-content:flex-start;gap:6px;max-width:48%;text-align:left;white-space:normal;direction:rtl}
+.shariah-review .shariah-source-status i{display:inline-flex;align-items:center;justify-content:center;flex:0 0 23px;width:23px;height:23px;border:1px dashed currentColor;border-radius:50%;font-style:normal;font-size:13px}
+.shariah-review .source-ok .shariah-source-status{color:#64e6b1}
+.shariah-review .source-bad .shariah-source-status{color:#ff8795}
+.shariah-review .source-unknown .shariah-source-status{color:#ffd36b}
+@media(max-width:600px){
+ .shariah-review .shariah-source-row{gap:8px}
+ .shariah-source-brand-icon{flex-basis:26px;width:26px;height:26px;font-size:13px}
+ .shariah-review .shariah-source-status{max-width:46%;font-size:10px}
+ .shariah-review .shariah-source-status i{flex-basis:20px;width:20px;height:20px;font-size:11px}
+}
