@@ -109,14 +109,7 @@ async def check_shariah(symbol):
     # Check independent direct sources in parallel; unavailable sources never count as a verdict.
     direct = await asyncio.gather(fetch_yaaqeen())
     direct = [item for item in direct if item is not None]
-    refs = [
-        {"source":"مصرف الراجحي","role":"توضيح عام","status":"reference","status_ar":"للتوضيح بس","verified":True,
-         "reason":"هذي معلومات عن طريقة الإشراف الشرعي عند المصرف، لكنها ما تحكم على السهم هذا بشكل مباشر.",
-         "url":"https://www.alrajhibank.com.sa/About-alrajhi-bank/Shariah-Group"},
-        {"source":"بنك البلاد","role":"توضيح عام","status":"reference","status_ar":"للتوضيح بس","verified":True,
-         "reason":"هذي معلومات عن الإشراف الشرعي عند البنك، لكنها مو نتيجة فحص للسهم نفسه.",
-         "url":"https://www.bankalbilad.com/"}
-    ]
+    refs = []
     usable = [x.get("status") for x in direct if x.get("verified") and x.get("status") in {"compliant", "non_compliant", "doubtful"}]
     unique = set(usable)
     if len(unique) == 1:
