@@ -26,7 +26,7 @@ from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarS
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
-from .news import company_news, corporate_events, tipranks_analysis
+from .news import company_news, corporate_events, tipranks_analysis, market_news
 from .news_translation import translate_stock_news
 from .scheduler import scheduler
 from .market_calendar import market_status, us_market_holidays
@@ -2524,6 +2524,43 @@ async def perpequities_market_movers(_: dict = Depends(require_pro)):
 @app.get("/api/market/ticker")
 async def market_ticker(_: dict = Depends(require_pro)):
     return await ticker()
+
+
+@app.get("/api/market/news")
+async def market_news_endpoint(_: dict = Depends(require_pro)):
+    """Return recent US-market headlines with Arabic translations and original source links."""
+    try:
+        rows = await asyncio.wait_for(market_news(limit=24), timeout=12.0)
+    except Exception as exc:
+        logger.warning("Market news provider failed: %s", type(exc).__name__)
+        rows = []
+    if not rows:
+        return {"items": [], "updated_at": datetime.now(timezone.utc).isoformat(), "available": False}
+    try:
+        translated = await asyncio.wait_for(translate_stock_news("MARKET", rows[:12]), timeout=15.0)
+    except Exception as exc:
+        logger.info("Market news Arabic translation unavailable: %s", type(exc).__name__)
+        translated = []
+    by_url = {
+        str(item.get("url") or ""): item
+        for item in translated if isinstance(item, dict) and item.get("url")
+    }
+    result = []
+    for row in rows:
+        url = str(row.get("url") or "")
+        translation = by_url.get(url, {})
+        result.append({
+            **row,
+            "translated_headline": str(translation.get("translated_headline") or ""),
+            "translated_summary": str(translation.get("summary") or ""),
+            "translation_basis": str(translation.get("basis") or ""),
+        })
+    return {
+        "items": result,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "available": True,
+        "translated_count": len(by_url),
+    }
 
 
 @app.get("/api/dashboard/home")

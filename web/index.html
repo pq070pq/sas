@@ -85,6 +85,22 @@
       <button data-tab="search" onclick="switchTerminalTab('search')">🔎 بحث</button>
       <button data-tab="account" onclick="switchTerminalTab('account')">👤 الحساب</button>
     </nav>
+    <section id="sasMarketPulse" class="sas-market-pulse" aria-label="أخبار ومؤشرات السوق الأمريكي">
+      <section class="sas-news-ribbon" aria-label="أخبار السوق الأمريكي">
+        <div class="sas-pulse-heading"><span class="sas-pulse-live"><i></i> مباشر</span><div><b>نبض السوق الأمريكي</b><small>الفيدرالي • الاقتصاد • الأسهم • الأرباح</small></div><button type="button" id="sasNewsRefreshBtn" class="sas-pulse-refresh" aria-label="تحديث الأخبار" title="تحديث الأخبار">↻</button></div>
+        <div class="sas-news-viewport" id="sasMarketNewsTrack" aria-live="polite">
+          <div class="sas-news-loading"><span class="sas-news-loader"></span> جارٍ جلب آخر الأخبار الاقتصادية وترجمتها…</div>
+        </div>
+        <div class="sas-news-footer"><span id="sasNewsStatus">الأخبار من مصادر منشورة • اضغط لقراءة الخبر الأصلي</span><span class="sas-news-speed"><i></i> تحديث تلقائي</span></div>
+      </section>
+      <section class="sas-index-ribbon" aria-label="مؤشرات السوق والأسعار">
+        <div class="sas-index-heading"><span class="sas-index-heading-icon" aria-hidden="true">⌁</span><div><b>مؤشرات السوق</b><small>أسعار وتغيرات من مزود البيانات</small></div><span class="sas-index-updated" id="sasIndicesUpdated">جاري التحديث</span></div>
+        <div class="sas-index-viewport" id="sasMarketIndicesTrack">
+          <div class="sas-index-loading">جارٍ تحميل أسعار المؤشرات…</div>
+        </div>
+        <p class="sas-index-note">قد يتأخر السعر بحسب مزود البيانات والجلسة. لا تُعرض قيمة تقديرية بدل السعر غير المتاح.</p>
+      </section>
+    </section>
     <main class="terminal-main">
       <section id="tab-dashboard" class="terminal-tab active">
         <div class="terminal-hero sas-dashboard-hero">
