@@ -339,22 +339,24 @@ async def evaluate_radar_outcomes():
                 existing.current_price = price
                 existing.evaluated_at = utcnow()
 
+                # Alert once per evaluation, for the highest newly reached target only.
+                # This avoids flooding the channel if a quote jumps across several levels.
+                last_alert = int(existing.last_alert_target or 0)
+                reached = [
+                    (idx, float(target))
+                    for idx, target in enumerate(ordered_targets, start=1)
+                    if idx > last_alert and price >= float(target)
+                ]
                 newly_reached = []
-                for idx, target in enumerate(ordered_targets, start=1):
-                    if idx <= int(existing.last_alert_target or 0):
-                        continue
-                    if price < float(target):
-                        break
-
+                if reached:
+                    idx, target = reached[-1]
                     existing.achieved_target = idx
                     existing.last_alert_target = idx
                     existing.status = f"target{idx}"
-
-                    if existing.entry_price is not None:
-                        new_stop = existing.entry_price if idx == 1 else ordered_targets[idx - 2]
-                        if existing.current_stop is None or new_stop > existing.current_stop:
-                            existing.current_stop = new_stop
-                    newly_reached.append((idx, float(target)))
+                    new_stop = existing.entry_price if idx == 1 else ordered_targets[idx - 2]
+                    if existing.current_stop is None or new_stop > existing.current_stop:
+                        existing.current_stop = new_stop
+                    newly_reached.append((idx, target))
 
                 if newly_reached:
                     from .main import build_report
@@ -370,35 +372,39 @@ async def evaluate_radar_outcomes():
                     except Exception:
                         logger.exception("Radar parent message edit failed: %s", signal.symbol)
 
-                    for idx, target in newly_reached:
-                        profit_text = ""
-                        if existing.entry_price and existing.entry_price > 0:
-                            profit = ((price / existing.entry_price) - 1.0) * 100.0
-                            profit_text = f"\n📈 العائد من دخول الرصد: <b>{profit:+.2f}%</b>"
-                        stop_text = (
-                            f"\n🛡 الوقف الجديد: <b>\x24{_money(existing.current_stop)}</b>"
-                            if existing.current_stop is not None else ""
-                        )
-                        final = idx == len(ordered_targets)
-                        title = "🏆 تحقق آخر هدف" if final else f"🎯 تحقق الهدف {idx}"
-                        next_target = ordered_targets[idx] if idx < len(ordered_targets) else None
-                        next_text = (
-                            f"\n🎯 الهدف التالي: <b>\x24{_money(next_target)}</b>"
-                            if next_target is not None else "\n🏆 اكتملت جميع الأهداف المسجلة."
-                        )
-                        await send_message(
-                            settings.telegram_channel_id,
-                            f"{title} — <b>\x24{signal.symbol}</b>\n\n"
-                            f"💵 السعر الحالي: <b>\x24{_money(price)}</b>"
-                            f"{profit_text}\n"
-                            f"🎯 الهدف المحقق: <b>\x24{_money(target)}</b>"
-                            f"{stop_text}{next_text}\n"
-                            "━━━━━━━━━━━━━━━━━━\n"
-                            f"📌 حالة الرصد: <b>{'مستمر' if next_target is not None else 'اكتملت الأهداف'}</b>\n"
-                            f"⏱ تم التحقق: <b>{utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}</b>\n\n"
-                            "📡 <b>SAS PRO</b>",
-                            reply_to_message_id=int(signal.telegram_message_id),
-                        )
+                    # Send exactly one notification for the highest newly crossed target.
+                    idx, target = newly_reached[0]
+                    profit_text = ""
+                    if existing.entry_price and existing.entry_price > 0:
+                        profit = ((price / existing.entry_price) - 1.0) * 100.0
+                        profit_text = f"\\n📈 العائد من دخول الرصد: <b>{profit:+.2f}%</b>"
+                    stop_text = (
+                        f"\\n🛡 الوقف الجديد: <b>\\x24{_money(existing.current_stop)}</b>"
+                        if existing.current_stop is not None else ""
+                    )
+                    final = idx == len(ordered_targets)
+                    title = "📢 <b>تنبيه أهداف ✅</b>\\n\\n🏆 تحقق آخر هدف" if final else f"📢 <b>تنبيه أهداف ✅</b>\\n\\n🎯 تحقق الهدف {idx}"
+                    next_target = ordered_targets[idx] if idx < len(ordered_targets) else None
+                    next_text = (
+                        f"\\n🎯 الهدف التالي: <b>\\x24{_money(next_target)}</b>"
+                        if next_target is not None else "\\n🏆 اكتملت جميع الأهداف المسجلة."
+                    )
+                    quote_source = str(q.get("source") or "").strip()
+                    source_text = f"\\n🔎 مصدر السعر: <b>{html.escape(quote_source)}</b>" if quote_source else ""
+                    checked_at = utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+                    await send_message(
+                        settings.telegram_channel_id,
+                        f"{title} — لسهم <b>\\x24{signal.symbol}</b>\\n\\n"
+                        f"💵 السعر الحالي: <b>\\x24{_money(price)}</b>"
+                        f"{profit_text}\\n"
+                        f"🎯 الهدف المحقق: <b>\\x24{_money(target)}</b>"
+                        f"{stop_text}{next_text}{source_text}\\n"
+                        "━━━━━━━━━━━━━━━━━━\\n"
+                        f"📌 حالة الرصد: <b>{'مستمر إذا استمر الزخم' if next_target is not None else 'اكتملت الأهداف المسجلة'}</b>\\n"
+                        f"⏱ تم التحقق: <b>{checked_at}</b>\\n\\n"
+                        "📡 <b>SAS PRO</b>",
+                        reply_to_message_id=int(signal.telegram_message_id),
+                    )
 
                 stop_triggered = (
                     existing.current_stop is not None
