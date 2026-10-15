@@ -4666,3 +4666,73 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .sas-index-updated{font-size:8px}
 }
 @media(prefers-reduced-motion:reduce){.sas-news-lane,.sas-pulse-live i,.sas-news-loader,.sas-pulse-refresh.is-refreshing{animation:none!important}.sas-index-card{transition:none}}
+
+
+/* Hotfix 2026-10-15: the shared .sas-market-pulse class was also used by a 9px live-status dot.
+   Scope the full-width news/index container by ID so the generic dot styles cannot collapse it. */
+#sasMarketPulse.sas-market-pulse{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  gap:13px!important;
+  width:100%!important;
+  max-width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  flex:0 0 auto!important;
+  align-self:stretch!important;
+  margin:15px 0 20px!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+  position:relative!important;
+  isolation:isolate;
+}
+#sasMarketPulse .sas-news-ribbon,
+#sasMarketPulse .sas-index-ribbon{
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  height:auto!important;
+  min-height:0!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+#sasMarketPulse .sas-news-viewport{
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:122px!important;
+  height:auto!important;
+  overflow:hidden!important;
+}
+#sasMarketPulse .sas-index-viewport{
+  display:flex!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:120px!important;
+  height:auto!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+}
+#sasMarketPulse .sas-news-lane{
+  display:flex!important;
+  width:max-content!important;
+  min-width:max-content!important;
+  animation:sasNewsRibbonScroll 82s linear infinite!important;
+  will-change:transform;
+}
+#sasMarketPulse .sas-news-card{
+  flex:0 0 clamp(260px,72vw,480px);
+  max-width:82vw;
+}
+@media(max-width:600px){
+  #sasMarketPulse.sas-market-pulse{gap:10px!important;margin:11px 0 15px!important}
+  #sasMarketPulse .sas-news-viewport{min-height:117px!important}
+  #sasMarketPulse .sas-index-viewport{min-height:112px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  #sasMarketPulse .sas-news-lane{animation:none!important}
+}
