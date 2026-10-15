@@ -786,7 +786,7 @@ function renderMacro(){
    }).join('');
    // Duplicate the ticker run to keep the ribbon continuously filled while scrolling.
    ticker.innerHTML=tickerItems
-     ? '<div class="ticker-run">'+tickerItems+'</div><div class="ticker-run" aria-hidden="true">'+tickerItems+'</div>'
+     ? '<div class="ticker-track"><div class="ticker-run">'+tickerItems+'</div><div class="ticker-run" aria-hidden="true">'+tickerItems+'</div></div>'
      : '<div class="empty-state">لا تتوفر أسعار السوق حاليًا.</div>';
    ticker.classList.toggle('ticker-empty',!tickerItems);
    ticker.classList.toggle('ticker-has-items',Boolean(tickerItems));
