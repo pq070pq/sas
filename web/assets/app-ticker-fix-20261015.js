@@ -1242,10 +1242,27 @@ function mountSASTradingViewChart(root,symbol,exchange){
  script.textContent=JSON.stringify({
   autosize:true,symbol:tvSymbol,interval:'15',timezone:'Asia/Riyadh',
   theme:'dark',style:'1',locale:'ar',allow_symbol_change:true,
-  calendar:false,details:false,hotlist:false,hide_side_toolbar:true,
+  calendar:false,details:true,hotlist:false,hide_side_toolbar:false,
   hide_top_toolbar:false,hide_legend:false,hide_volume:false,
-  save_image:false,withdateranges:true,studies:[],support_host:'https://www.tradingview.com'
+  save_image:false,withdateranges:true,show_popup_button:true,
+  popup_width:'1000',popup_height:'650',
+  studies:['STD;RSI','STD;MACD','STD;BB'],
+  support_host:'https://www.tradingview.com'
  });
+ script.onerror=()=>{
+  host.dataset.mounted='error';
+  const fallback=document.createElement('div');
+  fallback.className='sas-tv-chart-fallback';
+  fallback.setAttribute('role','status');
+  const message=document.createElement('p');
+  message.textContent='تعذر تحميل شارت TradingView داخل التطبيق. يمكنك فتح الشارت مباشرة؛ وتبقى بيانات SAS PRO مستقلة.';
+  const link=document.createElement('a');
+  link.href='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(tvSymbol);
+  link.target='_blank';link.rel='noopener noreferrer';
+  link.textContent='فتح الشارت في TradingView ↗';
+  fallback.append(message,link);
+  host.replaceChildren(fallback);
+ };
  container.appendChild(script);
  host.replaceChildren(container);
 }
