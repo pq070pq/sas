@@ -728,11 +728,16 @@ function renderMacro(){
    const symbol=String(x?.symbol||'').toUpperCase();
    return label===item.label.toUpperCase() || item.symbols.some(s=>s.toUpperCase()===symbol);
   });
-  if(found && Number(found.price)>0)return {...found,label:item.label};
-  // A pending provider placeholder must not mask the last valid browser cache.
+  if(found && Number(found.price)>0){
+   const normalized={...found,label:item.label};
+   try{localStorage.setItem('saspro_macro_'+item.label.replace(/\\s+/g,'_'),JSON.stringify({price:Number(found.price),change_pct:found.change_pct??null,source:found.source||'مزود البيانات',savedAt:Date.now()}));}catch(e){}
+   return normalized;
+  }
+  // A pending provider placeholder must not mask the last verified browser cache.
   try{
    const cached=JSON.parse(localStorage.getItem('saspro_macro_'+item.label.replace(/\\s+/g,'_'))||'null');
-   if(cached && Number(cached.price)>0)return {...(found||{}),label:item.label,price:cached.price,change_pct:cached.change_pct,source:'آخر سعر محفوظ',stale:true,diagnostic:null};
+   const age=Date.now()-Number(cached?.savedAt||0);
+   if(cached && Number(cached.price)>0 && (!cached.savedAt || age<=24*60*60*1000))return {...(found||{}),label:item.label,price:cached.price,change_pct:cached.change_pct,source:'آخر سعر محفوظ',stale:true,diagnostic:null};
   }catch(e){}
   return found?{...found,label:item.label,source:'جارٍ تحديث الأسعار'}:{label:item.label,price:null,change_pct:null,source:'بانتظار بيانات المزود',diagnostic:'quote_refresh_in_progress'};
  }).filter(Boolean);
@@ -2617,12 +2622,12 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
  const $=id=>document.getElementById(id);
  let newsBusy=false,newsTimer=null,lastNewsKey='';
  const indices=[
-  {label:'S&P 500',keys:['S&P 500','SPX','^GSPC','SPY'],icon:'▥',tone:'#35e7ff'},
-  {label:'NASDAQ',keys:['NASDAQ','IXIC','^IXIC','QQQ'],icon:'◈',tone:'#4b9dff'},
-  {label:'DOW JONES',keys:['DOW JONES','DJI','^DJI','DIA'],icon:'▤',tone:'#ffd447'},
-  {label:'VIX',keys:['VIX','^VIX','VIXY'],icon:'ϟ',tone:'#ff9d64'},
-  {label:'BITCOIN',keys:['BTC','BTC/USD','BTCUSD','BTCUSDT'],icon:'₿',tone:'#ffb54d'},
-  {label:'GOLD',keys:['GOLD','XAU/USD','XAUUSD','GCUSD','GLD'],icon:'◆',tone:'#ffd447'}
+  {label:'S&P 500',keys:['S&P 500','SPX','^GSPC','SPY'],cache:'S&P_500',icon:'📈',tone:'#35e7ff'},
+  {label:'NASDAQ',keys:['NASDAQ','IXIC','^IXIC','QQQ'],cache:'NASDAQ',icon:'💹',tone:'#4b9dff'},
+  {label:'DOW JONES',keys:['DOW JONES','DJI','^DJI','DIA'],cache:'DOW_JONES',icon:'🏛️',tone:'#ffd447'},
+  {label:'VIX',keys:['VIX','^VIX','VIXY'],cache:'VIX',icon:'🌡️',tone:'#ff9d64'},
+  {label:'BITCOIN',keys:['BTC','BTC/USD','BTCUSD','BTCUSDT'],cache:'BTC',icon:'₿',tone:'#ffb54d'},
+  {label:'GOLD',keys:['GOLD','XAU/USD','XAUUSD','GCUSD','GLD'],cache:'GOLD',icon:'🪙',tone:'#ffd447'}
  ];
  function safeUrl(value){try{const u=new URL(String(value||''));return u.protocol==='https:'?u.href:'';}catch(e){return '';}}
  function escapeText(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
@@ -2666,19 +2671,41 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
   }finally{newsBusy=false;if(btn){btn.disabled=false;btn.classList.remove('is-refreshing');}}
  }
  function findIndexItem(ticker,item){
-  return (Array.isArray(ticker)?ticker:[]).find(row=>{
-   const symbol=String(row?.symbol||'').toUpperCase(),label=String(row?.label||'').toUpperCase();
+  const rows=Array.isArray(ticker)?ticker:[];
+  const found=rows.find(row=>{
+   const symbol=String(row?.symbol||'').trim().toUpperCase(),label=String(row?.label||'').trim().toUpperCase();
    return item.keys.some(k=>k.toUpperCase()===symbol||k.toUpperCase()===label);
   });
+  if(found && Number(found.price??found.live_price??found.close)>0)return found;
+  const legacy=rows.find(row=>{
+   const label=String(row?.label||'').trim().toUpperCase();
+   return item.label.toUpperCase()===label || (item.label==='BITCOIN'&&label==='BTC');
+  });
+  if(legacy && Number(legacy.price??legacy.live_price??legacy.close)>0)return legacy;
+  try{
+   const cached=JSON.parse(localStorage.getItem('saspro_macro_'+item.cache)||'null');
+   const age=Date.now()-Number(cached?.savedAt||0);
+   if(cached && Number(cached.price)>0 && (!cached.savedAt || age<=24*60*60*1000)){
+    return {symbol:item.keys[0],label:item.label,price:Number(cached.price),change_pct:cached.change_pct,source:'آخر سعر محفوظ',stale:true};
+   }
+  }catch(e){}
+  return found||legacy||null;
  }
  function renderIndices(ticker){
   const track=$('sasMarketIndicesTrack');if(!track)return;
   const animationTime=track.querySelector('.sas-index-lane')?.getAnimations?.()[0]?.currentTime;
   const rows=indices.map(item=>({meta:item,row:findIndexItem(ticker,item)}));
   const cards=rows.map(({meta,row})=>{
-   const valid=Number(row?.price)>0,change=fmtChange(row?.change_pct),label=meta.label;
+   const price=Number(row?.price??row?.live_price??row?.close);
+   const valid=Number.isFinite(price)&&price>0;
+   const rawChange=row?.change_pct??row?.change_percent??row?.live_change_pct??row?.day_change_pct;
+   const change=fmtChange(rawChange),label=meta.label;
    const source=String(row?.source||'');
-   return '<button type="button" class="sas-index-card '+(!valid?'is-stale':'')+'" style="--index-tone:'+meta.tone+'" data-sas-index="'+escapeText(label)+'" aria-label="تفاصيل '+label+'"><span class="sas-index-card-top"><span class="sas-index-symbol">'+label+'</span><span class="sas-index-icon" aria-hidden="true">'+meta.icon+'</span></span><span class="sas-index-name">'+label+'</span><b class="sas-index-price">'+(valid?fmtPrice(row.price):'جارٍ التحديث')+'</b><span class="sas-index-change '+change.cls+'">'+(valid?change.text:'بانتظار السعر')+'</span><small>'+escapeText(row?.stale?'آخر سعر محفوظ':(source||'مزود البيانات'))+'</small></button>';
+   if(valid && !row?.stale){
+    try{localStorage.setItem('saspro_macro_'+meta.cache,JSON.stringify({price,change_pct:rawChange??null,source:source||'مزود البيانات',savedAt:Date.now()}));}catch(e){}
+   }
+   const priceText=valid?fmtPrice(price):(row?.source==='unavailable'?'غير متاح':'بانتظار السعر');
+   return '<button type="button" class="sas-index-card '+(!valid?'is-stale':'')+(row?.stale?' is-cached':'')+'" style="--index-tone:'+meta.tone+'" data-sas-index="'+escapeText(label)+'" aria-label="تفاصيل '+label+'"><span class="sas-index-card-top"><span class="sas-index-symbol">'+label+'</span><span class="sas-index-icon" aria-hidden="true">'+meta.icon+'</span></span><span class="sas-index-name">'+label+'</span><b class="sas-index-price">'+priceText+'</b><span class="sas-index-change '+change.cls+'">'+(valid?change.text:'لا يتوفر سعر موثّق')+'</span><small>'+escapeText(row?.stale?'آخر سعر موثق محفوظ':(source||'مزود البيانات'))+'</small></button>';
   }).join('');
   track.innerHTML='<div class="sas-index-lane"><div class="sas-index-group">'+cards+'</div><div class="sas-index-group" aria-hidden="true" inert>'+cards+'</div></div>';
   const indexAnimation=track.querySelector('.sas-index-lane')?.getAnimations?.()[0];if(indexAnimation&&Number.isFinite(animationTime))indexAnimation.currentTime=animationTime;
