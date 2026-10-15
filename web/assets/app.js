@@ -783,10 +783,37 @@ function renderMacro(){
       const tickerDisplayLabel=tickerDisplayLabels[labelKey]||x.label;
       return '<button type="button" class="ticker-item" data-ticker-label="'+escHtml(labelKey)+'" aria-label="عرض تفاصيل '+escHtml(tickerDisplayLabel)+'" title="اضغط لعرض تفاصيل '+escHtml(tickerDisplayLabel)+'"><span class="ticker-icon" aria-hidden="true">'+tickerIcon+'</span><span class="ticker-label">'+escHtml(tickerDisplayLabel)+'</span><b>'+displayPrice+'</b><em class="'+cls+'">'+displayChange+'</em></button>';
    }).join('');
-   // Duplicate the ticker run to keep the ribbon continuously filled while scrolling.
-   ticker.innerHTML=tickerItems
+   // Keep the animated track DOM stable during quote refreshes. Replacing
+   // ticker.innerHTML every 5 seconds restarts its CSS animation at frame zero,
+   // making the ribbon appear frozen and repeatedly repainting the whole strip.
+   const desiredTickerHtml=tickerItems
      ? '<div class="ticker-track"><div class="ticker-run">'+tickerItems+'</div><div class="ticker-run" aria-hidden="true">'+tickerItems+'</div></div>'
      : '<div class="empty-state">لا تتوفر أسعار السوق حاليًا.</div>';
+   if(tickerItems){
+     const currentRuns=Array.from(ticker.querySelectorAll('.ticker-run'));
+     const nextWrap=document.createElement('div');
+     nextWrap.innerHTML=desiredTickerHtml;
+     const nextRuns=Array.from(nextWrap.querySelectorAll('.ticker-run'));
+     const canPatch=currentRuns.length===2&&nextRuns.length===2&&currentRuns.every((run,i)=>run.querySelectorAll('.ticker-item').length===nextRuns[i].querySelectorAll('.ticker-item').length);
+     if(canPatch){
+       currentRuns.forEach((run,i)=>{
+         const oldItems=Array.from(run.querySelectorAll('.ticker-item'));
+         const newItems=Array.from(nextRuns[i].querySelectorAll('.ticker-item'));
+         oldItems.forEach((oldItem,j)=>{
+           const newItem=newItems[j];
+           ['data-ticker-label','aria-label','title'].forEach(attr=>{
+             if(newItem.hasAttribute(attr))oldItem.setAttribute(attr,newItem.getAttribute(attr));
+             else oldItem.removeAttribute(attr);
+           });
+           oldItem.replaceChildren(...Array.from(newItem.childNodes).map(node=>node.cloneNode(true)));
+         });
+       });
+     }else if(ticker.innerHTML!==desiredTickerHtml){
+       ticker.innerHTML=desiredTickerHtml;
+     }
+   }else if(ticker.innerHTML!==desiredTickerHtml){
+     ticker.innerHTML=desiredTickerHtml;
+   }
    ticker.classList.toggle('ticker-empty',!tickerItems);
    ticker.classList.toggle('ticker-has-items',Boolean(tickerItems));
  }
