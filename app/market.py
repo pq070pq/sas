@@ -910,6 +910,19 @@ _TICKER_SYMBOLS = [
 
 async def _refresh_ticker_cache():
     async def one(symbol, label):
+        # Seed index cards quickly from a real last-close source while slower
+        # live providers are queried. This prevents blank cards during cold start.
+        if symbol in {"SPX", "IXIC", "DJI"} and not _valid_price((_TICKER_CACHE.get(symbol) or {}).get("price")):
+            try:
+                seed = await asyncio.wait_for(_fred_index_quote(symbol), timeout=2.5)
+                if seed and _valid_price(seed.get("price")):
+                    seed["label"] = label
+                    seed["stale"] = True
+                    seed["source"] = str(seed.get("source") or "FRED Last Close") + " — آخر إغلاق موثق"
+                    _TICKER_CACHE[symbol] = dict(seed)
+            except Exception as exc:
+                logger.info("MARKET_INDEX_SEED_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+
         try:
             item = await asyncio.wait_for(macro_quote(symbol), timeout=35)
             item["label"] = label
