@@ -2573,15 +2573,16 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
  function newsCategory(item){const s=(String(item.category||'')+' '+String(item.headline||'')+' '+String(item.translated_headline||'')).toLowerCase();if(/federal|fed |fomc|powell|interest rate|الفيدرالي|الفائدة|جيروم باول|قرار الفائدة/.test(s))return {label:'الفيدرالي والفائدة',cls:'fed'};if(/inflation|cpi|ppi|jobs report|payroll|gdp|التضخم|الوظائف|الناتج المحلي/.test(s))return {label:'الاقتصاد',cls:''};if(/earnings|revenue|quarter|profit|نتائج|أرباح|إيرادات/.test(s))return {label:'الأرباح',cls:''};if(/nasdaq|s&p|dow|stock|market|shares|أسهم|السوق/.test(s))return {label:'السوق والأسهم',cls:''};return {label:'أخبار مؤثرة',cls:''};}
  function renderNews(items){
   const track=$('sasMarketNewsTrack');if(!track)return;
-  const valid=(Array.isArray(items)?items:[]).filter(x=>x&&safeUrl(x.url)&&String(x.translated_headline||x.headline||'').trim()).sort((a,b)=>Number(b.datetime||0)-Number(a.datetime||0)).slice(0,16);
+  const hasArabic=value=>/[\\u0600-\\u06FF]/.test(String(value||''));
+  const valid=(Array.isArray(items)?items:[]).filter(x=>x&&safeUrl(x.url)&&hasArabic(x.translated_headline)).sort((a,b)=>Number(b.datetime||0)-Number(a.datetime||0)).slice(0,16);
   const key=valid.map(x=>String(x.url)).join('|');
   if(key===lastNewsKey&&track.querySelector('.sas-news-lane'))return;
   lastNewsKey=key;
-  if(!valid.length){track.innerHTML='<div class="sas-news-empty"><span>◌</span><span>لا تتوفر أخبار سوق موثقة حاليًا. ستتم إعادة المحاولة تلقائيًا دون عرض عناوين وهمية.</span></div>';return;}
+  if(!valid.length){track.innerHTML='<div class="sas-news-empty"><span>◌</span><span>لا تتوفر حاليًا أخبار مترجمة عربيًا من سوق الأسهم الأمريكي. ستتم إعادة المحاولة تلقائيًا.</span></div>';return;}
   const animationTime=track.querySelector('.sas-news-lane')?.getAnimations?.()[0]?.currentTime;
   const cards=valid.map(item=>{
    const url=safeUrl(item.url),category=newsCategory(item),headline=String(item.translated_headline||item.headline||'');
-   const summary=String(item.translated_summary||item.summary||'').trim();
+   const summary=hasArabic(item.translated_summary)?String(item.translated_summary).trim():'';
    const source=String(item.source||item.provider||'مصدر الخبر');
    return '<a class="sas-news-card" href="'+escapeText(url)+'" target="_blank" rel="noopener noreferrer" aria-label="قراءة الخبر: '+escapeText(headline)+'"><span class="sas-news-card-top"><span class="sas-news-tag '+category.cls+'">'+category.label+'</span><span class="sas-news-source">'+escapeText(source)+'</span></span><strong>'+escapeText(headline)+'</strong>'+(summary?'<span class="sas-news-card-summary">'+escapeText(summary)+'</span>':'')+'<span class="sas-news-card-bottom"><span>قراءة الخبر الأصلي ↗</span><time>'+ago(item.datetime)+'</time></span></a>';
   }).join('');
