@@ -3985,3 +3985,38 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @keyframes sasNewsTicker{from{transform:translateX(0)}to{transform:translateX(50%)}}
 @media (prefers-reduced-motion:reduce){.sas-market-news-track.is-ticking{animation:none;max-width:100%;width:100%;overflow-x:auto;scroll-snap-type:x proximity}.sas-news-card-copy{display:none}}
 @media (max-width:600px){.sas-market-news-track.is-ticking{animation-duration:48s}.sas-market-news-track.is-ticking .sas-news-card{flex-basis:clamp(245px,78vw,310px)}}
+
+/* SAS PRO news ribbon — integrated, calm and responsive */
+.sas-market-news{margin:0 clamp(8px,1.5vw,16px) 16px;padding:clamp(11px,1.35vw,16px);border-radius:0 0 20px 20px;border-top:1px solid rgba(41,210,239,.24);background:linear-gradient(110deg,rgba(2,16,28,.97),rgba(3,27,42,.98) 48%,rgba(2,15,27,.98));}
+.sas-market-news-head{align-items:center;padding-bottom:10px}
+.sas-market-news-icon{width:44px;height:44px;flex-basis:44px;border-radius:14px;color:#5ce6ff;display:grid;place-items:center}
+.sas-market-news-icon svg{width:30px;height:30px;filter:drop-shadow(0 0 5px rgba(39,219,255,.38))}
+.sas-market-news-controls{gap:8px}
+.sas-news-live-badge{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid rgba(44,219,173,.22);border-radius:999px;background:rgba(12,116,90,.1);color:#77eac4;font-size:10px;font-weight:850;white-space:nowrap}
+.sas-news-live-badge i{width:6px;height:6px;border-radius:50%;background:#28e6a2;box-shadow:0 0 9px rgba(40,230,162,.75);animation:sasNewsLivePulse 2.8s ease-in-out infinite}
+.sas-market-news-controls #sasMarketNewsRefresh{width:40px;height:40px;border-radius:13px;border:1px solid rgba(57,211,245,.3);background:rgba(8,54,75,.45);color:#64e6ff}
+.sas-market-news-track{display:flex;align-items:stretch;gap:12px;width:100%;max-width:100%;min-width:0;overflow:hidden;scroll-snap-type:none;scrollbar-width:none;mask-image:linear-gradient(90deg,transparent 0,#000 2%,#000 98%,transparent 100%);padding:12px 2px 10px}
+.sas-market-news-track.is-ticking{display:flex;width:max-content;max-width:none;animation:sasNewsTickerCalm 100s linear infinite;will-change:transform}
+.sas-market-news-track.is-ticking:hover,.sas-market-news-track.is-ticking:focus-within{animation-play-state:paused}
+.sas-market-news-track.is-ticking .sas-news-card{flex:0 0 clamp(245px,30vw,320px);min-height:164px;scroll-snap-align:none}
+.sas-market-news-track.is-ticking .sas-news-card-copy{pointer-events:none}
+.sas-news-card{border-radius:15px;background:linear-gradient(145deg,rgba(5,31,49,.94),rgba(2,14,25,.98));border-color:rgba(64,185,213,.25);padding:13px;gap:8px}
+.sas-news-card>strong{font-size:13px;line-height:1.65}
+.sas-news-card p{font-size:11px;line-height:1.65}
+.sas-news-card-source{padding-top:8px}
+.sas-market-news-foot{padding-top:7px}
+@keyframes sasNewsTickerCalm{from{transform:translateX(0)}to{transform:translateX(50%)}}
+@keyframes sasNewsLivePulse{0%,100%{opacity:.65;box-shadow:0 0 4px rgba(40,230,162,.4)}50%{opacity:1;box-shadow:0 0 10px rgba(40,230,162,.9)}}
+@media(max-width:600px){
+ .sas-market-news{margin-inline:8px;padding:11px;border-radius:0 0 17px 17px}
+ .sas-market-news-head{gap:8px}
+ .sas-market-news-icon{width:40px;height:40px;flex-basis:40px}
+ .sas-market-news-track.is-ticking{animation-duration:110s}
+ .sas-market-news-track.is-ticking .sas-news-card{flex-basis:min(76vw,300px);min-height:155px}
+ .sas-market-news-foot{font-size:9px}
+}
+@media(prefers-reduced-motion:reduce){
+ .sas-market-news-track.is-ticking{animation:none;width:100%;max-width:100%;overflow-x:auto;scroll-snap-type:x proximity}
+ .sas-market-news-track.is-ticking .sas-news-card-copy{display:none}
+ .sas-news-live-badge i{animation:none}
+}
