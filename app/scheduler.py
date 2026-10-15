@@ -7,7 +7,7 @@ respective modules and are imported lazily from app.jobs to preserve backwards
 compatibility during the incremental refactor.
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from zoneinfo import ZoneInfo
 from sqlalchemy import select
 
