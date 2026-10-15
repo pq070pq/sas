@@ -1038,8 +1038,8 @@ async function searchShariah(){
    const name='<span class="shariah-source-identity"><span class="shariah-source-brand-icon" aria-hidden="true">'+sourceGlyph+'</span><b>'+escHtml(sourceName)+'</b></span>';
    const statusText=escHtml(src.status_ar||'غير واضح / يحتاج تحقق');
    let meaning='';
-   if(src.source==='مصرف الراجحي') meaning='يوضح المعايير الشرعية لدى المصرف، ولا يمثل حكمًا مباشرًا على هذا السهم.';
-   else if(src.source==='بنك البلاد') meaning='يوضح المعايير والحوكمة الشرعية لدى البنك، ولا يفحص هذا السهم مباشرة.';
+   if(src.source==='مصرف الراجحي') meaning='يعرض طريقة الإشراف الشرعي عند المصرف، لكنه ما يحكم على السهم هذا مباشرة.';
+   else if(src.source==='بنك البلاد') meaning='يعرض طريقة الإشراف الشرعي عند البنك، لكنه ما يفحص السهم هذا بنفسه.';
    else if(src.source==='يقين') meaning=src.verified?'نتيجة منشورة مباشرة للسهم.':'لم تظهر نتيجة مباشرة موثقة.';
    else meaning=src.verified?'نتيجة مباشرة موثقة.':'لا توجد نتيجة مباشرة موثقة.';
    const sourceState=String(src.status||'').toLowerCase();
@@ -1230,7 +1230,7 @@ async function analyzeSymbol(){
  const quoteChangeDisplay=hasNumericValue(q.change_pct)?pct(q.change_pct):'التغير غير متاح';
  const quoteChangeClass=hasNumericValue(q.change_pct)?(Number(q.change_pct)>=0?'up':'down'):'';
  const shSources=Array.isArray(sh.sources)?sh.sources:[];
- const shHtml='<section class="shariah-box '+(sh.status==='halal'||sh.status==='compliant'?'sh-ok':(sh.status==='haram'||sh.status==='non_compliant'?'sh-bad':'sh-unknown'))+'"><div><b>🕌 التحقق الشرعي</b><strong>'+escHtml(sh.status_ar||'غير واضح / يحتاج تحقق')+'</strong></div><p>'+escHtml(sh.message||'لم تتوفر نتيجة موثقة؛ لم يتم التأليف.')+'</p><div class="shariah-help"><b>كيف تقرأ النتيجة؟</b><span>يقين = نتيجة السهم المنشورة مباشرة.</span><span>مصرف الراجحي وبنك البلاد يوضحان المعايير والحوكمة الشرعية، ولا يؤكدان وحدهما شرعية هذا السهم.</span><span></span></div>'+(sh.ai?.summary?'<p>🧠 '+escHtml(sh.ai.summary)+'</p>':'')+'<em>⛔ هذه معلومات للتحقق فقط وليست فتوى، وقرار الشرعية مسؤوليتك.</em></section>';
+ const shHtml='<section class="shariah-box '+(sh.status==='halal'||sh.status==='compliant'?'sh-ok':(sh.status==='haram'||sh.status==='non_compliant'?'sh-bad':'sh-unknown'))+'"><div><b>🕌 التحقق الشرعي</b><strong>'+escHtml(sh.status_ar||'غير واضح / يحتاج تحقق')+'</strong></div><p>'+escHtml(sh.message||'لم تتوفر نتيجة موثقة؛ لم يتم التأليف.')+'</p><div class="shariah-help"><b>كيف تقرأ النتيجة؟</b><span>يقين: نتيجة منشورة تخص السهم نفسه إذا كانت متوفرة.</span><span>الراجحي وبنك البلاد يوضحون طريقة الإشراف الشرعي عندهم، لكن هذا لحاله ما يعني إن السهم شرعي.</span><span>إذا ما فيه نتيجة واضحة ومباشرة، نخلي الحالة «غير واضح / يحتاج تحقق».</span></div>'+(sh.ai?.summary?'<p>🧠 '+escHtml(sh.ai.summary)+'</p>':'')+'<em>⛔ هذه معلومات للتحقق فقط وليست فتوى، وقرار الشرعية مسؤوليتك.</em></section>';
 const miniAnalysisHtml=
    '<section class="mini-analysis sas-pro-technical">'+
      '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO VERIFIED TECHNICAL</span><b>📊 التحليل الفني والمؤشرات</b><small>القيم الفعلية المتاحة من محرك التحليل</small></div></div>'+
