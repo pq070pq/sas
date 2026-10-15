@@ -600,6 +600,7 @@ _US_EQUITY_TERMS = (
     "wall street", "stock futures", "earnings", "ipo", "listed company", "share price",
     "market rally", "stocks fall", "stocks rise", "tech stocks", "small-cap", "large-cap",
     "bull market", "bear market", "selloff", "sell-off", "trading session", "investors",
+    "federal reserve", "fomc", "interest rate", "rate cut", "rate hike", "inflation", "cpi", "ppi", "powell", "treasury", "bond yield", "jobs report", "nonfarm payroll", "unemployment", "gdp", "tariff", "oil prices",
     "equity markets", "market close", "market open", "stock exchange", "us stocks", "u.s. stocks",
 )
 
@@ -643,7 +644,7 @@ async def _rss_market_news(limit: int = 24):
             if not headline or not url.startswith(("https://", "http://")):
                 continue
             normal = headline.lower()
-            if not any(term in normal for term in _US_EQUITY_TERMS):
+            if not any(term in normal for term in _US_EQUITY_TERMS) and not any(term in normal for term in _MARKET_IMPACT_TERMS):
                 continue
             published_text = item.findtext("pubDate") or ""
             try:
@@ -842,8 +843,12 @@ async def market_news(limit: int = 24):
         return cached["items"][:max(1, min(40, int(limit)))]
 
     rows = await _marketaux_market_news(limit)
+    if cutoff is not None and rows:
+        rows = [row for row in rows if int(row.get("datetime") or 0) >= cutoff]
     if not rows:
         rows = await _newsfilter_market_news(limit)
+        if cutoff is not None and rows:
+            rows = [row for row in rows if int(row.get("datetime") or 0) >= cutoff]
     if not rows:
         payload = await _finnhub_get("news", {"category": "general"}, timeout=10)
         if isinstance(payload, list):
