@@ -3631,3 +3631,54 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .shariah-review .shariah-source-status{max-width:46%;font-size:10px}
  .shariah-review .shariah-source-status i{flex-basis:20px;width:20px;height:20px;font-size:11px}
 }
+
+
+/* SAS PRO Shariah verdict — premium status glow */
+.shariah-review{
+  position:relative; overflow:hidden;
+  border:1px solid rgba(93,211,255,.18);
+  background:linear-gradient(145deg,rgba(5,23,37,.97),rgba(2,11,20,.98));
+  box-shadow:0 12px 34px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.035);
+  transition:border-color .25s ease,box-shadow .25s ease,transform .25s ease;
+}
+.shariah-review:before{
+  content:"";position:absolute;inset:0 0 auto;height:2px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,currentColor,transparent);opacity:.7;
+}
+.shariah-review.sh-ok{
+  color:#54f0ad;border-color:rgba(62,255,169,.6);
+  box-shadow:0 0 0 1px rgba(49,240,155,.08),0 0 24px rgba(30,237,143,.17),0 0 52px rgba(30,237,143,.08),inset 0 0 30px rgba(30,237,143,.045);
+  background:radial-gradient(ellipse at 85% 0%,rgba(28,236,143,.13),transparent 48%),linear-gradient(145deg,rgba(4,29,30,.98),rgba(2,12,20,.99));
+}
+.shariah-review.sh-bad{
+  color:#ff6b78;border-color:rgba(255,77,99,.68);
+  box-shadow:0 0 0 1px rgba(255,68,91,.08),0 0 25px rgba(255,53,77,.19),0 0 52px rgba(255,53,77,.08),inset 0 0 30px rgba(255,53,77,.05);
+  background:radial-gradient(ellipse at 85% 0%,rgba(255,52,74,.14),transparent 48%),linear-gradient(145deg,rgba(36,10,20,.98),rgba(15,5,13,.99));
+}
+.shariah-review.sh-unknown{
+  color:#ffd27c;border-color:rgba(255,194,103,.45);
+  box-shadow:0 0 22px rgba(255,194,103,.08),inset 0 0 24px rgba(255,194,103,.025);
+}
+.shariah-review.sh-ok .shariah-emblem,.shariah-review.sh-bad .shariah-emblem{
+  box-shadow:0 0 22px currentColor,inset 0 0 18px rgba(255,255,255,.04);
+  border-color:currentColor;
+}
+.shariah-review.sh-ok .shariah-verdict-state{color:#59f2b0;text-shadow:0 0 14px rgba(49,240,155,.28)}
+.shariah-review.sh-bad .shariah-verdict-state{color:#ff6b78;text-shadow:0 0 14px rgba(255,53,77,.25)}
+.shariah-review .shariah-review-section-title{border-top-color:rgba(118,203,230,.16)}
+.shariah-review .shariah-source-row{border-bottom:1px solid rgba(118,203,230,.085);padding:13px 0}
+.shariah-review .shariah-source-row:last-child{border-bottom:0}
+.shariah-review .shariah-source-brand-icon{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex:0 0 34px;border-radius:11px;background:linear-gradient(145deg,rgba(50,177,220,.2),rgba(7,24,39,.8));border:1px solid rgba(86,211,255,.25);box-shadow:0 0 12px rgba(47,187,239,.08);font-size:17px}
+.shariah-review .shariah-source-identity{display:flex;align-items:center;gap:10px}
+.shariah-review .shariah-source-status{white-space:normal;text-align:left;max-width:48%;font-size:12px}
+.shariah-review .shariah-source-row.source-ok .shariah-source-status{color:#59eab0}
+.shariah-review .shariah-source-row.source-bad .shariah-source-status{color:#ff6877}
+.shariah-review .shariah-source-row.source-unknown .shariah-source-status{color:#ffd27c}
+.shariah-zoya-attribution{font-size:10px;line-height:1.7;opacity:.68;margin:8px 0;text-align:center}
+.shariah-zoya-attribution a{color:#65dfff;text-decoration:underline;text-underline-offset:3px}
+@media(prefers-reduced-motion:no-preference){
+ .shariah-review.sh-ok{animation:shariahGreenPulse 3.4s ease-in-out infinite}
+ .shariah-review.sh-bad{animation:shariahRedPulse 3.4s ease-in-out infinite}
+}
+@keyframes shariahGreenPulse{0%,100%{box-shadow:0 0 0 1px rgba(49,240,155,.06),0 0 20px rgba(30,237,143,.13),inset 0 0 22px rgba(30,237,143,.035)}50%{box-shadow:0 0 0 1px rgba(49,240,155,.12),0 0 31px rgba(30,237,143,.24),0 0 58px rgba(30,237,143,.1),inset 0 0 32px rgba(30,237,143,.06)}}
+@keyframes shariahRedPulse{0%,100%{box-shadow:0 0 0 1px rgba(255,68,91,.06),0 0 21px rgba(255,53,77,.14),inset 0 0 22px rgba(255,53,77,.035)}50%{box-shadow:0 0 0 1px rgba(255,68,91,.12),0 0 32px rgba(255,53,77,.24),0 0 58px rgba(255,53,77,.1),inset 0 0 32px rgba(255,53,77,.06)}}
