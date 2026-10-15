@@ -1,5 +1,10 @@
 services:
   saspro:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     build: .
     restart: unless-stopped
     env_file: .env
@@ -21,6 +26,11 @@ services:
       - openterminal-web
 
   panwatch:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     build:
       context: ./vendor/PanWatch
     restart: unless-stopped
@@ -31,6 +41,11 @@ services:
       - panwatch_data:/app/data
 
   openterminal-api:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     build:
       context: .
       dockerfile: docker/openterminal-api.Dockerfile
@@ -44,6 +59,11 @@ services:
       - "4000"
 
   openterminal-web:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     build:
       context: .
       dockerfile: docker/openterminal-web.Dockerfile
