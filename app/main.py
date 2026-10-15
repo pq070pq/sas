@@ -887,9 +887,6 @@ async def admin_terms(user=Depends(telegram_user), db: AsyncSession = Depends(ge
     } for u in rows]
 
 
-async def terms():
-    return {"version": TERMS_VERSION, "text": TERMS_TEXT}
-
 @app.post("/api/terms/accept")
 async def accept_terms(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     now = utcnow()
