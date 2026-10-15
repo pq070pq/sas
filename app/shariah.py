@@ -80,10 +80,15 @@ def _parse_yaaqeen_html(html, symbol):
         (r"متوافق\s+مع\s+الشريعة", "compliant"),
         (r"(?<!غير\s)\bشرعي\b", "compliant"),
     )
+    matches = []
     for pattern, status in patterns:
-        if re.search(pattern, window):
-            verdict = status
-            break
+        match = re.search(pattern, window)
+        if match:
+            matches.append((match.start(), status))
+    if matches:
+        # The first verdict near the heading is the published status; do not
+        # accidentally use later methodology text describing other categories.
+        verdict = min(matches, key=lambda item: item[0])[1]
 
     date_m = re.search(r"تم التحديث بتاريخ\s*([0-9]{2}-[0-9]{2}-[0-9]{4})", text)
     label = {
