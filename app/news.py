@@ -611,6 +611,56 @@ async def _rss_market_news(limit: int = 24):
     rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
     return rows[:max(1, min(40, int(limit)))]
 
+async def _marketaux_market_news(limit: int = 24):
+    """Fetch recent US financial news from Marketaux; keep API token server-side."""
+    api_key = str(getattr(settings, "marketaux_api_key", "") or "").strip()
+    if not api_key:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
+            response = await client.get(
+                "https://api.marketaux.com/v1/news/all",
+                params={"api_token": api_key, "countries": "us", "language": "en",
+                        "filter_entities": "true", "limit": max(1, min(50, int(limit) * 2))},
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except Exception as exc:
+        logger.warning("Marketaux market-news request failed: %s", type(exc).__name__)
+        return []
+    articles = payload.get("data", []) if isinstance(payload, dict) else []
+    now_epoch = int(time.time())
+    cutoff = now_epoch - 7 * 86400
+    rows, seen = [], set()
+    for item in articles if isinstance(articles, list) else []:
+        if not isinstance(item, dict):
+            continue
+        headline = re.sub(r"\s+", " ", str(item.get("title") or "")).strip()
+        url = str(item.get("url") or "").strip()
+        published = str(item.get("published_at") or "").strip()
+        try:
+            stamp = int(datetime.fromisoformat(published.replace("Z", "+00:00")).timestamp())
+        except (TypeError, ValueError, OverflowError):
+            stamp = 0
+        if not headline or not url.startswith("https://") or stamp < cutoff or stamp > now_epoch + 3600:
+            continue
+        normal = re.sub(r"[^a-z0-9]+", " ", headline.lower()).strip()
+        if not normal or normal in seen:
+            continue
+        entities = item.get("entities") or []
+        symbols = [str(x.get("symbol") or "").upper() for x in entities if isinstance(x, dict) and x.get("symbol")]
+        if not symbols and not any(term in normal for term in _US_EQUITY_TERMS) and not any(
+            term in normal for term in ("federal reserve", "interest rate", "inflation", "treasury", "economy", "nasdaq", "s&p", "dow jones", "stock market")
+        ):
+            continue
+        seen.add(normal)
+        rows.append({"headline": headline, "source": str(item.get("source") or "Marketaux"),
+                     "url": url, "datetime": stamp,
+                     "summary": re.sub(r"<[^>]+>", " ", str(item.get("description") or "")).strip()[:500],
+                     "category": "general", "related": ", ".join(symbols), "provider": "Marketaux"})
+    rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
+    return rows[:max(1, min(40, int(limit)))]
+
 async def _newsfilter_market_news(limit: int = 24):
     """Fetch source-linked market headlines from Newsfilter when an API key is configured."""
     api_key = str(getattr(settings, "newsfilter_api_key", "") or "").strip()
@@ -688,14 +738,14 @@ async def _newsfilter_market_news(limit: int = 24):
     return rows[:max(1, min(40, int(limit)))]
 
 async def market_news(limit: int = 24):
-    """Newsfilter-first market news, with Finnhub and RSS as transparent fallbacks."""
+    """Marketaux-first market news, with Finnhub and RSS as transparent fallbacks."""
     now = time.monotonic()
     cached = _MARKET_NEWS_CACHE
     if cached["items"] and now - cached["at"] < _MARKET_NEWS_TTL:
         return cached["items"][:max(1, min(40, int(limit)))]
 
-    # Prefer Newsfilter only when the operator has configured a licensed API key.
-    rows = await _newsfilter_market_news(limit)
+    # Prefer Marketaux when configured; the API token stays server-side.
+    rows = await _marketaux_market_news(limit)
     if not rows:
         payload = await _finnhub_get("news", {"category": "general"}, timeout=10)
         if isinstance(payload, list):
