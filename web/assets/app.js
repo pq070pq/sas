@@ -278,11 +278,13 @@ function renderNewsItems(items,limit=5,translatedItems=[]){
    const url=safeNewsUrl(n.url);
    const originalHeadline=String(n.headline||n.title||'خبر');
    const translated=(url&&byUrl.get(url))||translations.find(x=>x&&typeof x==='object'&&String(x.headline||'').trim()===originalHeadline.trim());
-   const translatedHeadline=String(translated?.translated_headline||'').trim();
+   // API market-news responses include translation fields on each news item.
+   // Prefer those fields before the optional separate translation array.
+   const translatedHeadline=String(n.translated_headline||translated?.translated_headline||'').trim();
    const headline=escHtml(translatedHeadline||originalHeadline);
    const originalTitle=translatedHeadline&&translatedHeadline!==originalHeadline?'<small class="news-original-title">العنوان الأصلي: '+escHtml(originalHeadline)+'</small>':'';
    const source=escHtml(n.source||translated?.source||'مصدر غير محدد');
-   const aiSummary=String(translated?.summary||n.ai_summary||'').trim();
+   const aiSummary=String(n.translated_summary||translated?.summary||n.ai_summary||'').trim();
    const sourceSummary=String(n.summary||'').trim();
    const summary=aiSummary||sourceSummary;
    const label=aiSummary?'الملخص بالعربية':sourceSummary?'ملخص المصدر':'الملخص';
