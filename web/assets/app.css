@@ -3974,3 +3974,14 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .sas-news-card{flex-basis:min(82vw,310px)!important;min-height:175px!important}
 }
 @media(prefers-reduced-motion:reduce){.market-ticker .ticker-run{animation:none!important}.sas-market-news-track{scroll-behavior:auto!important}}
+
+/* SAS PRO — calm live market-news ticker */
+.sas-market-news{overflow:hidden}
+.sas-market-news-track.is-ticking{display:flex;width:max-content;max-width:none;overflow:visible;scroll-snap-type:none;animation:sasNewsTicker 58s linear infinite;will-change:transform}
+.sas-market-news-track.is-ticking:hover,.sas-market-news-track.is-ticking:focus-within{animation-play-state:paused}
+.sas-market-news-track.is-ticking .sas-news-card{scroll-snap-align:none;flex:0 0 clamp(260px,32vw,350px)}
+.sas-news-original{display:block;max-height:2.6em;overflow:hidden;color:#66889b;font-size:10px;font-weight:500;line-height:1.35;direction:ltr;text-align:right;overflow-wrap:anywhere}
+.sas-news-card-copy{pointer-events:none}
+@keyframes sasNewsTicker{from{transform:translateX(0)}to{transform:translateX(50%)}}
+@media (prefers-reduced-motion:reduce){.sas-market-news-track.is-ticking{animation:none;max-width:100%;width:100%;overflow-x:auto;scroll-snap-type:x proximity}.sas-news-card-copy{display:none}}
+@media (max-width:600px){.sas-market-news-track.is-ticking{animation-duration:48s}.sas-market-news-track.is-ticking .sas-news-card{flex-basis:clamp(245px,78vw,310px)}}
