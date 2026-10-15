@@ -3748,3 +3748,16 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 /* Non-blocking action feedback for channel and radar */
 .sas-action-notice{margin:12px 0;padding:12px 15px;border:1px solid rgba(255,186,82,.48);border-radius:13px;background:linear-gradient(120deg,rgba(82,48,10,.25),rgba(4,18,29,.96));color:#ffdca1;font-size:13px;line-height:1.8;text-align:right;box-shadow:0 6px 20px rgba(0,0,0,.14)}
 .sas-action-notice[hidden]{display:none!important}
+
+/* SAS PRO: shareable opportunity cards, gold shariah action, no saved-stock list */
+.stock-card-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px!important}
+.stock-card-actions button{min-width:0!important;white-space:normal!important;line-height:1.5!important;padding:12px 9px!important;border-radius:14px!important;font-weight:700!important;cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+.stock-card-actions button:active{transform:scale(.98)}
+.stock-card-actions button:disabled{opacity:.65;cursor:wait}
+.stock-card-actions .stock-share-action{border:1px solid rgba(70,216,248,.68)!important;background:linear-gradient(130deg,#075a79,#07344d)!important;color:#dffaff!important}
+.stock-card-actions .stock-save-card-action{border:1px solid rgba(227,190,94,.7)!important;background:linear-gradient(130deg,rgba(82,60,20,.55),rgba(24,26,26,.96))!important;color:#f5d991!important}
+.sas-card-copyright{margin-top:13px;padding-top:10px;border-top:1px solid rgba(65,155,180,.18);font-size:10px;line-height:1.7;text-align:center;color:#7795a7;direction:rtl}
+.stock-shariah-action{border-color:rgba(225,190,95,.78)!important;background:linear-gradient(115deg,rgba(79,59,20,.34),rgba(13,21,28,.96))!important;color:#f1d58b!important;box-shadow:inset 0 1px rgba(255,255,255,.04),0 0 15px rgba(222,185,82,.07)!important}
+.stock-shariah-action strong{color:#f2d58b!important}
+.sas-terminal-share{width:42px;height:42px;border-radius:13px;border:1px solid rgba(225,190,95,.68);background:rgba(71,54,18,.35);color:#f5d991;font-size:23px;cursor:pointer}
+@media(max-width:420px){.stock-card-actions{grid-template-columns:1fr 1fr!important}.stock-card-actions button{font-size:12px!important;padding:10px 6px!important}}
