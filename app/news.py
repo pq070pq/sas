@@ -266,12 +266,78 @@ def _normalise_fmp_news(rows):
     return [x for x in out if x["headline"] and x["url"]]
 
 
-async def company_news(symbol: str, days: int = 2):
-    """Recent company news with caching and provider failover."""
+async def _marketaux_company_news(symbol: str, days: int = 2, limit: int = 3):
+    """Fetch a small, recent, symbol-specific Marketaux batch for on-demand analysis."""
+    api_key = str(getattr(settings, "marketaux_api_key", "") or "").strip()
+    key = str(symbol or "").upper().strip()
+    if not api_key or not key:
+        return []
+    cutoff_dt = datetime.now(timezone.utc) - timedelta(days=max(1, int(days)))
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            response = await client.get(
+                "https://api.marketaux.com/v1/news/all",
+                params={
+                    "api_token": api_key,
+                    "symbols": key,
+                    "language": "en",
+                    "filter_entities": "true",
+                    "published_after": cutoff_dt.isoformat(),
+                    "limit": max(1, min(3, int(limit))),
+                },
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except Exception as exc:
+        logger.info("Marketaux company-news request failed for %s: %s", key, type(exc).__name__)
+        return []
+
+    now_epoch = int(time.time())
+    cutoff = int(cutoff_dt.timestamp())
+    rows, seen = [], set()
+    articles = payload.get("data", []) if isinstance(payload, dict) else []
+    for item in articles if isinstance(articles, list) else []:
+        if not isinstance(item, dict):
+            continue
+        headline = re.sub(r"\\s+", " ", str(item.get("title") or "")).strip()
+        url = str(item.get("url") or "").strip()
+        published = str(item.get("published_at") or "").strip()
+        try:
+            stamp = int(datetime.fromisoformat(published.replace("Z", "+00:00")).timestamp())
+        except (TypeError, ValueError, OverflowError):
+            stamp = 0
+        if not headline or not url.startswith("https://") or stamp < cutoff or stamp > now_epoch + 3600:
+            continue
+        entities = item.get("entities") or []
+        symbols = [str(entity.get("symbol") or "").upper() for entity in entities
+                   if isinstance(entity, dict) and entity.get("symbol")]
+        # Reject broad-market articles that do not actually identify this stock.
+        if symbols and key not in symbols:
+            continue
+        normal = re.sub(r"[^a-z0-9]+", " ", headline.lower()).strip()
+        if not normal or normal in seen:
+            continue
+        seen.add(normal)
+        description = re.sub(r"<[^>]+>", " ", str(item.get("description") or item.get("snippet") or "")).strip()
+        rows.append({
+            "headline": headline,
+            "source": str(item.get("source") or "Marketaux"),
+            "url": url,
+            "datetime": stamp,
+            "summary": " ".join(description.split())[:800],
+            "symbol": key,
+            "provider": "Marketaux",
+        })
+    rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
+    return rows[:max(1, min(3, int(limit)))]
+
+
+async def company_news(symbol: str, days: int = 2, include_marketaux: bool = False):
+    """Recent company news with caching and provider failover; Marketaux is opt-in to protect API quota."""
     key = symbol.upper().strip()
     if not key:
         return []
-    cache_key = f"{key}:{days}"
+    cache_key = f"{key}:{days}:marketaux={int(bool(include_marketaux))}"
     now = time.monotonic()
     cached = _news_cache.get(cache_key)
     if cached and now - cached[0] < max(60, settings.news_cache_minutes * 60):
@@ -279,29 +345,33 @@ async def company_news(symbol: str, days: int = 2):
 
     end = date.today()
     start = end - timedelta(days=max(1, days))
-    # Yahoo Finance is the preferred source for company headlines.
-    # Do not use this path for live quotes or market-price retrieval.
-    yahoo_rows = await yahoo_finance_news(key, limit=30)
-    cutoff = int(datetime.now(timezone.utc).timestamp()) - max(1, days) * 86400
-    yahoo_recent = [
-        item for item in yahoo_rows
-        if not item.get("datetime") or int(item.get("datetime") or 0) >= cutoff
-    ]
-    if yahoo_recent:
-        result = yahoo_recent
-    else:
-        rows = await _finnhub_get(
-            "company-news",
-            {"symbol": key, "from": start.isoformat(), "to": end.isoformat()},
-        )
-        if isinstance(rows, list) and rows:
-            result = rows
+    result = []
+    if include_marketaux:
+        result = await _marketaux_company_news(key, days=days, limit=3)
+
+    # Fall back to existing providers if Marketaux is not configured or has no matching stories.
+    if not result:
+        yahoo_rows = await yahoo_finance_news(key, limit=30)
+        cutoff = int(datetime.now(timezone.utc).timestamp()) - max(1, days) * 86400
+        yahoo_recent = [
+            item for item in yahoo_rows
+            if not item.get("datetime") or int(item.get("datetime") or 0) >= cutoff
+        ]
+        if yahoo_recent:
+            result = yahoo_recent
         else:
-            fmp_rows = await _fmp_get(
-                "news/stock",
-                {"symbols": key, "from": start.isoformat(), "to": end.isoformat(), "limit": 20},
+            rows = await _finnhub_get(
+                "company-news",
+                {"symbol": key, "from": start.isoformat(), "to": end.isoformat()},
             )
-            result = _normalise_fmp_news(fmp_rows if isinstance(fmp_rows, list) else [])
+            if isinstance(rows, list) and rows:
+                result = rows
+            else:
+                fmp_rows = await _fmp_get(
+                    "news/stock",
+                    {"symbols": key, "from": start.isoformat(), "to": end.isoformat(), "limit": 20},
+                )
+                result = _normalise_fmp_news(fmp_rows if isinstance(fmp_rows, list) else [])
 
     _news_cache[cache_key] = (now, result)
     return result
@@ -611,54 +681,178 @@ async def _rss_market_news(limit: int = 24):
     rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
     return rows[:max(1, min(40, int(limit)))]
 
+async def _marketaux_market_news(limit: int = 24):
+    """Fetch recent US financial news from Marketaux; keep API token server-side."""
+    api_key = str(getattr(settings, "marketaux_api_key", "") or "").strip()
+    if not api_key:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
+            response = await client.get(
+                "https://api.marketaux.com/v1/news/all",
+                params={"api_token": api_key, "countries": "us", "language": "en",
+                        "filter_entities": "true", "limit": max(1, min(50, int(limit) * 2))},
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except Exception as exc:
+        logger.warning("Marketaux market-news request failed: %s", type(exc).__name__)
+        return []
+    articles = payload.get("data", []) if isinstance(payload, dict) else []
+    now_epoch = int(time.time())
+    cutoff = now_epoch - 7 * 86400
+    rows, seen = [], set()
+    for item in articles if isinstance(articles, list) else []:
+        if not isinstance(item, dict):
+            continue
+        headline = re.sub(r"\s+", " ", str(item.get("title") or "")).strip()
+        url = str(item.get("url") or "").strip()
+        published = str(item.get("published_at") or "").strip()
+        try:
+            stamp = int(datetime.fromisoformat(published.replace("Z", "+00:00")).timestamp())
+        except (TypeError, ValueError, OverflowError):
+            stamp = 0
+        if not headline or not url.startswith("https://") or stamp < cutoff or stamp > now_epoch + 3600:
+            continue
+        normal = re.sub(r"[^a-z0-9]+", " ", headline.lower()).strip()
+        if not normal or normal in seen:
+            continue
+        entities = item.get("entities") or []
+        symbols = [str(x.get("symbol") or "").upper() for x in entities if isinstance(x, dict) and x.get("symbol")]
+        if not symbols and not any(term in normal for term in _US_EQUITY_TERMS) and not any(
+            term in normal for term in ("federal reserve", "interest rate", "inflation", "treasury", "economy", "nasdaq", "s&p", "dow jones", "stock market")
+        ):
+            continue
+        seen.add(normal)
+        rows.append({"headline": headline, "source": str(item.get("source") or "Marketaux"),
+                     "url": url, "datetime": stamp,
+                     "summary": re.sub(r"<[^>]+>", " ", str(item.get("description") or "")).strip()[:500],
+                     "category": "general", "related": ", ".join(symbols), "provider": "Marketaux"})
+    rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
+    return rows[:max(1, min(40, int(limit)))]
+
+async def _newsfilter_market_news(limit: int = 24):
+    """Fetch source-linked market headlines from Newsfilter when an API key is configured."""
+    api_key = str(getattr(settings, "newsfilter_api_key", "") or "").strip()
+    if not api_key:
+        return []
+    query = (
+        'title:("Federal Reserve" OR "interest rates" OR inflation OR stocks OR shares '
+        'OR earnings OR Nasdaq OR Dow OR "S&P 500" OR tariffs OR economy OR "stock market") '
+        'OR description:("Federal Reserve" OR "interest rates" OR inflation OR stocks '
+        'OR earnings OR Nasdaq OR "S&P 500" OR tariffs)'
+    )
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            response = await client.post(
+                "https://api.newsfilter.io/search",
+                headers={"Authorization": api_key, "Accept": "application/json"},
+                json={"queryString": query, "from": 0, "size": max(10, min(40, int(limit) * 2))},
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except Exception as exc:
+        logger.warning("Newsfilter market-news request failed: %s", type(exc).__name__)
+        return []
+    articles = payload.get("articles", []) if isinstance(payload, dict) else []
+    if not isinstance(articles, list):
+        return []
+    now_epoch = int(time.time())
+    cutoff = now_epoch - 7 * 86400
+    rows, seen = [], set()
+    for item in articles:
+        if not isinstance(item, dict):
+            continue
+        headline = re.sub(r"\s+", " ", str(item.get("title") or item.get("headline") or "")).strip()
+        url = str(item.get("url") or "").strip()
+        published = item.get("publishedAt") or item.get("published_at") or item.get("datetime")
+        try:
+            if isinstance(published, (int, float)):
+                stamp = int(published)
+            else:
+                published_text = str(published or "").strip()
+                if published_text.isdigit():
+                    stamp = int(published_text)
+                else:
+                    stamp = int(datetime.fromisoformat(published_text.replace("Z", "+00:00")).timestamp())
+        except (TypeError, ValueError, OverflowError):
+            stamp = 0
+        if not headline or not url.startswith("https://") or stamp < cutoff or stamp > now_epoch + 3600:
+            continue
+        normal = re.sub(r"[^a-z0-9]+", " ", headline.lower()).strip()
+        if not normal or normal in seen:
+            continue
+        if not any(term in normal for term in _US_EQUITY_TERMS) and not any(term in normal for term in (
+            "federal reserve", "interest rate", "inflation", "tariff", "treasury", "economic", "economy",
+            "nasdaq", "s&p", "dow jones", "earnings", "stocks", "stock market", "shares",
+        )):
+            continue
+        seen.add(normal)
+        source = item.get("source") or {}
+        if isinstance(source, dict):
+            source_name = source.get("name") or source.get("id") or "Newsfilter"
+        else:
+            source_name = str(source or "Newsfilter")
+        description = re.sub(r"<[^>]+>", " ", str(item.get("description") or item.get("summary") or "")).strip()
+        rows.append({
+            "headline": headline,
+            "source": str(source_name),
+            "url": url,
+            "datetime": stamp,
+            "summary": " ".join(description.split())[:500],
+            "category": "general",
+            "related": ", ".join(item.get("symbols", [])) if isinstance(item.get("symbols"), list) else "",
+            "provider": "Newsfilter",
+        })
+    rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
+    return rows[:max(1, min(40, int(limit)))]
+
 async def market_news(limit: int = 24):
-    """Recent source-linked US-market headlines with explicit market-impact relevance."""
+    """Marketaux-first market news, with Finnhub and RSS as transparent fallbacks."""
     now = time.monotonic()
     cached = _MARKET_NEWS_CACHE
     if cached["items"] and now - cached["at"] < _MARKET_NEWS_TTL:
         return cached["items"][:max(1, min(40, int(limit)))]
-    payload = await _finnhub_get("news", {"category": "general"}, timeout=10)
-    if not isinstance(payload, list):
-        fallback = await _rss_market_news(limit)
-        if fallback:
-            _MARKET_NEWS_CACHE.update({"at": now, "items": fallback})
-            return fallback
-        return cached["items"][:max(1, min(40, int(limit)))] if cached["items"] else []
-    rows = []
-    seen = set()
-    cutoff = int(time.time()) - 7 * 86400
-    for item in payload:
-        if not isinstance(item, dict):
-            continue
-        headline = re.sub(r"\s+", " ", str(item.get("headline") or "")).strip()
-        url = str(item.get("url") or "").strip()
-        stamp = item.get("datetime")
-        if not headline or not url.startswith(("https://", "http://")):
-            continue
-        try:
-            stamp = int(stamp or 0)
-        except (TypeError, ValueError):
-            stamp = 0
-        if stamp < cutoff or stamp > int(time.time()) + 3600:
-            continue
-        normal = headline.lower()
-        if not any(term in normal for term in _US_EQUITY_TERMS):
-            continue
-        key = re.sub(r"[^a-z0-9]+", " ", normal).strip()
-        if not key or key in seen:
-            continue
-        seen.add(key)
-        rows.append({
-            "headline": headline,
-            "source": str(item.get("source") or "Finnhub"),
-            "url": url,
-            "datetime": stamp,
-            "summary": re.sub(r"<[^>]+>", " ", str(item.get("summary") or "")).strip()[:500],
-            "category": str(item.get("category") or "general"),
-            "related": str(item.get("related") or ""),
-            "provider": "Finnhub",
-        })
-    rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
+
+    # Prefer Marketaux when configured; the API token stays server-side.
+    rows = await _marketaux_market_news(limit)
+    if not rows:
+        payload = await _finnhub_get("news", {"category": "general"}, timeout=10)
+        if isinstance(payload, list):
+            rows = []
+            seen = set()
+            cutoff = int(time.time()) - 7 * 86400
+            for item in payload:
+                if not isinstance(item, dict):
+                    continue
+                headline = re.sub(r"\s+", " ", str(item.get("headline") or "")).strip()
+                url = str(item.get("url") or "").strip()
+                try:
+                    stamp = int(item.get("datetime") or 0)
+                except (TypeError, ValueError):
+                    stamp = 0
+                if not headline or not url.startswith(("https://", "http://")) or stamp < cutoff or stamp > int(time.time()) + 3600:
+                    continue
+                normal = headline.lower()
+                if not any(term in normal for term in _US_EQUITY_TERMS):
+                    continue
+                key = re.sub(r"[^a-z0-9]+", " ", normal).strip()
+                if not key or key in seen:
+                    continue
+                seen.add(key)
+                rows.append({
+                    "headline": headline,
+                    "source": str(item.get("source") or "Finnhub"),
+                    "url": url,
+                    "datetime": stamp,
+                    "summary": re.sub(r"<[^>]+>", " ", str(item.get("summary") or "")).strip()[:500],
+                    "category": str(item.get("category") or "general"),
+                    "related": str(item.get("related") or ""),
+                    "provider": "Finnhub",
+                })
+            rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
+        else:
+            rows = []
     if not rows:
         rows = await _rss_market_news(limit)
     _MARKET_NEWS_CACHE.update({"at": now, "items": rows[:40]})

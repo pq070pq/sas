@@ -2817,7 +2817,7 @@ async def stock_cusp_analysis(symbol: str, _: dict = Depends(require_pro)):
 
 @app.get("/api/stocks/{symbol}/news")
 async def stock_news(symbol: str, _: dict = Depends(require_pro)):
-    return await company_news(symbol.upper())
+    return await company_news(symbol.upper(), include_marketaux=True)
 
 @app.get("/api/stocks/{symbol}/events")
 async def stock_events(symbol: str, _: dict = Depends(require_pro)):
@@ -2983,7 +2983,7 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
 
     # الأخبار والأساسيات تُجمع دائمًا؛ غيابها لا يمنع التحليل الفني.
     news, fundamentals, tipranks_data = await asyncio.gather(
-        company_news(symbol, days=3),
+        company_news(symbol, days=3, include_marketaux=True),
         company_fundamentals(symbol),
         tipranks_analysis(symbol),
         return_exceptions=True,
