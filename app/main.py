@@ -26,7 +26,7 @@ from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarS
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
-from .news import company_news, corporate_events, tipranks_analysis
+from .news import company_news, corporate_events, tipranks_analysis, market_news
 from .news_translation import translate_stock_news
 from .scheduler import scheduler
 from .market_calendar import market_status, us_market_holidays
@@ -2527,6 +2527,17 @@ async def perpequities_market_movers(_: dict = Depends(require_pro)):
 @app.get("/api/market/ticker")
 async def market_ticker(_: dict = Depends(require_pro)):
     return await ticker()
+
+
+@app.get("/api/market/news")
+async def market_news_feed(_: dict = Depends(require_pro)):
+    """Recent source-linked headlines filtered for material US-market relevance."""
+    try:
+        items = await asyncio.wait_for(market_news(limit=24), timeout=12)
+        return {"items": items, "updated_at": datetime.now(timezone.utc).isoformat(), "source": "Finnhub", "filtered_for_market_impact": True}
+    except Exception as exc:
+        logger.warning("US market news feed unavailable: %s", type(exc).__name__)
+        return {"items": [], "updated_at": datetime.now(timezone.utc).isoformat(), "source": "Finnhub", "filtered_for_market_impact": True, "message_ar": "تعذر تحميل أخبار السوق مؤقتًا."}
 
 
 @app.get("/api/dashboard/home")
