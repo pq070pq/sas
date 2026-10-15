@@ -524,6 +524,14 @@ async def company_fundamentals(symbol: str):
 
 _MARKET_NEWS_CACHE = {"at": 0.0, "items": []}
 _MARKET_NEWS_TTL = 300
+_US_EQUITY_TERMS = (
+    "stock market", "stocks", "shares", "equities", "s&p 500", "s&p", "nasdaq", "dow jones",
+    "wall street", "stock futures", "earnings", "ipo", "listed company", "share price",
+    "market rally", "stocks fall", "stocks rise", "tech stocks", "small-cap", "large-cap",
+    "bull market", "bear market", "selloff", "sell-off", "trading session", "investors",
+    "equity markets", "market close", "market open", "stock exchange", "us stocks", "u.s. stocks",
+)
+
 _MARKET_IMPACT_TERMS = (
     "federal reserve", "federal open market", "fomc", "fed", "interest rate",
     "rate cut", "rate hike", "inflation", "cpi", "ppi", "powell", "treasury",
@@ -564,7 +572,7 @@ async def _rss_market_news(limit: int = 24):
             if not headline or not url.startswith(("https://", "http://")):
                 continue
             normal = headline.lower()
-            if not any(term in normal for term in _MARKET_IMPACT_TERMS):
+            if not any(term in normal for term in _US_EQUITY_TERMS):
                 continue
             published_text = item.findtext("pubDate") or ""
             try:
@@ -634,7 +642,7 @@ async def market_news(limit: int = 24):
         if stamp < cutoff or stamp > int(time.time()) + 3600:
             continue
         normal = headline.lower()
-        if not any(term in normal for term in _MARKET_IMPACT_TERMS):
+        if not any(term in normal for term in _US_EQUITY_TERMS):
             continue
         key = re.sub(r"[^a-z0-9]+", " ", normal).strip()
         if not key or key in seen:
