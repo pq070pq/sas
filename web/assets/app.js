@@ -1031,7 +1031,7 @@ function stockCard(x){
  '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+'<span>'+catalystLabel+(catalyst>0?' '+catalyst+'/100':'')+'</span>'+(x.live_price_source?'<span>📡 '+escHtml(x.live_price_source)+'</span>':'')+'</div>'+
  perpContext+
  '<div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||cls.reason||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div>'+
- '<div class="stock-actions stock-card-actions"><button class="stock-chart-action" onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">🔍 تحليل السهم</button><button type="button" class="stock-screenshot-hint" aria-label="عرض تعليمات مشاركة البطاقة عبر لقطة شاشة" onclick="event.stopPropagation();showCardScreenshotHint(this)">📸 <span>صوّر الشاشة إذا رغبت بالمشاركة</span></button></div><footer class="sas-card-copyright">SAS PRO RADAR · © جميع الحقوق محفوظة · معلومات تعليمية وليست توصية استثمارية</footer></article>';
+ '<div class="stock-actions stock-card-actions"><button class="stock-chart-action" onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">🔍 تحليل السهم</button></div><footer class="sas-card-copyright">SAS PRO RADAR · © جميع الحقوق محفوظة · معلومات تعليمية وليست توصية استثمارية</footer></article>';
 }
 
 
@@ -1043,7 +1043,7 @@ function showOpportunityCardModal(blob,file,symbol){
   const old=document.getElementById('sasOpportunityCardModal');if(old)old.remove();
   const url=URL.createObjectURL(blob);
   const modal=document.createElement('div');modal.id='sasOpportunityCardModal';modal.className='sas-card-modal';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');modal.setAttribute('aria-label','مشاركة أو حفظ بطاقة السهم');
-  modal.innerHTML='<div class="sas-card-modal-panel"><button type="button" class="sas-card-modal-close" aria-label="إغلاق">×</button><h3>بطاقة '+String(symbol).replace(/[<>&"]/g,'')+'</h3><p>اختر مشاركة البطاقة أو حفظها في جهازك</p><img class="sas-card-preview" alt="معاينة بطاقة السهم"><div class="sas-card-modal-actions"><button type="button" class="sas-card-modal-share">↗ مشاركة الصورة</button><button type="button" class="sas-card-modal-download">▣ حفظ في الجهاز</button></div><p class="sas-card-modal-status" role="status" aria-live="polite">إذا ما فتح الحفظ، افتح الصورة واضغط عليها مطولًا للحفظ أو المشاركة.</p><small>SAS PRO RADAR · معلومات تعليمية وليست توصية استثمارية</small></div>';
+  modal.innerHTML='<div class="sas-card-modal-panel"><button type="button" class="sas-card-modal-close" aria-label="إغلاق">×</button><h3>بطاقة '+String(symbol).replace(/[<>&"]/g,'')+'</h3><p><img class="sas-card-preview" alt="معاينة بطاقة السهم"><div class="sas-card-modal-actions"><button type="button" class="sas-card-modal-share">↗ مشاركة الصورة</button><button type="button" class="sas-card-modal-download">▣ حفظ في الجهاز</button></div><small class=\"sas-card-capture-note\" style=\"display:block;margin:8px 0 4px;font-size:11px;line-height:1.6;color:#8da9b8;text-align:center\">📸 إذا رغبت بالمشاركة، صوّر الشاشة من جهازك.</small><p class="sas-card-modal-status" role="status" aria-live="polite">إذا ما فتح الحفظ، افتح الصورة واضغط عليها مطولًا للحفظ أو المشاركة.</p><small>SAS PRO RADAR · معلومات تعليمية وليست توصية استثمارية</small></div>';
   const preview=modal.querySelector('.sas-card-preview');
   const status=modal.querySelector('.sas-card-modal-status');
   const shareBtn=modal.querySelector('.sas-card-modal-share');
