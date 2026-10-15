@@ -9,6 +9,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ProductionRouteRegistryTests(unittest.TestCase):
+    def test_no_duplicate_top_level_function_definitions(self):
+        import ast
+        from collections import Counter
+
+        source = (ROOT / "app" / "main.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        names = [
+            node.name
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        ]
+        duplicates = sorted(name for name, count in Counter(names).items() if count > 1)
+        self.assertEqual(duplicates, [], f"Duplicate top-level functions: {duplicates}")
+
     def test_no_duplicate_method_path_registrations(self):
         seen = {}
         duplicates = []
