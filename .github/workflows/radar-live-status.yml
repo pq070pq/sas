@@ -9,8 +9,9 @@ on:
     - cron: "*/15 * * * *"
 
 concurrency:
-  group: saspro-live-radar-status
-  cancel-in-progress: true
+  group: saspro-production
+  # انتظر اكتمال النشر قبل فحص الحاوية؛ لا تلغِ فحصًا جارياً ولا تتداخل مع إعادة التشغيل.
+  cancel-in-progress: false
 
 jobs:
   status:
