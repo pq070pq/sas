@@ -110,11 +110,11 @@ async def check_shariah(symbol):
     direct = await asyncio.gather(fetch_yaaqeen())
     direct = [item for item in direct if item is not None]
     refs = [
-        {"source":"مصرف الراجحي","role":"معيار شرعي عام","status":"reference","status_ar":"معيار عام","verified":True,
-         "reason":"هذه الصفحة توضح المعايير والحوكمة الشرعية لدى المصرف، ولا تعطي حكمًا مباشرًا على هذا السهم.",
+        {"source":"مصرف الراجحي","role":"توضيح عام","status":"reference","status_ar":"للتوضيح بس","verified":True,
+         "reason":"هذي معلومات عن طريقة الإشراف الشرعي عند المصرف، لكنها ما تحكم على السهم هذا بشكل مباشر.",
          "url":"https://www.alrajhibank.com.sa/About-alrajhi-bank/Shariah-Group"},
-        {"source":"بنك البلاد","role":"مرجع منهجي","status":"reference","status_ar":"مرجع","verified":True,
-         "reason":"هذه معلومات عن الهيئة والحوكمة الشرعية لدى البنك، وليست نتيجة فحص مباشرة لهذا السهم.",
+        {"source":"بنك البلاد","role":"توضيح عام","status":"reference","status_ar":"للتوضيح بس","verified":True,
+         "reason":"هذي معلومات عن الإشراف الشرعي عند البنك، لكنها مو نتيجة فحص للسهم نفسه.",
          "url":"https://www.bankalbilad.com/"}
     ]
     usable = [x.get("status") for x in direct if x.get("verified") and x.get("status") in {"compliant", "non_compliant", "doubtful"}]
