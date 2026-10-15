@@ -7,7 +7,29 @@ function refreshTelegramWebApp(){
  return tg;
 }
 refreshTelegramWebApp();
-const digitObserver=new MutationObserver(()=>normalizeEnglishDigits(document.body));
+// تطبيع الأرقام بشكل موضعي؛ لا تفحص الصفحة كاملة مع كل تحديث حتى لا يتجمد Mini App.
+function normalizeDigitsInNode(node){
+ if(!node)return;
+ if(node.nodeType===Node.TEXT_NODE){
+  const value=node.nodeValue;
+  if(value&&/[٠-٩]/.test(value)){
+   const normalized=enDigits(value);
+   if(normalized!==value)node.nodeValue=normalized;
+  }
+  return;
+ }
+ if(node.nodeType!==Node.ELEMENT_NODE&&node.nodeType!==Node.DOCUMENT_FRAGMENT_NODE)return;
+ const walker=document.createTreeWalker(node,NodeFilter.SHOW_TEXT);
+ const texts=[];
+ while(walker.nextNode())texts.push(walker.currentNode);
+ for(const textNode of texts)normalizeDigitsInNode(textNode);
+}
+const digitObserver=new MutationObserver(records=>{
+ for(const record of records){
+  if(record.type==='characterData')normalizeDigitsInNode(record.target);
+  else for(const node of record.addedNodes)normalizeDigitsInNode(node);
+ }
+});
 digitObserver.observe(document.body,{subtree:true,childList:true,characterData:true});
 const getInitData=()=>tg?.initData||new URLSearchParams(location.hash.slice(1)).get('tgWebAppData')||new URLSearchParams(location.search).get('tgWebAppData')||'';
 const headers=()=>{const d=getInitData();return {'X-Telegram-Init-Data':d,'Authorization':d?'tma '+d:''};};
