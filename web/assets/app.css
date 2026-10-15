@@ -3846,3 +3846,45 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-card-price-trend>strong{grid-column:2;grid-row:1;font-size:clamp(18px,4vw,26px);white-space:nowrap}
 .sas-card-chart-period{grid-column:1;grid-row:2;color:#6f91a6;font-size:9px;line-height:1.3}
 .sas-card-chart-loading,.sas-card-chart-unavailable{grid-column:1;grid-row:1/3;color:#6f91a6;font-size:10px;line-height:1.5}
+
+
+/* SAS PRO — polished, responsive terminal navigation */
+.terminal-tabs{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  align-items:stretch!important;
+  gap:clamp(5px,1.2vw,12px)!important;
+  margin:10px clamp(8px,2vw,18px) 14px!important;
+  padding:clamp(6px,1.2vw,10px)!important;
+  border:1px solid rgba(45,244,255,.3)!important;
+  border-radius:24px!important;
+  background:linear-gradient(120deg,rgba(2,15,25,.97),rgba(3,25,39,.94),rgba(2,12,22,.97))!important;
+  box-shadow:0 10px 32px rgba(0,0,0,.35),inset 0 1px rgba(255,255,255,.07),0 0 20px rgba(0,210,255,.055)!important;
+  backdrop-filter:blur(20px) saturate(145%)!important;
+  overflow:visible!important;
+}
+.terminal-tabs button{
+  position:relative!important;isolation:isolate;display:flex!important;align-items:center!important;justify-content:center!important;
+  gap:clamp(5px,1vw,10px)!important;min-width:0!important;min-height:clamp(46px,7vw,62px)!important;
+  padding:10px clamp(4px,1vw,12px)!important;border:1px solid transparent!important;border-radius:17px!important;
+  color:#c0d5e2!important;background:rgba(4,19,30,.42)!important;
+  font-size:clamp(11px,1.5vw,16px)!important;font-weight:800!important;line-height:1.35!important;white-space:nowrap!important;
+  text-shadow:0 0 12px rgba(110,220,255,.12);transition:color .22s ease,background .22s ease,border-color .22s ease,box-shadow .22s ease,transform .22s ease!important;
+  -webkit-tap-highlight-color:transparent;
+}
+.terminal-tabs button::before{
+  content:"";position:absolute;inset:1px;border-radius:inherit;z-index:-1;pointer-events:none;opacity:0;
+  background:linear-gradient(115deg,transparent 15%,rgba(255,255,255,.14) 48%,transparent 78%);
+  transform:translateX(-115%);transition:opacity .2s ease;
+}
+.terminal-tabs button:hover::before,.terminal-tabs button:focus-visible::before{opacity:1;animation:sasNavSheen .85s ease both}
+.terminal-tabs button:hover{color:#f2fdff!important;border-color:rgba(45,244,255,.24)!important;background:rgba(10,53,71,.58)!important;box-shadow:0 0 18px rgba(0,207,255,.1)!important;transform:translateY(-1px)}
+.terminal-tabs button.active{color:#e8fdff!important;border-color:rgba(45,244,255,.6)!important;background:linear-gradient(145deg,rgba(0,173,211,.32),rgba(5,48,70,.94) 72%)!important;box-shadow:inset 0 -3px 0 #20e8ff, inset 0 1px rgba(255,255,255,.13),0 0 22px rgba(0,205,255,.2)!important;text-shadow:0 0 14px rgba(45,244,255,.42)}
+.terminal-tabs button.active::after{content:"";position:absolute;left:22%;right:22%;bottom:3px;height:2px;border-radius:99px;background:linear-gradient(90deg,transparent,#a6fbff,transparent);box-shadow:0 0 12px #21eaff}
+.terminal-tabs button:focus-visible{outline:2px solid #48eaff!important;outline-offset:3px}
+@keyframes sasNavSheen{from{transform:translateX(-115%)}to{transform:translateX(115%)}}
+@media(max-width:420px){
+ .terminal-tabs{gap:4px!important;margin:8px 6px 11px!important;padding:5px!important;border-radius:18px!important}
+ .terminal-tabs button{min-height:45px!important;gap:4px!important;padding:8px 2px!important;font-size:10px!important;border-radius:12px!important}
+}
+@media(prefers-reduced-motion:reduce){.terminal-tabs button,.terminal-tabs button::before{transition:none!important;animation:none!important}.terminal-tabs button:hover{transform:none}}
