@@ -146,7 +146,9 @@ async def check_shariah(symbol):
         except Exception as e:
             return {"source":"فلترنا","status":None,"status_ar":"غير متاح","verified":False,"error":type(e).__name__}
 
-    direct = await asyncio.gather(fetch_yaaqeen(), fetch_filterna())
+    # Check independent direct sources in parallel. Zoya is only usable
+    # when an API key is configured; an unavailable provider never counts as a verdict.
+    direct = await asyncio.gather(fetch_yaaqeen(), fetch_filterna(), _zoya(symbol))
     refs = [
         {"source":"مصرف الراجحي","role":"مرجع منهجي","status":"reference","status_ar":"مرجع","verified":True,
          "reason":"لا ننسب للراجحي حكم سهم محدد دون نتيجة منشورة قابلة للتحقق.",
@@ -155,14 +157,17 @@ async def check_shariah(symbol):
          "reason":"لا ننسب لبنك البلاد حكم سهم محدد دون نتيجة منشورة قابلة للتحقق.",
          "url":"https://www.bankalbilad.com/"}
     ]
-    usable = [x.get("status") for x in direct if x.get("verified") and x.get("status")]
+    usable = [x.get("status") for x in direct if x.get("verified") and x.get("status") in {"compliant", "non_compliant", "doubtful"}]
     unique = set(usable)
     if len(unique) == 1:
-        final = next(iter(unique)); message = "النتيجة المباشرة المتاحة واضحة."
+        final = next(iter(unique))
+        message = "النتائج المباشرة المتاحة متوافقة على الحالة المنشورة."
     elif len(unique) > 1:
-        final = "unclear"; message = "يوجد تعارض بين النتائج المباشرة؛ يحتاج تحقق."
+        final = "unclear"
+        message = "يوجد اختلاف بين النتائج المباشرة؛ الحالة غير محسومة ولا يتم التخمين."
     else:
-        final = "unclear"; message = "لا توجد نتيجة مباشرة موثقة كافية؛ لم يتم تأليف الحكم."
+        final = "unclear"
+        message = "لا توجد نتيجة مباشرة موثقة كافية لهذا الرمز؛ لم يتم تأليف الحكم."
 
     ai = {"enabled":False,"status":"no_provider"}
     key = settings.gemini_api_key or settings.groq_api_key
