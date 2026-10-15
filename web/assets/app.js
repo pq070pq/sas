@@ -1,5 +1,6 @@
 /* SAS PRO deployment trigger */
 /* SAS PRO final deploy trigger */
+/* SAS PRO calm news ribbon and refreshed news icon: 20261015-news-ribbon-calm-3 */
 let tg=window.Telegram&&window.Telegram.WebApp;
 function refreshTelegramWebApp(){
  tg=window.Telegram&&window.Telegram.WebApp||tg;
