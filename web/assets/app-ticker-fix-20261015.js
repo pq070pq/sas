@@ -2578,6 +2578,7 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
   if(key===lastNewsKey&&track.querySelector('.sas-news-lane'))return;
   lastNewsKey=key;
   if(!valid.length){track.innerHTML='<div class="sas-news-empty"><span>◌</span><span>لا تتوفر أخبار سوق موثقة حاليًا. ستتم إعادة المحاولة تلقائيًا دون عرض عناوين وهمية.</span></div>';return;}
+  const animationTime=track.querySelector('.sas-news-lane')?.getAnimations?.()[0]?.currentTime;
   const cards=valid.map(item=>{
    const url=safeUrl(item.url),category=newsCategory(item),headline=String(item.translated_headline||item.headline||'');
    const summary=String(item.translated_summary||item.summary||'').trim();
@@ -2585,6 +2586,7 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
    return '<a class="sas-news-card" href="'+escapeText(url)+'" target="_blank" rel="noopener noreferrer" aria-label="قراءة الخبر: '+escapeText(headline)+'"><span class="sas-news-card-top"><span class="sas-news-tag '+category.cls+'">'+category.label+'</span><span class="sas-news-source">'+escapeText(source)+'</span></span><strong>'+escapeText(headline)+'</strong>'+(summary?'<span class="sas-news-card-summary">'+escapeText(summary)+'</span>':'')+'<span class="sas-news-card-bottom"><span>قراءة الخبر الأصلي ↗</span><time>'+ago(item.datetime)+'</time></span></a>';
   }).join('');
   track.innerHTML='<div class="sas-news-lane"><div class="sas-news-group">'+cards+'</div><div class="sas-news-group" aria-hidden="true" inert>'+cards+'</div></div>';
+  const newsAnimation=track.querySelector('.sas-news-lane')?.getAnimations?.()[0];if(newsAnimation&&Number.isFinite(animationTime))newsAnimation.currentTime=animationTime;
   const status=$('sasNewsStatus');if(status)status.textContent=valid.length+' خبرًا • ترجمة عربية عند توفرها • آخر تحديث '+new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date())+' بتوقيت الرياض';
  }
  async function refreshNews(force){
@@ -2607,6 +2609,7 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
  }
  function renderIndices(ticker){
   const track=$('sasMarketIndicesTrack');if(!track)return;
+  const animationTime=track.querySelector('.sas-index-lane')?.getAnimations?.()[0]?.currentTime;
   const rows=indices.map(item=>({meta:item,row:findIndexItem(ticker,item)}));
   const cards=rows.map(({meta,row})=>{
    const valid=Number(row?.price)>0,change=fmtChange(row?.change_pct),label=meta.label;
@@ -2614,6 +2617,7 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
    return '<button type="button" class="sas-index-card '+(!valid?'is-stale':'')+'" style="--index-tone:'+meta.tone+'" data-sas-index="'+escapeText(label)+'" aria-label="تفاصيل '+label+'"><span class="sas-index-card-top"><span class="sas-index-symbol">'+label+'</span><span class="sas-index-icon" aria-hidden="true">'+meta.icon+'</span></span><span class="sas-index-name">'+label+'</span><b class="sas-index-price">'+(valid?fmtPrice(row.price):'جارٍ التحديث')+'</b><span class="sas-index-change '+change.cls+'">'+(valid?change.text:'بانتظار السعر')+'</span><small>'+escapeText(row?.stale?'آخر سعر محفوظ':(source||'مزود البيانات'))+'</small></button>';
   }).join('');
   track.innerHTML='<div class="sas-index-lane"><div class="sas-index-group">'+cards+'</div><div class="sas-index-group" aria-hidden="true" inert>'+cards+'</div></div>';
+  const indexAnimation=track.querySelector('.sas-index-lane')?.getAnimations?.()[0];if(indexAnimation&&Number.isFinite(animationTime))indexAnimation.currentTime=animationTime;
   const updated=$('sasIndicesUpdated');if(updated)updated.textContent='تحديث '+new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date());
  }
  async function refreshIndices(){
