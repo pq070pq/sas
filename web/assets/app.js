@@ -698,13 +698,18 @@ function renderMacro(){
    const symbol=String(x?.symbol||'').toUpperCase();
    return label===item.label.toUpperCase() || item.symbols.some(s=>s.toUpperCase()===symbol);
   });
-  if(found && Number(found.price)>0)return {...found,label:item.label};
-  // A pending provider placeholder must not mask the last valid browser cache.
+  if(found && Number(found.price)>0){
+   const validQuote={...found,label:item.label};
+   // Keep the last real quote locally so a temporary provider delay never blanks the card.
+   try{localStorage.setItem('saspro_macro_'+item.label.replace(/\\s+/g,'_'),JSON.stringify({price:validQuote.price,change_pct:validQuote.change_pct,source:validQuote.source,updated_at:Date.now()}));}catch(e){}
+   return validQuote;
+  }
+  // Prefer a previously verified quote while the data provider refreshes.
   try{
    const cached=JSON.parse(localStorage.getItem('saspro_macro_'+item.label.replace(/\\s+/g,'_'))||'null');
-   if(cached && Number(cached.price)>0)return {...(found||{}),label:item.label,price:cached.price,change_pct:cached.change_pct,source:'آخر سعر محفوظ',stale:true,diagnostic:null};
+   if(cached && Number(cached.price)>0)return {...(found||{}),label:item.label,price:cached.price,change_pct:cached.change_pct,source:'آخر سعر محفوظ • بانتظار التحديث',stale:true,diagnostic:null};
   }catch(e){}
-  return found?{...found,label:item.label,source:'جارٍ تحديث الأسعار'}:{label:item.label,price:null,change_pct:null,source:'بانتظار بيانات المزود',diagnostic:'quote_refresh_in_progress'};
+  return found?{...found,label:item.label,source:found.source==='unavailable'?'تعذر جلب السعر':'جارٍ تحديث الأسعار'}:{label:item.label,price:null,change_pct:null,source:'جارٍ طلب السعر من مزود البيانات',diagnostic:'quote_refresh_in_progress'};
  }).filter(Boolean);
  const cards=rows.map(x=>{
   const valid=Number(x.price)>0;
