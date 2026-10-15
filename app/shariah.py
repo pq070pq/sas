@@ -115,7 +115,7 @@ async def check_shariah(symbol):
 
     async def fetch_yaaqeen():
         try:
-            async with httpx.AsyncClient(timeout=5, follow_redirects=True,
+            async with httpx.AsyncClient(timeout=12, follow_redirects=True,
                                          headers={"User-Agent":"SAS-PRO-Shariah/1.0"}) as client:
                 r = await client.get(YAAQEEN_URL.format(symbol=symbol))
                 r.raise_for_status()
