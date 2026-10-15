@@ -19,9 +19,9 @@ FINNHUB_SYMBOLS = {
 }
 
 FMP_SYMBOLS = {
-    "SPX": ["^GSPC", "SPY"],
-    "IXIC": ["^IXIC", "QQQ"],
-    "DJI": ["^DJI", "DIA"],
+    "SPX": ["^GSPC"],
+    "IXIC": ["^IXIC"],
+    "DJI": ["^DJI"],
     "XAU/USD": ["GCUSD", "GLD"],
     "VIX": ["^VIX", "VIXY"],
 }
@@ -845,10 +845,35 @@ async def ticker():
     # already have prices. Otherwise a partial cache can hide pending index data.
     if any(not _valid_price(row.get("price")) for row in cached_rows):
         try:
-            await asyncio.wait_for(asyncio.shield(_TICKER_REFRESH_TASK), timeout=10.0)
+            await asyncio.wait_for(asyncio.shield(_TICKER_REFRESH_TASK), timeout=7.0)
         except asyncio.TimeoutError:
             pass
         except Exception as exc:
             logger.warning("MARKET_TICKER_REFRESH_FAILED error=%s", type(exc).__name__)
+        cached_rows = snapshot()
+    # If the background provider chain is still slow, return verified daily closes
+    # for the three indices instead of leaving their cards blank. They are clearly
+    # marked stale/last-close and never represented as live intraday quotes.
+    missing_indices = [
+        (symbol, label) for symbol, label in _TICKER_SYMBOLS
+        if symbol in {"SPX", "IXIC", "DJI"}
+        and not _valid_price((_TICKER_CACHE.get(symbol) or {}).get("price"))
+    ]
+    if missing_indices:
+        try:
+            fallbacks = await asyncio.wait_for(
+                asyncio.gather(*(_fred_index_quote(symbol) for symbol, _ in missing_indices)),
+                timeout=8.0,
+            )
+        except Exception as exc:
+            logger.info("MARKET_INDEX_LAST_CLOSE_FALLBACK_FAILED: %s", type(exc).__name__)
+            fallbacks = []
+        for (symbol, label), item in zip(missing_indices, fallbacks):
+            if isinstance(item, dict) and _valid_price(item.get("price")):
+                saved = dict(item)
+                saved["label"] = label
+                saved["stale"] = True
+                saved["source"] = str(saved.get("source") or "FRED Last Close") + " — آخر إغلاق موثق"
+                _TICKER_CACHE[symbol] = saved
         cached_rows = snapshot()
     return cached_rows
