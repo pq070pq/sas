@@ -212,6 +212,45 @@ jobs:
 
             echo "✅ OVH deployment smoke test passed."
 
+            echo "===== SAS PRO MARKET NEWS LIVE DIAGNOSTIC ====="
+            # Exercise the exact backend news handler inside the production container.
+            # This is an internal deployment diagnostic; it does not change public auth.
+            set +e
+            timeout 90s docker compose exec -T saspro python - <<'PY'
+            import asyncio, json, time
+            from app.main import market_news_feed
+
+            async def main():
+                started = time.monotonic()
+                try:
+                    payload = await asyncio.wait_for(market_news_feed({}), timeout=35)
+                    items = payload.get("items") if isinstance(payload, dict) else None
+                    items = items if isinstance(items, list) else []
+                    print(json.dumps({
+                        "diagnostic": "market_news_feed_handler",
+                        "ok": True,
+                        "elapsed_seconds": round(time.monotonic() - started, 2),
+                        "items_count": len(items),
+                        "translated_count": sum(bool(x.get("translated_headline")) for x in items if isinstance(x, dict)),
+                        "providers": sorted({str(x.get("provider") or x.get("source") or "") for x in items if isinstance(x, dict)}),
+                        "sample_headlines": [str(x.get("headline") or "")[:180] for x in items[:3]],
+                        "message_ar": payload.get("message_ar"),
+                    }, ensure_ascii=False))
+                except Exception as exc:
+                    print(json.dumps({
+                        "diagnostic": "market_news_feed_handler",
+                        "ok": False,
+                        "elapsed_seconds": round(time.monotonic() - started, 2),
+                        "error_type": type(exc).__name__,
+                        "error": str(exc)[:500],
+                    }, ensure_ascii=False))
+            asyncio.run(main())
+            PY
+            news_diag_rc=$?
+            echo "MARKET_NEWS_DIAGNOSTIC_RC=$news_diag_rc"
+            echo "===== END SAS PRO MARKET NEWS LIVE DIAGNOSTIC ====="
+            set -e
+
             # تشخيص حي اختياري: يُفعّل فقط عندما يحتوي Commit على RADAR DIAGNOSTIC.
             # لا يفشل النشر إذا تعذر الفحص؛ الهدف قراءة عدد المرشحين والفرص الفعلية.
             if git log -1 --pretty=%s | grep -q "RADAR DIAGNOSTIC"; then
