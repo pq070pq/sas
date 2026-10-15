@@ -1,0 +1,11 @@
+[Unit]
+Description=Run safe SAS PRO cleanup daily
+
+[Timer]
+OnCalendar=*-*-* 04:35:00
+RandomizedDelaySec=10m
+Persistent=true
+Unit=saspro-cleanup.service
+
+[Install]
+WantedBy=timers.target
