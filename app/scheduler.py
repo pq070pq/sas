@@ -24,10 +24,9 @@ from .radar_learning import learn_radar_profile
 logger = logging.getLogger(__name__)
 
 
-async def recover_interrupted_radar_runs(stale_after_minutes=20):
-    """Close radar runs left 'running' after a process/container restart."""
+async def recover_interrupted_radar_runs():
+    """Close every prior-process radar run left 'running' before this scheduler starts."""
     now = utcnow()
-    cutoff = now - timedelta(minutes=max(1, int(stale_after_minutes)))
     recovered = 0
     try:
         async with SessionLocal() as db:
@@ -37,15 +36,16 @@ async def recover_interrupted_radar_runs(stale_after_minutes=20):
             rows = result.scalars().all()
             for run in rows:
                 started = aware(run.started_at)
-                if started is None or started > cutoff:
-                    continue
                 run.status = "failed"
                 run.finished_at = now
-                run.duration_seconds = round(max(0.0, (now - started).total_seconds()), 2)
+                run.duration_seconds = (
+                    round(max(0.0, (now - started).total_seconds()), 2)
+                    if started is not None else None
+                )
                 run.error_type = "InterruptedRadarRun"
                 run.error_message = (
-                    "انقطعت دورة الرادار قبل اكتمالها، غالبًا بسبب إعادة تشغيل الخدمة "
-                    "أو تعطل الدورة؛ لم تُحتسب كمسح ناجح."
+                    "انقطعت دورة الرادار قبل اكتمالها بسبب إعادة تشغيل المجدول أو الخدمة؛ "
+                    "لم تُحتسب كمسح ناجح."
                 )
                 try:
                     diagnostics = json.loads(run.diagnostics or "{}")
@@ -55,7 +55,7 @@ async def recover_interrupted_radar_runs(stale_after_minutes=20):
                     diagnostics = {}
                 diagnostics["interrupted_run_recovery"] = {
                     "recovered_at": now.isoformat(),
-                    "stale_after_minutes": max(1, int(stale_after_minutes)),
+                    "reason": "prior_scheduler_process_stopped",
                 }
                 run.diagnostics = json.dumps(diagnostics, ensure_ascii=False)
                 db.add(run)
@@ -64,13 +64,13 @@ async def recover_interrupted_radar_runs(stale_after_minutes=20):
                 await db.commit()
         if recovered:
             logger.warning(
-                "RADAR_RECOVERY: marked %d stale running cycle(s) as failed after restart.",
+                "RADAR_RECOVERY: marked %d prior-process running cycle(s) as failed.",
                 recovered,
             )
         else:
-            logger.info("RADAR_RECOVERY: no stale running radar cycles found.")
+            logger.info("RADAR_RECOVERY: no interrupted radar cycles found.")
     except Exception:
-        logger.exception("RADAR_RECOVERY: could not reconcile stale radar runs.")
+        logger.exception("RADAR_RECOVERY: could not reconcile interrupted radar runs.")
         return 0
     return recovered
 
