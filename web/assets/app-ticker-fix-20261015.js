@@ -718,7 +718,7 @@ function renderMacro(){
   {label:'S&P 500',symbols:['SPX','^GSPC','SPY']},
   {label:'NASDAQ',symbols:['IXIC','^IXIC','QQQ']},
   {label:'DOW JONES',symbols:['DJI','^DJI','DIA']},
-  {label:'VIX',symbols:['VIX','^VIX','VIXY']},
+  {label:'VIX',symbols:['VIX','^VIX']},
   {label:'BTC',symbols:['BTC/USD','BTCUSD','BTCUSDT']},
   {label:'GOLD',symbols:['XAU/USD','XAUUSD','GCUSD','GLD']}
  ];
@@ -730,12 +730,12 @@ function renderMacro(){
   });
   if(found && Number(found.price)>0){
    const normalized={...found,label:item.label};
-   try{localStorage.setItem('saspro_macro_'+item.label.replace(/\\s+/g,'_'),JSON.stringify({price:Number(found.price),change_pct:found.change_pct??null,source:found.source||'مزود البيانات',savedAt:Date.now()}));}catch(e){}
+   try{localStorage.setItem('saspro_macro_'+(item.label==='VIX'?'VIX_INDEX':item.label.replace(/\\s+/g,'_')),JSON.stringify({price:Number(found.price),change_pct:found.change_pct??null,source:found.source||'مزود البيانات',savedAt:Date.now()}));}catch(e){}
    return normalized;
   }
   // A pending provider placeholder must not mask the last verified browser cache.
   try{
-   const cached=JSON.parse(localStorage.getItem('saspro_macro_'+item.label.replace(/\\s+/g,'_'))||'null');
+   const cached=JSON.parse(localStorage.getItem('saspro_macro_'+(item.label==='VIX'?'VIX_INDEX':item.label.replace(/\\s+/g,'_')))||'null');
    const age=Date.now()-Number(cached?.savedAt||0);
    if(cached && Number(cached.price)>0 && (!cached.savedAt || age<=24*60*60*1000))return {...(found||{}),label:item.label,price:cached.price,change_pct:cached.change_pct,source:'آخر سعر محفوظ',stale:true,diagnostic:null};
   }catch(e){}
@@ -2625,7 +2625,7 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
   {label:'S&P 500',keys:['S&P 500','SPX','^GSPC','SPY'],cache:'S&P_500',icon:'📈',tone:'#35e7ff'},
   {label:'NASDAQ',keys:['NASDAQ','IXIC','^IXIC','QQQ'],cache:'NASDAQ',icon:'💹',tone:'#4b9dff'},
   {label:'DOW JONES',keys:['DOW JONES','DJI','^DJI','DIA'],cache:'DOW_JONES',icon:'🏛️',tone:'#ffd447'},
-  {label:'VIX',keys:['VIX','^VIX','VIXY'],cache:'VIX',icon:'🌡️',tone:'#ff9d64'},
+  {label:'VIX',keys:['VIX','^VIX'],cache:'VIX_INDEX',icon:'🌡️',tone:'#ff9d64'},
   {label:'BITCOIN',keys:['BTC','BTC/USD','BTCUSD','BTCUSDT'],cache:'BTC',icon:'₿',tone:'#ffb54d'},
   {label:'GOLD',keys:['GOLD','XAU/USD','XAUUSD','GCUSD','GLD'],cache:'GOLD',icon:'🪙',tone:'#ffd447'}
  ];
