@@ -2468,12 +2468,36 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
                 if classification.get("pass"):
                     filter_counts["sas_core_pass"] += 1
                 if not classification.get("pass"):
+                    smart_gate = classification.get("smart_levels_ict") or {}
                     return None, {
                         "symbol": symbol,
                         "exchange": row.get("exchange"),
                         "status": "filtered",
                         "reason": classification.get("reason"),
                         "data_source": classification.get("data_source"),
+                        # Diagnostic evidence only: does not change pass/fail decisions.
+                        "price": row.get("live_price") or row.get("price"),
+                        "change_pct": row.get("live_change_pct") if row.get("live_change_pct") is not None else row.get("change_pct"),
+                        "volume": row.get("volume"),
+                        "momentum_section": row.get("momentum_section"),
+                        "momentum_rvol_10d": row.get("momentum_rvol_10d"),
+                        "momentum_rvol_threshold": row.get("momentum_rvol_threshold"),
+                        "score": classification.get("score"),
+                        "rsi14": classification.get("rsi14"),
+                        "rvol": classification.get("rvol"),
+                        "strategy_pass": classification.get("strategy_pass"),
+                        "power_trend": classification.get("power_trend"),
+                        "early_timing": classification.get("early_timing"),
+                        "near_entry": classification.get("near_entry"),
+                        "chase_risk": classification.get("chase_risk"),
+                        "distribution_risk": classification.get("distribution_risk"),
+                        "breakout_confirmed": classification.get("breakout_confirmed"),
+                        "breakout_retest": classification.get("breakout_retest"),
+                        "breakout_fake": classification.get("breakout_fake"),
+                        "smart_levels_score": classification.get("smart_levels_score"),
+                        "smart_levels_status": classification.get("smart_levels_status"),
+                        "smart_levels_reasons": smart_gate.get("reasons"),
+                        "score_breakdown": classification.get("score_breakdown"),
                     }
 
                 # التأكيد المتقدم لا يعمل كحاجز ثانٍ فوق بوابة SAS الأساسية.
@@ -2924,9 +2948,10 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
             "passed": len(results),
             "filtered": len(filtered),
             "errors": len(errors),
+            # Preserve every rejection reason for audit; diagnostic payload only.
             "filtered_examples": [
-                {"symbol": x.get("symbol"), "reason": x.get("reason"), "data_source": x.get("data_source")}
-                for x in filtered[:20]
+                {key: value for key, value in x.items() if value is not None}
+                for x in filtered
             ],
             "error_examples": [
                 {"symbol": x.get("symbol"), "reason": x.get("reason")}
