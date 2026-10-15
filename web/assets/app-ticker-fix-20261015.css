@@ -4987,3 +4987,25 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  #macroGrid .macro-card>b{font-size:clamp(13px,4vw,18px)!important}
 }
 @media(min-width:900px){#macroGrid.macro-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+
+
+/* SAS PRO: shrink oversized market-indicator icons (override legacy 62px rules) */
+#macroGrid.macro-grid .macro-card .macro-card-icon{
+  width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;
+  max-width:30px!important;max-height:30px!important;flex:0 0 30px!important;
+  border-radius:9px!important;font-size:16px!important;line-height:1!important;
+  padding:0!important;margin:0!important;box-shadow:none!important;
+}
+#macroGrid.macro-grid .macro-card .macro-card-icon img{
+  width:19px!important;height:19px!important;max-width:19px!important;max-height:19px!important;
+  object-fit:contain!important;
+}
+@media(max-width:850px){
+  #macroGrid.macro-grid .macro-card .macro-card-icon{
+    width:27px!important;height:27px!important;min-width:27px!important;min-height:27px!important;
+    max-width:27px!important;max-height:27px!important;flex-basis:27px!important;font-size:14px!important;
+  }
+  #macroGrid.macro-grid .macro-card .macro-card-icon img{
+    width:17px!important;height:17px!important;max-width:17px!important;max-height:17px!important;
+  }
+}
