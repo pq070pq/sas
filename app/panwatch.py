@@ -55,6 +55,9 @@ async def analyze(symbol: str):
 
 async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: int = 20, allow_twelve_data: bool = True):
     """Return observed OHLCV candles with explicit source diagnostics.
+    
+    Yahoo is intentionally excluded. Historical fallback order is PanWatch,
+    Twelve Data, Finnhub, FMP, then Stooq.
 
     min_candles lets indicator consumers require enough history without treating
     a short response as a successful source. allow_twelve_data protects the
@@ -182,50 +185,6 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                     attempts.append("FMP:insufficient")
                 except Exception as exc:
                     attempts.append(f"FMP:{type(exc).__name__}")
-        if len(rows) < minimum:
-            # Yahoo chart endpoint is a last-resort historical OHLCV source for
-            # symbols not covered by PanWatch, Twelve Data, or Finnhub.
-            try:
-                from datetime import datetime, timedelta, timezone
-                end_ts = int(datetime.now(timezone.utc).timestamp())
-                start_ts = int((datetime.now(timezone.utc) - timedelta(days=max(180, min(int(days) * 3, 730)))).timestamp())
-                r = await client.get(
-                    f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol.upper()}",
-                    params={"period1": start_ts, "period2": end_ts, "interval": "1d", "events": "history"},
-                    headers={"User-Agent": "Mozilla/5.0 SAS-PRO/2.1"},
-                )
-                r.raise_for_status()
-                payload = r.json().get("chart", {})
-                result = (payload.get("result") or [None])[0]
-                if result:
-                    stamps = result.get("timestamp") or []
-                    quote_rows = ((result.get("indicators") or {}).get("quote") or [{}])[0]
-                    opens = quote_rows.get("open") or []
-                    highs = quote_rows.get("high") or []
-                    lows = quote_rows.get("low") or []
-                    closes = quote_rows.get("close") or []
-                    volumes = quote_rows.get("volume") or []
-                    yahoo_rows = []
-                    for i, stamp in enumerate(stamps):
-                        try:
-                            o, h, lo, cl = opens[i], highs[i], lows[i], closes[i]
-                            if any(v is None for v in (o, h, lo, cl)):
-                                continue
-                            yahoo_rows.append({
-                                "datetime": datetime.fromtimestamp(stamp, timezone.utc).strftime("%Y-%m-%d"),
-                                "open": o, "high": h, "low": lo, "close": cl,
-                                "volume": volumes[i] if i < len(volumes) and volumes[i] is not None else 0,
-                            })
-                        except (IndexError, TypeError, ValueError):
-                            continue
-                    if len(yahoo_rows) >= minimum:
-                        rows, source = yahoo_rows, "Yahoo Finance"
-                    else:
-                        attempts.append("YahooFinance:insufficient")
-                else:
-                    attempts.append("YahooFinance:no_data")
-            except Exception as exc:
-                attempts.append(f"YahooFinance:{type(exc).__name__}")
         if len(rows) < minimum:
             rows = await _stooq_ohlcv(symbol, days)
             if len(rows) >= minimum: source = "Stooq"
