@@ -1013,6 +1013,8 @@ async function renderWatchlist(){
 function openSymbol(symbol,focusChart=false){document.getElementById('symbolSearch').value=symbol;switchTerminalTab('search');analyzeSymbol().then(()=>{if(focusChart){const detail=document.getElementById('symbolResult');const chart=detail?.querySelector('.chart-title')||detail?.querySelector('canvas')||detail?.querySelector('.quote-line');if(chart){chart.scrollIntoView({behavior:'smooth',block:'start'});chart.classList.add('chart-focus');setTimeout(()=>chart.classList.remove('chart-focus'),1800);}}});}
 function openShariah(symbol){const input=document.getElementById('symbolSearch');if(input)input.value=String(symbol||'').toUpperCase();switchTerminalTab('search');const result=document.getElementById('shariahSearchResult');if(result)result.hidden=false;searchShariah();setTimeout(()=>{const target=document.getElementById('shariahSearchResult');target?.scrollIntoView({behavior:'smooth',block:'center'});},120);}
 async function searchShariah(){
+ const actionBtn=document.getElementById('shariahSearchBtn');
+ if(actionBtn?.disabled)return;
  const input=document.getElementById('symbolSearch');
  const symbol=(input.value||'').trim().toUpperCase().replace(/[^A-Z.\-]/g,'');
  const el=document.getElementById('shariahSearchResult');
@@ -1022,6 +1024,7 @@ async function searchShariah(){
   el.innerHTML='<div class="shariah-search-card sh-unknown"><b>🕌 بحث الشرعية</b><p>اكتب رمز السهم أولًا، مثل <b>AAPL</b> أو <b>HTZ</b>.</p></div>';
   return;
  }
+ if(actionBtn){actionBtn.disabled=true;actionBtn.classList.add('is-searching');actionBtn.setAttribute('aria-busy','true');}
  el.hidden=false;
  el.innerHTML='<div class="shariah-search-card sh-unknown"><b>🕌 بحث الشرعية — '+escHtml(symbol)+'</b><p>⏳ جاري التحقق من النتيجة المنشورة...</p></div>';
  try{
@@ -1061,6 +1064,8 @@ async function searchShariah(){
    '</div>';
  }catch(e){
   el.innerHTML='<div class="shariah-search-card sh-unknown"><b>🕌 بحث الشرعية</b><p>⚠️ تعذر التحقق الآن؛ لم يتم تأليف أي نتيجة.</p></div>';
+ }finally{
+  if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-searching');actionBtn.removeAttribute('aria-busy');}
  }
 }
 
@@ -1158,9 +1163,12 @@ function renderStockTerminalAverages(classification,targets){
  return '<section class="sas-terminal-panel" id="sasMovingAverages"><div class="sas-terminal-section-title"><span>▥</span><div><b>المتوسطات المتحركة</b><small>القيم الفعلية المستلمة من مصدر التحليل</small></div></div><div class="sas-terminal-averages">'+rows.map(([label,value])=>'<div><small>'+label+'</small><strong>$'+money(value)+'</strong><span>قيمة فعلية</span></div>').join('')+'</div></section>';
 }
 async function analyzeSymbol(){
+ const actionBtn=document.getElementById('analyzeSymbolBtn');
+ if(actionBtn?.disabled)return;
+ if(actionBtn){actionBtn.disabled=true;actionBtn.classList.add('is-working');actionBtn.setAttribute('aria-busy','true');}
  const input=document.getElementById('symbolSearch');
  const symbol=(input.value||'').trim().toUpperCase().replace(/[^A-Z.\-]/g,'');
- if(!symbol)return;
+ if(!symbol){if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}return;}
  const el=document.getElementById('symbolResult');
  startStockAnalysisLoader(el,symbol);
  const [qR,chartR,newsR,analysisR,miniR,shariahR,perpR,cuspR]=await Promise.allSettled([
@@ -1174,6 +1182,7 @@ async function analyzeSymbol(){
    api('/api/stocks/'+encodeURIComponent(symbol)+'/cusp',{timeoutMs:9000})
  ]);
  stopStockAnalysisLoader();
+ if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}
  const qRaw=qR.status==='fulfilled'&&qR.value&&typeof qR.value==='object'?qR.value:{symbol,price:null,change_pct:null,source:'غير متاح'};
  const miniPayload=miniR.status==='fulfilled'&&miniR.value&&typeof miniR.value==='object'?miniR.value:null;
  const miniQuote=miniPayload?.quote&&typeof miniPayload.quote==='object'?miniPayload.quote:{};
