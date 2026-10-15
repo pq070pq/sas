@@ -526,8 +526,8 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             report.append("⚪ لا يوجد خبر حديث موثق في بيانات الرادار يفسّر الحركة.")
             report.append("لن ننسب الارتفاع إلى أرباح أو خبر من دون مصدر وتاريخ قابلين للتحقق.")
 
-    # Report reverse-split risk only when supplied corporate-action data or a
-    # dated event explicitly supports it; never infer a split from price action.
+    # Show reverse-split classification only when source data actually confirms an event.
+    # Missing data is not a reason to print an uncertainty warning in every radar report.
     split_events = []
     if isinstance(events, list):
         for item in events:
@@ -545,6 +545,7 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
         or corporate_actions.get("reverse_split") is True
         or split_events
     )
+    # If the data provider has no verified split event, omit this entire section.
     if split_detected:
         split_date = first(split_analysis.get("date"), split_analysis.get("last_reverse_split_date"),
                            corporate_actions.get("reverse_split_date"),
@@ -570,10 +571,6 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             report.append("🔎 دورة الارتداد: لا توجد إشارة مسجلة إلى تحقق الهدف بعد التقسيم؛ هذا لا يضمن تكرار الدورة.")
         else:
             report.append("🔎 دورة الارتداد: لم يتم التحقق من استهلاك الهدف بعد التقسيم؛ لا تفترض أنها دورة جديدة.")
-    else:
-        report += ["", "━━━━━━━━━━━━━━━━━━", "", "🏷️ <b>نوع السهم ومخاطر التقسيم</b>"]
-        report.append("⚪ لا توجد في بيانات هذا التقرير معلومة موثقة تكفي لتصنيف السهم كسهم عائد من تقسيم عكسي.")
-        report.append("ℹ️ عدم ظهور الحدث لا يثبت عدم وجود تقسيم؛ تحقق من إفصاحات الشركة عند الحاجة.")
 
     report += ["", "━━━━━━━━━━━━━━━━━━", "", "🎯 <b>خطة الرصد</b>"]
     report.append(f"🔵 السعر المرجعي: {_money(entry if entry is not None else price)}"
