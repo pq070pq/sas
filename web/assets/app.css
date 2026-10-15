@@ -3575,3 +3575,41 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .shariah-search-btn-arrow{font-size:23px}
 }
 @media(prefers-reduced-motion:reduce){.shariah-search-btn-pro,.shariah-search-btn-pro:before,.shariah-search-btn-arrow{transition:none!important}}
+
+
+/* Shariah search control: clear, tactile, animated, mobile-safe */
+.shariah-search-btn-pro{position:relative!important;isolation:isolate;overflow:hidden;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;min-height:82px!important;min-width:0!important;padding:12px 14px!important;border:1px solid rgba(55,208,255,.55)!important;border-radius:20px!important;background:radial-gradient(circle at 15% 50%,rgba(30,190,235,.16),transparent 45%),linear-gradient(135deg,rgba(7,49,72,.98),rgba(4,20,34,.98))!important;color:#e8faff!important;white-space:normal!important;box-shadow:inset 0 1px rgba(255,255,255,.08),0 8px 24px rgba(0,0,0,.18),0 0 20px rgba(28,181,225,.08)!important;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease!important}
+.shariah-search-btn-pro:before{content:"";position:absolute;inset:5px;border:1px solid rgba(65,193,226,.12);border-radius:15px;pointer-events:none;z-index:-1}
+.shariah-search-btn-pro:after{content:"";position:absolute;top:-70%;bottom:-70%;left:-45%;width:28%;transform:rotate(22deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.10),transparent);transition:left .45s ease;pointer-events:none}
+.shariah-search-btn-pro:hover{transform:translateY(-2px)!important;border-color:rgba(77,224,255,.9)!important;box-shadow:inset 0 1px rgba(255,255,255,.1),0 10px 28px rgba(0,0,0,.24),0 0 24px rgba(28,181,225,.17)!important}
+.shariah-search-btn-pro:hover:after{left:125%}
+.shariah-search-btn-pro:active{transform:scale(.985)!important}
+.shariah-search-btn-pro:focus-visible{outline:2px solid #65e4ff!important;outline-offset:3px}
+.shariah-search-btn-pro:disabled{opacity:.78;cursor:wait!important;transform:none!important}
+.shariah-search-btn-orbit{display:flex;align-items:center;justify-content:center;flex:0 0 48px;width:48px;height:48px;border:1px solid rgba(65,211,250,.52);border-radius:15px;background:radial-gradient(circle,rgba(17,143,184,.25),rgba(3,18,31,.88));box-shadow:inset 0 0 14px rgba(37,199,236,.12),0 0 14px rgba(37,199,236,.08)}
+.shariah-search-btn-icon{display:flex;align-items:center;justify-content:center;width:27px;height:27px;color:#72e6ff}
+.shariah-search-btn-icon svg{display:block;width:100%;height:100%;filter:drop-shadow(0 0 5px rgba(70,220,255,.35))}
+.shariah-search-btn-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:5px;text-align:right}
+.shariah-search-btn-copy b{font-size:14px;font-weight:900;color:#f0fbff;line-height:1.5}
+.shariah-search-btn-copy small{font-size:10px;color:#91bdcf;line-height:1.5;white-space:normal}
+.shariah-search-btn-arrow{font-size:25px;color:#64dfff;line-height:1}
+.shariah-search-btn-pro.is-searching .shariah-search-btn-orbit{animation:shariahOrbitPulse 1.1s ease-in-out infinite}
+.shariah-search-btn-pro.is-searching .shariah-search-btn-icon{animation:shariahSearchSpin 1.5s linear infinite}
+@keyframes shariahOrbitPulse{0%,100%{box-shadow:0 0 0 0 rgba(65,211,250,.15),inset 0 0 14px rgba(37,199,236,.12)}50%{box-shadow:0 0 0 7px rgba(65,211,250,0),inset 0 0 20px rgba(37,199,236,.25)}}
+@keyframes shariahSearchSpin{to{transform:rotate(360deg)}}
+.shariah-review .shariah-source-row.source-ok> b{color:#55e8ae!important}
+.shariah-review .shariah-source-row.source-bad> b{color:#ff8293!important}
+.shariah-review .shariah-source-row.source-unknown> b{color:#ffd36b!important}
+.shariah-review .shariah-source-row> b i{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;margin-inline-end:6px;border:1px solid currentColor;border-radius:50%;font-style:normal;font-size:11px}
+.shariah-search-loader{display:block;width:32px;height:32px;border:3px solid rgba(255,211,107,.2);border-top-color:#ffd36b;border-radius:50%;animation:shariahSearchSpin .75s linear infinite}
+.shariah-review-warning p{overflow-wrap:anywhere}
+@media(max-width:600px){
+ .shariah-search-btn-pro{min-height:76px!important;gap:8px!important;padding:10px 9px!important;border-radius:16px!important}
+ .shariah-search-btn-orbit{flex-basis:38px;width:38px;height:38px;border-radius:12px}
+ .shariah-search-btn-icon{width:23px;height:23px}
+ .shariah-search-btn-copy b{font-size:12px}
+ .shariah-search-btn-copy small{font-size:9px}
+ .shariah-search-btn-arrow{font-size:22px}
+ .shariah-review .shariah-source-row> b i{width:17px;height:17px;margin-inline-end:4px}
+}
+@media(prefers-reduced-motion:reduce){.shariah-search-btn-pro,.shariah-search-btn-pro:after,.shariah-search-btn-orbit,.shariah-search-btn-icon,.shariah-search-loader{animation:none!important;transition:none!important}}
