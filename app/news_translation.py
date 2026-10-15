@@ -22,7 +22,7 @@ async def _mymemory_translate(text: str) -> str:
     if cached and now - cached[0] < _TRANSLATION_CACHE_TTL:
         return cached[1]
     try:
-        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=5, follow_redirects=True) as client:
             response = await client.get(
                 "https://api.mymemory.translated.net/get",
                 params={"q": source, "langpair": "en|ar", "mt": "1"},
@@ -61,14 +61,14 @@ async def _fallback_translate_items(items: list[dict]) -> list[dict]:
         }
 
     translated_items = await asyncio.gather(
-        *(translate_one(item) for item in items[:12]), return_exceptions=True
+        *(translate_one(item) for item in items[:16]), return_exceptions=True
     )
     return [item for item in translated_items if isinstance(item, dict)]
 
 
 async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
     """Translate a small set of verified headlines/summaries; preserve original evidence."""
-    selected = [x for x in items if isinstance(x, dict) and x.get("headline")][:12]
+    selected = [x for x in items if isinstance(x, dict) and x.get("headline")][:16]
     if not selected:
         return []
     providers = [
@@ -91,13 +91,13 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
         f"رمز السهم المعروض: {symbol}. لا تنسب خبرًا للشركة إلا إذا دل النص على ذلك. الأخبار: "
         + json.dumps(payload, ensure_ascii=False)
     )
-    # Try every configured AI provider in order. A stale/invalid Gemini key must not
-    # prevent a working Groq or OpenRouter key from translating the market ribbon.
-    for provider_name, api_key, base_url, model in providers:
+    # Query configured providers concurrently so one stale/slow key cannot block
+    # every other translator. Preserve provider preference when merging results.
+    async def request_provider(provider_name, api_key, base_url, model):
         if not api_key or not base_url:
-            continue
+            return provider_name, []
         try:
-            async with httpx.AsyncClient(timeout=12) as client:
+            async with httpx.AsyncClient(timeout=5) as client:
                 response = await client.post(
                     base_url.rstrip("/") + "/chat/completions",
                     headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
@@ -126,10 +126,28 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
                     "source": str(item.get("source") or ""),
                     "translation_provider": provider_name,
                 })
-            if result:
-                return result
-            logger.warning("News translation provider %s returned no matching Arabic headlines", provider_name)
+            return provider_name, result
         except Exception as exc:
             logger.warning("News translation provider %s failed for %s: %s", provider_name, symbol, type(exc).__name__)
-    # Free no-key fallback is attempted after all configured AI providers.
-    return await _fallback_translate_items(selected)
+            return provider_name, []
+
+    responses = await asyncio.gather(
+        *(request_provider(*provider) for provider in providers),
+        return_exceptions=True,
+    )
+    combined = {}
+    for response in responses:
+        if not isinstance(response, tuple) or len(response) != 2:
+            continue
+        provider_name, result = response
+        for item in result:
+            combined.setdefault(str(item.get("url") or ""), item)
+
+    missing = [item for item in selected if str(item.get("url") or "") not in combined]
+    if missing:
+        fallback = await _fallback_translate_items(missing)
+        for item in fallback:
+            combined.setdefault(str(item.get("url") or ""), item)
+
+    return [combined[str(item.get("url") or "")] for item in selected
+            if str(item.get("url") or "") in combined]
