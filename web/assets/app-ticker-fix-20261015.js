@@ -409,7 +409,9 @@ async function refreshTerminal(){
     if(!Array.isArray(ticker))return ticker;
     // Paint real/cached market prices immediately; fetch missing gold separately.
     terminalState.ticker=ticker;
+    window.__sasLastTicker=ticker;
     renderMacro();
+    window.dispatchEvent(new CustomEvent('saspro:ticker-updated',{detail:{ticker}}));
     const gold=ticker.find(x=>String(x?.symbol||'').toUpperCase()==='XAU/USD' || String(x?.label||'').toUpperCase()==='GOLD');
     if(!gold || !(Number(gold.price)>0)){
      fetchPublicGoldFallback().then(directGold=>{
@@ -2610,7 +2612,7 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
 (function(){
  if(window.__sasMarketPulseReady)return;window.__sasMarketPulseReady=true;
  const $=id=>document.getElementById(id);
- let newsBusy=false,indicesBusy=false,newsTimer=null,indicesTimer=null,lastNewsKey='';
+ let newsBusy=false,newsTimer=null,lastNewsKey='';
  const indices=[
   {label:'S&P 500',keys:['S&P 500','SPX','^GSPC','SPY'],icon:'▥',tone:'#35e7ff'},
   {label:'NASDAQ',keys:['NASDAQ','IXIC','^IXIC','QQQ'],icon:'◈',tone:'#4b9dff'},
@@ -2679,21 +2681,17 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
   const indexAnimation=track.querySelector('.sas-index-lane')?.getAnimations?.()[0];if(indexAnimation&&Number.isFinite(animationTime))indexAnimation.currentTime=animationTime;
   const updated=$('sasIndicesUpdated');if(updated)updated.textContent='تحديث '+new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date());
  }
- async function refreshIndices(){
-  if(indicesBusy||document.visibilityState==='hidden'||$('terminalPage')?.hidden)return;
-  indicesBusy=true;
-  try{
-   const data=await api('/api/market/ticker',{timeoutMs:18000,retries:0});
-   if(Array.isArray(data))renderIndices(data);
-  }catch(error){const track=$('sasMarketIndicesTrack');if(track&&!track.querySelector('.sas-index-card'))track.innerHTML='<div class="sas-index-loading">تعذر جلب الأسعار الآن؛ ستتم المحاولة في التحديث التالي.</div>';}
-  finally{indicesBusy=false;}
- }
  function startTimers(){
   if($('terminalPage')?.hidden)return;
-  void refreshNews(false);void refreshIndices();
+  void refreshNews(false);
+  if(Array.isArray(window.__sasLastTicker))renderIndices(window.__sasLastTicker);
   if(!newsTimer)newsTimer=window.setInterval(()=>refreshNews(false),90000);
-  if(!indicesTimer)indicesTimer=window.setInterval(refreshIndices,45000);
  }
+ // The legacy dashboard ticker is the single source of truth for every index card.
+ window.addEventListener('saspro:ticker-updated',event=>{
+  const ticker=event.detail?.ticker;
+  if(Array.isArray(ticker))renderIndices(ticker);
+ });
  const refreshButton=$('sasNewsRefreshBtn');if(refreshButton)refreshButton.addEventListener('click',()=>{lastNewsKey='';void refreshNews(true);});
  document.addEventListener('click',event=>{
   const card=event.target.closest('.sas-index-card[data-sas-index]');if(!card)return;
@@ -2704,7 +2702,8 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
   if(target){target.scrollIntoView({behavior:'smooth',block:'center'});target.classList.add('is-selected');window.setTimeout(()=>target.classList.remove('is-selected'),1800);}
  });
  const terminal=$('terminalPage');
- if(terminal)new MutationObserver(()=>{if(!terminal.hidden)startTimers();else{if(newsTimer){clearInterval(newsTimer);newsTimer=null;}if(indicesTimer){clearInterval(indicesTimer);indicesTimer=null;}}}).observe(terminal,{attributes:true,attributeFilter:['hidden']});
+ if(terminal)new MutationObserver(()=>{if(!terminal.hidden)startTimers();else{if(newsTimer){clearInterval(newsTimer);newsTimer=null;}}}).observe(terminal,{attributes:true,attributeFilter:['hidden']});
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')startTimers();});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startTimers);else startTimers();
+ if(Array.isArray(window.__sasLastTicker))renderIndices(window.__sasLastTicker);
 })();
