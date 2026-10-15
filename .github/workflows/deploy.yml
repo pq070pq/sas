@@ -77,14 +77,18 @@ jobs:
 
       - name: Deploy to OVH
         uses: appleboy/ssh-action@v1.2.2
+        env:
+          ZOYA_API_KEY: ${{ secrets.ZOYA_API_KEY }}
         with:
           host: ${{ secrets.OVH_HOST }}
           username: ${{ secrets.OVH_USER || 'root' }}
           key_path: ${{ runner.temp }}/ovh_key
           port: ${{ secrets.OVH_PORT || '22' }}
           command_timeout: 30m
+          envs: ZOYA_API_KEY
           script: |
             set -e
+            export ZOYA_API_KEY="${ZOYA_API_KEY:-}"
             export TWELVE_DATA_API_KEY="${{ secrets.TWELVE_DATA_API_KEY }}"
             cd /opt/saspro
             # إزالة قفل Git عالق من نشر سابق؛ النشر نفسه محمي بـ concurrency ولا توجد عملية Git متزامنة مقصودة.
