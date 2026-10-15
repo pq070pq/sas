@@ -1009,10 +1009,13 @@ function stockCard(x){
  '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+'<span>'+catalystLabel+(catalyst>0?' '+catalyst+'/100':'')+'</span>'+(x.live_price_source?'<span>📡 '+escHtml(x.live_price_source)+'</span>':'')+'</div>'+
  perpContext+
  '<div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||cls.reason||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div>'+
- '<div class="stock-actions stock-card-actions"><button class="stock-chart-action" onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">🔍 تحليل السهم</button><button class="stock-share-action stock-share-save-combined" onclick="event.stopPropagation();shareOpportunityCard(this.closest(\'.stock-card\')||this.closest(\'article\'),\''+raw+'\',false)">↗ مشاركة / حفظ البطاقة</button></div><footer class="sas-card-copyright">SAS PRO RADAR · © جميع الحقوق محفوظة · معلومات تعليمية وليست توصية استثمارية</footer></article>';
+ '<div class="stock-actions stock-card-actions"><button class="stock-chart-action" onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">🔍 تحليل السهم</button><button type="button" class="stock-screenshot-hint" aria-label="عرض تعليمات مشاركة البطاقة عبر لقطة شاشة" onclick="event.stopPropagation();showCardScreenshotHint(this)">📸 <span>صوّر الشاشة إذا رغبت بالمشاركة</span></button></div><footer class="sas-card-copyright">SAS PRO RADAR · © جميع الحقوق محفوظة · معلومات تعليمية وليست توصية استثمارية</footer></article>';
 }
 
 
+
+
+function showCardScreenshotHint(button){const card=button.closest('.stock-card')||button.closest('article');if(!card)return;card.classList.add('sas-card-screenshot-focus');const old=button.querySelector('.sas-screenshot-status');if(old)old.remove();const status=document.createElement('span');status.className='sas-screenshot-status';status.setAttribute('role','status');status.textContent='البطاقة جاهزة للتصوير — التقط لقطة شاشة من جهازك لمشاركتها.';button.appendChild(status);button.setAttribute('aria-expanded','true');setTimeout(()=>{card.classList.remove('sas-card-screenshot-focus');button.setAttribute('aria-expanded','false');},4500);}
 
 function showOpportunityCardModal(blob,file,symbol){
   const old=document.getElementById('sasOpportunityCardModal');if(old)old.remove();
