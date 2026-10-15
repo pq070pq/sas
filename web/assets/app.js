@@ -1038,7 +1038,7 @@ async function searchShariah(){
    const name='<span class="shariah-source-identity"><span class="shariah-source-brand-icon" aria-hidden="true">'+sourceGlyph+'</span><b>'+escHtml(sourceName)+'</b></span>';
    const statusText=escHtml(src.status_ar||'غير واضح / يحتاج تحقق');
    let meaning='';
-   else if(src.source==='يقين') meaning=src.verified?'نتيجة منشورة مباشرة للسهم.':'لم تظهر نتيجة مباشرة موثقة.';
+   if(src.source==='يقين') meaning=src.verified?'نتيجة منشورة مباشرة للسهم.':'لم تظهر نتيجة مباشرة موثقة.';
    else meaning=src.verified?'نتيجة مباشرة موثقة.':'لا توجد نتيجة مباشرة موثقة.';
    const sourceState=String(src.status||'').toLowerCase();
    const sourceClass=(sourceState==='compliant'||sourceState==='halal')?'source-ok':((sourceState==='non_compliant'||sourceState==='haram')?'source-bad':'source-unknown');
