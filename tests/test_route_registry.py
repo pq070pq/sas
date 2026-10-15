@@ -52,6 +52,16 @@ class MiniAppRollbackContractTests(unittest.TestCase):
         for marker in ("marketTicker", "refreshTickerOnly", "sasMarketNews"):
             self.assertNotIn(marker, js)
 
+    def test_shariah_search_does_not_reference_an_out_of_scope_controller(self):
+        for relative in ("web/assets/app.js", "web/assets/app-ticker-fix-20261015.js"):
+            js = (ROOT / relative).read_text(encoding="utf-8")
+            start = js.index("async function searchShariah()")
+            end = js.index("let stockAnalysisLoaderTimer", start)
+            handler = js[start:end]
+            self.assertNotIn("signal:searchController.signal", handler)
+            self.assertIn("class=\\\"shariah-retry-btn\\\"", handler)
+            self.assertIn("onclick=\\\"searchShariah()\\\"", handler)
+
 
 if __name__ == "__main__":
     unittest.main()
