@@ -1213,6 +1213,42 @@ function renderAvailableLevelPanel(title,subtitle,fields){
  if(!available.length)return '';
  return '<section class="sas-terminal-panel" id="sasTerminalLevels"><div class="sas-terminal-section-title"><span>⌖</span><div><b>'+escHtml(title)+'</b><small>'+escHtml(subtitle)+'</small></div></div><div class="level-grid">'+available.map(([label,value])=>'<div><small>'+escHtml(label)+'</small><b>'+escHtml(value)+'</b></div>').join('')+'</div></section>';
 }
+function mountSASTradingViewChart(root,symbol,exchange){
+ const host=root&&root.querySelector('#sasTradingViewChart');
+ if(!host||host.dataset.mounted==='1')return;
+ const ticker=String(symbol||'').trim().toUpperCase();
+ if(!ticker)return;
+ const venue=String(exchange||'').trim().toUpperCase();
+ let prefix='';
+ if(/NASDAQ/.test(venue))prefix='NASDAQ:';
+ else if(/NYSE AMERICAN|NYSEAMERICAN|AMEX|AMERICAN STOCK EXCHANGE/.test(venue))prefix='AMEX:';
+ else if(/NYSE|NEW YORK STOCK/.test(venue))prefix='NYSE:';
+ else if(/ARCA/.test(venue))prefix='AMEX:';
+ const tvSymbol=prefix?(ticker.includes(':')?ticker:prefix+ticker):ticker;
+ host.dataset.mounted='1';
+ const container=document.createElement('div');
+ container.className='tradingview-widget-container sas-tv-widget-container';
+ container.style.width='100%';
+ container.style.height='100%';
+ const widget=document.createElement('div');
+ widget.className='tradingview-widget-container__widget';
+ widget.style.width='100%';
+ widget.style.height='calc(100% - 24px)';
+ container.appendChild(widget);
+ const script=document.createElement('script');
+ script.type='text/javascript';
+ script.src='https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+ script.async=true;
+ script.textContent=JSON.stringify({
+  autosize:true,symbol:tvSymbol,interval:'15',timezone:'Asia/Riyadh',
+  theme:'dark',style:'1',locale:'ar',allow_symbol_change:true,
+  calendar:false,details:false,hotlist:false,hide_side_toolbar:true,
+  hide_top_toolbar:false,hide_legend:false,hide_volume:false,
+  save_image:false,withdateranges:true,studies:[],support_host:'https://www.tradingview.com'
+ });
+ container.appendChild(script);
+ host.replaceChildren(container);
+}
 function renderStockTerminalQuickMetrics(classification,targets,mini){
  const c=classification&&typeof classification==='object'?classification:{},t=targets&&typeof targets==='object'?targets:{},m=mini&&typeof mini==='object'?mini:{};
  const nested=c.indicators&&typeof c.indicators==='object'?c.indicators:{},ind=t.indicators&&typeof t.indicators==='object'?t.indicators:{};
@@ -1342,7 +1378,7 @@ const miniAnalysisHtml=
     renderStockTerminalQuickMetrics(classification,tech,mini)+
     renderStockTerminalAverages(classification,tech)+
     renderAvailableLevelPanel('مستويات السهم','القيم الفعلية المستلمة من محرك SAS PRO',[['الدخول',Number.isFinite(entry)&&entry>0?'$'+money(entry):null],['وقف الخسارة',Number.isFinite(stop)&&stop>0?'$'+money(stop):null],['الهدف الأول',Number.isFinite(target1)&&target1>0?'$'+money(target1):null],['العائد/المخاطرة',rr==='—'?null:rr]])+
-    (Array.isArray(chart.candles)&&chart.candles.length?'<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت التفاعلي</b><small>شموع السعر وحجم التداول · SAS PRO</small></div>'+(me?.admin?'<a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a>':'')+'</div><div class="chart-box"><canvas id="stockCanvas" height="290"></canvas></div><div id="perpEquitiesAnalysis"></div></section>':'')+
+    (Array.isArray(chart.candles)&&chart.candles.length?'<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت التفاعلي</b><small>شموع السعر وحجم التداول · SAS PRO</small></div>'+(me?.admin?'<a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a>':'')+'</div><div class="sas-tv-chart-shell"><div class="sas-tv-chart-heading"><b>TradingView · الشارت المتقدم</b><span>تفاعلي • شموع • أحجام التداول</span></div><div id="sasTradingViewChart" class="sas-tv-chart" aria-label="شارت TradingView للسهم"></div><p class="sas-tv-chart-note">الشارت من TradingView؛ السعر والقراءة الفنية أعلاه من بيانات SAS PRO وقد يختلف توقيت التحديث أو مصدر السعر.</p></div><div class="chart-box"><canvas id="stockCanvas" height="290"></canvas></div><div id="perpEquitiesAnalysis"></div></section>':'')+
     '<section class="sas-terminal-panel" id="sasTerminalFundamentals"><div class="sas-terminal-section-title"><span>▤</span><div><b>التحليل والبيانات الإضافية</b><small>ملخص المصدر والأبحاث المتاحة</small></div></div>'+cuspHtml+'<div class="ai-box"><b>'+(aiAvailable?'ملخص التحليل المتاح':'الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+'</section>'+
     '<section class="sas-terminal-panel" id="sasTerminalNews"><div class="sas-terminal-section-title"><span>▣</span><div><b>آخر أخبار السهم</b><small>الأخبار المتاحة من المصادر</small></div></div><div class="news-list">'+renderNewsItems(newsFromAnalysis,5,Array.isArray(ai.news_summaries)?ai.news_summaries:[])+'</div></section>'+
     '<section class="sas-terminal-panel" id="sasTerminalShariah">'+shHtml+'</section>'+
@@ -1351,6 +1387,7 @@ const miniAnalysisHtml=
 
  pruneUnavailableAnalysis(el);
  mountPerpEquitiesAnalysis(el,perp,symbol);
+ mountSASTradingViewChart(el,symbol,q.exchange||q.mic||q.exchange_name||'');
  const chartCandles=Array.isArray(chart.candles)?chart.candles:[];
  requestAnimationFrame(()=>drawChart(chartCandles));
  if(!chartCandles.length){
