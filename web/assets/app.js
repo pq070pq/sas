@@ -70,6 +70,7 @@ const fmtDate=v=>v?enDigits(new Date(v).toLocaleDateString('ar-SA')):'—';
 const fmtDays=(a,b)=>{if(!a||!b)return'—';const n=Math.ceil((new Date(b)-new Date(a))/86400000);return n>0?n+' يوم':'منتهي';};
 let me=null,plans=null,termAction=null;
 let activeSymbolSearchController=null;
+try{localStorage.removeItem('saspro_watchlist');}catch(e){}
 let loadStarted=false;
 
 function showAccountLoadError(message){
@@ -299,7 +300,7 @@ function switchTerminalTab(tab){
  document.querySelectorAll('.terminal-tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
  document.querySelectorAll('.sas-mobile-dock button').forEach(x=>x.classList.toggle('is-active',x.getAttribute('onclick')?.includes("'"+tab+"'")));
  if(tab==='radar'){renderRadar();if(!terminalState.radarScanning&&(!Array.isArray(terminalState.radar)||terminalState.radar.length===0))void runRadar(false);}
- if(tab==='watch')renderWatchlist();
+
 }
 async function refreshTickerOnly(){
  if(terminalState.tickerRefreshing)return;
@@ -418,7 +419,7 @@ async function refreshTerminal(){
   const results=await Promise.allSettled(requests);
   const errors=results.filter(x=>x.status==='rejected').map(x=>x.reason?.message||'خطأ غير معروف');
   if(errors.length)console.warn('SAS PRO panel refresh partial failures:',errors);
-  if(terminalState.tab==='watch')renderWatchlist();
+
  }finally{
   terminalState.refreshing=false;
  }
@@ -1008,15 +1009,40 @@ function stockCard(x){
  '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+'<span>'+catalystLabel+(catalyst>0?' '+catalyst+'/100':'')+'</span>'+(x.live_price_source?'<span>📡 '+escHtml(x.live_price_source)+'</span>':'')+'</div>'+
  perpContext+
  '<div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||cls.reason||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div>'+
- '<div class="stock-actions"><button class="stock-chart-action" onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">🔍 تحليل السهم</button><button onclick="event.stopPropagation();toggleWatch(\''+raw+'\')">'+(terminalState.watch.includes(raw)?'★ محفوظ':'☆ حفظ')+'</button></div></article>';
+ '<div class="stock-actions stock-card-actions"><button class="stock-chart-action" onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">🔍 تحليل السهم</button><button class="stock-share-action" onclick="event.stopPropagation();shareOpportunityCard(this.closest(\'.stock-card\'),\''+raw+'\',false)">↗ مشاركة البطاقة</button><button class="stock-save-card-action" onclick="event.stopPropagation();shareOpportunityCard(this.closest(\'.stock-card\'),\''+raw+'\',true)">▣ حفظ البطاقة</button></div><footer class="sas-card-copyright">SAS PRO RADAR · © جميع الحقوق محفوظة · معلومات تعليمية وليست توصية استثمارية</footer></article>';
 }
-function toggleWatch(symbol){symbol=symbol.toUpperCase();terminalState.watch=terminalState.watch.includes(symbol)?terminalState.watch.filter(x=>x!==symbol):[...terminalState.watch,symbol];localStorage.setItem('saspro_watchlist',JSON.stringify(terminalState.watch));renderWatchlist();renderRadar();}
-async function renderWatchlist(){
- const el=document.getElementById('watchGrid'); if(!terminalState.watch.length){el.innerHTML='<div class="empty-state">أضف الأسهم من الرادار أو صفحة التحليل.</div>';return;}
- el.innerHTML='<div class="loading">جاري تحديث المحفوظة...</div>';
- const rows=await Promise.all(terminalState.watch.slice(0,20).map(async s=>{try{return await api('/api/stocks/'+encodeURIComponent(s)+'/quote');}catch(e){return {symbol:s};}}));
- el.innerHTML=rows.map(x=>stockCard(x)).join('');
+
+async function shareOpportunityCard(card,symbol,downloadOnly=false){
+ if(!card)return;
+ const btns=card.querySelectorAll('.stock-card-actions button');btns.forEach(b=>b.disabled=true);
+ try{
+  const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1350;
+  const ctx=canvas.getContext('2d');if(!ctx)throw new Error('تعذر تجهيز صورة البطاقة.');
+  const bg=ctx.createLinearGradient(0,0,1080,1350);bg.addColorStop(0,'#061d2d');bg.addColorStop(.58,'#03111d');bg.addColorStop(1,'#061a29');ctx.fillStyle=bg;ctx.fillRect(0,0,1080,1350);
+  ctx.strokeStyle='rgba(66,210,245,.55)';ctx.lineWidth=3;ctx.beginPath();ctx.roundRect(28,28,1024,1294,38);ctx.stroke();
+  const glow=ctx.createRadialGradient(920,120,10,920,120,420);glow.addColorStop(0,'rgba(0,183,230,.18)');glow.addColorStop(1,'rgba(0,183,230,0)');ctx.fillStyle=glow;ctx.fillRect(0,0,1080,600);
+  const rtl=(text,x,y,size,color,weight='500')=>{ctx.font=weight+' '+size+'px Arial, sans-serif';ctx.fillStyle=color;ctx.textAlign='right';ctx.direction='rtl';ctx.fillText(String(text||''),x,y,920);};
+  const ltr=(text,x,y,size,color,weight='700')=>{ctx.font=weight+' '+size+'px Arial, sans-serif';ctx.fillStyle=color;ctx.textAlign='left';ctx.direction='ltr';ctx.fillText(String(text||''),x,y,920);};
+  ltr('SAS PRO RADAR',72,100,29,'#55dffb','700');rtl('بطاقة فرصة مرصودة',1000,165,43,'#eaf8ff','700');ltr(symbol,72,230,52,'#f2fbff','700');
+  const status=card.querySelector('.radar-stock-status')?.textContent||'تحت المراقبة';rtl(status,1000,230,27,status.includes('مؤكدة')?'#65e9b5':'#ffd27b','700');
+  const price=card.querySelector(':scope > strong')?.textContent||'السعر غير متاح';ltr(price,72,325,58,'#66e4b8','700');
+  const change=card.querySelector('.stock-head > span')?.textContent||'';ltr(change,72,380,30,change.includes('-')?'#ff7d91':'#67e6b8','700');
+  const levelEls=[...card.querySelectorAll('.stock-levels span')].map(e=>e.innerText.replace(/\s+/g,' ').trim());
+  const box=(x,y,w,h,label,value)=>{ctx.fillStyle='rgba(3,15,26,.86)';ctx.strokeStyle='rgba(65,151,183,.28)';ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(x,y,w,h,22);ctx.fill();ctx.stroke();ctx.textAlign='center';ctx.direction='rtl';ctx.fillStyle='#91adbf';ctx.font='500 25px Arial';ctx.fillText(label,x+w/2,y+42);ctx.fillStyle='#f0fbff';ctx.font='700 31px Arial';ctx.direction='ltr';ctx.fillText(value,x+w/2,y+91);};
+  [['دخول',levelEls.find(x=>x.includes('دخول'))],['وقف',levelEls.find(x=>x.includes('وقف'))],['الهدف',levelEls.find(x=>x.includes('هدف'))]].forEach((a,i)=>box(65+i*320,420,290,118,a[0],(a[1]||'—').split(' ').slice(-1)[0]));
+  const meta=[...card.querySelectorAll('.stock-meta span')].map(e=>e.innerText.replace(/\s+/g,' ').trim());rtl(meta.join('     •     '),1000,600,26,'#b3cbd9','500');
+  const sh=card.querySelector('.stock-shariah');ctx.fillStyle='rgba(52,42,16,.35)';ctx.strokeStyle='rgba(227,190,94,.82)';ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(65,650,950,105,20);ctx.fill();ctx.stroke();rtl('🕌 تحقق من الشرعية',980,692,28,'#f1d58b','700');rtl(sh?.innerText?.replace(/\s+/g,' ').trim()||'غير واضح / يحتاج تحقق — تحقق داخل SAS PRO',980,735,23,'#f5d989','500');
+  const gates=[...card.querySelectorAll('.stock-gates i')].map(e=>e.innerText.replace(/\s+/g,' ').trim());rtl(gates.join('     •     '),1000,825,25,'#82e8c1','500');
+  const summary=card.querySelector('.stock-ai')?.innerText||'';rtl(summary,1000,920,27,'#c6d8e5','500');
+  ctx.strokeStyle='rgba(55,177,207,.25)';ctx.beginPath();ctx.moveTo(65,1132);ctx.lineTo(1015,1132);ctx.stroke();rtl('SAS PRO • رادار الأسهم الأمريكية',1000,1180,26,'#5cddf8','700');rtl('© جميع الحقوق محفوظة',1000,1223,22,'#9ab1c1','500');rtl('معلومات تعليمية وليست توصية شراء أو بيع',1000,1262,20,'#9ab1c1','500');
+  const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('تعذر إنشاء صورة البطاقة.')),'image/png'));
+  const file=new File([blob],'SAS-PRO-'+symbol+'.png',{type:'image/png'});
+  if(!downloadOnly&&navigator.share&&navigator.canShare?.({files:[file]}))await navigator.share({title:'SAS PRO — '+symbol,text:'بطاقة سهم من رادار SAS PRO. ليست توصية شراء أو بيع.',files:[file]});
+  else{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);}
+ }catch(e){if(e?.name!=='AbortError')showActionNotice('radar',e?.message||'تعذر إنشاء البطاقة.');}
+ finally{btns.forEach(b=>b.disabled=false);}
 }
+
 function openSymbol(symbol,focusChart=false){document.getElementById('symbolSearch').value=symbol;switchTerminalTab('search');analyzeSymbol().then(()=>{if(focusChart){const detail=document.getElementById('symbolResult');const chart=detail?.querySelector('.chart-title')||detail?.querySelector('canvas')||detail?.querySelector('.quote-line');if(chart){chart.scrollIntoView({behavior:'smooth',block:'start'});chart.classList.add('chart-focus');setTimeout(()=>chart.classList.remove('chart-focus'),1800);}}});}
 function openShariah(symbol){const input=document.getElementById('symbolSearch');if(input)input.value=String(symbol||'').toUpperCase();switchTerminalTab('search');const result=document.getElementById('shariahSearchResult');if(result)result.hidden=false;searchShariah();setTimeout(()=>{const target=document.getElementById('shariahSearchResult');target?.scrollIntoView({behavior:'smooth',block:'center'});},120);}
 async function searchShariah(){
