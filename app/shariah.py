@@ -39,7 +39,7 @@ async def _yaaqeen(symbol):
         return {"source":"يقين","status":None,"status_ar":"غير متاح","error":str(e)}
 
 async def _zoya(symbol):
-    if not settings.zoya_api_key:
+    if not getattr(settings, 'zoya_api_key', None):
         return {"source":"Zoya","status":None,"status_ar":"غير مفعّل","error":"Zoya API key غير موجود"}
     query = """query GetReport($symbol: String!) {
       basicCompliance { report(symbol: $symbol) {
@@ -49,7 +49,7 @@ async def _zoya(symbol):
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             r = await client.post(ZOYA_URL, json={"query":query,"variables":{"symbol":symbol.upper()}},
-                                  headers={"Authorization":f"Bearer {settings.zoya_api_key}"})
+                                  headers={"Authorization":f"Bearer {getattr(settings, 'zoya_api_key', '')}"})
             r.raise_for_status()
             data = r.json()
         report = (((data.get("data") or {}).get("basicCompliance") or {}).get("report"))
