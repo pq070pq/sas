@@ -522,65 +522,83 @@ async def company_fundamentals(symbol: str):
 _MARKET_NEWS_CACHE = {"at": 0.0, "items": []}
 _MARKET_NEWS_TTL = 300
 _MARKET_IMPACT_TERMS = (
-    "federal reserve", "federal open market", "fomc", "fed rate", "interest rate",
-    "rate cut", "rate hike", "inflation", "cpi", "ppi", "powell", "treasury yield",
+    "federal reserve", "federal open market", "fomc", "fed", "interest rate",
+    "rate cut", "rate hike", "inflation", "cpi", "ppi", "powell", "treasury",
     "bond yield", "jobs report", "nonfarm payroll", "unemployment", "gdp",
     "recession", "tariff", "trade war", "sanctions", "government shutdown",
-    "debt ceiling", "s&p 500", "nasdaq", "dow jones", "wall street", "stock futures",
-    "earnings", "market rally", "stocks fall", "stocks rise", "equities",
+    "debt ceiling", "s&p", "nasdaq", "dow jones", "wall street", "stock futures",
+    "earnings", "market rally", "stocks fall", "stocks rise", "stock market",
+    "stock", "stocks", "shares", "equities", "investors", "market", "markets",
     "oil prices", "crude oil", "banking crisis", "liquidity", "economic data",
+    "economic growth", "economic outlook", "tech stocks", "selloff", "sell-off",
 )
 
 async def _rss_market_news(limit: int = 24):
-    """Provider fallback for US-market news when Finnhub is unavailable or empty."""
+    """Fetch recent US-market headlines from independent RSS feeds concurrently."""
     import xml.etree.ElementTree as ET
+    from email.utils import parsedate_to_datetime
+
     feeds = (
         ("MarketWatch", "https://feeds.marketwatch.com/marketwatch/topstories/"),
         ("CNBC", "https://www.cnbc.com/id/100003114/device/rss/rss.html"),
     )
-    rows = []
-    seen = set()
     now_epoch = int(time.time())
     cutoff = now_epoch - 7 * 86400
-    async with httpx.AsyncClient(timeout=8, follow_redirects=True, headers={
+
+    async def read_feed(client, source, feed_url):
+        try:
+            response = await client.get(feed_url, timeout=5)
+            response.raise_for_status()
+            root = ET.fromstring(response.text)
+        except Exception as exc:
+            logger.info("Market news RSS feed unavailable (%s): %s", source, type(exc).__name__)
+            return []
+
+        rows = []
+        for item in root.findall(".//item"):
+            headline = re.sub(r"\s+", " ", (item.findtext("title") or "")).strip()
+            url = (item.findtext("link") or "").strip()
+            if not headline or not url.startswith(("https://", "http://")):
+                continue
+            normal = headline.lower()
+            if not any(term in normal for term in _MARKET_IMPACT_TERMS):
+                continue
+            published_text = item.findtext("pubDate") or ""
+            try:
+                stamp = int(parsedate_to_datetime(published_text).timestamp()) if published_text else 0
+            except Exception:
+                stamp = 0
+            if stamp <= 0 or stamp < cutoff or stamp > now_epoch + 3600:
+                continue
+            description = re.sub(r"<[^>]+>", " ", item.findtext("description") or "")
+            rows.append({
+                "headline": headline, "source": source, "url": url,
+                "datetime": stamp, "summary": " ".join(description.split())[:500],
+                "category": "general", "related": "", "provider": source,
+            })
+        return rows
+
+    async with httpx.AsyncClient(follow_redirects=True, headers={
         "User-Agent": "Mozilla/5.0 (compatible; SASPRO-MarketNews/1.0)"
     }) as client:
-        for source, feed_url in feeds:
-            try:
-                response = await client.get(feed_url)
-                response.raise_for_status()
-                root = ET.fromstring(response.text)
-                for item in root.findall(".//item"):
-                    headline = re.sub(r"\\s+", " ", (item.findtext("title") or "")).strip()
-                    url = (item.findtext("link") or "").strip()
-                    if not headline or not url.startswith(("https://", "http://")):
-                        continue
-                    normal = headline.lower()
-                    if not any(term in normal for term in _MARKET_IMPACT_TERMS):
-                        continue
-                    published_text = item.findtext("pubDate") or ""
-                    try:
-                        from email.utils import parsedate_to_datetime
-                        stamp = int(parsedate_to_datetime(published_text).timestamp())
-                    except Exception:
-                        stamp = now_epoch
-                    if stamp < cutoff or stamp > now_epoch + 3600:
-                        continue
-                    key = re.sub(r"[^a-z0-9]+", " ", normal).strip()
-                    if not key or key in seen:
-                        continue
-                    seen.add(key)
-                    description = re.sub(r"<[^>]+>", " ", item.findtext("description") or "")
-                    rows.append({
-                        "headline": headline, "source": source, "url": url,
-                        "datetime": stamp, "summary": " ".join(description.split())[:500],
-                        "category": "general", "related": "", "provider": source,
-                    })
-            except Exception:
+        feed_rows = await asyncio.gather(
+            *(read_feed(client, source, url) for source, url in feeds),
+            return_exceptions=True,
+        )
+
+    rows = []
+    seen = set()
+    for result in feed_rows:
+        if not isinstance(result, list):
+            continue
+        for row in result:
+            key = re.sub(r"[^a-z0-9]+", " ", row["headline"].lower()).strip()
+            if not key or key in seen:
                 continue
+            seen.add(key)
+            rows.append(row)
     rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
     return rows[:max(1, min(40, int(limit)))]
-
 
 async def market_news(limit: int = 24):
     """Recent source-linked US-market headlines with explicit market-impact relevance."""
@@ -601,7 +619,7 @@ async def market_news(limit: int = 24):
     for item in payload:
         if not isinstance(item, dict):
             continue
-        headline = re.sub(r"\\s+", " ", str(item.get("headline") or "")).strip()
+        headline = re.sub(r"\s+", " ", str(item.get("headline") or "")).strip()
         url = str(item.get("url") or "").strip()
         stamp = item.get("datetime")
         if not headline or not url.startswith(("https://", "http://")):
