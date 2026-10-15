@@ -127,7 +127,10 @@ async def check_shariah(symbol):
         # environment settings and must never be embedded in source or returned to the client.
         api_key = getattr(settings, "zoya_api_key", "")
         if not api_key:
-            return None
+            return {"source":"Zoya","status":None,"status_ar":"المفتاح غير مهيأ","verified":False,
+                    "reason":"لم يصل ZOYA_API_KEY إلى خدمة SAS PRO بعد؛ تحقق من GitHub Secret ثم أعد النشر."}
+        is_sandbox = api_key.startswith("sandbox-")
+        endpoint = "https://sandbox-api.zoya.finance/graphql" if is_sandbox else "https://api.zoya.finance/graphql"
         query = """
         query getReport($symbol: String!) {
           basicCompliance {
@@ -144,12 +147,15 @@ async def check_shariah(symbol):
         try:
             async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
                 response = await client.post(
-                    "https://api.zoya.finance/graphql",
-                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    endpoint,
+                    headers={"Authorization": api_key, "Content-Type": "application/json"},
                     json={"query": query, "variables": {"symbol": symbol}},
                 )
                 response.raise_for_status()
                 payload = response.json()
+            if payload.get("errors"):
+                return {"source":"Zoya","status":None,"status_ar":"غير متاح","verified":False,
+                        "reason":"رفض Zoya الطلب أو لم تسمح صلاحية المفتاح بهذا الاستعلام؛ تحقق من البيئة والاشتراك.","error":"GraphQL error"}
             report = (((payload.get("data") or {}).get("basicCompliance") or {}).get("report"))
             if not isinstance(report, dict):
                 return {"source":"Zoya","status":None,"status_ar":"غير واضح / يحتاج تحقق",
@@ -167,12 +173,15 @@ async def check_shariah(symbol):
                 }.get(normalized)
             labels = {"compliant":"متوافق بحسب Zoya","non_compliant":"غير متوافق بحسب Zoya",
                       "doubtful":"محل نظر بحسب Zoya"}
-            return {"source":"Zoya","status":status,
-                    "status_ar":labels.get(status,"غير واضح / يحتاج تحقق"),
-                    "verified":bool(status and report.get("reportDate")),
+            # Sandbox responses are randomized and must never be presented as real Shariah evidence.
+            sandbox = is_sandbox
+            return {"source":"Zoya","status":None if sandbox else status,
+                    "status_ar":"بيانات تجريبية — لا تصلح للحكم" if sandbox else labels.get(status,"غير واضح / يحتاج تحقق"),
+                    "verified":bool(not sandbox and status and report.get("reportDate")),
+                    "environment":"sandbox" if sandbox else "live",
                     "name":report.get("name"),"exchange":report.get("exchange"),
                     "updated_at":report.get("reportDate"),
-                    "reason":"نتيجة فحص مباشرة من تقرير Zoya؛ راجع تاريخ التقرير والمنهجية.",
+                    "reason":"بيانات تجريبية من Zoya؛ لا تستخدم للحكم الشرعي." if sandbox else "نتيجة فحص مباشرة من تقرير Zoya؛ راجع تاريخ التقرير والمنهجية.",
                     "methodology":"Zoya basicCompliance","url":"https://zoya.finance/"}
         except Exception as exc:
             # Do not expose provider responses or credentials in API output.
