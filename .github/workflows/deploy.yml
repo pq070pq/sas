@@ -212,6 +212,21 @@ jobs:
 
             echo "✅ OVH deployment smoke test passed."
 
+            echo "===== SAS PRO SERVED PAGE VERIFICATION ====="
+            page_html=$(curl -fsS --max-time 10 http://127.0.0.1:8000/)
+            if printf '%s' "$page_html" | grep -q 'id="sasMarketNews"'; then
+              echo "❌ Served SAS PRO root page still contains the market-news section."
+              exit 1
+            fi
+            if ! printf '%s' "$page_html" | grep -q 'class="market-ticker-wrap"'; then
+              echo "❌ Served SAS PRO root page is not the expected legacy market-ticker page."
+              exit 1
+            fi
+            printf '%s' "$page_html" | grep -oE 'assets/app\.(js|css)\?v=[^"]+' | sort -u || true
+            docker compose exec -T saspro python -c 'import os; from urllib.parse import urlsplit; u=urlsplit(os.getenv("APP_BASE_URL","")); print("SAS_PRO_WEBAPP_PATH="+(u.path or "/"))'
+            echo "✅ Live SAS PRO root serves the pre-news layout."
+            echo "===== END SAS PRO SERVED PAGE VERIFICATION ====="
+
             # Verify the actual served Mini App HTML, not just backend health.
             # The requested rollback removes the news ribbon and restores the standalone ticker.
             docker compose exec -T saspro sh -lc 'grep -q "market-ticker-wrap" /app/web/index.html && ! grep -q "sasMarketNews" /app/web/index.html'
