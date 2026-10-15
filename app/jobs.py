@@ -3,6 +3,7 @@ import logging
 import json
 import html
 import math
+import time
 import httpx
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
@@ -464,6 +465,7 @@ async def evaluate_radar_outcomes():
 
 _radar_open_announced = False
 _radar_no_opportunity_announced = False
+_radar_no_opportunity_last_sent = 0.0
 _radar_seen = set()
 
 RADAR_STATUS = """📡 SAS PRO RADAR ⏳
@@ -776,7 +778,7 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
 
 
 async def stock_radar_cycle():
-    global _radar_open_announced, _radar_no_opportunity_announced
+    global _radar_open_announced, _radar_no_opportunity_announced, _radar_no_opportunity_last_sent
     cycle_started = utcnow()
     status = market_status()
     session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
@@ -1405,17 +1407,21 @@ async def stock_radar_cycle():
                     cycle_stats["failed"],
                 )
 
-        # رسالة الحالة تُرسل فقط عند عدم وجود أي سهم يستحق الإرسال للقناة.
-        # لا تتكرر في كل دورة: تُعاد فقط عندما تتغير الحالة من "فرصة موجودة"
-        # إلى "لا توجد فرصة مؤكدة". وإذا ظهرت فرصة، نعيد تسليح الرسالة للدورة التالية.
+        # Send a quiet status at most once per hour while scans find no
+        # channel-worthy opportunity. Real opportunity reports are unaffected.
         if channel_gate_passed > 0 or cycle_stats.get("sent", 0) > 0:
             _radar_no_opportunity_announced = False
-        elif not _radar_no_opportunity_announced:
+            _radar_no_opportunity_last_sent = 0.0
+        elif (
+            not _radar_no_opportunity_announced
+            or time.monotonic() - _radar_no_opportunity_last_sent >= 3600
+        ):
             try:
                 await send_message(settings.telegram_channel_id, RADAR_STATUS)
                 _radar_no_opportunity_announced = True
+                _radar_no_opportunity_last_sent = time.monotonic()
                 logger.info(
-                    "Stock radar no-opportunity status sent: no channel-worthy opportunity in cycle id=%s.",
+                    "Stock radar no-opportunity status sent: hourly heartbeat, cycle id=%s.",
                     run.id,
                 )
             except Exception as exc:
