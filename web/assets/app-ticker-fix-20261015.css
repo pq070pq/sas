@@ -5009,3 +5009,39 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
     width:17px!important;height:17px!important;max-width:17px!important;max-height:17px!important;
   }
 }
+
+
+/* Hotfix 2026-10-15: actual market index ribbon uses sas-index-card, not macro-card */
+#sasMarketPulse #sasMarketIndicesTrack .sas-index-card{
+  flex-basis:154px!important;width:154px!important;min-width:154px!important;max-width:154px!important;
+  min-height:132px!important;height:132px!important;max-height:132px!important;
+  padding:10px!important;gap:4px!important;border-radius:14px!important;
+}
+#sasMarketPulse #sasMarketIndicesTrack .sas-index-card .sas-index-icon{
+  width:19px!important;height:19px!important;min-width:19px!important;max-width:19px!important;
+  font-size:10px!important;border-radius:6px!important;
+}
+#sasMarketPulse #sasMarketIndicesTrack .sas-index-card .sas-index-symbol,
+#sasMarketPulse #sasMarketIndicesTrack .sas-index-card .sas-index-name{font-size:10px!important;line-height:1.25!important}
+#sasMarketPulse #sasMarketIndicesTrack .sas-index-card .sas-index-price{
+  font-size:15px!important;line-height:1.25!important;margin:3px 0!important;white-space:normal!important;overflow-wrap:anywhere!important
+}
+#sasMarketPulse #sasMarketIndicesTrack .sas-index-card .sas-index-change{font-size:10px!important}
+#sasMarketPulse #sasMarketIndicesTrack .sas-index-card small{font-size:8px!important;margin-top:2px!important;white-space:normal!important}
+#sasMarketNewsTrack .sas-news-translation-warning{
+  display:block;color:#ffc66d;font-size:10px;line-height:1.5;margin-top:5px;
+}
+#sasMarketNewsTrack .sas-news-original-title{
+  display:block;color:#829eaa;font-size:9px;line-height:1.4;margin-top:4px;direction:ltr;text-align:left;
+}
+#sasMarketNewsTrack .sas-news-card.is-untranslated{border-color:rgba(255,198,109,.35)}
+@media(max-width:600px){
+ #sasMarketPulse #sasMarketIndicesTrack .sas-index-card{
+  flex-basis:138px!important;width:138px!important;min-width:138px!important;max-width:138px!important;
+  min-height:124px!important;height:124px!important;max-height:124px!important;padding:8px!important
+ }
+ #sasMarketPulse #sasMarketIndicesTrack .sas-index-card .sas-index-icon{
+  width:18px!important;height:18px!important;min-width:18px!important;max-width:18px!important;font-size:9px!important
+ }
+ #sasMarketPulse #sasMarketIndicesTrack .sas-index-card .sas-index-price{font-size:13px!important}
+}

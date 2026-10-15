@@ -72,14 +72,10 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
     if not selected:
         return []
     providers = [
-        (settings.gemini_api_key, settings.gemini_base_url, settings.gemini_model),
-        (settings.groq_api_key, settings.groq_base_url, settings.groq_model),
-        (settings.openrouter_api_key, settings.openrouter_base_url, settings.openrouter_model),
+        ("Gemini", settings.gemini_api_key, settings.gemini_base_url, settings.gemini_model),
+        ("Groq", settings.groq_api_key, settings.groq_base_url, settings.groq_model),
+        ("OpenRouter", settings.openrouter_api_key, settings.openrouter_base_url, settings.openrouter_model),
     ]
-    provider = next((p for p in providers if p[0] and p[1]), None)
-    if not provider:
-        return await _fallback_translate_items(selected)
-    api_key, base_url, model = provider
     payload = [
         {"url": str(item.get("url") or ""), "headline": str(item.get("headline") or "")[:500],
          "summary": str(item.get("ai_summary") or item.get("summary") or "")[:1800],
@@ -95,35 +91,45 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
         f"رمز السهم المعروض: {symbol}. لا تنسب خبرًا للشركة إلا إذا دل النص على ذلك. الأخبار: "
         + json.dumps(payload, ensure_ascii=False)
     )
-    try:
-        async with httpx.AsyncClient(timeout=12) as client:
-            response = await client.post(
-                base_url.rstrip("/") + "/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={"model": model, "temperature": 0.1,
-                      "messages": [{"role": "system", "content": "Return valid JSON only. Arabic output."},
-                                   {"role": "user", "content": prompt}],
-                      "response_format": {"type": "json_object"}},
-            )
-            response.raise_for_status()
-            parsed = json.loads(response.json()["choices"][0]["message"]["content"])
+    # Try every configured AI provider in order. A stale/invalid Gemini key must not
+    # prevent a working Groq or OpenRouter key from translating the market ribbon.
+    for provider_name, api_key, base_url, model in providers:
+        if not api_key or not base_url:
+            continue
+        try:
+            async with httpx.AsyncClient(timeout=12) as client:
+                response = await client.post(
+                    base_url.rstrip("/") + "/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={"model": model, "temperature": 0.1,
+                          "messages": [{"role": "system", "content": "Return valid JSON only. Arabic output."},
+                                       {"role": "user", "content": prompt}],
+                          "response_format": {"type": "json_object"}},
+                )
+                response.raise_for_status()
+                parsed = json.loads(response.json()["choices"][0]["message"]["content"])
             translations = parsed.get("items", []) if isinstance(parsed, dict) else []
             by_url = {str(item.get("url") or ""): item for item in translations
                       if isinstance(item, dict) and item.get("url")}
             result = []
             for item in selected:
                 translated = by_url.get(str(item.get("url") or ""))
-                if not translated or not translated.get("translated_headline"):
+                translated_headline = str((translated or {}).get("translated_headline") or "").strip()
+                if not translated_headline:
                     continue
                 result.append({
                     "url": str(item.get("url") or ""),
                     "headline": str(item.get("headline") or ""),
-                    "translated_headline": str(translated.get("translated_headline") or "")[:500],
+                    "translated_headline": translated_headline[:500],
                     "summary": str(translated.get("summary") or "")[:1200],
                     "basis": "headline_only" if translated.get("basis") == "headline_only" else "article_or_headline",
                     "source": str(item.get("source") or ""),
+                    "translation_provider": provider_name,
                 })
-            return result or await _fallback_translate_items(selected)
-    except Exception as exc:
-        logger.warning("Stock news AI translation unavailable for %s: %s; using fallback", symbol, type(exc).__name__)
-        return await _fallback_translate_items(selected)
+            if result:
+                return result
+            logger.warning("News translation provider %s returned no matching Arabic headlines", provider_name)
+        except Exception as exc:
+            logger.warning("News translation provider %s failed for %s: %s", provider_name, symbol, type(exc).__name__)
+    # Free no-key fallback is attempted after all configured AI providers.
+    return await _fallback_translate_items(selected)
