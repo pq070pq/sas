@@ -93,6 +93,13 @@ jobs:
             fi
             git fetch origin main
             git reset --hard origin/main
+            # Install the repository-managed, safe daily cleanup timer (GitHub remains the source of truth).
+            install -d -m 0755 /etc/systemd/system
+            install -m 0644 /opt/saspro/systemd/saspro-cleanup.service /etc/systemd/system/saspro-cleanup.service
+            install -m 0644 /opt/saspro/systemd/saspro-cleanup.timer /etc/systemd/system/saspro-cleanup.timer
+            systemctl daemon-reload
+            systemctl enable --now saspro-cleanup.timer
+            systemctl list-timers saspro-cleanup.timer --no-pager || true
             # إذا وُجد .dockerignore محلي غير متتبع على الخادم فقد يستبعد ملفات app
             # ويجعل Docker يعيد استخدام طبقة COPY app القديمة رغم تحديث Git.
             if [ -f .dockerignore ] && ! git ls-files --error-unmatch .dockerignore >/dev/null 2>&1; then
