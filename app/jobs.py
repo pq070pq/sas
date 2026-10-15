@@ -548,7 +548,6 @@ def _compact_radar_report(symbol, quote_data, tech, classification, row):
         f"📊 <b>الحجم الكلي:</b> {fmt_number(volume)} سهم",
         f"💰 <b>تكلفة الاقتراض (CTB):</b> {ctb_text}",
         f"🗂️ <b>الإفصاح التنظيمي:</b> {html.escape(filing_text)}",
-        "⚠️ لا يُعد توصية شراء أو بيع، ويبقى قرار التداول وإدارة المخاطر مسؤوليتك ⛔",
     ]
     actions = tech.get("corporate_actions") if isinstance(tech.get("corporate_actions"), dict) else {}
     if actions.get("reverse_split") is True:
@@ -573,18 +572,6 @@ def _compact_radar_report(symbol, quote_data, tech, classification, row):
                 else "🟠 <b>دورة الرادار:</b> " + html.escape(str(actions.get("cycle_evidence") or "لم يتم التحقق من دورة ما بعد التقسيم."))
             ),
             "📚 <b>مصدر الحدث:</b> Yahoo Finance — تحقق من إفصاح الشركة قبل اتخاذ القرار.",
-        ]
-    elif actions.get("status") == "ok":
-        lines += [
-            "",
-            "🏷️ <b>نوع السهم ومخاطر التقسيم</b>",
-            "⚪ لم يظهر تقسيم عكسي في أحداث الشركات التي جرى فحصها؛ هذا لا يضمن عدم وجود حدث أحدث أو غير مدرج.",
-        ]
-    else:
-        lines += [
-            "",
-            "🏷️ <b>نوع السهم ومخاطر التقسيم</b>",
-            "🟠 تعذر التحقق من أحداث التقسيم في مصدر البيانات؛ نوع السهم غير محسوم ولا ينبغي افتراض خلوه من التقسيم.",
         ]
     lines.append("⚠️ لا يُعد توصية شراء أو بيع، ويبقى قرار التداول وإدارة المخاطر مسؤوليتك ⛔")
     return "\n".join(lines)
