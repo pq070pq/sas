@@ -62,24 +62,30 @@ async def _zoya(symbol):
         return {"source":"Zoya","status":None,"status_ar":"غير متاح","error":str(e)}
 
 def _parse_yaaqeen_html(html, symbol):
-    """Parse Yaqeen's published stock verdict without inventing a result."""
-    text = re.sub(r"<[^>]+>", " ", html or "")
+    """Parse the directly published Yaqeen verdict robustly; never infer a missing verdict."""
+    # Preserve spacing between tags and decode HTML entities before matching.
+    from html import unescape
+    text = unescape(re.sub(r"<[^>]+>", " ", html or ""))
     text = " ".join(text.split())
-    pos = text.find("توافق الشريعة")
-    window = text[pos:pos + 2000] if pos >= 0 else ""
 
-    # Check the specific phrases first; "غير شرعي" contains "شرعي".
+    # Prefer the small section following the methodology heading. Yaqeen can
+    # change wrappers/markup, so use a fallback search for its exact verdict
+    # labels rather than requiring a fixed 2,000-character window.
+    pos = text.find("توافق الشريعة")
+    window = text[pos:pos + 5000] if pos >= 0 else text
     verdict = None
-    for phrase, status in (
-        ("غير شرعي", "non_compliant"),
-        ("محل نظر", "doubtful"),
-        ("شرعي", "compliant"),
-    ):
-        if phrase in window:
+    patterns = (
+        (r"غير\s*شرعي", "non_compliant"),
+        (r"محل\s*نظر", "doubtful"),
+        (r"متوافق\s+مع\s+الشريعة", "compliant"),
+        (r"(?<!غير\s)\bشرعي\b", "compliant"),
+    )
+    for pattern, status in patterns:
+        if re.search(pattern, window):
             verdict = status
             break
 
-    date_m = re.search(r"تم التحديث بتاريخ *([0-9]{2}-[0-9]{2}-[0-9]{4})", text)
+    date_m = re.search(r"تم التحديث بتاريخ\s*([0-9]{2}-[0-9]{2}-[0-9]{4})", text)
     label = {
         "compliant": "شرعي",
         "non_compliant": "غير شرعي",
