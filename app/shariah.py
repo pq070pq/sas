@@ -7,7 +7,6 @@ import httpx
 from .config import settings
 
 YAAQEEN_URL = "https://yaaqen.com/stocks/{symbol}"
-ZOYA_URL = "https://api.zoya.finance/graphql"
 
 def _normalize(value):
     if not value:
@@ -37,31 +36,6 @@ async def _yaaqeen(symbol):
                 "updated_at":date_m.group(1) if date_m else None}
     except Exception as e:
         return {"source":"يقين","status":None,"status_ar":"غير متاح","error":str(e)}
-
-async def _zoya(symbol):
-    if not getattr(settings, 'zoya_api_key', None):
-        return {"source":"Zoya","status":None,"status_ar":"غير مفعّل","error":"Zoya API key غير موجود"}
-    query = """query GetReport($symbol: String!) {
-      basicCompliance { report(symbol: $symbol) {
-        symbol name exchange status purificationRatio reportDate
-      }}
-    }"""
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            r = await client.post(ZOYA_URL, json={"query":query,"variables":{"symbol":symbol.upper()}},
-                                  headers={"Authorization":f"Bearer {getattr(settings, 'zoya_api_key', '')}"})
-            r.raise_for_status()
-            data = r.json()
-        report = (((data.get("data") or {}).get("basicCompliance") or {}).get("report"))
-        status = _normalize((report or {}).get("status"))
-        return {"source":"Zoya","methodology":"AAOIFI","status":status,
-                "status_ar":{"compliant":"شرعي","non_compliant":"غير شرعي","doubtful":"محل نظر"}.get(status,"غير واضح"),
-                "verified": bool(status and report),
-                "reason": "نتيجة مباشرة من Zoya وفق منهجية AAOIFI." if status and report else "لم يعرض Zoya نتيجة مباشرة موثقة لهذا الرمز.",
-                "updated_at":(report or {}).get("reportDate"),
-                "purification_ratio":(report or {}).get("purificationRatio")}
-    except Exception as e:
-        return {"source":"Zoya","status":None,"status_ar":"غير متاح","error":str(e)}
 
 def _parse_yaaqeen_html(html, symbol):
     """Parse the directly published Yaqeen verdict robustly; never infer a missing verdict."""
@@ -148,9 +122,8 @@ async def check_shariah(symbol):
         except Exception as e:
             return {"source":"فلترنا","status":None,"status_ar":"غير متاح","verified":False,"error":type(e).__name__}
 
-    # Check independent direct sources in parallel. Zoya is only usable
-    # when an API key is configured; an unavailable provider never counts as a verdict.
-    direct = await asyncio.gather(fetch_yaaqeen(), fetch_filterna(), _zoya(symbol))
+    # Check independent direct sources in parallel; unavailable sources never count as a verdict.
+    direct = await asyncio.gather(fetch_yaaqeen(), fetch_filterna())
     refs = [
         {"source":"مصرف الراجحي","role":"مرجع منهجي","status":"reference","status_ar":"مرجع","verified":True,
          "reason":"لا ننسب للراجحي حكم سهم محدد دون نتيجة منشورة قابلة للتحقق.",
