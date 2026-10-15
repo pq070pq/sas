@@ -3384,7 +3384,7 @@ async function loadSiteMedia(){
  }
  return items;
 }
-let sasMediaRefreshTimer=null;
+
 function startSASMediaAutoRefresh(){
  if(sasMediaRefreshTimer)clearInterval(sasMediaRefreshTimer);
  sasMediaRefreshTimer=setInterval(()=>{if(document.visibilityState==='visible')loadSiteMedia().catch(()=>{});},60000);
@@ -4939,7 +4939,7 @@ async function loadSiteMedia(){
  }
  return items;
 }
-let sasMediaRefreshTimer=null;
+
 function startSASMediaAutoRefresh(){
  if(sasMediaRefreshTimer)clearInterval(sasMediaRefreshTimer);
  sasMediaRefreshTimer=setInterval(()=>{if(document.visibilityState==='visible')loadSiteMedia().catch(()=>{});},60000);
@@ -6494,7 +6494,7 @@ async function loadSiteMedia(){
  }
  return items;
 }
-let sasMediaRefreshTimer=null;
+
 function startSASMediaAutoRefresh(){
  if(sasMediaRefreshTimer)clearInterval(sasMediaRefreshTimer);
  sasMediaRefreshTimer=setInterval(()=>{if(document.visibilityState==='visible')loadSiteMedia().catch(()=>{});},60000);
