@@ -3788,3 +3788,9 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .stock-card-actions .stock-share-save-combined{width:100%!important;grid-column:auto!important}
 .sas-card-modal-actions{display:flex!important;flex-direction:column!important;gap:10px!important;margin-top:15px!important}
 .sas-card-modal-actions button,.sas-card-modal-actions a{display:flex!important;width:100%!important;align-items:center!important;justify-content:center!important;min-height:54px!important;padding:12px 10px!important;border-radius:13px!important;text-decoration:none!important;font-size:14px!important;font-weight:700!important;box-sizing:border-box!important}
+
+/* Screenshot hint action: no unsupported download/share APIs */
+.stock-card-actions .stock-screenshot-hint{display:flex!important;flex-direction:column!important;gap:4px!important;align-items:center!important;justify-content:center!important;width:100%!important;min-height:56px!important;padding:10px 12px!important;border:1px solid rgba(227,190,94,.72)!important;border-radius:14px!important;background:linear-gradient(125deg,#075878,#073247 58%,#332813)!important;color:#f6e2a7!important;font-size:14px!important;font-weight:800!important;line-height:1.45!important;white-space:normal!important;box-sizing:border-box!important;cursor:pointer!important;box-shadow:inset 0 1px rgba(255,255,255,.08),0 0 16px rgba(49,196,232,.10)!important}
+.stock-card-actions .stock-screenshot-hint:active{transform:scale(.985);filter:brightness(1.12)}
+.stock-card-actions .sas-screenshot-status{font-size:11px!important;font-weight:500!important;color:#c9f5ff!important}
+.sas-card-screenshot-focus{outline:2px solid rgba(66,220,245,.9)!important;outline-offset:3px!important;box-shadow:0 0 24px rgba(49,196,232,.18)!important}
