@@ -3682,3 +3682,8 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 }
 @keyframes shariahGreenPulse{0%,100%{box-shadow:0 0 0 1px rgba(49,240,155,.06),0 0 20px rgba(30,237,143,.13),inset 0 0 22px rgba(30,237,143,.035)}50%{box-shadow:0 0 0 1px rgba(49,240,155,.12),0 0 31px rgba(30,237,143,.24),0 0 58px rgba(30,237,143,.1),inset 0 0 32px rgba(30,237,143,.06)}}
 @keyframes shariahRedPulse{0%,100%{box-shadow:0 0 0 1px rgba(255,68,91,.06),0 0 21px rgba(255,53,77,.14),inset 0 0 22px rgba(255,53,77,.035)}50%{box-shadow:0 0 0 1px rgba(255,68,91,.12),0 0 32px rgba(255,53,77,.24),0 0 58px rgba(255,53,77,.1),inset 0 0 32px rgba(255,53,77,.06)}}
+
+/* SAS PRO: clear red shariah disclaimer */
+.shariah-review .shariah-red-disclaimer,.shariah-box .shariah-red-disclaimer{display:flex;flex-direction:column;gap:7px;margin-top:14px;padding:14px 15px;border:1px solid rgba(255,65,86,.55);border-radius:14px;background:linear-gradient(135deg,rgba(100,9,24,.25),rgba(12,9,18,.72));color:#ff9aa5;box-shadow:0 0 18px rgba(255,44,67,.09);font-size:13px;line-height:1.9;text-align:right}
+.shariah-review .shariah-red-disclaimer b,.shariah-box .shariah-red-disclaimer b{color:#ff687b;font-weight:800;font-size:14px}
+.shariah-review .shariah-red-disclaimer span,.shariah-box .shariah-red-disclaimer span{color:#ffd4d9}
