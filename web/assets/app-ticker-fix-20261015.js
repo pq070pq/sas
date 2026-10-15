@@ -1337,6 +1337,27 @@ async function analyzeSymbol(){
  const entry=Number(tech.price||q.price);
  const stop=Number(tech.exit||tech.stop);
  const target1=Number(targets[0]||tech.target1);
+ const validEntry=!partial&&Number.isFinite(entry)&&entry>0;
+ const validStop=validEntry&&Number.isFinite(stop)&&stop>0&&stop<entry;
+ const chartTargets=targets.map(Number).filter(v=>Number.isFinite(v)&&v>entry).sort((a,b)=>a-b);
+ const confirmedTargets=[];
+ for(const level of chartTargets){if(!confirmedTargets.some(v=>Math.abs(v-level)<0.000001))confirmedTargets.push(level);}
+ const validLevels=validEntry&&validStop&&confirmedTargets.length>0;
+ const displayPrice=v=>Number.isFinite(v)&&v>0?'$'+money(v):'غير متاح';
+ const confirmedTargetRows=validLevels?confirmedTargets.slice(0,3).map((v,i)=>['الهدف '+(i+1),displayPrice(v)]):[];
+ const firstRR=validLevels?(confirmedTargets[0]-entry)/(entry-stop):null;
+ const rrText=firstRR!==null&&Number.isFinite(firstRR)?firstRR.toFixed(2):'—';
+ const chartRecommendation=!validLevels
+   ? '⚪ مراقبة فقط: لا تظهر توصية أو مستويات حتى تتوفر بيانات شارت مكتملة ووقف وهدف فنيان صالحان.'
+   : (firstRR<1.5
+      ? '🔴 لا دخول حاليًا: العائد إلى المخاطرة أقل من 1.5 وفق المستوى الفني الأول.'
+      : (Number(q.change_pct)>10
+         ? '🟡 تجنب مطاردة الارتفاع؛ انتظر إعادة اختبار وتأكيدًا على الشارت.'
+         : (Number(tech.score||0)>=70
+            ? '🟢 إعداد فني للمراقبة: لا يتأكد الدخول إلا بعد تأكيد السعر والسيولة على الشارت.'
+            : '🟡 مراقبة فقط: قوة التأكيد الفني لا تكفي لإشارة دخول.'));
+ const chartRecommendationPanel='<section class="recommendation-box"><b>📌 التوصية الفنية المبنية على الشارت</b><strong>'+escHtml(chartRecommendation)+'</strong><div class="sas-chart-level-summary"><span>الدخول المرجعي <b>'+(validLevels?displayPrice(entry):'غير متاح')+'</b></span><span>وقف الخسارة <b>'+(validLevels?displayPrice(stop):'غير متاح')+'</b></span><span>العائد/المخاطرة <b>'+(validLevels?rrText:'—')+'</b></span></div><small>المستويات مأخوذة من محرك SAS PRO وليست ضمانًا للنتيجة. الشارت قد يتأخر عن بيانات المحرك؛ لا تعتمد عليها قبل التحقق من وقت التحديث.</small></section>';
+
  const computedRR=Number.isFinite(entry)&&Number.isFinite(stop)&&Number.isFinite(target1)&&entry>stop&&target1>entry?((target1-entry)/(entry-stop)):null;
  const notice=partial
    ? '<div class="partial-note">🟡 بيانات السعر أو المستويات غير مكتملة من المصدر. لم يتم تخمين أي قيمة.</div>'
@@ -1364,8 +1385,8 @@ const miniAnalysisHtml=
      '</div>'+
      indicatorHtml+
      '<div class="mini-levels">'+
-       '<span>🎯 الهدف <b>&#36;'+money(mini.target)+'</b></span>'+
-       '<span>🛑 الوقف <b>&#36;'+money(mini.stop)+'</b></span>'+
+       '<span>🎯 الهدف <b>'+(validLevels?displayPrice(confirmedTargets[0]):'غير متاح')+'</b></span>'+
+       '<span>🛑 الوقف <b>'+(validLevels?displayPrice(stop):'غير متاح')+'</b></span>'+
      '</div>'+
      '<p class="mini-takeaway">'+escHtml(mini.takeaway||summary)+'</p>'+
    '</section>';
@@ -1375,9 +1396,10 @@ const miniAnalysisHtml=
     '<section class="sas-terminal-hero"><div class="sas-terminal-company"><div class="sas-terminal-symbol">'+escHtml(symbol.slice(0,4))+'</div><div><span class="eyebrow">SAS PRO · STOCK ANALYSIS</span><h2>'+escHtml(symbol)+'</h2><p>'+escHtml(q.name||q.company_name||q.company||'سهم أمريكي')+'</p><div class="sas-terminal-tags"><span>'+escHtml(q.exchange||q.mic||'السوق الأمريكي')+'</span><span>'+escHtml(q.currency||'USD')+'</span></div></div></div><div class="sas-terminal-price"><strong>'+quotePriceDisplay+'</strong><span class="'+quoteChangeClass+'">'+quoteChangeDisplay+'</span><small>السعر حسب البيانات المستلمة</small><span class="sas-terminal-live '+(q.is_delayed||String(q.source||'').toLowerCase().includes('cusp')?'sas-quote-delayed':'')+'"><i></i>'+escHtml((q.is_delayed||String(q.source||'').toLowerCase().includes('cusp'))?'CUSP Wealth · آخر سعر منشور':(q.source||'مصدر السعر غير متاح'))+'</span><span class=\"sas-terminal-live sas-quote-delayed sas-price-freshness\"><i></i>قد يختلف وقت تحديث السعر عن وقت التحليل، وفقًا لمصدر البيانات وتوقيت التحديث.</span></div></section>'+
     '<nav class="sas-terminal-tabs" aria-label="أقسام تحليل السهم"><a href="#sasTerminalMetrics">المؤشرات</a><a href="#sasMovingAverages">المتوسطات</a><a href="#sasTerminalChart">الشارت</a><a href="#sasTerminalLevels">المستويات</a><a href="#sasTerminalNews">الأخبار</a><a href="#sasTerminalShariah">الشرعية</a></nav>'+
     notice+
+    chartRecommendationPanel+
     renderStockTerminalQuickMetrics(classification,tech,mini)+
     renderStockTerminalAverages(classification,tech)+
-    renderAvailableLevelPanel('مستويات السهم','القيم الفعلية المستلمة من محرك SAS PRO',[['الدخول',Number.isFinite(entry)&&entry>0?'$'+money(entry):null],['وقف الخسارة',Number.isFinite(stop)&&stop>0?'$'+money(stop):null],['الهدف الأول',Number.isFinite(target1)&&target1>0?'$'+money(target1):null],['العائد/المخاطرة',rr==='—'?null:rr]])+
+    renderAvailableLevelPanel('مستويات الشارت المتاحة','لا تعرض الأهداف إلا إذا كانت فوق السعر والوقف أسفل سعر الدخول',[['الدخول المرجعي',validLevels?displayPrice(entry):null],['وقف الخسارة',validLevels?displayPrice(stop):null],...confirmedTargetRows,['العائد/المخاطرة للهدف الأول',validLevels?rrText:null]])+
     (symbol?'<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت التفاعلي</b><small>شموع السعر وحجم التداول · SAS PRO</small></div>'+(me?.admin?'<a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a>':'')+'</div><div class="sas-tv-chart-shell"><div class="sas-tv-chart-heading"><b>TradingView · الشارت المتقدم</b><span>تفاعلي • شموع • أحجام التداول</span></div><div id="sasTradingViewChart" class="sas-tv-chart" aria-label="شارت TradingView للسهم"></div><p class="sas-tv-chart-note">الشارت من TradingView؛ السعر والقراءة الفنية أعلاه من بيانات SAS PRO وقد يختلف توقيت التحديث أو مصدر السعر.</p></div><div class="chart-box"><canvas id="stockCanvas" height="290"></canvas></div><div id="perpEquitiesAnalysis"></div></section>':'')+
     '<section class="sas-terminal-panel" id="sasTerminalFundamentals"><div class="sas-terminal-section-title"><span>▤</span><div><b>التحليل والبيانات الإضافية</b><small>ملخص المصدر والأبحاث المتاحة</small></div></div>'+cuspHtml+'<div class="ai-box"><b>'+(aiAvailable?'ملخص التحليل المتاح':'الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+'</section>'+
     '<section class="sas-terminal-panel" id="sasTerminalNews"><div class="sas-terminal-section-title"><span>▣</span><div><b>آخر أخبار السهم</b><small>الأخبار المتاحة من المصادر</small></div></div><div class="news-list">'+renderNewsItems(newsFromAnalysis,5,Array.isArray(ai.news_summaries)?ai.news_summaries:[])+'</div></section>'+
