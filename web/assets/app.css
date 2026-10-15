@@ -3893,3 +3893,51 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .terminal-tabs button{font-size:clamp(12px,1.7vw,17px)!important;gap:clamp(6px,1.15vw,11px)!important}
 .terminal-tabs button[data-tab]::first-letter{font-size:1.45em;line-height:1;filter:drop-shadow(0 0 4px rgba(45,244,255,.22))}
 @media(max-width:420px){.terminal-tabs button{font-size:11px!important;gap:4px!important}.terminal-tabs button[data-tab]::first-letter{font-size:1.5em}}
+
+
+/* SAS PRO market tape: one continuous, non-overlapping strip */
+.market-ticker-wrap{position:relative!important;display:block!important;width:100%!important;min-width:0!important;overflow:hidden!important;padding:9px 0!important;border-block:1px solid rgba(38,208,246,.32)!important;background:linear-gradient(90deg,rgba(2,12,22,.99),rgba(3,23,36,.98),rgba(2,12,22,.99))!important;box-shadow:inset 0 1px rgba(255,255,255,.035),0 8px 25px rgba(0,0,0,.22)!important}
+.market-ticker{display:flex!important;align-items:stretch!important;justify-content:flex-start!important;gap:0!important;width:max-content!important;max-width:none!important;min-width:max-content!important;overflow:visible!important}
+.market-ticker .ticker-run{display:flex!important;align-items:stretch!important;gap:0!important;flex:0 0 auto!important;min-width:max-content!important;white-space:nowrap!important;animation:marketTickerSeamless 48s linear infinite!important}
+.market-ticker-wrap:hover .ticker-run{animation-play-state:paused!important}
+.market-ticker .ticker-item{display:grid!important;grid-template-columns:42px minmax(95px,1fr) auto!important;grid-template-rows:auto auto!important;align-items:center!important;gap:5px 11px!important;flex:0 0 270px!important;width:270px!important;min-width:270px!important;max-width:270px!important;min-height:86px!important;margin:0!important;padding:12px 15px!important;border:0!important;border-inline-end:1px solid rgba(68,193,226,.24)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:hidden!important;text-align:start!important}
+.market-ticker .ticker-item:after{display:none!important}
+.market-ticker .ticker-item .ticker-icon{grid-column:1!important;grid-row:1/3!important;width:40px!important;height:40px!important;min-width:40px!important;border-radius:12px!important;font-size:22px!important}
+.market-ticker .ticker-item .ticker-label{grid-column:2!important;grid-row:1!important;align-self:end!important;min-width:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;font-size:12px!important;line-height:1.25!important}
+.market-ticker .ticker-item>b{grid-column:2!important;grid-row:2!important;align-self:start!important;min-width:0!important;font-size:clamp(16px,1.6vw,21px)!important;line-height:1.25!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.market-ticker .ticker-item>em{grid-column:3!important;grid-row:1/3!important;align-self:center!important;justify-self:end!important;max-width:100%!important;padding:7px 9px!important;border-radius:999px!important;font-size:12px!important;white-space:nowrap!important}
+@media(max-width:600px){.market-ticker-wrap{padding:6px 0!important}.market-ticker .ticker-run{animation-duration:42s!important}.market-ticker .ticker-item{flex-basis:235px!important;width:235px!important;min-width:235px!important;max-width:235px!important;min-height:78px!important;grid-template-columns:36px minmax(85px,1fr) auto!important;gap:4px 8px!important;padding:10px 11px!important}.market-ticker .ticker-item .ticker-icon{width:35px!important;height:35px!important;min-width:35px!important;font-size:19px!important}.market-ticker .ticker-item .ticker-label{font-size:11px!important}.market-ticker .ticker-item>b{font-size:16px!important}.market-ticker .ticker-item>em{font-size:11px!important;padding:6px 7px!important}}
+
+/* Interactive U.S. market news ribbon beneath prices */
+.sas-market-news{position:relative;margin:12px clamp(8px,1.5vw,16px) 18px;padding:clamp(12px,1.6vw,19px);min-width:0;overflow:hidden;border:1px solid rgba(40,190,231,.32);border-radius:22px;background:radial-gradient(ellipse at 0 0,rgba(0,157,221,.13),transparent 48%),linear-gradient(145deg,rgba(3,21,35,.98),rgba(1,10,19,.98));box-shadow:inset 0 1px rgba(255,255,255,.045),0 12px 30px rgba(0,0,0,.24)}
+.sas-market-news:before{content:"";position:absolute;inset:0 15% auto;height:1px;background:linear-gradient(90deg,transparent,#12dfff,transparent);opacity:.8}
+.sas-market-news-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid rgba(79,180,213,.16)}
+.sas-market-news-brand{display:flex;align-items:center;gap:11px;min-width:0}
+.sas-market-news-icon{display:grid;place-items:center;flex:0 0 46px;width:46px;height:46px;border:1px solid rgba(45,216,255,.45);border-radius:15px;background:linear-gradient(145deg,rgba(0,169,220,.26),rgba(3,36,58,.7));font-size:23px;box-shadow:0 0 18px rgba(0,196,245,.12)}
+.sas-market-news-brand strong{display:block;font-size:clamp(15px,1.7vw,20px);font-weight:900;color:#f0fbff}
+.sas-market-news-brand small{display:flex;align-items:center;gap:6px;margin-top:4px;color:#8fb3c7;font-size:10px}
+.sas-market-news-brand small i{width:7px;height:7px;border-radius:50%;background:#24e5a0;box-shadow:0 0 10px rgba(36,229,160,.8)}
+.sas-market-news-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sas-market-news-controls button{min-height:34px;padding:7px 11px;border:1px solid rgba(74,159,196,.22);border-radius:999px;background:rgba(5,30,47,.82);color:#9fb9c9;font-size:11px;font-weight:800;white-space:nowrap}
+.sas-market-news-controls button:hover,.sas-market-news-controls button.is-active{border-color:rgba(25,212,255,.65);background:linear-gradient(135deg,rgba(0,173,221,.28),rgba(5,55,77,.9));color:#e4fbff;box-shadow:0 0 16px rgba(0,195,245,.12)}
+.sas-market-news-controls #sasMarketNewsRefresh{width:36px;padding:4px;font-size:20px;color:#52dcff}
+.sas-market-news-controls #sasMarketNewsRefresh.is-loading{animation:sasNewsSpin .8s linear infinite}
+@keyframes sasNewsSpin{to{transform:rotate(360deg)}}
+.sas-market-news-track{display:flex;align-items:stretch;gap:11px;min-width:0;overflow-x:auto;overflow-y:hidden;padding:13px 1px 7px;scroll-snap-type:x mandatory;scrollbar-width:thin;scrollbar-color:rgba(39,191,231,.45) transparent;overscroll-behavior-inline:contain}
+.sas-news-card{display:flex;flex:0 0 clamp(245px,31vw,330px);flex-direction:column;gap:9px;min-width:0;min-height:175px;padding:14px;border:1px solid rgba(64,156,193,.32);border-radius:16px;background:linear-gradient(145deg,rgba(5,31,49,.92),rgba(2,14,25,.98));color:#e8f6ff;text-decoration:none;scroll-snap-align:start;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;overflow:hidden}
+.sas-news-card:hover{transform:translateY(-2px);border-color:rgba(39,218,255,.66);box-shadow:0 8px 24px rgba(0,177,226,.12)}
+.sas-news-card-top{display:flex;align-items:center;gap:7px;min-width:0;color:#9bb7c8;font-size:10px}
+.sas-news-card-top i{display:grid;place-items:center;width:30px;height:30px;flex:0 0 30px;border:1px solid rgba(40,196,238,.3);border-radius:9px;background:rgba(0,153,202,.12);font-style:normal;font-size:15px}
+.sas-news-card-top em{font-style:normal;color:#63dff7;font-weight:800}
+.sas-news-card-top time{margin-inline-start:auto;white-space:nowrap;color:#7897ab}
+.sas-news-card>strong{display:-webkit-box;min-height:48px;overflow:hidden;-webkit-line-clamp:3;-webkit-box-orient:vertical;font-size:13px;line-height:1.75;font-weight:850;overflow-wrap:anywhere}
+.sas-news-card p{display:-webkit-box;margin:0;color:#91adbf;font-size:11px;line-height:1.65;overflow:hidden;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.sas-news-card-source{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:9px;border-top:1px solid rgba(93,165,195,.13);color:#7e9daf;font-size:10px}
+.sas-news-card-source b{color:#b6f5ff;font-weight:800;white-space:nowrap}
+.sas-market-news-foot{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding-top:8px;color:#6e91a7;font-size:10px}
+.sas-market-news-loading,.sas-market-news-empty{display:flex;align-items:center;justify-content:center;gap:10px;min-height:112px;width:100%;color:#a5c3d5;font-size:12px;text-align:center}
+.sas-market-news-empty{flex-direction:column;gap:5px}.sas-market-news-empty>span{font-size:25px;color:#43dfff}.sas-market-news-empty small{color:#7899ae;font-size:10px}
+.sas-news-pulse{width:9px;height:9px;border-radius:50%;background:#28dff8;box-shadow:0 0 0 5px rgba(40,223,248,.09),0 0 15px #28dff8;animation:sasNewsPulse 1.5s ease-in-out infinite}
+@keyframes sasNewsPulse{50%{box-shadow:0 0 0 9px rgba(40,223,248,0),0 0 18px #28dff8}}
+@media(max-width:600px){.sas-market-news{margin:9px 7px 14px;padding:11px;border-radius:17px}.sas-market-news-head{align-items:flex-start}.sas-market-news-brand{gap:8px}.sas-market-news-icon{width:39px;height:39px;flex-basis:39px;border-radius:12px;font-size:20px}.sas-market-news-controls{width:100%;gap:5px}.sas-market-news-controls button{font-size:10px;padding:7px 9px}.sas-news-card{flex-basis:270px;min-height:165px;padding:12px}.sas-market-news-foot{font-size:9px}}
+@media(prefers-reduced-motion:reduce){.market-ticker .ticker-run,.sas-market-news-controls #sasMarketNewsRefresh,.sas-news-pulse{animation:none!important}.sas-news-card{transition:none}}
