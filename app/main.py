@@ -2531,12 +2531,23 @@ _MARKET_NEWS_RESPONSE_CACHE = {"at": 0.0, "session_key": "", "payload": None}
 
 @app.get("/api/market/news")
 async def market_news_endpoint(_: dict = Depends(require_pro)):
-    """Return current-session market headlines with cached Arabic translations."""
+    """Cache news on the Riyadh 15:00–15:00 cycle; refresh frequently during the regular US session."""
     status = market_status()
-    session_key = str(status.get("date") or "") + ":" + ("holiday" if status.get("holiday") else "trading")
+    now_riyadh = datetime.now(ZoneInfo("Asia/Riyadh"))
+    cycle_start = now_riyadh.replace(hour=15, minute=0, second=0, microsecond=0)
+    if now_riyadh < cycle_start:
+        cycle_start -= timedelta(days=1)
+    session = str(status.get("session") or "closed")
+    cycle_key = cycle_start.isoformat()
+    # During the official US session, keep headlines fresh; outside it, reuse the
+    # same translated payload for the current Saudi 3 PM–3 PM cycle.
+    refresh_ttl = 60 if session == "regular" else 24 * 60 * 60
+    session_key = cycle_key + ":" + session
     now_mono = time.monotonic()
     cached = _MARKET_NEWS_RESPONSE_CACHE
-    if cached.get("payload") and cached.get("session_key") == session_key and now_mono - cached["at"] < 180:
+    if (cached.get("payload") and cached.get("session_key") == session_key
+            and now_mono - cached["at"] < refresh_ttl
+            and (cached["payload"].get("available") or refresh_ttl < 86400)):
         return copy.deepcopy(cached["payload"])
 
     try:
