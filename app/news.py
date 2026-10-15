@@ -531,6 +531,57 @@ _MARKET_IMPACT_TERMS = (
     "oil prices", "crude oil", "banking crisis", "liquidity", "economic data",
 )
 
+async def _rss_market_news(limit: int = 24):
+    """Provider fallback for US-market news when Finnhub is unavailable or empty."""
+    import xml.etree.ElementTree as ET
+    feeds = (
+        ("MarketWatch", "https://feeds.marketwatch.com/marketwatch/topstories/"),
+        ("CNBC", "https://www.cnbc.com/id/100003114/device/rss/rss.html"),
+    )
+    rows = []
+    seen = set()
+    now_epoch = int(time.time())
+    cutoff = now_epoch - 7 * 86400
+    async with httpx.AsyncClient(timeout=8, follow_redirects=True, headers={
+        "User-Agent": "Mozilla/5.0 (compatible; SASPRO-MarketNews/1.0)"
+    }) as client:
+        for source, feed_url in feeds:
+            try:
+                response = await client.get(feed_url)
+                response.raise_for_status()
+                root = ET.fromstring(response.text)
+                for item in root.findall(".//item"):
+                    headline = re.sub(r"\\s+", " ", (item.findtext("title") or "")).strip()
+                    url = (item.findtext("link") or "").strip()
+                    if not headline or not url.startswith(("https://", "http://")):
+                        continue
+                    normal = headline.lower()
+                    if not any(term in normal for term in _MARKET_IMPACT_TERMS):
+                        continue
+                    published_text = item.findtext("pubDate") or ""
+                    try:
+                        from email.utils import parsedate_to_datetime
+                        stamp = int(parsedate_to_datetime(published_text).timestamp())
+                    except Exception:
+                        stamp = now_epoch
+                    if stamp < cutoff or stamp > now_epoch + 3600:
+                        continue
+                    key = re.sub(r"[^a-z0-9]+", " ", normal).strip()
+                    if not key or key in seen:
+                        continue
+                    seen.add(key)
+                    description = re.sub(r"<[^>]+>", " ", item.findtext("description") or "")
+                    rows.append({
+                        "headline": headline, "source": source, "url": url,
+                        "datetime": stamp, "summary": " ".join(description.split())[:500],
+                        "category": "general", "related": "", "provider": source,
+                    })
+            except Exception:
+                continue
+    rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
+    return rows[:max(1, min(40, int(limit)))]
+
+
 async def market_news(limit: int = 24):
     """Recent source-linked US-market headlines with explicit market-impact relevance."""
     now = time.monotonic()
@@ -539,6 +590,10 @@ async def market_news(limit: int = 24):
         return cached["items"][:max(1, min(40, int(limit)))]
     payload = await _finnhub_get("news", {"category": "general"}, timeout=10)
     if not isinstance(payload, list):
+        fallback = await _rss_market_news(limit)
+        if fallback:
+            _MARKET_NEWS_CACHE.update({"at": now, "items": fallback})
+            return fallback
         return cached["items"][:max(1, min(40, int(limit)))] if cached["items"] else []
     rows = []
     seen = set()
@@ -575,5 +630,7 @@ async def market_news(limit: int = 24):
             "provider": "Finnhub",
         })
     rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
+    if not rows:
+        rows = await _rss_market_news(limit)
     _MARKET_NEWS_CACHE.update({"at": now, "items": rows[:40]})
     return rows[:max(1, min(40, int(limit)))]
