@@ -1,4 +1,5 @@
 """Arabic translation of stock-news headlines and summaries using configured AI providers."""
+import asyncio
 import json
 import logging
 import httpx
@@ -39,18 +40,17 @@ async def _mymemory_translate(text: str) -> str:
 
 
 async def _fallback_translate_items(items: list[dict]) -> list[dict]:
-    translated_items = []
-    for item in items[:5]:
+    async def translate_one(item: dict) -> dict | None:
         url = str(item.get("url") or "")
         headline = str(item.get("headline") or "").strip()
         if not headline or not url:
-            continue
+            return None
         translated_headline = await _mymemory_translate(headline)
         if not translated_headline:
-            continue
+            return None
         summary_text = str(item.get("ai_summary") or item.get("summary") or "").strip()
         translated_summary = await _mymemory_translate(summary_text[:360]) if summary_text else ""
-        translated_items.append({
+        return {
             "url": url,
             "headline": headline,
             "translated_headline": translated_headline,
@@ -58,13 +58,17 @@ async def _fallback_translate_items(items: list[dict]) -> list[dict]:
             "basis": "article_or_headline" if translated_summary else "headline_only",
             "source": str(item.get("source") or ""),
             "translation_provider": "MyMemory fallback",
-        })
-    return translated_items
+        }
+
+    translated_items = await asyncio.gather(
+        *(translate_one(item) for item in items[:12]), return_exceptions=True
+    )
+    return [item for item in translated_items if isinstance(item, dict)]
 
 
 async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
     """Translate a small set of verified headlines/summaries; preserve original evidence."""
-    selected = [x for x in items if isinstance(x, dict) and x.get("headline")][:5]
+    selected = [x for x in items if isinstance(x, dict) and x.get("headline")][:12]
     if not selected:
         return []
     providers = [
