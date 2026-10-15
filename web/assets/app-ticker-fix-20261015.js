@@ -1242,10 +1242,27 @@ function mountSASTradingViewChart(root,symbol,exchange){
  script.textContent=JSON.stringify({
   autosize:true,symbol:tvSymbol,interval:'15',timezone:'Asia/Riyadh',
   theme:'dark',style:'1',locale:'ar',allow_symbol_change:true,
-  calendar:false,details:false,hotlist:false,hide_side_toolbar:true,
+  calendar:false,details:true,hotlist:false,hide_side_toolbar:false,
   hide_top_toolbar:false,hide_legend:false,hide_volume:false,
-  save_image:false,withdateranges:true,studies:[],support_host:'https://www.tradingview.com'
+  save_image:false,withdateranges:true,show_popup_button:true,
+  popup_width:'1000',popup_height:'650',
+  studies:['STD;RSI','STD;MACD','STD;BB'],
+  support_host:'https://www.tradingview.com'
  });
+ script.onerror=()=>{
+  host.dataset.mounted='error';
+  const fallback=document.createElement('div');
+  fallback.className='sas-tv-chart-fallback';
+  fallback.setAttribute('role','status');
+  const message=document.createElement('p');
+  message.textContent='تعذر تحميل شارت TradingView داخل التطبيق. يمكنك فتح الشارت مباشرة؛ وتبقى بيانات SAS PRO مستقلة.';
+  const link=document.createElement('a');
+  link.href='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(tvSymbol);
+  link.target='_blank';link.rel='noopener noreferrer';
+  link.textContent='فتح الشارت في TradingView ↗';
+  fallback.append(message,link);
+  host.replaceChildren(fallback);
+ };
  container.appendChild(script);
  host.replaceChildren(container);
 }
@@ -2610,7 +2627,7 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
  function newsCategory(item){const s=(String(item.category||'')+' '+String(item.headline||'')+' '+String(item.translated_headline||'')).toLowerCase();if(/federal|fed |fomc|powell|interest rate|الفيدرالي|الفائدة|جيروم باول|قرار الفائدة/.test(s))return {label:'الفيدرالي والفائدة',cls:'fed'};if(/inflation|cpi|ppi|jobs report|payroll|gdp|التضخم|الوظائف|الناتج المحلي/.test(s))return {label:'الاقتصاد',cls:''};if(/earnings|revenue|quarter|profit|نتائج|أرباح|إيرادات/.test(s))return {label:'الأرباح',cls:''};if(/nasdaq|s&p|dow|stock|market|shares|أسهم|السوق/.test(s))return {label:'السوق والأسهم',cls:''};return {label:'أخبار مؤثرة',cls:''};}
  function renderNews(items){
   const track=$('sasMarketNewsTrack');if(!track)return;
-  const hasArabic=value=>/[\\u0600-\\u06FF]/.test(String(value||''));
+  const hasArabic=value=>/[ء-ي]/u.test(String(value||''));
   // لا تُخفِ الأخبار الموثقة إذا تعطلت خدمة الترجمة؛ اعرض تنبيهًا عربيًا واضحًا بدل إسقاط الشريط كله.
   const valid=(Array.isArray(items)?items:[]).filter(x=>x&&safeUrl(x.url)&&String(x.headline||'').trim()).sort((a,b)=>Number(b.datetime||0)-Number(a.datetime||0)).slice(0,16);
   const key=valid.map(x=>String(x.url)+'|'+String(x.translated_headline||'')).join('|');

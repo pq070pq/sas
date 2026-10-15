@@ -2526,18 +2526,33 @@ async def market_ticker(_: dict = Depends(require_pro)):
     return await ticker()
 
 
+_MARKET_NEWS_RESPONSE_CACHE = {"at": 0.0, "session_key": "", "payload": None}
+
+
 @app.get("/api/market/news")
 async def market_news_endpoint(_: dict = Depends(require_pro)):
-    """Return recent US-market headlines with Arabic translations and original source links."""
+    """Return current-session market headlines with cached Arabic translations."""
+    status = market_status()
+    session_key = str(status.get("date") or "") + ":" + ("holiday" if status.get("holiday") else "trading")
+    now_mono = time.monotonic()
+    cached = _MARKET_NEWS_RESPONSE_CACHE
+    if cached.get("payload") and cached.get("session_key") == session_key and now_mono - cached["at"] < 180:
+        return copy.deepcopy(cached["payload"])
+
     try:
-        rows = await asyncio.wait_for(market_news(limit=24), timeout=12.0)
+        rows = await asyncio.wait_for(market_news(limit=24), timeout=10.0)
     except Exception as exc:
         logger.warning("Market news provider failed: %s", type(exc).__name__)
         rows = []
     if not rows:
-        return {"items": [], "updated_at": datetime.now(timezone.utc).isoformat(), "available": False}
+        payload = {"items": [], "updated_at": datetime.now(timezone.utc).isoformat(), "available": False, "translated_count": 0}
+        _MARKET_NEWS_RESPONSE_CACHE.update({"at": now_mono, "session_key": session_key, "payload": payload})
+        return payload
+
+    # The ribbon displays up to 16 cards. Translate all visible headlines and
+    # keep the whole endpoint below the frontend request timeout.
     try:
-        translated = await asyncio.wait_for(translate_stock_news("MARKET", rows[:12]), timeout=15.0)
+        translated = await asyncio.wait_for(translate_stock_news("MARKET", rows[:16]), timeout=12.0)
     except Exception as exc:
         logger.info("Market news Arabic translation unavailable: %s", type(exc).__name__)
         translated = []
@@ -2556,12 +2571,14 @@ async def market_news_endpoint(_: dict = Depends(require_pro)):
             "translation_basis": str(translation.get("basis") or ""),
             "translation_provider": str(translation.get("translation_provider") or ""),
         })
-    return {
+    payload = {
         "items": result,
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "available": True,
         "translated_count": len(by_url),
     }
+    _MARKET_NEWS_RESPONSE_CACHE.update({"at": time.monotonic(), "session_key": session_key, "payload": payload})
+    return payload
 
 
 @app.get("/api/dashboard/home")

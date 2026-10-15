@@ -19,9 +19,9 @@ FINNHUB_SYMBOLS = {
 }
 
 FMP_SYMBOLS = {
-    "SPX": ["^GSPC", "SPY"],
-    "IXIC": ["^IXIC", "QQQ"],
-    "DJI": ["^DJI", "DIA"],
+    "SPX": ["^GSPC"],
+    "IXIC": ["^IXIC"],
+    "DJI": ["^DJI"],
     "XAU/USD": ["GCUSD", "GLD"],
     "VIX": ["^VIX", "VIXY"],
 }
@@ -544,125 +544,6 @@ async def _public_macro_quote(symbol: str):
 
     return None
 
-async def _yahoo_equity_quote(symbol: str):
-    """Fresh intraday/premarket quote from the Yahoo chart source already used for candles.
-
-    Only accepts a recent timestamped 1-minute candle during an active US session.
-    Disabled on holidays/closed sessions; never treats regularMarketPrice as a live
-    extended-hours quote.
-    """
-    symbol = str(symbol or "").strip().upper()
-    if not symbol or symbol in {"SPX", "IXIC", "DJI", "VIX", "BTC/USD", "XAU/USD"} or "/" in symbol:
-        return None
-    try:
-        from .market_calendar import market_status
-        status = market_status()
-        session = status.get("session")
-        if status.get("holiday") or session not in {"premarket", "main", "afterhours"}:
-            return None
-    except Exception:
-        return None
-
-    try:
-        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
-            response = await client.get(
-                "https://query1.finance.yahoo.com/v8/finance/chart/" + symbol,
-                params={"range": "1d", "interval": "1m", "includePrePost": "true"},
-                headers={"User-Agent": "Mozilla/5.0 SAS-PRO/2.1"},
-            )
-            response.raise_for_status()
-            payload = response.json()
-            result = ((payload.get("chart") or {}).get("result") or [None])[0]
-            if not isinstance(result, dict):
-                return None
-            meta = result.get("meta") or {}
-            timestamps = result.get("timestamp") or []
-            quote_rows = ((result.get("indicators") or {}).get("quote") or [{}])[0]
-            closes = quote_rows.get("close") or []
-            now = int(time.time())
-            recent = []
-            for index, stamp in enumerate(timestamps):
-                if index >= len(closes) or not _valid_price(closes[index]):
-                    continue
-                try:
-                    stamp = int(stamp)
-                except (TypeError, ValueError, OverflowError):
-                    continue
-                if stamp <= now + 60 and now - stamp <= 20 * 60:
-                    recent.append((stamp, float(closes[index])))
-            if not recent:
-                logger.info("YAHOO_EQUITY_QUOTE_STALE symbol=%s session=%s", symbol, session)
-                return None
-            stamp, price = max(recent, key=lambda item: item[0])
-            previous = meta.get("chartPreviousClose") or meta.get("previousClose")
-            change_pct = None
-            if _valid_price(previous):
-                change_pct = (price - float(previous)) / float(previous) * 100
-            return {
-                "symbol": symbol,
-                "price": price,
-                "change_pct": change_pct,
-                "source": "Yahoo Finance Premarket" if session == "premarket" else ("Yahoo Finance After Hours" if session == "afterhours" else "Yahoo Finance Intraday"),
-                "is_extended_hours": session in {"premarket", "afterhours"},
-                "is_delayed": False,
-                "datetime": stamp,
-            }
-    except Exception as exc:
-        logger.info("YAHOO_EQUITY_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
-        return None
-
-
-async def _yahoo_index_quote(symbol: str):
-    """Last-resort US index quote during an active trading session only.
-
-    Disabled on weekends and US market holidays. Used only after configured
-    market-data providers fail.
-    """
-    if symbol not in {"SPX", "IXIC", "DJI"}:
-        return None
-    try:
-        from .market_calendar import market_status
-        status = market_status()
-        if status.get("holiday") or status.get("session") not in {"premarket", "main", "afterhours"}:
-            return None
-    except Exception:
-        return None
-
-    mapped = {"SPX": "^GSPC", "IXIC": "^IXIC", "DJI": "^DJI"}[symbol]
-    try:
-        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
-            r = await client.get(
-                "https://query1.finance.yahoo.com/v8/finance/chart/" + mapped,
-                params={"range": "1d", "interval": "1m", "includePrePost": "true"},
-                headers={"User-Agent": "Mozilla/5.0 SAS-PRO/2.1"},
-            )
-            r.raise_for_status()
-            payload = r.json()
-            result = ((payload.get("chart") or {}).get("result") or [None])[0]
-            meta = (result or {}).get("meta") or {}
-            price = meta.get("regularMarketPrice")
-            previous = meta.get("previousClose")
-            if not _valid_price(price):
-                closes = (((result or {}).get("indicators") or {}).get("quote") or [{}])[0].get("close") or []
-                valid = [x for x in closes if _valid_price(x)]
-                price = valid[-1] if valid else None
-            if not _valid_price(price):
-                return None
-            change_pct = None
-            if _valid_price(previous) and float(previous) != 0:
-                change_pct = (float(price) - float(previous)) / float(previous) * 100
-            return {
-                "symbol": symbol,
-                "price": float(price),
-                "change_pct": change_pct,
-                "source": "Yahoo Chart Fallback",
-                "is_extended_hours": False,
-                "datetime": meta.get("regularMarketTime"),
-            }
-    except Exception as exc:
-        logger.info("YAHOO_INDEX_FALLBACK_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
-        return None
-
 async def macro_quote(symbol: str):
     """Return market indicators using live providers first, then reliable last closes."""
     diagnostics = []
@@ -695,18 +576,6 @@ async def macro_quote(symbol: str):
         diagnostics.append("Finnhub:no_data")
     except Exception as exc:
         diagnostics.append(f"Finnhub:{type(exc).__name__}")
-
-    # Yahoo index quotes are allowed only during active US sessions by the
-    # helper itself. It is intentionally attempted before slower historical
-    # fallbacks, and remains disabled on weekends/holidays.
-    if symbol in {"SPX", "IXIC", "DJI"}:
-        try:
-            fallback = await _yahoo_index_quote(symbol)
-            if fallback:
-                return fallback
-            diagnostics.append("YahooIndex:no_data_or_closed")
-        except Exception as exc:
-            diagnostics.append(f"YahooIndex:{type(exc).__name__}")
 
     # Keyless snapshot/history fallback prevents a slow API chain from leaving
     # every market-indicator card empty when the market is closed.
@@ -779,13 +648,6 @@ async def quote(symbol: str, prefer_extended: bool = False):
         except Exception as exc:
             logger.info("EXTENDED_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
 
-    # If the extended quote endpoint did not provide a fresh value, use the
-    # already-integrated Yahoo chart only when its newest minute candle is recent.
-    if prefer_extended:
-        yahoo_extended = await _yahoo_equity_quote(symbol)
-        if yahoo_extended:
-            return yahoo_extended
-
     # Prefer FMP's direct equity quote before Finnhub because the current
     # session can advance while a provider's last quote remains behind.
     # Both are existing configured sources; this does not consume Twelve Data credits.
@@ -797,11 +659,6 @@ async def quote(symbol: str, prefer_extended: bool = False):
     fallback = await _finnhub_quote(symbol)
     if fallback:
         return fallback
-
-    # Reuse existing Yahoo minute candles before spending a Twelve Data request.
-    yahoo_quote = await _yahoo_equity_quote(symbol)
-    if yahoo_quote:
-        return yahoo_quote
 
     # 3) Twelve Data: twelve_guard rotates its own key pool.
     if settings.twelve_data_api_key or settings.twelve_data_api_keys:
@@ -884,7 +741,7 @@ async def quote(symbol: str, prefer_extended: bool = False):
         logger.info("CUSP_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
 
     logger.warning(
-        "QUOTE_UNAVAILABLE symbol=%s attempted_sources=Finnhub,FMP,TwelveData,Stooq,CUSP",
+        "QUOTE_UNAVAILABLE symbol=%s attempted_sources=FMP,Finnhub,TwelveData,Stooq,CUSP",
         symbol,
     )
     return {
@@ -988,10 +845,35 @@ async def ticker():
     # already have prices. Otherwise a partial cache can hide pending index data.
     if any(not _valid_price(row.get("price")) for row in cached_rows):
         try:
-            await asyncio.wait_for(asyncio.shield(_TICKER_REFRESH_TASK), timeout=10.0)
+            await asyncio.wait_for(asyncio.shield(_TICKER_REFRESH_TASK), timeout=7.0)
         except asyncio.TimeoutError:
             pass
         except Exception as exc:
             logger.warning("MARKET_TICKER_REFRESH_FAILED error=%s", type(exc).__name__)
+        cached_rows = snapshot()
+    # If the background provider chain is still slow, return verified daily closes
+    # for the three indices instead of leaving their cards blank. They are clearly
+    # marked stale/last-close and never represented as live intraday quotes.
+    missing_indices = [
+        (symbol, label) for symbol, label in _TICKER_SYMBOLS
+        if symbol in {"SPX", "IXIC", "DJI"}
+        and not _valid_price((_TICKER_CACHE.get(symbol) or {}).get("price"))
+    ]
+    if missing_indices:
+        try:
+            fallbacks = await asyncio.wait_for(
+                asyncio.gather(*(_fred_index_quote(symbol) for symbol, _ in missing_indices)),
+                timeout=8.0,
+            )
+        except Exception as exc:
+            logger.info("MARKET_INDEX_LAST_CLOSE_FALLBACK_FAILED: %s", type(exc).__name__)
+            fallbacks = []
+        for (symbol, label), item in zip(missing_indices, fallbacks):
+            if isinstance(item, dict) and _valid_price(item.get("price")):
+                saved = dict(item)
+                saved["label"] = label
+                saved["stale"] = True
+                saved["source"] = str(saved.get("source") or "FRED Last Close") + " — آخر إغلاق موثق"
+                _TICKER_CACHE[symbol] = saved
         cached_rows = snapshot()
     return cached_rows
