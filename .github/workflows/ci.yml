@@ -29,4 +29,6 @@ jobs:
         with:
           node-version: "22"
       - name: Validate Mini App JavaScript
-        run: node --check web/assets/app.js
+        run: |
+          node --check web/assets/app.js
+          node --check web/assets/app-ticker-fix-20261015.js

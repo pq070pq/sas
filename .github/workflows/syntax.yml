@@ -18,7 +18,9 @@ jobs:
       - name: Python compile
         run: python -m compileall -q app tests
       - name: Frontend syntax
-        run: node --check web/assets/app.js
+        run: |
+          node --check web/assets/app.js
+          node --check web/assets/app-ticker-fix-20261015.js
       - name: Import smoke test
         run: python -c "import app.main; print('SAS PRO import OK')"
       - name: Architecture and provider tests
