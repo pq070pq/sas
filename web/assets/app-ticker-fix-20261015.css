@@ -5045,3 +5045,9 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  }
  #sasMarketPulse #sasMarketIndicesTrack .sas-index-card .sas-index-price{font-size:13px!important}
 }
+
+
+/* SAS PRO TradingView fallback state */
+.sas-tv-chart-fallback{min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;color:#c5dbe5;background:radial-gradient(ellipse at top,rgba(20,102,133,.24),rgba(3,12,20,.98));border:1px dashed rgba(45,244,255,.25);border-radius:12px}
+.sas-tv-chart-fallback p{max-width:440px;margin:0;font-size:12px;line-height:1.9}
+.sas-tv-chart-fallback a{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:9px 14px;border:1px solid rgba(45,244,255,.38);border-radius:10px;background:rgba(6,67,87,.38);color:#54e7f3;text-decoration:none;font-size:12px;font-weight:700}
