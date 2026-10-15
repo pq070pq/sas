@@ -8,8 +8,6 @@ function refreshTelegramWebApp(){
  return tg;
 }
 refreshTelegramWebApp();
-const digitObserver=new MutationObserver(()=>normalizeEnglishDigits(document.body));
-digitObserver.observe(document.body,{subtree:true,childList:true,characterData:true});
 const getInitData=()=>tg?.initData||new URLSearchParams(location.hash.slice(1)).get('tgWebAppData')||new URLSearchParams(location.search).get('tgWebAppData')||'';
 const headers=()=>{const d=getInitData();return {'X-Telegram-Init-Data':d,'Authorization':d?'tma '+d:''};};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -67,6 +65,35 @@ async function api(path,opt={}){
 }
 const enDigits=v=>String(v??'').replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-0x0660));
 const normalizeEnglishDigits=root=>{if(!root)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);const nodes=[];while(w.nextNode())nodes.push(w.currentNode);nodes.forEach(n=>{const x=enDigits(n.nodeValue);if(x!==n.nodeValue)n.nodeValue=x;});};
+const normalizeDigitsInNode=node=>{
+ if(!node)return;
+ if(node.nodeType===Node.TEXT_NODE){
+  const next=enDigits(node.nodeValue);
+  if(next!==node.nodeValue)node.nodeValue=next;
+  return;
+ }
+ if(node.nodeType!==Node.ELEMENT_NODE&&node.nodeType!==Node.DOCUMENT_FRAGMENT_NODE)return;
+ const walker=document.createTreeWalker(node,NodeFilter.SHOW_TEXT);
+ const nodes=[];
+ while(walker.nextNode())nodes.push(walker.currentNode);
+ nodes.forEach(textNode=>{
+  const next=enDigits(textNode.nodeValue);
+  if(next!==textNode.nodeValue)textNode.nodeValue=next;
+ });
+};
+normalizeEnglishDigits(document.body);
+const digitObserver=new MutationObserver(records=>{
+ records.forEach(record=>{
+  if(record.type==='characterData'){
+   const target=record.target;
+   const next=enDigits(target.nodeValue);
+   if(next!==target.nodeValue)target.nodeValue=next;
+  }else{
+   record.addedNodes.forEach(normalizeDigitsInNode);
+  }
+ });
+});
+digitObserver.observe(document.body,{subtree:true,childList:true,characterData:true});
 const fmtDate=v=>v?enDigits(new Date(v).toLocaleDateString('ar-SA')):'—';
 const fmtDays=(a,b)=>{if(!a||!b)return'—';const n=Math.ceil((new Date(b)-new Date(a))/86400000);return n>0?n+' يوم':'منتهي';};
 let me=null,plans=null,termAction=null;
