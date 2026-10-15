@@ -4736,3 +4736,77 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @media(prefers-reduced-motion:reduce){
   #sasMarketPulse .sas-news-lane{animation:none!important}
 }
+
+
+/* Seamless, duplicated-loop market tickers: the two groups have identical width,
+   so the track moves by exactly one group and wraps without a blank interval. */
+#sasMarketPulse .sas-news-viewport{
+  overflow:hidden!important;
+  direction:ltr!important;
+}
+#sasMarketPulse .sas-news-lane{
+  display:flex!important;
+  align-items:stretch!important;
+  gap:0!important;
+  width:max-content!important;
+  min-width:max-content!important;
+  animation:sasMarketNewsScroll 82s linear infinite!important;
+  animation-delay:0s;
+  will-change:transform;
+}
+#sasMarketPulse .sas-news-group{
+  display:flex;
+  flex:0 0 auto;
+  align-items:stretch;
+  gap:0;
+  width:max-content;
+  min-width:max-content;
+}
+#sasMarketPulse .sas-news-group[aria-hidden="true"]{
+  pointer-events:none;
+}
+#sasMarketPulse .sas-index-viewport{
+  display:block!important;
+  position:relative!important;
+  padding:3px 0 11px!important;
+  overflow:hidden!important;
+  direction:ltr!important;
+  scroll-snap-type:none!important;
+}
+#sasMarketPulse .sas-index-lane{
+  display:flex;
+  align-items:stretch;
+  gap:0;
+  width:max-content;
+  min-width:max-content;
+  animation:sasMarketIndicesScroll 68s linear infinite;
+  will-change:transform;
+}
+#sasMarketPulse .sas-index-group{
+  display:flex;
+  flex:0 0 auto;
+  align-items:stretch;
+  gap:8px;
+  width:max-content;
+  min-width:max-content;
+  padding:0 10px;
+}
+#sasMarketPulse .sas-index-group[aria-hidden="true"]{
+  pointer-events:none;
+}
+#sasMarketPulse .sas-index-card{
+  flex:0 0 142px!important;
+  margin:0!important;
+}
+@keyframes sasMarketIndicesScroll{
+  from{transform:translate3d(0,0,0)}
+  to{transform:translate3d(-50%,0,0)}
+}
+@media(max-width:600px){
+  #sasMarketPulse .sas-index-lane{animation-duration:58s}
+  #sasMarketPulse .sas-index-card{flex-basis:130px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  #sasMarketPulse .sas-news-lane,
+  #sasMarketPulse .sas-index-lane{animation:none!important}
+}
