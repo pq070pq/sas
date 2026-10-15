@@ -39,6 +39,7 @@ async def enrich_news_items(items, limit=3):
         return item
     return await asyncio.gather(*(one(item) for item in selected))
 from datetime import datetime, date, timedelta, timezone
+from zoneinfo import ZoneInfo
 import time
 import httpx
 from .config import settings
@@ -592,7 +593,7 @@ async def company_fundamentals(symbol: str):
         return {}
 
 
-_MARKET_NEWS_CACHE = {"at": 0.0, "items": []}
+_MARKET_NEWS_CACHE = {"at": 0.0, "items": [], "session_key": ""}
 _MARKET_NEWS_TTL = 300
 _US_EQUITY_TERMS = (
     "stock market", "stocks", "shares", "equities", "s&p 500", "s&p", "nasdaq", "dow jones",
@@ -807,21 +808,48 @@ async def _newsfilter_market_news(limit: int = 24):
     rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
     return rows[:max(1, min(40, int(limit)))]
 
+def _market_news_session_window():
+    """Return the active US trading-day news window; preserve the legacy feed on holidays/weekends."""
+    try:
+        from .market_calendar import market_status, us_market_holidays
+        status = market_status()
+        session_key = str(status.get("date") or date.today().isoformat())
+        if status.get("holiday") or status.get("session") == "weekend":
+            return None, "legacy:" + session_key
+
+        ny = ZoneInfo("America/New_York")
+        now = datetime.now(ny)
+        session_day = now.date()
+        # Between midnight and 04:00 ET, retain the prior trading session's feed.
+        if now.hour < 4:
+            session_day -= timedelta(days=1)
+        while session_day.weekday() >= 5 or session_day in us_market_holidays(session_day.year):
+            session_day -= timedelta(days=1)
+        start = datetime(session_day.year, session_day.month, session_day.day, 4, 0, tzinfo=ny)
+        return int(start.timestamp()), session_day.isoformat()
+    except Exception as exc:
+        logger.info("Market-news session window unavailable: %s", type(exc).__name__)
+        return None, "legacy:" + date.today().isoformat()
+
+
 async def market_news(limit: int = 24):
-    """Marketaux-first market news, with Finnhub and RSS as transparent fallbacks."""
+    """Return current-session US-market news; retain the established 7-day feed on holidays/weekends."""
     now = time.monotonic()
+    cutoff, session_key = _market_news_session_window()
     cached = _MARKET_NEWS_CACHE
-    if cached["items"] and now - cached["at"] < _MARKET_NEWS_TTL:
+    if (cached["items"] and cached.get("session_key") == session_key
+            and now - cached["at"] < _MARKET_NEWS_TTL):
         return cached["items"][:max(1, min(40, int(limit)))]
 
-    # Prefer Marketaux when configured; the API token stays server-side.
     rows = await _marketaux_market_news(limit)
+    if not rows:
+        rows = await _newsfilter_market_news(limit)
     if not rows:
         payload = await _finnhub_get("news", {"category": "general"}, timeout=10)
         if isinstance(payload, list):
             rows = []
             seen = set()
-            cutoff = int(time.time()) - 7 * 86400
+            cutoff_7d = int(time.time()) - 7 * 86400
             for item in payload:
                 if not isinstance(item, dict):
                     continue
@@ -831,10 +859,12 @@ async def market_news(limit: int = 24):
                     stamp = int(item.get("datetime") or 0)
                 except (TypeError, ValueError):
                     stamp = 0
-                if not headline or not url.startswith(("https://", "http://")) or stamp < cutoff or stamp > int(time.time()) + 3600:
+                if not headline or not url.startswith(("https://", "http://")) or stamp < cutoff_7d or stamp > int(time.time()) + 3600:
                     continue
                 normal = headline.lower()
-                if not any(term in normal for term in _US_EQUITY_TERMS):
+                if not any(term in normal for term in _US_EQUITY_TERMS) and not any(
+                    term in normal for term in _MARKET_IMPACT_TERMS
+                ):
                     continue
                 key = re.sub(r"[^a-z0-9]+", " ", normal).strip()
                 if not key or key in seen:
@@ -855,5 +885,12 @@ async def market_news(limit: int = 24):
             rows = []
     if not rows:
         rows = await _rss_market_news(limit)
-    _MARKET_NEWS_CACHE.update({"at": now, "items": rows[:40]})
-    return rows[:max(1, min(40, int(limit)))]
+
+    # During an ordinary trading day, only keep stories published since 04:00 ET.
+    # On weekends/US holidays cutoff is None, preserving the prior 7-day behavior.
+    if cutoff is not None:
+        rows = [row for row in rows if int(row.get("datetime") or 0) >= cutoff]
+    rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
+    result = rows[:max(1, min(40, int(limit)))]
+    _MARKET_NEWS_CACHE.update({"at": now, "items": result, "session_key": session_key})
+    return result
