@@ -266,12 +266,78 @@ def _normalise_fmp_news(rows):
     return [x for x in out if x["headline"] and x["url"]]
 
 
-async def company_news(symbol: str, days: int = 2):
-    """Recent company news with caching and provider failover."""
+async def _marketaux_company_news(symbol: str, days: int = 2, limit: int = 3):
+    """Fetch a small, recent, symbol-specific Marketaux batch for on-demand analysis."""
+    api_key = str(getattr(settings, "marketaux_api_key", "") or "").strip()
+    key = str(symbol or "").upper().strip()
+    if not api_key or not key:
+        return []
+    cutoff_dt = datetime.now(timezone.utc) - timedelta(days=max(1, int(days)))
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            response = await client.get(
+                "https://api.marketaux.com/v1/news/all",
+                params={
+                    "api_token": api_key,
+                    "symbols": key,
+                    "language": "en",
+                    "filter_entities": "true",
+                    "published_after": cutoff_dt.isoformat(),
+                    "limit": max(1, min(3, int(limit))),
+                },
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except Exception as exc:
+        logger.info("Marketaux company-news request failed for %s: %s", key, type(exc).__name__)
+        return []
+
+    now_epoch = int(time.time())
+    cutoff = int(cutoff_dt.timestamp())
+    rows, seen = [], set()
+    articles = payload.get("data", []) if isinstance(payload, dict) else []
+    for item in articles if isinstance(articles, list) else []:
+        if not isinstance(item, dict):
+            continue
+        headline = re.sub(r"\\s+", " ", str(item.get("title") or "")).strip()
+        url = str(item.get("url") or "").strip()
+        published = str(item.get("published_at") or "").strip()
+        try:
+            stamp = int(datetime.fromisoformat(published.replace("Z", "+00:00")).timestamp())
+        except (TypeError, ValueError, OverflowError):
+            stamp = 0
+        if not headline or not url.startswith("https://") or stamp < cutoff or stamp > now_epoch + 3600:
+            continue
+        entities = item.get("entities") or []
+        symbols = [str(entity.get("symbol") or "").upper() for entity in entities
+                   if isinstance(entity, dict) and entity.get("symbol")]
+        # Reject broad-market articles that do not actually identify this stock.
+        if symbols and key not in symbols:
+            continue
+        normal = re.sub(r"[^a-z0-9]+", " ", headline.lower()).strip()
+        if not normal or normal in seen:
+            continue
+        seen.add(normal)
+        description = re.sub(r"<[^>]+>", " ", str(item.get("description") or item.get("snippet") or "")).strip()
+        rows.append({
+            "headline": headline,
+            "source": str(item.get("source") or "Marketaux"),
+            "url": url,
+            "datetime": stamp,
+            "summary": " ".join(description.split())[:800],
+            "symbol": key,
+            "provider": "Marketaux",
+        })
+    rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
+    return rows[:max(1, min(3, int(limit)))]
+
+
+async def company_news(symbol: str, days: int = 2, include_marketaux: bool = False):
+    """Recent company news with caching and provider failover; Marketaux is opt-in to protect API quota."""
     key = symbol.upper().strip()
     if not key:
         return []
-    cache_key = f"{key}:{days}"
+    cache_key = f"{key}:{days}:marketaux={int(bool(include_marketaux))}"
     now = time.monotonic()
     cached = _news_cache.get(cache_key)
     if cached and now - cached[0] < max(60, settings.news_cache_minutes * 60):
@@ -279,29 +345,33 @@ async def company_news(symbol: str, days: int = 2):
 
     end = date.today()
     start = end - timedelta(days=max(1, days))
-    # Yahoo Finance is the preferred source for company headlines.
-    # Do not use this path for live quotes or market-price retrieval.
-    yahoo_rows = await yahoo_finance_news(key, limit=30)
-    cutoff = int(datetime.now(timezone.utc).timestamp()) - max(1, days) * 86400
-    yahoo_recent = [
-        item for item in yahoo_rows
-        if not item.get("datetime") or int(item.get("datetime") or 0) >= cutoff
-    ]
-    if yahoo_recent:
-        result = yahoo_recent
-    else:
-        rows = await _finnhub_get(
-            "company-news",
-            {"symbol": key, "from": start.isoformat(), "to": end.isoformat()},
-        )
-        if isinstance(rows, list) and rows:
-            result = rows
+    result = []
+    if include_marketaux:
+        result = await _marketaux_company_news(key, days=days, limit=3)
+
+    # Fall back to existing providers if Marketaux is not configured or has no matching stories.
+    if not result:
+        yahoo_rows = await yahoo_finance_news(key, limit=30)
+        cutoff = int(datetime.now(timezone.utc).timestamp()) - max(1, days) * 86400
+        yahoo_recent = [
+            item for item in yahoo_rows
+            if not item.get("datetime") or int(item.get("datetime") or 0) >= cutoff
+        ]
+        if yahoo_recent:
+            result = yahoo_recent
         else:
-            fmp_rows = await _fmp_get(
-                "news/stock",
-                {"symbols": key, "from": start.isoformat(), "to": end.isoformat(), "limit": 20},
+            rows = await _finnhub_get(
+                "company-news",
+                {"symbol": key, "from": start.isoformat(), "to": end.isoformat()},
             )
-            result = _normalise_fmp_news(fmp_rows if isinstance(fmp_rows, list) else [])
+            if isinstance(rows, list) and rows:
+                result = rows
+            else:
+                fmp_rows = await _fmp_get(
+                    "news/stock",
+                    {"symbols": key, "from": start.isoformat(), "to": end.isoformat(), "limit": 20},
+                )
+                result = _normalise_fmp_news(fmp_rows if isinstance(fmp_rows, list) else [])
 
     _news_cache[cache_key] = (now, result)
     return result
