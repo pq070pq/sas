@@ -2615,14 +2615,14 @@ function renderMarketNews(){
  track.classList.remove('is-ticking');
  // Duplicate the complete news lane and animate the lane as one track.
  // This keeps all cards in sequence and prevents clipped, static side cards.
- track.innerHTML='<div class="sas-news-single-lane" aria-label="أخبار السوق الأمريكي">'+cards+cards+'</div>';
+ track.innerHTML='<div class="sas-news-single-lane" aria-label="أخبار السوق الأمريكي">'+cards+cards+cards+cards+'</div>';
 }
 async function refreshMarketNews(){
  const track=document.getElementById('sasMarketNewsTrack');const status=document.getElementById('sasMarketNewsStatus');
  if(!track||terminalState.newsLoading)return;terminalState.newsLoading=true;
  const refresh=document.getElementById('sasMarketNewsRefresh');if(refresh)refresh.classList.add('is-loading');
  try{
-  const data=await api('/api/market/news',{timeoutMs:38000,retries:1});
+  const data=await api('/api/market/news',{timeoutMs:28000,retries:1});
   const items=Array.isArray(data)?data:(Array.isArray(data?.items)?data.items:[]);
   terminalState.newsItems=items.filter(n=>n&&safeNewsUrl(n.url)&&String(n.headline||'').trim()).sort((a,b)=>Number(b.datetime||0)-Number(a.datetime||0));
   renderMarketNews();
