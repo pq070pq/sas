@@ -780,7 +780,9 @@ function renderMacro(){
       const tickerIconUrl=tickerIconSlot?terminalState.siteMedia?.[tickerIconSlot]?.url:null;
       const glyph=labelKey==='btc'?'₿':labelKey==='gold'?'🪙':labelKey==='vix'?'🌡️':labelKey==='s&p 500'?'📈':labelKey==='nasdaq'?'💹':labelKey==='dow jones'?'🏛️':'◈';
       const tickerIcon=tickerIconUrl?'<img src="'+esc(tickerIconUrl)+'" alt="">':glyph;
-      return '<button type="button" class="ticker-item" data-ticker-label="'+escHtml(labelKey)+'" aria-label="عرض تفاصيل '+escHtml(x.label)+'" title="اضغط لعرض تفاصيل '+escHtml(x.label)+'"><span class="ticker-icon" aria-hidden="true">'+tickerIcon+'</span><span class="ticker-label">'+escHtml(x.label)+'</span><b>'+displayPrice+'</b><em class="'+cls+'">'+displayChange+'</em></button>';
+      const tickerDisplayLabels={'s&p 500':'S&P 500','nasdaq':'ناسداك','dow jones':'داو جونز','vix':'مؤشر VIX','btc':'البتكوين','gold':'الذهب'};
+      const tickerDisplayLabel=tickerDisplayLabels[labelKey]||x.label;
+      return '<button type="button" class="ticker-item" data-ticker-label="'+escHtml(labelKey)+'" aria-label="عرض تفاصيل '+escHtml(tickerDisplayLabel)+'" title="اضغط لعرض تفاصيل '+escHtml(tickerDisplayLabel)+'"><span class="ticker-icon" aria-hidden="true">'+tickerIcon+'</span><span class="ticker-label">'+escHtml(tickerDisplayLabel)+'</span><b>'+displayPrice+'</b><em class="'+cls+'">'+displayChange+'</em></button>';
    }).join('');
    // Duplicate the ticker run to keep the ribbon continuously filled while scrolling.
    ticker.innerHTML=tickerItems
