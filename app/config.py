@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     finnhub_api_keys: str = ""
     fmp_api_key: str = ""
     fmp_api_keys: str = ""
+    newsfilter_api_key: str = ""
     # Optional licensed market-data provider. Disabled unless explicitly configured.
     licensed_market_data_url: str = ""
     licensed_market_data_api_key: str = ""
