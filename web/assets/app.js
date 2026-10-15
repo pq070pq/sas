@@ -1711,12 +1711,6 @@ const SITE_MEDIA_MANAGED_ITEMS=[
 
  {slot:'icon-live-movers',label:'أيقونة بطاقة أعلى الأسهم حركة',fallback:'📈',target:'.sas-insight-grid .sas-insight-panel .sas-insight-title > span'},
  {slot:'icon-perp-movers',label:'أيقونة بطاقة الأكثر تحركًا خلال 24 ساعة',fallback:'↕️',target:'.sas-perp-movers-panel .sas-insight-title > span'},
- {slot:'icon-bitcoin',label:'أيقونة البتكوين — مؤشرات السوق',fallback:'₿',target:'.macro-card[data-macro-label="btc"] .macro-card-icon'},
- {slot:'icon-gold',label:'أيقونة الذهب — مؤشرات السوق',fallback:'🪙',target:'.macro-card[data-macro-label="gold"] .macro-card-icon'},
- {slot:'icon-sp500',label:'أيقونة S&P 500',fallback:'📈',target:'.macro-card[data-macro-label="s&p 500"] .macro-card-icon'},
- {slot:'icon-nasdaq',label:'أيقونة ناسداك',fallback:'💹',target:'.macro-card[data-macro-label="nasdaq"] .macro-card-icon'},
- {slot:'icon-dow-jones',label:'أيقونة داو جونز',fallback:'🏛️',target:'.macro-card[data-macro-label="dow jones"] .macro-card-icon'},
- {slot:'icon-vix',label:'أيقونة VIX',fallback:'🌡️',target:'.macro-card[data-macro-label="vix"] .macro-card-icon'},
  {slot:'icon-market-indicators',label:'أيقونة عنوان مؤشرات السوق',fallback:'📊',target:'.section-title .market-indicators-icon'},
  {slot:'icon-shariah',label:'أيقونة الشرعية في بطاقة السهم',fallback:'🕌',target:'.stock-shariah-icon'},
  {slot:'icon-disclaimer-alert',label:'أيقونة التنبيه القانوني أسفل الصفحة',fallback:'⛔',target:'.sas-disclaimer-bar .disclaimer-badge .disclaimer-icon'}

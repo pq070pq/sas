@@ -5066,3 +5066,8 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-index-card.is-stale .sas-index-price{color:#d5e2e8!important;}
 .sas-index-card:focus-visible{outline:2px solid var(--index-tone)!important;outline-offset:2px!important;}
 @media(max-width:520px){.sas-index-card{min-width:137px!important;min-height:149px!important;padding:10px!important}.sas-index-icon{flex-basis:32px!important;width:32px!important;height:32px!important;font-size:21px!important}.sas-index-price{font-size:15px!important}}
+
+/* Market-native vector icons for index cards; no legacy uploaded emoji slots. */
+#macroGrid .macro-card-icon.market-style-icon svg{display:block;width:82%;height:82%;max-width:48px;max-height:48px;overflow:visible;}
+#sasMarketPulse .sas-index-icon.market-style-index-icon svg{display:block;width:78%;height:78%;max-width:28px;max-height:28px;overflow:visible;}
+#macroGrid .macro-card-icon.market-style-icon{display:grid;place-items:center;}
