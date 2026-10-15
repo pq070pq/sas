@@ -1,20 +1,22 @@
 name: SAS PRO Live Radar Status
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows:
+      - "Deploy SAS PRO to OVH"
+    types:
+      - completed
   workflow_dispatch:
   schedule:
     - cron: "*/15 * * * *"
 
 concurrency:
-  group: saspro-production
-  # انتظر اكتمال النشر قبل فحص الحاوية؛ لا تلغِ فحصًا جارياً ولا تتداخل مع إعادة التشغيل.
+  group: saspro-radar-live-status
   cancel-in-progress: false
 
 jobs:
   status:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-22.04
     steps:
       - name: Prepare OVH SSH key
