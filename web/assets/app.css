@@ -3888,3 +3888,8 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .terminal-tabs button{min-height:45px!important;gap:4px!important;padding:8px 2px!important;font-size:10px!important;border-radius:12px!important}
 }
 @media(prefers-reduced-motion:reduce){.terminal-tabs button,.terminal-tabs button::before{transition:none!important;animation:none!important}.terminal-tabs button:hover{transform:none}}
+
+/* Slightly larger, clearer navigation icons while preserving the existing symbols */
+.terminal-tabs button{font-size:clamp(12px,1.7vw,17px)!important;gap:clamp(6px,1.15vw,11px)!important}
+.terminal-tabs button[data-tab]::first-letter{font-size:1.45em;line-height:1;filter:drop-shadow(0 0 4px rgba(45,244,255,.22))}
+@media(max-width:420px){.terminal-tabs button{font-size:11px!important;gap:4px!important}.terminal-tabs button[data-tab]::first-letter{font-size:1.5em}}
