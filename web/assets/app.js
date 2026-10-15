@@ -1046,9 +1046,10 @@ async function searchShariah(){
    const sourceIcon=sourceClass==='source-ok'?'✓':(sourceClass==='source-bad'?'×':'?');
    return '<div class="shariah-source-row '+sourceClass+'"><span><b>'+name+'</b><small>'+escHtml(meaning)+'</small></span><b><i aria-hidden="true">'+sourceIcon+'</i>'+statusText+'</b></div>';
   }).filter(Boolean).join(''):'<div class="shariah-source-row"><span>المصادر</span><b>لا توجد نتيجة موثقة كافية</b></div>';
-  const statusTitle=cls==='sh-ok'?'متوافق بحسب النتيجة المنشورة':(cls==='sh-bad'?'غير متوافق بحسب النتيجة المنشورة':'غير واضح / يحتاج تحقق');
-  const statusIcon=cls==='sh-ok'?'✓':(cls==='sh-bad'?'×':'?');
-  const statusExplanation=cls==='sh-unknown'?'لم تتوفر نتيجة مباشرة موثقة أو توجد معلومات غير كافية. لن نخمن الحكم الشرعي.':(result?.reason||result?.message||'الحالة بحسب المصدر المنشور؛ راجع تفاصيل المصادر أدناه.');
+  const isDoubtful=status==='doubtful'||status==='questionable';
+  const statusTitle=isDoubtful?'محل نظر بحسب المصدر المنشور':(cls==='sh-ok'?'متوافق بحسب النتيجة المنشورة':(cls==='sh-bad'?'غير متوافق بحسب النتيجة المنشورة':'غير واضح / يحتاج تحقق'));
+  const statusIcon=cls==='sh-ok'?'✓':(cls==='sh-bad'?'×':(isDoubtful?'!':'?'));
+  const statusExplanation=isDoubtful?(result?.message||'المصدر المباشر يصنف السهم «محل نظر»؛ هذه ليست موافقة شرعية. راجع تفاصيل المصدر وتاريخ التحديث.'):(cls==='sh-unknown'?'لم تتوفر نتيجة مباشرة موثقة أو توجد معلومات غير كافية. لن نخمن الحكم الشرعي.':(result?.reason||result?.message||'الحالة بحسب المصدر المنشور؛ راجع تفاصيل المصادر أدناه.'));
   el.innerHTML='<div class="shariah-search-card shariah-review '+cls+'">'+
    '<div class="shariah-review-hero">'+
     '<div class="shariah-emblem '+cls+'" aria-hidden="true"><span class="shariah-emblem-mark">'+statusIcon+'</span><span class="shariah-emblem-caption">SAS PRO</span></div>'+
