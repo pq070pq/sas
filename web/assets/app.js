@@ -332,9 +332,6 @@ async function initTerminal(){
  if(terminalState.tickerTimer)clearInterval(terminalState.tickerTimer);
  if(terminalState.moversTimer)clearInterval(terminalState.moversTimer);
  await Promise.allSettled([refreshTerminal(),refreshMoversOnly()]);
- void refreshMarketNews();
- if(terminalState.newsTimer)clearInterval(terminalState.newsTimer);
- terminalState.newsTimer=setInterval(refreshMarketNews,300000);
  terminalState.timer=setInterval(refreshTerminal,20000);
  // Quotes refresh independently every 5 seconds, so they appear as soon as
  // the backend's first provider request finishes instead of waiting for a full dashboard cycle.
@@ -2583,64 +2580,3 @@ function renderGiftMessagePreview(){
  if(node)node.textContent=Number.isInteger(days)&&days>0?String(days):'7';
 }
 document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays')renderGiftMessagePreview();});
-
-
-/* SAS PRO — live, source-linked US market news ribbon */
-function sasNewsCategory(item){
- const t=String(item?.headline||'').toLowerCase();
- if(/federal reserve|fomc|fed |powell|interest rate|rate cut|rate hike|treasury yield|bond yield|central bank/.test(t))return 'fed';
- if(/inflation|cpi|ppi|gdp|jobs report|payroll|unemployment|recession|economic data|consumer confidence|retail sales|tariff|trade war|oil prices|crude oil/.test(t))return 'economy';
- if(/s&p 500|nasdaq|dow jones|wall street|stock futures|stocks fall|stocks rise|equities|earnings|market rally|shares|stocks/.test(t))return 'stocks';
- return 'other';
-}
-function sasNewsTime(stamp){
- const n=Number(stamp);if(!Number.isFinite(n)||n<=0)return 'وقت النشر غير متاح';
- const date=new Date(n*1000);const now=Date.now();const mins=Math.max(0,Math.floor((now-date.getTime())/60000));
- if(mins<1)return 'الآن';if(mins<60)return 'منذ '+mins+' دقيقة';
- const hours=Math.floor(mins/60);if(hours<24)return 'منذ '+hours+' ساعة';
- return date.toLocaleDateString('ar-SA',{timeZone:'Asia/Riyadh',month:'short',day:'numeric'})+' • '+date.toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit'});
-}
-function renderMarketNews(){
- const track=document.getElementById('sasMarketNewsTrack');if(!track)return;
- const cats={fed:'الفدرالي والفائدة',economy:'الاقتصاد والبيانات',stocks:'الأسهم الأمريكية',other:'أخبار السوق'};
- const icons={fed:'🏦',economy:'📊',stocks:'📈',other:'🇺🇸'};
- const filtered=terminalState.newsItems.filter(n=>n&&String(n.translated_headline||n.headline||'').trim()).slice(0,12);
- if(!filtered.length){track.classList.remove('is-ticking');track.innerHTML='<div class="sas-market-news-empty"><span>◌</span><b>لا توجد أخبار مؤثرة موثقة حاليًا</b><small>لن نعرض أخبارًا غير واضحة الصلة بالسوق الأمريكي.</small></div>';return;}
- const cards=filtered.map(n=>{
-  const url=safeNewsUrl(n.url),cat=sasNewsCategory(n),title=escHtml(n.translated_headline||n.headline||'خبر السوق');
-  const summary=String(n.translated_summary||n.summary||'').trim();
-  const source=escHtml(n.source||'مصدر موثوق');
-  return '<article class="sas-news-compact-card"><div class="sas-news-compact-meta"><span class="sas-news-compact-category">'+(icons[cat]||icons.other)+' '+cats[cat]+'</span><time>'+sasNewsTime(n.datetime)+'</time></div><strong>'+title+'</strong>'+(summary?'<p>'+escHtml(summary.slice(0,220))+'</p>':'')+'<div class="sas-news-compact-bottom"><span>'+source+'</span>'+(url?'<a href="'+escHtml(url)+'" target="_blank" rel="noopener noreferrer">المصدر الأصلي ↗</a>':'')+'</div></article>';
- }).join('');
- track.classList.remove('is-ticking');
- // Duplicate the complete news lane and animate the lane as one track.
- // This keeps all cards in sequence and prevents clipped, static side cards.
- track.innerHTML='<div class="sas-news-single-lane" aria-label="أخبار السوق الأمريكي">'+cards+cards+'</div>';
-}
-async function refreshMarketNews(){
- const track=document.getElementById('sasMarketNewsTrack');const status=document.getElementById('sasMarketNewsStatus');
- if(!track||terminalState.newsLoading)return;terminalState.newsLoading=true;
- const refresh=document.getElementById('sasMarketNewsRefresh');if(refresh)refresh.classList.add('is-loading');
- try{
-  const data=await api('/api/market/news',{timeoutMs:38000,retries:1});
-  const items=Array.isArray(data)?data:(Array.isArray(data?.items)?data.items:[]);
-  terminalState.newsItems=items.filter(n=>n&&safeNewsUrl(n.url)&&String(n.headline||'').trim()).sort((a,b)=>Number(b.datetime||0)-Number(a.datetime||0));
-  renderMarketNews();
-  if(status)status.textContent=terminalState.newsItems.length?'تحديث '+new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit'})+' الرياض • '+terminalState.newsItems.length+' خبر موثق • الترجمة العربية عند توفرها':'لا تتوفر حاليًا أخبار مستوفية لفلتر تأثير السوق';
- }catch(e){
-  console.warn('SAS PRO market news refresh failed:',e?.message||e);
-  if(!terminalState.newsItems.length)track.innerHTML='<div class="sas-market-news-empty"><span>↻</span><b>تعذر تحميل الأخبار مؤقتًا</b><small>اضغط زر التحديث للمحاولة مجددًا.</small></div>';
-  if(status)status.textContent=(e?.status===401||e?.status===403)?'تعذر التحقق من صلاحية الأخبار؛ أغلق SAS PRO وافتحه من تيليجرام مجددًا.':(e?.status>=500?'خدمة الأخبار تواجه خطأ مؤقتًا؛ ستتم إعادة المحاولة تلقائيًا.':'تعذر الاتصال بخدمة الأخبار؛ ستتم إعادة المحاولة تلقائيًا.');
- }finally{
-  terminalState.newsLoading=false;if(refresh)refresh.classList.remove('is-loading');
- }
-}
-document.addEventListener('click',event=>{
- const filter=event.target.closest('[data-news-filter]');
- if(filter){
-  terminalState.newsFilter=filter.dataset.newsFilter||'all';
-  document.querySelectorAll('[data-news-filter]').forEach(btn=>{const active=btn===filter;btn.classList.toggle('is-active',active);btn.setAttribute('aria-pressed',active?'true':'false');});
-  renderMarketNews();return;
- }
- if(event.target.closest('#sasMarketNewsRefresh'))void refreshMarketNews();
-});

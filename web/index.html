@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>SAS PRO — Market Terminal</title>
-<link rel="stylesheet" href="/assets/app.css?v=20261015-news-rootfix-2">
+<link rel="stylesheet" href="/assets/app.css?v=20261015-pre-news-restore-1">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 </head>
 <body>
@@ -78,18 +78,9 @@
       <div class="hero-shade"></div>
       <button id="adminBackBtn" class="secondary-btn admin-user-back" aria-label="العودة إلى الإدارة" title="العودة إلى الإدارة" hidden onclick="returnToAdminView()">↩</button>
     </section>
-<section class="sas-market-overview" aria-label="ملخص السوق الأمريكي">
-  <div class="sas-market-overview-title"><span class="sas-market-pulse"></span><div><strong>نبض السوق الأمريكي</strong><small>الأسعار والأخبار المؤثرة في لوحة واحدة</small></div><span class="sas-market-overview-live">LIVE</span></div>
-  <div class="sas-market-prices"><div id="marketTicker" class="market-ticker"><div class="loading">جاري تحميل الأسعار...</div></div></div>
-  <section id="sasMarketNews" class="sas-market-news" aria-label="آخر أخبار السوق الأمريكي">
-    <div class="sas-market-news-head">
-      <div class="sas-market-news-brand"><span class="sas-market-news-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><rect x="10" y="7" width="27" height="34" rx="4" stroke="currentColor" stroke-width="2"/><path d="M16 15h15M16 20h15M16 26h6M26 26h5M16 31h15M16 36h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M6 13v25a4 4 0 0 0 4 4h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><div><strong>أخبار السوق الأمريكي</strong><small><i></i> أخبار مؤثرة فقط • مصادر موثوقة</small></div></div>
-      <div class="sas-market-news-controls" role="group" aria-label="تحديث أخبار السوق"><span class="sas-news-live-badge"><i></i> مباشر</span><button type="button" id="sasMarketNewsRefresh" aria-label="تحديث الأخبار" title="تحديث الأخبار">⟳</button></div>
-    </div>
-    <div id="sasMarketNewsTrack" class="sas-market-news-track" aria-live="polite"><div class="sas-market-news-loading"><span class="sas-news-pulse"></span> جارٍ جلب آخر أخبار السوق الأمريكي…</div></div>
-    <div class="sas-market-news-foot"><span id="sasMarketNewsStatus">يتم التحقق من الأخبار ذات التأثير المحتمل على السوق</span><span>المصدر والرابط الأصلي لكل خبر</span></div>
-  </section>
-</section>
+<section class="market-ticker-wrap" aria-label="أسعار الأسواق">
+      <div id="marketTicker" class="market-ticker"><div class="loading">جاري تحميل الأسعار...</div></div>
+    </section>
     <nav class="terminal-tabs">
       <button class="active" data-tab="dashboard" onclick="switchTerminalTab('dashboard')">⌂ الرئيسية</button>
       <button data-tab="radar" onclick="switchTerminalTab('radar')">📡 الرادار</button>
@@ -402,7 +393,7 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261015-news-rootfix-2"></script>
+<script src="/assets/app.js?v=20261015-pre-news-restore-1"></script>
 
 <script>
 /* Presentation-only interactions. Does not modify radar, pricing, API calls, or permissions. */

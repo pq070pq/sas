@@ -26,7 +26,7 @@ from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarS
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
-from .news import company_news, corporate_events, tipranks_analysis, market_news, _rss_market_news
+from .news import company_news, corporate_events, tipranks_analysis
 from .news_translation import translate_stock_news
 from .scheduler import scheduler
 from .market_calendar import market_status, us_market_holidays
@@ -2528,75 +2528,6 @@ async def perpequities_market_movers(_: dict = Depends(require_pro)):
 async def market_ticker(_: dict = Depends(require_pro)):
     return await ticker()
 
-
-_market_news_translation_cache = {"at": 0.0, "by_url": {}}
-
-@app.get("/api/market/news")
-async def market_news_feed(_: dict = Depends(require_pro)):
-    """Return source-linked US market news quickly; translation must never block the feed."""
-    items = []
-    try:
-        items = await asyncio.wait_for(market_news(limit=24), timeout=9)
-    except Exception as news_exc:
-        logger.warning("Primary US market news feed failed: %s; trying RSS fallback", type(news_exc).__name__)
-        try:
-            items = await asyncio.wait_for(_rss_market_news(24), timeout=7)
-        except Exception as rss_exc:
-            logger.warning("US market RSS fallback failed: %s", type(rss_exc).__name__)
-
-    now = time.monotonic()
-    translated_by_url = dict(_market_news_translation_cache["by_url"])
-    # Translate every newly fetched headline in small parallel batches. Previously only
-    # the first eight items were translated, leaving the majority of the ribbon in English.
-    missing = [
-        row for row in items
-        if isinstance(row, dict) and row.get("url")
-        and str(row.get("url")) not in translated_by_url
-    ]
-    if missing:
-        try:
-            batches = [missing[i:i + 8] for i in range(0, min(len(missing), 24), 8)]
-            results = await asyncio.wait_for(
-                asyncio.gather(*(
-                    translate_stock_news("US_MARKET", batch)
-                    for batch in batches
-                ), return_exceptions=True),
-                timeout=16,
-            )
-            fresh_translations = {}
-            for result in results:
-                if isinstance(result, list):
-                    fresh_translations.update({
-                        str(row.get("url") or ""): row for row in result
-                        if isinstance(row, dict) and row.get("url") and row.get("translated_headline")
-                    })
-            if fresh_translations:
-                translated_by_url.update(fresh_translations)
-                _market_news_translation_cache.update({"at": now, "by_url": translated_by_url})
-            logger.info("US market news Arabic translation: translated=%d requested=%d", len(fresh_translations), min(len(missing), 24))
-        except Exception as translation_exc:
-            # Keep source-linked news visible while the next refresh retries translation.
-            logger.info("Market news Arabic translation deferred: %s", type(translation_exc).__name__)
-
-    enriched = []
-    for item in items:
-        row = dict(item)
-        translation = translated_by_url.get(str(row.get("url") or ""))
-        if translation:
-            row["translated_headline"] = translation.get("translated_headline")
-            row["translated_summary"] = translation.get("summary") or ""
-            row["translation_basis"] = translation.get("basis") or "headline_only"
-        enriched.append(row)
-
-    providers = sorted({str(row.get("provider") or row.get("source") or "") for row in items if isinstance(row, dict)})
-    return {
-        "items": enriched,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        "source": ", ".join(providers) if providers else "Market news feeds",
-        "filtered_for_market_impact": True,
-        "translation": "Arabic translation when available; original source headline retained",
-        **({"message_ar": "الترجمة العربية قد تتأخر، لكن الخبر الأصلي يبقى متاحًا."} if items and not any(x.get("translated_headline") for x in enriched) else {}),
-    }
 
 @app.get("/api/dashboard/home")
 async def dashboard_home(_: dict = Depends(require_pro)):
