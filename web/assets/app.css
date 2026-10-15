@@ -4303,3 +4303,17 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @media(max-width:600px){
   #marketTicker .ticker-run{animation-duration:100s!important}
 }
+
+
+/* Correct seamless-loop geometry: each duplicated .ticker-run moves by its
+   own full width so the second copy replaces the first without a gap. */
+@keyframes marketTickerSeamless{
+  from{transform:translate3d(0,0,0)}
+  to{transform:translate3d(-100%,0,0)}
+}
+#marketTicker .ticker-run{
+  animation-name:marketTickerSeamless!important;
+  animation-timing-function:linear!important;
+  animation-iteration-count:infinite!important;
+  animation-fill-mode:both!important;
+}
