@@ -1015,24 +1015,68 @@ function stockCard(x){
 
 
 function showOpportunityCardModal(blob,file,symbol){
- const old=document.getElementById('sasOpportunityCardModal');if(old)old.remove();
- const url=URL.createObjectURL(blob);
- const modal=document.createElement('div');modal.id='sasOpportunityCardModal';modal.className='sas-card-modal';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');modal.setAttribute('aria-label','مشاركة أو حفظ بطاقة السهم');
- modal.innerHTML='<div class="sas-card-modal-panel"><button type="button" class="sas-card-modal-close" aria-label="إغلاق">×</button><h3>بطاقة '+String(symbol).replace(/[<>&"]/g,'')+'</h3><p>اختر مشاركة البطاقة أو حفظها في جهازك</p><img class="sas-card-preview" alt="معاينة بطاقة السهم"><div class="sas-card-modal-actions"><button type="button" class="sas-card-modal-share">↗ مشاركة الصورة</button><a class="sas-card-modal-download" download="'+file.name.replace(/[^A-Za-z0-9_.-]/g,'-')+'">▣ حفظ في الجهاز</a></div><small>SAS PRO RADAR · معلومات تعليمية وليست توصية استثمارية</small></div>';
- modal.querySelector('.sas-card-preview').src=url;modal.querySelector('.sas-card-modal-download').href=url;
- const close=()=>{modal.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);};
- modal.querySelector('.sas-card-modal-close').addEventListener('click',close);
- modal.addEventListener('click',e=>{if(e.target===modal)close();});
- modal.querySelector('.sas-card-modal-share').addEventListener('click',async()=>{
-  const btn=modal.querySelector('.sas-card-modal-share');
-  try{
-   if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:'SAS PRO — '+symbol,text:'بطاقة سهم من رادار SAS PRO. ليست توصية شراء أو بيع.',files:[file]});}
-   else{const a=document.createElement('a');a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();modal.querySelector('.sas-card-modal-download').textContent='✓ تم تجهيز الصورة — حفظ في الجهاز';}
-  }catch(e){if(e?.name!=='AbortError')modal.querySelector('.sas-card-modal-download').textContent='تعذرت المشاركة — اضغط هنا لحفظ الصورة';}
- });
- document.body.appendChild(modal);
+  const old=document.getElementById('sasOpportunityCardModal');if(old)old.remove();
+  const url=URL.createObjectURL(blob);
+  const modal=document.createElement('div');modal.id='sasOpportunityCardModal';modal.className='sas-card-modal';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');modal.setAttribute('aria-label','مشاركة أو حفظ بطاقة السهم');
+  modal.innerHTML='<div class="sas-card-modal-panel"><button type="button" class="sas-card-modal-close" aria-label="إغلاق">×</button><h3>بطاقة '+String(symbol).replace(/[<>&"]/g,'')+'</h3><p>اختر مشاركة البطاقة أو حفظها في جهازك</p><img class="sas-card-preview" alt="معاينة بطاقة السهم"><div class="sas-card-modal-actions"><button type="button" class="sas-card-modal-share">↗ مشاركة الصورة</button><button type="button" class="sas-card-modal-download">▣ حفظ في الجهاز</button></div><p class="sas-card-modal-status" role="status" aria-live="polite">إذا ما فتح الحفظ، افتح الصورة واضغط عليها مطولًا للحفظ أو المشاركة.</p><small>SAS PRO RADAR · معلومات تعليمية وليست توصية استثمارية</small></div>';
+  const preview=modal.querySelector('.sas-card-preview');
+  const status=modal.querySelector('.sas-card-modal-status');
+  const shareBtn=modal.querySelector('.sas-card-modal-share');
+  const saveBtn=modal.querySelector('.sas-card-modal-download');
+  preview.src=url;
+  preview.tabIndex=0;
+  preview.style.cursor='zoom-in';
+  const openImage=()=>{
+    // Open the generated image directly so mobile WebViews can use their native
+    // long-press Save/Share actions when download/share APIs are unavailable.
+    const win=window.open(url,'_blank');
+    if(!win){
+      preview.style.maxHeight='none';
+      preview.style.width='100%';
+      status.textContent='الصورة ظاهرة أعلاه. اضغط عليها مطولًا ثم اختر حفظ الصورة أو مشاركتها.';
+    }else{
+      status.textContent='فتحت الصورة في صفحة مستقلة؛ اضغط عليها مطولًا للحفظ أو المشاركة.';
+    }
+  };
+  const close=()=>{modal.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);};
+  modal.querySelector('.sas-card-modal-close').addEventListener('click',close);
+  modal.addEventListener('click',e=>{if(e.target===modal)close();});
+  preview.addEventListener('click',openImage);
+  preview.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openImage();}});
+  saveBtn.addEventListener('click',()=>{
+    try{
+      const a=document.createElement('a');
+      a.href=url;a.download=file.name||('SAS-PRO-'+symbol+'.png');
+      a.style.display='none';document.body.appendChild(a);a.click();a.remove();
+      status.textContent='إذا لم يبدأ التنزيل، اضغط على معاينة الصورة مطولًا واختر حفظ الصورة.';
+      // WebViews often ignore the download attribute; provide a user-gesture fallback.
+      setTimeout(()=>{if(document.getElementById('sasOpportunityCardModal')){status.textContent='إذا ما نزلت الصورة تلقائيًا، اضغط على المعاينة مطولًا للحفظ أو افتحها من زر المشاركة.';}},900);
+    }catch(e){
+      status.textContent='تعذر التنزيل التلقائي. افتح الصورة بالضغط على المعاينة ثم احفظها من جهازك.';
+    }
+  });
+  shareBtn.addEventListener('click',async()=>{
+    shareBtn.disabled=true;
+    try{
+      if(navigator.share&&typeof File!=='undefined'){
+        const shareFile=new File([blob],file.name||('SAS-PRO-'+symbol+'.png'),{type:'image/png'});
+        if(!navigator.canShare||navigator.canShare({files:[shareFile]})){
+          await navigator.share({title:'SAS PRO — '+symbol,text:'بطاقة سهم من رادار SAS PRO. ليست توصية شراء أو بيع.',files:[shareFile]});
+          status.textContent='تم فتح خيارات المشاركة.';
+          return;
+        }
+      }
+      status.textContent='المشاركة المباشرة غير مدعومة في نافذة التطبيق. افتح الصورة بالضغط على المعاينة ثم شاركها من جهازك.';
+      openImage();
+    }catch(e){
+      if(e?.name!=='AbortError'){
+        status.textContent='تعذرت المشاركة المباشرة. اضغط على معاينة الصورة مطولًا ثم اختر مشاركة.';
+        openImage();
+      }
+    }finally{shareBtn.disabled=false;}
+  });
+  document.body.appendChild(modal);
 }
-
 function downloadOpportunityImage(blob,filename){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename; a.style.display='none';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}
 async function shareOpportunityCard(card,symbol,downloadOnly=false){
  if(!card){showActionNotice('radar','تعذر تحديد بطاقة السهم. حدّث الصفحة وجرب مرة ثانية.');return;}
