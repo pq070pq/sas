@@ -214,7 +214,7 @@ jobs:
 
             # Verify the actual served Mini App HTML, not just backend health.
             # The requested rollback removes the news ribbon and restores the standalone ticker.
-            docker compose exec -T saspro sh -lc 'grep -q "class=\\"market-ticker-wrap\\"" /app/web/index.html && ! grep -q "sasMarketNews" /app/web/index.html'
+            docker compose exec -T saspro sh -lc 'grep -q "market-ticker-wrap" /app/web/index.html && ! grep -q "sasMarketNews" /app/web/index.html'
             curl -fsS --max-time 5 http://127.0.0.1:8000/ -o /tmp/saspro_home_live.html
             grep -q 'class="market-ticker-wrap"' /tmp/saspro_home_live.html
             if grep -q 'sasMarketNews\|نبض السوق الأمريكي\|الأخبار المؤثرة في لوحة واحدة' /tmp/saspro_home_live.html; then
