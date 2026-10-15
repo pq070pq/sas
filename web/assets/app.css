@@ -4317,3 +4317,68 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
   animation-iteration-count:infinite!important;
   animation-fill-mode:both!important;
 }
+
+
+/* FINAL FIX — animate the complete duplicated tracks, never each half separately. */
+@keyframes sasMarketContinuousLoop{
+  from{transform:translate3d(0,0,0)}
+  to{transform:translate3d(-50%,0,0)}
+}
+.sas-market-prices{
+  display:block!important;position:relative!important;width:100%!important;
+  min-width:0!important;overflow:hidden!important;contain:paint!important;
+}
+#marketTicker.market-ticker.ticker-has-items{
+  display:flex!important;flex-wrap:nowrap!important;align-items:stretch!important;
+  justify-content:flex-start!important;gap:0!important;
+  width:max-content!important;min-width:max-content!important;max-width:none!important;
+  overflow:visible!important;direction:ltr!important;
+  animation:sasMarketContinuousLoop 108s linear infinite!important;
+  animation-play-state:running!important;will-change:transform!important;
+}
+#marketTicker .ticker-run{
+  display:flex!important;flex:0 0 auto!important;flex-wrap:nowrap!important;
+  width:max-content!important;min-width:max-content!important;
+  gap:0!important;white-space:nowrap!important;
+  animation:none!important;transform:none!important;
+}
+#marketTicker .ticker-item{flex-shrink:0!important}
+#marketTicker .ticker-run[aria-hidden="true"]{pointer-events:none!important}
+.sas-market-overview .sas-market-prices{overflow:hidden!important}
+#sasMarketNews .sas-market-news-track{
+  display:block!important;position:relative!important;
+  width:100%!important;max-width:100%!important;min-width:0!important;
+  height:auto!important;max-height:none!important;
+  overflow:hidden!important;overscroll-behavior:contain!important;
+  padding:9px 0 2px!important;contain:paint!important;
+}
+#sasMarketNewsTrack .sas-news-single-lane{
+  display:flex!important;flex-wrap:nowrap!important;align-items:stretch!important;
+  gap:9px!important;width:max-content!important;max-width:none!important;
+  min-width:max-content!important;overflow:visible!important;
+  padding:2px 2px 8px!important;direction:rtl!important;
+  animation:sasMarketContinuousLoop 120s linear infinite!important;
+  animation-play-state:running!important;will-change:transform!important;
+}
+#sasMarketNewsTrack .sas-news-compact-card{
+  flex:0 0 clamp(230px,72vw,340px)!important;
+  width:clamp(230px,72vw,340px)!important;min-width:0!important;
+}
+#sasMarketNewsTrack .sas-news-single-lane:hover,
+#marketTicker:hover,
+#marketTicker:focus-within,
+#sasMarketNewsTrack .sas-news-single-lane:focus-within{
+  animation-play-state:running!important;
+}
+@media(max-width:600px){
+  #marketTicker.market-ticker.ticker-has-items{animation-duration:100s!important}
+  #sasMarketNewsTrack .sas-news-single-lane{animation-duration:120s!important}
+  #sasMarketNewsTrack .sas-news-compact-card{
+    flex-basis:clamp(228px,76vw,300px)!important;
+    width:clamp(228px,76vw,300px)!important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  #marketTicker.market-ticker.ticker-has-items,
+  #sasMarketNewsTrack .sas-news-single-lane{animation-duration:180s!important}
+}
