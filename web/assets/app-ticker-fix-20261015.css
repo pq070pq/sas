@@ -4871,3 +4871,37 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @media(prefers-reduced-motion:reduce){
  #sasMarketPulse .sas-news-lane,#sasMarketPulse .sas-index-lane{animation-duration:180s!important}
 }
+
+
+/* Compact mobile ticker cards: target the actual tracks directly (they may
+   sit outside #sasMarketPulse in the page DOM). */
+#sasMarketNewsTrack .sas-news-lane .sas-news-group>.sas-news-card{
+  flex:0 0 250px!important;width:250px!important;min-width:250px!important;max-width:250px!important;
+  height:178px!important;min-height:178px!important;max-height:178px!important;
+  padding:11px!important;gap:7px!important;border-radius:16px!important;box-sizing:border-box!important;
+}
+#sasMarketNewsTrack .sas-news-card strong{font-size:12px!important;line-height:1.5!important}
+#sasMarketNewsTrack .sas-news-card-summary{font-size:10px!important;line-height:1.4!important}
+#sasMarketIndicesTrack .sas-index-lane .sas-index-group>.sas-index-card{
+  flex:0 0 205px!important;width:205px!important;min-width:205px!important;max-width:205px!important;
+  height:205px!important;min-height:205px!important;max-height:205px!important;
+  padding:13px!important;border-radius:20px!important;box-sizing:border-box!important;
+}
+#sasMarketIndicesTrack .sas-index-card .sas-index-price{
+  font-size:21px!important;line-height:1.3!important;margin:6px 0!important;
+  overflow-wrap:anywhere!important;
+}
+#sasMarketIndicesTrack .sas-index-card .sas-index-symbol{font-size:12px!important}
+#sasMarketIndicesTrack .sas-index-card .sas-index-name{font-size:12px!important;margin-top:5px!important}
+#sasMarketIndicesTrack .sas-index-card .sas-index-change{font-size:13px!important}
+#sasMarketIndicesTrack .sas-index-card small{font-size:10px!important;margin-top:6px!important}
+@media(max-width:600px){
+ #sasMarketNewsTrack .sas-news-lane .sas-news-group>.sas-news-card{
+  flex-basis:250px!important;width:250px!important;min-width:250px!important;max-width:250px!important;
+  height:178px!important;min-height:178px!important;max-height:178px!important;
+ }
+ #sasMarketIndicesTrack .sas-index-lane .sas-index-group>.sas-index-card{
+  flex-basis:205px!important;width:205px!important;min-width:205px!important;max-width:205px!important;
+  height:205px!important;min-height:205px!important;max-height:205px!important;
+ }
+}
