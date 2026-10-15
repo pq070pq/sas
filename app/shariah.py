@@ -122,8 +122,67 @@ async def check_shariah(symbol):
         except Exception as e:
             return {"source":"فلترنا","status":None,"status_ar":"غير متاح","verified":False,"error":type(e).__name__}
 
+    async def fetch_zoya():
+        # Optional direct screening source. The API key is read only from server
+        # environment settings and must never be embedded in source or returned to the client.
+        api_key = getattr(settings, "zoya_api_key", "")
+        if not api_key:
+            return None
+        query = """
+        query getReport($symbol: String!) {
+          basicCompliance {
+            report(symbol: $symbol) {
+              exchange
+              name
+              reportDate
+              status
+              symbol
+            }
+          }
+        }
+        """
+        try:
+            async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
+                response = await client.post(
+                    "https://api.zoya.finance/graphql",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={"query": query, "variables": {"symbol": symbol}},
+                )
+                response.raise_for_status()
+                payload = response.json()
+            report = (((payload.get("data") or {}).get("basicCompliance") or {}).get("report"))
+            if not isinstance(report, dict):
+                return {"source":"Zoya","status":None,"status_ar":"غير واضح / يحتاج تحقق",
+                        "verified":False,"reason":"لم يرجع Zoya تقريرًا مباشرًا لهذا الرمز."}
+            raw_status = report.get("status")
+            status = _normalize(raw_status)
+            if status is None:
+                # Handle common provider labels, but do not guess from arbitrary text.
+                normalized = str(raw_status or "").strip().lower().replace("-", "_").replace(" ", "_")
+                status = {
+                    "compliant": "compliant", "shariah_compliant": "compliant",
+                    "non_compliant": "non_compliant", "not_compliant": "non_compliant",
+                    "not_shariah_compliant": "non_compliant",
+                    "doubtful": "doubtful", "questionable": "doubtful",
+                }.get(normalized)
+            labels = {"compliant":"متوافق بحسب Zoya","non_compliant":"غير متوافق بحسب Zoya",
+                      "doubtful":"محل نظر بحسب Zoya"}
+            return {"source":"Zoya","status":status,
+                    "status_ar":labels.get(status,"غير واضح / يحتاج تحقق"),
+                    "verified":bool(status and report.get("reportDate")),
+                    "name":report.get("name"),"exchange":report.get("exchange"),
+                    "updated_at":report.get("reportDate"),
+                    "reason":"نتيجة فحص مباشرة من تقرير Zoya؛ راجع تاريخ التقرير والمنهجية.",
+                    "methodology":"Zoya basicCompliance","url":"https://zoya.finance/"}
+        except Exception as exc:
+            # Do not expose provider responses or credentials in API output.
+            return {"source":"Zoya","status":None,"status_ar":"غير متاح",
+                    "verified":False,"reason":"تعذر الحصول على تقرير Zoya. تحقق من المفتاح وصلاحية API.",
+                    "error":type(exc).__name__}
+
     # Check independent direct sources in parallel; unavailable sources never count as a verdict.
-    direct = await asyncio.gather(fetch_yaaqeen(), fetch_filterna())
+    direct = await asyncio.gather(fetch_yaaqeen(), fetch_filterna(), fetch_zoya())
+    direct = [item for item in direct if item is not None]
     refs = [
         {"source":"مصرف الراجحي","role":"مرجع منهجي","status":"reference","status_ar":"مرجع","verified":True,
          "reason":"لا ننسب للراجحي حكم سهم محدد دون نتيجة منشورة قابلة للتحقق.",
