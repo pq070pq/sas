@@ -2622,7 +2622,7 @@ async function refreshMarketNews(){
  if(!track||terminalState.newsLoading)return;terminalState.newsLoading=true;
  const refresh=document.getElementById('sasMarketNewsRefresh');if(refresh)refresh.classList.add('is-loading');
  try{
-  const data=await api('/api/market/news',{timeoutMs:14000,retries:0});
+  const data=await api('/api/market/news',{timeoutMs:28000,retries:1});
   const items=Array.isArray(data)?data:(Array.isArray(data?.items)?data.items:[]);
   terminalState.newsItems=items.filter(n=>n&&safeNewsUrl(n.url)&&String(n.headline||'').trim()).sort((a,b)=>Number(b.datetime||0)-Number(a.datetime||0));
   renderMarketNews();
