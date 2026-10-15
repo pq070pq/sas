@@ -1751,7 +1751,7 @@ const SITE_MEDIA_MANAGED_ITEMS=[
  {slot:'icon-home',label:'أيقونة تبويب الرئيسية',fallback:'⌂',target:'.terminal-tabs button[data-tab="dashboard"]'},
  {slot:'icon-tab-radar',label:'أيقونة تبويب الرادار',fallback:'📡',target:'.terminal-tabs button[data-tab="radar"]'},
  {slot:'icon-search',label:'أيقونة تبويب البحث',fallback:'🔎',target:'.terminal-tabs button[data-tab="search"]'},
- {slot:'icon-watch',label:'أيقونة تبويب المحفوظات',fallback:'★',target:'.terminal-tabs button[data-tab="watch"]'},
+ {slot:'icon-news',label:'أيقونة أخبار السوق الأمريكي',fallback:'📰',target:'.sas-market-news-icon'},
  {slot:'icon-account',label:'أيقونة تبويب الحساب',fallback:'👤',target:'.terminal-tabs button[data-tab="account"]'},
 
 
