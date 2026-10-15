@@ -1059,6 +1059,7 @@ async function searchShariah(){
    '</div>'+
    '<div class="shariah-review-section-title"><b>المصادر التي تمت مراجعتها</b><span>'+sources.length+' مصادر</span></div>'+
    '<div class="shariah-source-list">'+sourceLines+'</div>'+
+   '<div class="shariah-zoya-attribution">بيانات Zoya عبر <a href="https://zoya.finance/api" target="_blank" rel="noopener noreferrer">Zoya API</a> — نتائج Sandbox تجريبية ولا تمثل حكمًا حقيقيًا.</div>'+
    (result?.updated_at?'<div class="shariah-updated">◷ آخر تحديث منشور: '+escHtml(result.updated_at)+'</div>':'')+
    '<div class="shariah-review-warning"><b>⚠ تنبيه مهم</b><p>لا يصدر SAS PRO حكمًا من عنده. عند غياب نتيجة مباشرة موثقة أو اختلاف المصادر، تبقى الحالة «غير واضح / يحتاج تحقق». هذه معلومات للمراجعة وليست فتوى، والتحقق النهائي مسؤولية المستخدم.</p></div>'+
    '</div>';
