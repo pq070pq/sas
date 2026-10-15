@@ -3687,3 +3687,7 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .shariah-review .shariah-red-disclaimer,.shariah-box .shariah-red-disclaimer{display:flex;flex-direction:column;gap:7px;margin-top:14px;padding:14px 15px;border:1px solid rgba(255,65,86,.55);border-radius:14px;background:linear-gradient(135deg,rgba(100,9,24,.25),rgba(12,9,18,.72));color:#ff9aa5;box-shadow:0 0 18px rgba(255,44,67,.09);font-size:13px;line-height:1.9;text-align:right}
 .shariah-review .shariah-red-disclaimer b,.shariah-box .shariah-red-disclaimer b{color:#ff687b;font-weight:800;font-size:14px}
 .shariah-review .shariah-red-disclaimer span,.shariah-box .shariah-red-disclaimer span{color:#ffd4d9}
+
+/* Startup loading state: never leave the account panel looking frozen */
+.account-load-error:not([hidden]){display:flex!important;visibility:visible!important;position:relative;z-index:8;min-height:76px;border-color:rgba(255,103,123,.58);background:linear-gradient(135deg,rgba(72,15,27,.42),rgba(9,20,31,.98));box-shadow:0 0 18px rgba(255,65,90,.08)}
+.account-load-error span{overflow-wrap:anywhere}
