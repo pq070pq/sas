@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>SAS PRO — Market Terminal</title>
-<link rel="stylesheet" href="/assets/app.css?v=20261015-news-ribbon-calm-3">
+<link rel="stylesheet" href="/assets/app.css?v=20261015-news-admin-4">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 </head>
 <body>
@@ -322,6 +322,13 @@
       <button class="admin-close-list" onclick="loadSiteMedia().then(()=>loadAdminMedia())">↻ تحديث معاينة الصور</button>
     </section>
 
+    <section class="admin-panel" id="adminNewsPanel" hidden>
+      <div class="section-head"><b><span class="admin-news-mark" aria-hidden="true">▤</span> أخبار السوق الأمريكي</b><span>معاينة الأخبار الموثقة</span></div>
+      <p class="media-admin-note">عرض الأخبار نفسها التي تظهر للمشتركين، مع المصدر الأصلي والتحديثات المتاحة. لا يتم إنشاء أخبار أو عناوين بديلة.</p>
+      <div class="admin-news-toolbar"><span id="adminNewsStatus" role="status">اضغط تحديث لجلب آخر الأخبار.</span><button type="button" class="admin-close-list" onclick="loadAdminNewsPreview()">↻ تحديث الأخبار</button></div>
+      <div id="adminNewsPreview" class="admin-news-preview"><div class="empty-state">الأخبار تظهر هنا بعد التحديث.</div></div>
+    </section>
+
     <section class="admin-panel" id="adminUsersPanel">
       <div class="section-head"><b>🔎 البحث عن مستخدم</b><span>Telegram ID أو Username</span></div>
       <div class="search-row"><input id="adminSearch" placeholder="مثال: 123456789 أو username"><button onclick="adminSearch()">بحث</button></div>
@@ -397,7 +404,7 @@
   </div>
 </div>
 
-<script src="/assets/app.js?v=20261015-news-ribbon-calm-3"></script>
+<script src="/assets/app.js?v=20261015-news-admin-4"></script>
 
 <script>
 /* Presentation-only interactions. Does not modify radar, pricing, API calls, or permissions. */
