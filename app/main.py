@@ -2990,6 +2990,11 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
             old_cls = cached_sas.get("classification") if isinstance(cached_sas.get("classification"), dict) else {}
             cached_sas["classification"] = {
                 **old_cls,
+                "quality_score": None,
+                "stars": None,
+                "conditional_plan": {},
+                "quality_checks": {},
+                "trading_style": None,
                 "quality_error": f"{type(exc).__name__}: {str(exc)[:180]}",
                 "quality_data_available": False,
                 "recommendation": "غير قابل للتقييم — تعذر تحديث بيانات المؤشرات؛ لا تعتمد على النجوم أو المستويات القديمة.",
