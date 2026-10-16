@@ -234,11 +234,15 @@ window.addEventListener('unhandledrejection',event=>{
 async function load(){
  if(loadStarted)return;
  loadStarted=true;
+ // Telegram initData can take up to 3.5s and /api/me up to 6.5s.
+ // Keep the watchdog beyond their combined bounded wait to avoid a false
+ // timeout that races the successful response and leaves the UI in limbo.
  const watchdog=setTimeout(()=>{
   if(!loadStarted)return;
+  showAccountLoadError('تأخر التحقق من الحساب. اضغط «إعادة المحاولة» أو أغلق SAS PRO وافتحه من تيليجرام من جديد.');
+  // Release the loading lock so the retry button can start a fresh attempt.
   loadStarted=false;
-  showAccountLoadError('التحقق تأخر وما اكتمل. اضغط «إعادة المحاولة»، أو أغلق SAS PRO وافتحه من تيليجرام من جديد.');
- },8000);
+ },15000);
  try{
   refreshTelegramWebApp();
   if(!tg)throw new Error('تعذر الوصول إلى Telegram WebApp. افتح SAS PRO من داخل Telegram.');
