@@ -2155,8 +2155,10 @@ async function checkAdminHealth(){
   const components=Array.isArray(d.components)?d.components:[];
   components.forEach(x=>{
    const level=x.status==='error'?'error':(x.status==='warn'?'warn':'info');
-   const detail=x.detail?(' — '+x.detail):'';
-   items.push({level,title:String(x.name||'مكوّن غير معروف'),message:String(x.message||'لا توجد تفاصيل')+detail});
+   const detail=x.detail?(' — تفاصيل الخطأ: '+x.detail):'';
+   const location=x.location?(' — موقع الخلل: '+x.location+(x.function?' داخل '+x.function:'')):'';
+   const diagnosis=x.diagnosis?(' — التشخيص: '+x.diagnosis):'';
+   items.push({level,title:String(x.name||'مكوّن غير معروف'),message:String(x.message||'لا توجد تفاصيل')+detail+location+diagnosis});
   });
   if(!components.length){
    items.push({level:'warn',title:'مراقبة النظام',message:'الخادم استجاب لكن لم يُرجع تفاصيل مكونات الفحص.'});
