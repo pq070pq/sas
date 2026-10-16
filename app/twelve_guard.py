@@ -120,7 +120,8 @@ async def call(getter: Callable[..., Awaitable[Any]], *args, **kwargs):
     snap = await _pool.snapshot()
     async with _lock:
         if snap["keys"] and snap["available"] == 0:
-            _blocked = True
+            # Do not latch the global daily breaker for per-key cooldowns;
+            # acquire() will become available again after the backoff expires.
             _block_reason = f"all {snap['keys']} Twelve Data credentials are cooling down"
         elif last_response is not None and getattr(last_response, "status_code", None) == 429:
             _block_reason = "Twelve Data rate limit; credentials are cooling down"
