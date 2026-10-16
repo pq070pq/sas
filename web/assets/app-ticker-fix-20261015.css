@@ -5109,3 +5109,17 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-market-strip.is-closed .sas-market-main strong{color:#ff8a9d;text-shadow:0 0 12px rgba(255,82,111,.18)}
 @media(max-width:650px){.sas-market-main{flex-wrap:wrap}.sas-market-state-badge{margin-inline-start:auto}.sas-market-main>div{flex:1 1 65%;}}
 @media(prefers-reduced-motion:reduce){.sas-market-strip,.sas-market-live-dot{animation:none!important;transition:none!important}}
+
+
+/* Four distinct glowing states for SAS PRO market session */
+#sasOpenCountdown{--session-glow:#ff526f;position:relative;isolation:isolate;overflow:hidden;transition:border-color .28s ease,box-shadow .28s ease,background .28s ease}
+#sasOpenCountdown.market-state-open{--session-glow:#00f5a0;border-color:#00f5a0!important;box-shadow:inset 0 0 30px rgba(0,245,160,.10),0 0 10px rgba(0,245,160,.24),0 0 28px rgba(0,245,160,.19)!important}
+#sasOpenCountdown.market-state-pre{--session-glow:#ffad33;border-color:#ffad33!important;box-shadow:inset 0 0 30px rgba(255,173,51,.10),0 0 10px rgba(255,173,51,.24),0 0 28px rgba(255,173,51,.19)!important}
+#sasOpenCountdown.market-state-after{--session-glow:#bd75ff;border-color:#bd75ff!important;box-shadow:inset 0 0 30px rgba(189,117,255,.12),0 0 10px rgba(189,117,255,.26),0 0 30px rgba(189,117,255,.22)!important}
+#sasOpenCountdown.market-state-closed{--session-glow:#ff405e;border-color:#ff405e!important;box-shadow:inset 0 0 30px rgba(255,64,94,.11),0 0 10px rgba(255,64,94,.25),0 0 30px rgba(255,64,94,.20)!important}
+#sasOpenCountdown:before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;opacity:.85;background:radial-gradient(ellipse at 50% 0,color-mix(in srgb,var(--session-glow) 15%,transparent),transparent 62%);z-index:-1}
+#sasOpenCountdown #sasCountdownStateTitle{color:var(--session-glow)!important;text-shadow:0 0 8px color-mix(in srgb,var(--session-glow) 42%,transparent),0 0 20px color-mix(in srgb,var(--session-glow) 28%,transparent)!important;transition:color .28s ease,text-shadow .28s ease}
+#sasOpenCountdown .sas-countdown-live{color:var(--session-glow)!important;border-color:color-mix(in srgb,var(--session-glow) 55%,transparent)!important;background:color-mix(in srgb,var(--session-glow) 8%,transparent)!important;box-shadow:0 0 16px color-mix(in srgb,var(--session-glow) 18%,transparent)!important}
+#sasOpenCountdown .sas-countdown-live i{background:var(--session-glow)!important;box-shadow:0 0 7px var(--session-glow),0 0 15px var(--session-glow)!important}
+#sasOpenCountdown.market-state-open .sas-countdown-live i{animation:sasStatusPulse 1.4s infinite}
+@media(prefers-reduced-motion:reduce){#sasOpenCountdown,#sasOpenCountdown #sasCountdownStateTitle{transition:none!important}#sasOpenCountdown .sas-countdown-live i{animation:none!important}}
