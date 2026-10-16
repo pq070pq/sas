@@ -66,47 +66,69 @@ async def record_response(response: Any) -> None:
         if _remaining is not None and reserve > 0 and _remaining <= reserve:
             _blocked = True
             _block_reason = f"remaining credits {_remaining} <= reserve {reserve}"
-        if getattr(response, "status_code", None) == 429:
-            _blocked = True
-            _block_reason = "Twelve Data returned HTTP 429"
 
 
 async def call(getter: Callable[..., Awaitable[Any]], *args, **kwargs):
-    """Guard one Twelve Data request and rotate configured keys on throttling."""
+    """Guard Twelve Data requests and rotate configured credentials on per-key failures.
+
+    Each credential must be independently provisioned and used within its own
+    provider terms. Shared account-credit exhaustion and local daily caps still
+    stop requests; key rotation is not used to bypass account-level quotas.
+    """
     global _blocked, _block_reason
     if not await allowed():
         raise RuntimeError(f"Twelve Data circuit breaker open: {_block_reason or 'protected'}")
 
-    key = await _pool.acquire()
-    if not key:
-        raise RuntimeError("Twelve Data credential pool is cooling down")
+    params_original = kwargs.get("params")
+    base_params = dict(params_original) if isinstance(params_original, dict) else None
+    attempts = max(1, _pool.size)
+    last_response = None
+    last_error = None
 
-    params = kwargs.get("params")
-    if isinstance(params, dict):
-        params = dict(params)
-        params["apikey"] = key
-        kwargs["params"] = params
+    for _ in range(attempts):
+        if not await allowed():
+            break
+        key = await _pool.acquire()
+        if not key:
+            break
+        call_kwargs = dict(kwargs)
+        if base_params is not None:
+            call_kwargs["params"] = {**base_params, "apikey": key}
+        try:
+            response = await getter(*args, **call_kwargs)
+        except Exception as exc:
+            last_error = exc
+            await _pool.mark_failure(key)
+            continue
 
-    try:
-        response = await getter(*args, **kwargs)
-    except Exception:
-        await _pool.mark_failure(key)
-        raise
+        last_response = response
+        await record_response(response)
+        code = getattr(response, "status_code", None)
+        if code in (401, 403, 429):
+            retry = response.headers.get("Retry-After")
+            await _pool.mark_failure(key, retry_after=int(retry) if retry and retry.isdigit() else None)
+            # 401/403 are credential-specific; 429 can be key-rate limiting.
+            # Try another configured credential, but never exceed local daily
+            # cap or a provider-reported shared-account credit reserve.
+            if not await allowed():
+                break
+            continue
 
-    await record_response(response)
-
-    if getattr(response, "status_code", None) in (401, 403, 429):
-        retry = response.headers.get("Retry-After")
-        await _pool.mark_failure(key, retry_after=int(retry) if retry and retry.isdigit() else None)
-        snap = await _pool.snapshot()
-        if snap["available"] == 0:
-            async with _lock:
-                _blocked = True
-                _block_reason = f"all {snap['keys']} Twelve Data credentials are cooling down"
-    else:
         await _pool.mark_success(key)
+        return response
 
-    return response
+    snap = await _pool.snapshot()
+    async with _lock:
+        if snap["keys"] and snap["available"] == 0:
+            _blocked = True
+            _block_reason = f"all {snap['keys']} Twelve Data credentials are cooling down"
+        elif last_response is not None and getattr(last_response, "status_code", None) == 429:
+            _block_reason = "Twelve Data rate limit; credentials are cooling down"
+    if last_response is not None:
+        return last_response
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f"Twelve Data credential pool unavailable: {_block_reason or 'cooling down'}")
 
 
 async def status() -> dict:
