@@ -2534,14 +2534,7 @@ function renderGiftMessagePreview(){
  if(node)node.textContent=Number.isInteger(days)&&days>0?String(days):'7';
 }
 document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays')renderGiftMessagePreview();});
- const data=[
-  {label:'الزخم (RSI 14)',value:rsi,tone:'violet',note:'مؤشر القوة النسبية'},
-  {label:'السيولة (RVOL)',value:rvol===null?null:rvol+'×',tone:'green',note:'الحجم النسبي'},
-  {label:'التقلب (ATR 14)',value:atr,tone:'blue',note:'متوسط المدى الحقيقي'}
- ].filter(x=>x.value!==null&&x.value!==undefined&&x.value!=='');
- if(!data.length)return '';
- return '<div class="sas-terminal-metrics" id="sasTerminalMetrics">'+data.map(x=>'<article class="sas-terminal-metric '+x.tone+'"><div class="sas-terminal-metric-icon">'+(x.tone==='violet'?'◉':x.tone==='green'?'▥':'∿')+'</div><div><small>'+x.label+'</small><strong>'+x.value+'</strong><span>'+x.note+'</span></div></article>').join('')+'</div>';
-}
+
 function renderStockTerminalAverages(classification,targets){
  const c=classification&&typeof classification==='object'?classification:{},t=targets&&typeof targets==='object'?targets:{};
  const nested=c.indicators&&typeof c.indicators==='object'?c.indicators:{},ind=t.indicators&&typeof t.indicators==='object'?t.indicators:{};
