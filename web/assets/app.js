@@ -1572,12 +1572,8 @@ function renderAccount(){
  if(accessText)accessText.textContent=active?'الوصول مفعّل — عضويتك جاهزة للاستفادة من SAS PRO':'الوصول غير مفعّل — راجع حالة الاشتراك';
  const statusLine=document.querySelector('.sas-profile-statusline');
  if(statusLine){statusLine.classList.toggle('is-active',active);statusLine.classList.toggle('is-inactive',!active);}
- const avatar=document.querySelector('.sas-profile-avatar');
- const profileIcon=terminalState.siteMedia?.['icon-profile']?.url;
- if(avatar&&profileIcon){
-  const current=avatar.querySelector('img');
-  if(!current||current.getAttribute('src')!==profileIcon)avatar.innerHTML='<img src="'+esc(profileIcon)+'" alt="" aria-hidden="true">';
- }else if(avatar&&!profileIcon&&!avatar.dataset.mediaManaged){avatar.textContent='📈';}
+ // The shared site-media loader owns the profile avatar icon so uploads and
+ // resets stay consistent regardless of whether account data or media loads first.
  const status=active?'<span class="sas-profile-active">● فعّال</span>':'<span class="sas-profile-inactive">● غير فعّال</span>';
  const plan=source==='trial'?'تجربة مجانية':(me.plan||me.user?.plan||'SAS PRO');
  const expiryLabel=exp?fmtDate(exp):(source==='free'?'مفتوح':'—');
