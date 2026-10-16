@@ -273,15 +273,9 @@ jobs:
             # Run a one-time live quote audit only for an explicitly named diagnostic commit (MARKET QUOTE DIAGNOSTIC).
             if git log -1 --pretty=%s | grep -q "MARKET QUOTE DIAGNOSTIC"; then
               echo "===== SAS PRO LIVE MARKET QUOTE DIAGNOSTIC ====="
-              docker compose exec -T saspro python -c 'import asyncio,json; from app.market import macro_quote; symbols=["VIX","XAU/USD","SPX","IXIC","DJI","BTC/USD"]; async_main=None
-              async def main():
-                  for symbol in symbols:
-                      try:
-                          row=await asyncio.wait_for(macro_quote(symbol),timeout=40)
-                          print(json.dumps({"symbol":symbol,"price":row.get("price"),"change_pct":row.get("change_pct"),"source":row.get("source"),"stale":row.get("stale",False),"delayed":row.get("is_delayed",False),"datetime":row.get("datetime"),"diagnostic":row.get("diagnostic")},ensure_ascii=False))
-                      except Exception as exc:
-                          print(json.dumps({"symbol":symbol,"error":type(exc).__name__},ensure_ascii=False))
-              asyncio.run(main())'
+              for symbol in VIX XAU/USD SPX IXIC DJI BTC/USD; do
+                docker compose exec -T saspro python -c "import asyncio,json; from app.market import macro_quote; s='$symbol'; r=asyncio.run(macro_quote(s)); print(json.dumps({'symbol':s,'price':r.get('price'),'change_pct':r.get('change_pct'),'source':r.get('source'),'stale':r.get('stale',False),'delayed':r.get('is_delayed',False),'datetime':r.get('datetime'),'diagnostic':r.get('diagnostic')},ensure_ascii=False))"
+              done
               echo "===== END SAS PRO LIVE MARKET QUOTE DIAGNOSTIC ====="
             fi
 
