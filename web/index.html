@@ -9,6 +9,13 @@
 <title>SAS PRO — Market Terminal</title>
 <link rel="stylesheet" href="/assets/app-ticker-fix-20261015.css?v=quality-api-diagnostic-20261016-5">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
+<style id="sas-interactive-back-style">
+#sasInteractiveBack{position:fixed;top:calc(env(safe-area-inset-top,0px) + 82px);right:14px;z-index:9998;display:none;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:9px 15px;border:1px solid rgba(87,220,255,.58);border-radius:999px;background:linear-gradient(135deg,rgba(5,43,64,.96),rgba(2,13,25,.96));color:#dffaff;box-shadow:0 0 18px rgba(45,201,255,.18),inset 0 0 12px rgba(45,201,255,.08);font:inherit;font-size:14px;font-weight:800;cursor:pointer;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+#sasInteractiveBack.is-visible{display:inline-flex}
+#sasInteractiveBack:active{transform:scale(.96)}
+#sasInteractiveBack svg{width:18px;height:18px;flex:none}
+@media(min-width:900px){#sasInteractiveBack{top:100px;right:24px}}
+</style>
 </head>
 <body>
 <div id="sasWelcomeOverlay" class="sas-welcome-overlay" hidden aria-live="polite" role="status">
@@ -407,7 +414,50 @@
   </div>
 </div>
 
-<script src="/assets/app-ticker-fix-20261015.js?v=shariah-disclaimer-20261016-1"></script>
+<button id="sasInteractiveBack" type="button" aria-label="العودة إلى الصفحة الرئيسية" title="العودة إلى الرئيسية" hidden><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 5 8 12l7 7M8 12h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>رجوع</span></button>
+<script>
+(function(){
+ if(window.__sasInteractiveBackReady)return;
+ window.__sasInteractiveBackReady=true;
+ function init(){
+  var btn=document.getElementById('sasInteractiveBack');
+  if(!btn)return;
+  function sync(){
+   var admin=document.getElementById('adminPage');
+   var adminOpen=!!(admin&&!admin.hidden);
+   var active=document.querySelector('.terminal-tab.active');
+   var dashboard=document.getElementById('tab-dashboard');
+   var dashboardActive=(active&&active.id==='tab-dashboard')||(!active&&dashboard&&!dashboard.hidden);
+   var show=adminOpen||(!dashboardActive&&!!active);
+   btn.hidden=!show;
+   btn.classList.toggle('is-visible',show);
+  }
+  btn.addEventListener('click',function(){
+   var admin=document.getElementById('adminPage');
+   if(admin&&!admin.hidden){
+    if(typeof window.openAdminUserView==='function')window.openAdminUserView();
+    else admin.hidden=true;
+   }else if(typeof window.switchTerminalTab==='function'){
+    window.switchTerminalTab('dashboard');
+   }else{
+    var home=document.getElementById('tab-dashboard');
+    if(home)home.hidden=false;
+   }
+   sync();
+  });
+  document.addEventListener('click',function(e){
+   if(e.target.closest('[data-tab],[data-admin-target],button[onclick*="switchTerminalTab"],button[onclick*="openAdmin"]'))window.setTimeout(sync,50);
+  });
+  var observer=new MutationObserver(sync);
+  observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','hidden']});
+  window.addEventListener('hashchange',sync);
+  window.addEventListener('popstate',sync);
+  sync();
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
+<script src="/assets/app-ticker-fix-20261015.js?v=shariah-cta-back-20261016-2"></script>
 
 <script>
 /* Presentation-only interactions. Does not modify radar, pricing, API calls, or permissions. */
