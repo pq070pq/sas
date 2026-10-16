@@ -549,60 +549,73 @@ async def _public_macro_quote(symbol: str):
     return None
 
 async def macro_quote(symbol: str):
-    """Return market indicators using live providers first, then reliable last closes."""
+    """Return market indicators with bounded provider timeouts and honest freshness labels."""
     diagnostics = []
 
+    async def attempt(name, factory, timeout=5.0):
+        try:
+            result = await asyncio.wait_for(factory(), timeout=timeout)
+            if result and _valid_price(result.get("price")):
+                return result
+            diagnostics.append(f"{name}:no_data")
+        except Exception as exc:
+            diagnostics.append(f"{name}:{type(exc).__name__}")
+        return None
+
+    # Keyless crypto/gold sources have been verified to return fresh data in production.
     if symbol in {"BTC/USD", "XAU/USD"}:
-        try:
-            fallback = await _public_macro_quote(symbol)
-            if fallback:
-                return fallback
-            diagnostics.append("Public:no_data")
-        except Exception as exc:
-            diagnostics.append(f"Public:{type(exc).__name__}")
+        result = await attempt("Public", lambda: _public_macro_quote(symbol), timeout=8.0)
+        if result:
+            return result
 
-    # Paid/configured index providers first.
-    try:
-        fallback = await _fmp_index_quote(symbol) if symbol in {"SPX", "IXIC", "DJI"} else None
-        if fallback:
-            return fallback
-        fallback = await _fmp_quote(symbol)
-        if fallback:
-            return fallback
-        diagnostics.append("FMP:no_data")
-    except Exception as exc:
-        diagnostics.append(f"FMP:{type(exc).__name__}")
+    # VIX had been timing out because several slow providers ran sequentially.
+    # Try its keyless index quote first, then bounded paid-provider fallbacks.
+    if symbol == "VIX":
+        result = await attempt("Stooq", lambda: _stooq_quote(symbol), timeout=8.0)
+        if result:
+            return result
+        result = await attempt("FMP", lambda: _fmp_quote(symbol), timeout=5.0)
+        if result:
+            return result
+        result = await attempt("Finnhub", lambda: _finnhub_quote(symbol), timeout=5.0)
+        if result:
+            return result
 
-    try:
-        fallback = await _finnhub_quote(symbol)
-        if fallback:
-            return fallback
-        diagnostics.append("Finnhub:no_data")
-    except Exception as exc:
-        diagnostics.append(f"Finnhub:{type(exc).__name__}")
-
-    # Keyless snapshot/history fallback prevents a slow API chain from leaving
-    # every market-indicator card empty when the market is closed.
-    try:
-        snapshot = await _stooq_quote(symbol)
-        if snapshot:
-            return snapshot
-        diagnostics.append("Stooq:no_data")
-    except Exception as exc:
-        diagnostics.append(f"Stooq:{type(exc).__name__}")
-
+    # Configured providers first for the three US benchmarks, but each attempt
+    # is bounded so a long API-key rotation cannot starve the last-close fallback.
     if symbol in {"SPX", "IXIC", "DJI"}:
-        try:
-            fred = await _fred_index_quote(symbol)
-            if fred:
-                return fred
-            diagnostics.append("FRED:no_data")
-        except Exception as exc:
-            diagnostics.append(f"FRED:{type(exc).__name__}")
+        result = await attempt("FMPIndex", lambda: _fmp_index_quote(symbol), timeout=5.0)
+        if result:
+            return result
+        result = await attempt("FMP", lambda: _fmp_quote(symbol), timeout=5.0)
+        if result:
+            return result
+        result = await attempt("Finnhub", lambda: _finnhub_quote(symbol), timeout=5.0)
+        if result:
+            return result
+        # A real, verified daily close is preferable to a blank card or a fake live quote.
+        result = await attempt("FRED", lambda: _fred_index_quote(symbol), timeout=5.0)
+        if result:
+            result["stale"] = True
+            result["source"] = str(result.get("source") or "FRED Last Close") + " — آخر إغلاق موثق"
+            return result
+        result = await attempt("Stooq", lambda: _stooq_quote(symbol), timeout=8.0)
+        if result:
+            return result
 
-    # Last resort: quote endpoint and daily-close fallback using configured keys.
+    # General fallback path for any other macro symbols.
+    result = await attempt("FMP", lambda: _fmp_quote(symbol), timeout=5.0)
+    if result:
+        return result
+    result = await attempt("Finnhub", lambda: _finnhub_quote(symbol), timeout=5.0)
+    if result:
+        return result
+    result = await attempt("Stooq", lambda: _stooq_quote(symbol), timeout=8.0)
+    if result:
+        return result
+
     try:
-        item = await quote(symbol)
+        item = await asyncio.wait_for(quote(symbol), timeout=5.0)
         if _valid_price(item.get("price")):
             return item
         diagnostics.append(f"Quote:{item.get('source', 'no_data')}")
@@ -610,8 +623,9 @@ async def macro_quote(symbol: str):
         diagnostics.append(f"Quote:{type(exc).__name__}")
 
     try:
-        last_close = await _twelve_last_close(symbol)
+        last_close = await asyncio.wait_for(_twelve_last_close(symbol), timeout=5.0)
         if last_close:
+            last_close["stale"] = True
             return last_close
         diagnostics.append("TwelveLastClose:no_data")
     except Exception as exc:
