@@ -1563,18 +1563,45 @@ function renderAccount(){
  const active=!!me.pro;
  const source=me.access?.source||null;
  const name=me.user?.first_name||me.user?.username||'متداول SAS PRO';
+ const username=me.user?.username?'@'+me.user.username:'غير مضاف';
  const accountName=document.getElementById('accountName');
  if(accountName)accountName.textContent=name;
  const accountPlan=document.getElementById('accountPlan');
- if(accountPlan)accountPlan.textContent=(me.user?.username?'@'+me.user.username+' • ':'')+(source==='trial'?'تجربة مجانية':(me.user?.plan||me.plan||'عضوية SAS PRO'));
+ if(accountPlan)accountPlan.textContent=(me.user?.username?username+' • ':'')+(source==='trial'?'تجربة مجانية':(me.user?.plan||me.plan||'عضوية SAS PRO'));
  const accessText=document.getElementById('profileAccessText');
- if(accessText)accessText.textContent=active?'الوصول مفعّل — أهلاً بك في مركز عضويتك':'الوصول غير مفعّل — راجع حالة الاشتراك';
+ if(accessText)accessText.textContent=active?'الوصول مفعّل — عضويتك جاهزة للاستفادة من SAS PRO':'الوصول غير مفعّل — راجع حالة الاشتراك';
+ const statusLine=document.querySelector('.sas-profile-statusline');
+ if(statusLine){statusLine.classList.toggle('is-active',active);statusLine.classList.toggle('is-inactive',!active);}
  const avatar=document.querySelector('.sas-profile-avatar');
  const profileIcon=terminalState.siteMedia?.['icon-profile']?.url;
- if(avatar&&profileIcon&&!avatar.querySelector('img'))avatar.innerHTML='<img src="'+esc(profileIcon)+'" alt="" aria-hidden="true">';
+ if(avatar&&profileIcon){
+  const current=avatar.querySelector('img');
+  if(!current||current.getAttribute('src')!==profileIcon)avatar.innerHTML='<img src="'+esc(profileIcon)+'" alt="" aria-hidden="true">';
+ }else if(avatar&&!profileIcon&&!avatar.dataset.mediaManaged){avatar.textContent='📈';}
  const status=active?'<span class="sas-profile-active">● فعّال</span>':'<span class="sas-profile-inactive">● غير فعّال</span>';
  const plan=source==='trial'?'تجربة مجانية':(me.plan||me.user?.plan||'SAS PRO');
- document.getElementById('accountCards').innerHTML='<div class="sas-profile-fact"><small>حالة الوصول</small><b>'+status+'</b></div><div class="sas-profile-fact"><small>الباقة الحالية</small><b>'+escHtml(plan)+'</b></div><div class="sas-profile-fact"><small>تاريخ الانتهاء</small><b>'+escHtml(exp?fmtDate(exp):(source==='free'?'مفتوح':'—'))+'</b></div>';
+ const expiryLabel=exp?fmtDate(exp):(source==='free'?'مفتوح':'—');
+ const daysLabel=exp?fmtDays(new Date(),exp):(source==='free'?'دون انتهاء':'—');
+ const cards=document.getElementById('accountCards');
+ if(cards)cards.innerHTML='<button type="button" class="sas-profile-fact sas-profile-fact-button" onclick="toggleProfileDetails()" aria-controls="sasProfileDetails"><small>حالة الوصول</small><b>'+status+'</b><span>اضغط للتفاصيل ↙</span></button><button type="button" class="sas-profile-fact sas-profile-fact-button" onclick="toggleProfileDetails()" aria-controls="sasProfileDetails"><small>الباقة الحالية</small><b>'+escHtml(plan)+'</b><span>عرض معلومات العضوية ↙</span></button><button type="button" class="sas-profile-fact sas-profile-fact-button" onclick="toggleProfileDetails()" aria-controls="sasProfileDetails"><small>الانتهاء • المتبقي</small><b>'+escHtml(expiryLabel)+'</b><span>'+escHtml(daysLabel)+' • عرض التفاصيل ↙</span></button>';
+ const details=document.getElementById('sasProfileDetails');
+ if(details){
+  const values=details.querySelectorAll('[data-profile-value]');
+  values.forEach(el=>{const key=el.dataset.profileValue;const map={username,plan,expiry:expiryLabel,days:daysLabel,source:source==='trial'?'تجربة مجانية':source==='free'?'وصول مجاني':active?'اشتراك مدفوع':'لا يوجد وصول'};if(map[key]!==undefined)el.textContent=map[key];});
+ }
+ const copyBtn=document.getElementById('profileCopyBtn');
+ if(copyBtn)copyBtn.disabled=!me.user?.username;
+}
+async function copyProfileIdentity(){
+ const username=me.user?.username;
+ const value=username?'@'+username:(me.user?.first_name||'');
+ if(!value){alert('لا يوجد اسم مستخدم متاح للنسخ.');return;}
+ try{
+  if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(value);
+  else{const field=document.createElement('textarea');field.value=value;field.style.position='fixed';field.style.opacity='0';document.body.appendChild(field);field.select();const ok=document.execCommand('copy');field.remove();if(!ok)throw new Error('تعذر النسخ');}
+  const btn=document.getElementById('profileCopyBtn');
+  if(btn){const previous=btn.innerHTML;btn.innerHTML='<span>✓</span><b>تم النسخ</b><small>'+escHtml(value)+'</small>';setTimeout(()=>{if(btn.isConnected)btn.innerHTML=previous;},1800);}
+ }catch(e){alert('تعذر نسخ البيانات تلقائيًا. اسم الحساب: '+value);}
 }
 function toggleProfileDetails(){
  const panel=document.getElementById('sasProfileDetails');
@@ -1749,6 +1776,7 @@ async function buyPlan(k){
 }
 
 const SAS_SITE_MEDIA_MANAGED_ITEMS_V2=[
+ {slot:'icon-profile',label:'أيقونة ملف المستخدم الشخصي',fallback:'👤',target:'.sas-profile-avatar'},
  {slot:'icon-radar',label:'أيقونة زر الرادار',fallback:'📡',target:'.radar-icon'},
  {slot:'icon-channel',label:'أيقونة زر القناة',fallback:'✈️',target:'.channel-icon'},
  {slot:'icon-home',label:'أيقونة تبويب الرئيسية',fallback:'⌂',target:'.terminal-tabs button[data-tab="dashboard"]'},
@@ -1756,7 +1784,6 @@ const SAS_SITE_MEDIA_MANAGED_ITEMS_V2=[
  {slot:'icon-search',label:'أيقونة تبويب البحث',fallback:'🔎',target:'.terminal-tabs button[data-tab="search"]'},
  {slot:'icon-news',label:'أيقونة أخبار السوق الأمريكي',fallback:'📰',target:'.sas-market-news-icon'},
  {slot:'icon-account',label:'أيقونة تبويب الحساب',fallback:'👤',target:'.terminal-tabs button[data-tab="account"]'},
- {slot:'icon-profile',label:'أيقونة ملف المستخدم الشخصي',fallback:'👤',target:'.sas-profile-avatar'},
 
 
 
