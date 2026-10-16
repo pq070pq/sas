@@ -3118,13 +3118,36 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         from .scanner import classify_sas
         classification = await classify_sas(symbol, q, allow_twelve_fallback=True)
         if isinstance(classification, Exception):
-            classification = {"quality_data_available": False, "quality_error": f"{type(classification).__name__}: {str(classification)[:180]}"}
+            exc = classification
+            logger.error(
+                "SAS quality classification returned exception for %s: %s",
+                symbol, type(exc).__name__, exc_info=(type(exc), exc, exc.__traceback__),
+            )
+            classification = {
+                "type": "غير محدد", "behavior": "غير قابل للتقييم",
+                "score": None, "quality_score": None, "stars": None,
+                "quality_checks": {}, "conditional_plan": {}, "trading_style": None,
+                "risk_level": "غير محدد", "risk_score": None, "risk_emoji": "⚠️",
+                "risk_reasons": ["تعذر جلب بيانات المؤشرات"],
+                "quality_data_available": False,
+                "quality_error": f"{type(exc).__name__}: {str(exc)[:180]}",
+                "reason": "تعذر حساب المؤشرات من المصادر الحالية؛ لم يتم تخمين التقييم.",
+                "recommendation": "غير قابل للتقييم — تعذر حساب المؤشرات من البيانات المتاحة.",
+                "pass": False,
+            }
     except Exception as exc:
         logger.exception("SAS quality classification failed for %s", symbol)
         classification = {
+            "type": "غير محدد", "behavior": "غير قابل للتقييم",
+            "score": None, "quality_score": None, "stars": None,
+            "quality_checks": {}, "conditional_plan": {}, "trading_style": None,
+            "risk_level": "غير محدد", "risk_score": None, "risk_emoji": "⚠️",
+            "risk_reasons": ["تعذر جلب بيانات المؤشرات"],
             "quality_data_available": False,
             "quality_error": f"{type(exc).__name__}: {str(exc)[:180]}",
+            "reason": "تعذر حساب المؤشرات من المصادر الحالية؛ لم يتم تخمين التقييم.",
             "recommendation": "غير قابل للتقييم — تعذر حساب المؤشرات من البيانات المتاحة.",
+            "pass": False,
         }
 
     # FCC reviewer: طبقة مراجعة اختيارية بعد اجتياز SAS، وليست بوابة للرادار.
