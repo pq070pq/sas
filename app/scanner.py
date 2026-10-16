@@ -2068,7 +2068,73 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
     if distribution_risk:
         evidence.append("⚠️ فوليوم مرتفع بدون تقدم واضح")
 
+    # Unified stock-quality assessment: transparent five-star rating and
+    # conditional trade plan derived only from observed OHLCV/indicator values.
+    # A missing critical input caps the rating and blocks actionable wording.
+    quality_score = max(0, min(100, int(round(
+        score * 0.55
+        + advanced_score * 0.25
+        + (20 if strategy_pass else 0)
+    ))))
+    critical_data_ok = bool(
+        len(candles) >= 60 and price > 0 and atr14 > 0
+        and data_source not in ("unavailable", "")
+    )
+    if not critical_data_ok:
+        quality_score = min(quality_score, 39)
+    stars = max(0, min(5, int(quality_score // 20)))
+    star_rating = ("★" * stars) + ("☆" * (5 - stars))
+
+    quality_checks = {
+        "daily_candles": {"pass": len(candles) >= 60, "value": len(candles), "required": 60},
+        "trend_ema20_50_200": {"pass": power_trend, "value": "صاعد" if power_trend else "غير مكتمل"},
+        "rsi_55_70": {"pass": rsi14 is not None and 55 <= rsi14 <= 70, "value": round(rsi14, 2) if rsi14 is not None else None},
+        "relative_volume_1_5": {"pass": rvol >= 1.5, "value": round(rvol, 2)},
+        "relative_strength_vs_qqq": {"pass": relative_strength is not None and relative_strength > 0, "value": round(relative_strength * 100, 2) if relative_strength is not None else None},
+        "breakout_confirmed": {"pass": breakout_confirmed, "value": breakout_level},
+        "accumulation": {"pass": accumulation, "value": accumulation},
+        "liquidity_distribution_risk": {"pass": not distribution_risk, "value": distribution_risk},
+        "bearish_structure": {"pass": not (bearish_head_shoulders or bool(divergence.get("bearish"))), "value": bool(bearish_head_shoulders or divergence.get("bearish"))},
+        "entry_not_chasing": {"pass": not chase_risk, "value": chase_risk},
+        "risk_reward": {"pass": bool(smart_gate.get("risk_reward_pass", False)), "value": smart_gate.get("risk_reward")},
+        "data_source": {"pass": critical_data_ok, "value": data_source},
+    }
+
+    # Conditional plan: levels are scenarios, not guaranteed forecasts.
+    stop_level = None
+    if support is not None and support < price:
+        stop_level = support - (0.25 * atr14)
+    elif atr14 > 0:
+        stop_level = price - (1.5 * atr14)
+    breakout_trigger = breakout_level if breakout_level and breakout_level > price else None
+    target1 = next_resistance if next_resistance and next_resistance > price else (price + 1.5 * atr14 if atr14 > 0 else None)
+    target2 = (price + 2.5 * atr14) if atr14 > 0 else None
+    conditional_plan = {
+        "status": "انتظار اختراق وإغلاق فوق المستوى" if breakout_trigger else ("مراقبة قرب الدعم" if support is not None else "لا توجد نقطة دخول موثوقة"),
+        "trigger_level": round(breakout_trigger, 4) if breakout_trigger else None,
+        "confirmation": "إغلاق شمعة فوق المقاومة مع RVOL ≥ 1.5x، ويفضل نجاح إعادة الاختبار",
+        "stop_loss": round(stop_level, 4) if stop_level and stop_level > 0 else None,
+        "target_1": round(target1, 4) if target1 and target1 > price else None,
+        "target_2": round(target2, 4) if target2 and target2 > price else None,
+        "basis": "مستويات الدعم/المقاومة وATR المحسوبة من الشموع اليومية",
+        "warning": "سيناريو مشروط وليس توصية مضمونة؛ يُلغى السيناريو إذا فقد السعر البنية أو أغلق دون الوقف",
+    }
+    recommendation = (
+        "مرشح إيجابي مشروط بعد تأكيد الاختراق"
+        if critical_data_ok and strategy_pass and breakout_confirmed and not chase_risk
+        else "مراقبة فقط — لا دخول قبل تحقق الشروط"
+    )
+    if not critical_data_ok:
+        recommendation = "غير قابل للتقييم: بيانات الشموع غير كافية أو مصدرها غير موثوق"
+
     return {
+        "quality_score": quality_score,
+        "star_rating": star_rating,
+        "stars": stars,
+        "quality_checks": quality_checks,
+        "conditional_plan": conditional_plan,
+        "recommendation": recommendation,
+        "analysis_disclaimer": "تحليل تعليمي مبني على البيانات المتاحة وليس توصية استثمارية شخصية. الأهداف والوقف احتمالية وغير مضمونة، وقرار التداول وإدارة المخاطر مسؤولية المتداول.",
         "behavior": behavior,
         "type": stock_type,
         "emoji": emoji,
