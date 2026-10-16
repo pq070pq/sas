@@ -1280,22 +1280,32 @@ function mountSASTradingViewChart(root,symbol,exchange){
  container.appendChild(script);
  host.replaceChildren(container);
 }
-function renderStockTerminalQuickMetrics(classification,targets,mini){
+function renderStockTerminalQuickMetrics(classification,targets,mini,candles=[]){
  const c=classification&&typeof classification==='object'?classification:{},t=targets&&typeof targets==='object'?targets:{},m=mini&&typeof mini==='object'?mini:{};
  const nested=c.indicators&&typeof c.indicators==='object'?c.indicators:{},ind=t.indicators&&typeof t.indicators==='object'?t.indicators:{};
  const pick=(...v)=>v.find(x=>x!==null&&x!==undefined&&x!==''&&Number.isFinite(Number(x)));
  const fmt=(v,d=2)=>{const n=Number(v);return v===undefined||v===null||v===''||!Number.isFinite(n)?null:n.toFixed(d);};
- const rsi=fmt(pick(c.rsi14,nested.rsi14,ind.rsi14));
+ const validCandles=(Array.isArray(candles)?candles:[]).filter(x=>Number.isFinite(Number(x?.close))&&Number(x.close)>0);
+ const closes=validCandles.map(x=>Number(x.close));
+ const calcRsi=()=>{if(closes.length<15)return null;let gains=0,losses=0;for(let i=closes.length-14;i<closes.length;i++){const d=closes[i]-closes[i-1];if(d>0)gains+=d;else losses-=d;}const ag=gains/14,al=losses/14;return al===0?100:100-(100/(1+ag/al));};
+ const rsi=fmt(pick(c.rsi14,nested.rsi14,ind.rsi14,calcRsi()));
  const rvol=fmt(pick(m.rvol,c.rvol,nested.rvol,ind.rvol));
- const atrValue=pick(c.atr14,c.atr,nested.atr14,ind.atr14,t.atr14);
- const atr=atrValue!==undefined&&Number(atrValue)>0?'$'+money(atrValue):null;
+ const calcAtr=()=>{if(validCandles.length<14)return null;const rows=validCandles.slice(-14);let total=0;for(let i=0;i<rows.length;i++){const h=Number(rows[i].high),l=Number(rows[i].low),prev=i?Number(rows[i-1].close):Number(rows[i].close);if(!Number.isFinite(h)||!Number.isFinite(l))return null;total+=Math.max(h-l,Math.abs(h-prev),Math.abs(l-prev));}return total/rows.length;};
+ const atrValue=pick(c.atr14,c.atr,nested.atr14,ind.atr14,t.atr14,calcAtr());
+ const atr=atrValue!==undefined&&Number(atrValue)>0?String.fromCharCode(36)+money(atrValue):null;
  const data=[
   {label:'الزخم (RSI 14)',value:rsi,tone:'violet',note:'مؤشر القوة النسبية'},
   {label:'السيولة (RVOL)',value:rvol===null?null:rvol+'×',tone:'green',note:'الحجم النسبي'},
   {label:'التقلب (ATR 14)',value:atr,tone:'blue',note:'متوسط المدى الحقيقي'}
  ].filter(x=>x.value!==null&&x.value!==undefined&&x.value!=='');
- if(!data.length)return '';
- return '<div class="sas-terminal-metrics" id="sasTerminalMetrics">'+data.map(x=>'<article class="sas-terminal-metric '+x.tone+'"><div class="sas-terminal-metric-icon">'+(x.tone==='violet'?'◉':x.tone==='green'?'▥':'∿')+'</div><div><small>'+x.label+'</small><strong>'+x.value+'</strong><span>'+x.note+'</span></div></article>').join('')+'</div>';
+ const last=closes.length?closes[closes.length-1]:null,ma20=closes.length>=20?closes.slice(-20).reduce((a,b)=>a+b,0)/20:null;
+ const trendPct=last&&ma20?((last-ma20)/ma20)*100:null;
+ const trendLabel=trendPct===null?'بيانات الشارت غير كافية':trendPct>=1?'صاعد':trendPct<=-1?'هابط':'عرضي';
+ const trendTone=trendPct===null?'neutral':trendPct>=1?'up':trendPct<=-1?'down':'neutral';
+ const trendGauge=trendPct===null?0:Math.max(0,Math.min(100,50+trendPct*8));
+ const trendHtml='<section class="sas-terminal-trend-gauge '+trendTone+'" aria-label="مؤشر اتجاه السهم"><div class="sas-terminal-trend-head"><b>اتجاه الترند</b><strong>'+trendLabel+'</strong></div><div class="sas-terminal-trend-track"><i style="width:'+trendGauge+'%"></i></div><small>'+(ma20&&last?'مقارنة آخر إغلاق بالمتوسط المتحرك لـ20 جلسة':'يلزم توفر 20 شمعة سعرية لحساب الترند')+'</small></section>';
+ if(!data.length)return trendHtml;
+ return trendHtml+'<div class="sas-terminal-metrics" id="sasTerminalMetrics">'+data.map(x=>'<article class="sas-terminal-metric '+x.tone+'"><div class="sas-terminal-metric-icon">'+(x.tone==='violet'?'◉':x.tone==='green'?'▥':'∿')+'</div><div><small>'+x.label+'</small><strong>'+x.value+'</strong><span>'+x.note+'</span></div></article>').join('')+'</div>';
 }
 function renderStockTerminalAverages(classification,targets){
  const c=classification&&typeof classification==='object'?classification:{},t=targets&&typeof targets==='object'?targets:{};
@@ -1406,7 +1416,7 @@ const miniAnalysisHtml=
     '<section class="sas-terminal-hero"><div class="sas-terminal-company"><div class="sas-terminal-symbol">'+escHtml(symbol.slice(0,4))+'</div><div><span class="eyebrow">SAS PRO · STOCK ANALYSIS</span><h2>'+escHtml(symbol)+'</h2><p>'+escHtml(q.name||q.company_name||q.company||'سهم أمريكي')+'</p><div class="sas-terminal-tags"><span>'+escHtml(q.exchange||q.mic||'السوق الأمريكي')+'</span><span>'+escHtml(q.currency||'USD')+'</span></div></div></div><div class="sas-terminal-price"><strong>'+quotePriceDisplay+'</strong><span class="'+quoteChangeClass+'">'+quoteChangeDisplay+'</span><small>السعر حسب البيانات المستلمة</small><span class="sas-terminal-live '+(q.is_delayed||String(q.source||'').toLowerCase().includes('cusp')?'sas-quote-delayed':'')+'"><i></i>'+escHtml((q.is_delayed||String(q.source||'').toLowerCase().includes('cusp'))?'CUSP Wealth · آخر سعر منشور':(q.source||'مصدر السعر غير متاح'))+'</span><span class=\"sas-terminal-live sas-quote-delayed sas-price-freshness\"><i></i>قد يختلف وقت تحديث السعر عن وقت التحليل، وفقًا لمصدر البيانات وتوقيت التحديث.</span></div></section>'+
     '<nav class="sas-terminal-tabs" aria-label="أقسام تحليل السهم"><a href="#sasTerminalMetrics">المؤشرات</a><a href="#sasMovingAverages">المتوسطات</a><a href="#sasTerminalChart">الشارت</a><a href="#sasTerminalLevels">المستويات</a><a href="#sasTerminalNews">الأخبار</a><a href="#sasTerminalShariah">الشرعية</a></nav>'+
     notice+
-    renderStockTerminalQuickMetrics(classification,tech,mini)+
+    renderStockTerminalQuickMetrics(classification,tech,mini,chart.candles)+
     renderStockTerminalAverages(classification,tech)+
     renderAvailableLevelPanel('مستويات السهم','القيم الفعلية المستلمة من محرك SAS PRO',[['الدخول',Number.isFinite(entry)&&entry>0?'$'+money(entry):null],['وقف الخسارة',Number.isFinite(stop)&&stop>0?'$'+money(stop):null],['الهدف الأول',Number.isFinite(target1)&&target1>0?'$'+money(target1):null],['العائد/المخاطرة',rr==='—'?null:rr]])+
     (symbol?'<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت التفاعلي</b><small>شموع السعر وحجم التداول · SAS PRO</small></div>'+(me?.admin?'<a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a>':'')+'</div><div class="sas-tv-chart-shell"><div class="sas-tv-chart-heading"><b>TradingView · الشارت المتقدم</b><span>تفاعلي • شموع • أحجام التداول</span></div><div id="sasTradingViewChart" class="sas-tv-chart" aria-label="شارت TradingView للسهم"></div><p class="sas-tv-chart-note">الشارت من TradingView؛ السعر والقراءة الفنية أعلاه من بيانات SAS PRO وقد يختلف توقيت التحديث أو مصدر السعر.</p></div><div class="chart-box"><canvas id="stockCanvas" height="290"></canvas></div><div id="perpEquitiesAnalysis"></div></section>':'')+
@@ -1555,7 +1565,9 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
  const hasNumericValue=(v)=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v));
  const quoteUsable=(item)=>item&&((hasNumericValue(item.price)&&Number(item.price)>0)||hasNumericValue(item.change_pct));
  const quoteSymbolMatches=(item)=>!item?.symbol||String(item.symbol).trim().toUpperCase()===symbol;
- const displayQuote=quoteUsable(q)&&quoteSymbolMatches(q)?q:(quoteUsable(fallbackQuote)&&quoteSymbolMatches(fallbackQuote)?fallbackQuote:{symbol,price:null,change_pct:null,source:'غير متاح'});
+ const cuspPrice=hasNumericValue(cuspData?.price)&&Number(cuspData.price)>0?Number(cuspData.price):NaN;
+ const cuspQuote=Number.isFinite(cuspPrice)?{symbol,price:cuspPrice,change_pct:hasNumericValue(cuspData?.change_pct)?Number(cuspData.change_pct):null,source:'CUSP Wealth · آخر سعر منشور',is_delayed:true}:null;
+ const displayQuote=quoteUsable(q)&&quoteSymbolMatches(q)?q:(quoteUsable(fallbackQuote)&&quoteSymbolMatches(fallbackQuote)?fallbackQuote:(cuspQuote||{symbol,price:null,change_pct:null,source:'غير متاح'}));
  const price=hasNumericValue(displayQuote?.price)?Number(displayQuote.price):NaN;
  const change=hasNumericValue(displayQuote?.change_pct)?Number(displayQuote.change_pct):NaN;
  const priceText=Number.isFinite(price)&&price>0?String.fromCharCode(36)+money(price):'غير متاح';
@@ -1570,7 +1582,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
  const cuspFundamentalSummary=renderCuspFundamentalSummary(cuspData,displayQuote?.price);
  const cuspText=cuspData?.available?(cuspData.title||cuspData.description||'تم الوصول إلى صفحة CUSP؛ قد تكون التفاصيل محمّلة داخل الموقع.'):(cuspData?.message_ar||'بيانات CUSP غير متاحة آليًا الآن.');
  const cuspHasData=Boolean((cuspData?.available&&(cuspData.title||cuspData.description))||cuspMetricsHtml.includes('cusp-metrics-grid'));
- const quickMetrics=renderStockTerminalQuickMetrics(classification,targets,mini);
+ const quickMetrics=renderStockTerminalQuickMetrics(classification,targets,mini,chart.candles);
  const averages=renderStockTerminalAverages(classification,targets);
  const level=(v)=>{const n=Number(v);return Number.isFinite(n)&&n>0?'$'+money(n):'غير متاح';};
  el.innerHTML=
@@ -2734,4 +2746,4 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')startTimers();});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startTimers);else startTimers();
  if(Array.isArray(window.__sasLastTicker))renderIndices(window.__sasLastTicker);
-})();
+})()
