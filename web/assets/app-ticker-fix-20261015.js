@@ -2666,7 +2666,7 @@ startSASMediaAutoRefresh();
      sessionCard.classList.add(phase==='open'?'market-state-open':phase==='pre'?'market-state-pre':phase==='after'?'market-state-after':'market-state-closed');
      sessionCard.dataset.marketState=phase;
    }
-   if(sessionTitle)sessionTitle.textContent=phase==='open'?'السوق الأمريكي مفتوح':phase==='pre'?'السوق قبل الافتتاح':phase==='after'?'التداول بعد الإغلاق':'السوق الأمريكي مغلق';
+   if(sessionTitle)sessionTitle.textContent=phase==='open'?'السوق الأمريكي مفتوح':phase==='pre'?'السوق قبل الافتتاح':phase==='after'?'التداول الليلي':'السوق الأمريكي مغلق';
 
    if(strip){strip.classList.remove('is-open','is-pre','is-closed','is-after');strip.classList.add(phase==='open'?'is-open':phase==='pre'?'is-pre':phase==='after'?'is-after':'is-closed');strip.dataset.marketState=phase;}
    if(headline)headline.textContent=phase==='open'?'السوق الأمريكي مفتوح':phase==='pre'?'السوق الأمريكي قبل الافتتاح':phase==='after'?'التداول بعد الإغلاق':'السوق الأمريكي مغلق';
