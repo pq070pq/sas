@@ -5096,3 +5096,16 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-quality-error{margin:12px 0;padding:12px;border:1px solid rgba(255,91,112,.58);border-radius:13px;background:linear-gradient(135deg,rgba(91,15,32,.34),rgba(12,18,30,.92));color:#ffdbe1;box-shadow:0 0 16px rgba(255,55,88,.09)}.sas-quality-error b{display:block;color:#ff7b8f;font-size:12px}.sas-quality-error p{font-size:11px;line-height:1.8;margin:7px 0;color:#f3d4dc}.sas-quality-error small{font-size:9px;overflow-wrap:anywhere;color:#c59ca6}
 
 .sas-quality-error{display:block!important;visibility:visible!important;opacity:1!important;min-height:56px;position:relative;z-index:3}
+
+
+/* SAS PRO market state glow + explicit Arabic open/closed badge */
+.sas-market-strip{position:relative;isolation:isolate;transition:border-color .25s ease,box-shadow .25s ease,background .25s ease}
+.sas-market-strip.is-open{border-color:rgba(0,255,145,.9)!important;box-shadow:inset 0 0 28px rgba(0,255,145,.11),0 0 8px rgba(0,255,145,.22),0 0 25px rgba(0,255,145,.18)!important}
+.sas-market-strip.is-closed{border-color:rgba(255,55,83,.9)!important;box-shadow:inset 0 0 28px rgba(255,55,83,.10),0 0 8px rgba(255,55,83,.2),0 0 25px rgba(255,55,83,.16)!important}
+.sas-market-state-badge{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;min-width:54px;padding:7px 12px;border-radius:999px;font-size:12px;font-weight:900;letter-spacing:.02em;white-space:nowrap;border:1px solid currentColor}
+.sas-market-state-badge.is-open{color:#00f5a0;background:rgba(0,245,160,.10);box-shadow:0 0 12px rgba(0,245,160,.24),inset 0 0 10px rgba(0,245,160,.07);text-shadow:0 0 10px rgba(0,245,160,.45)}
+.sas-market-state-badge.is-closed{color:#ff526f;background:rgba(255,82,111,.10);box-shadow:0 0 12px rgba(255,82,111,.22),inset 0 0 10px rgba(255,82,111,.06);text-shadow:0 0 10px rgba(255,82,111,.45)}
+.sas-market-strip.is-open .sas-market-main strong{color:#8bffd0;text-shadow:0 0 12px rgba(0,245,160,.18)}
+.sas-market-strip.is-closed .sas-market-main strong{color:#ff8a9d;text-shadow:0 0 12px rgba(255,82,111,.18)}
+@media(max-width:650px){.sas-market-main{flex-wrap:wrap}.sas-market-state-badge{margin-inline-start:auto}.sas-market-main>div{flex:1 1 65%;}}
+@media(prefers-reduced-motion:reduce){.sas-market-strip,.sas-market-live-dot{animation:none!important;transition:none!important}}
