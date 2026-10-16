@@ -2965,6 +2965,27 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
                 cached["quote"] = live_quote
         except Exception:
             pass
+        # ترقية النتائج القديمة بعد إضافة محرك الجودة: لا نعيد كاشًا بلا نجوم أو خطة مشروطة.
+        try:
+            cached_sas = cached.setdefault("sas_pro", {})
+            cached_classification = cached_sas.get("classification")
+            if not isinstance(cached_classification, dict) or not all(
+                key in cached_classification for key in ("quality_score", "stars", "conditional_plan", "quality_checks", "trading_style")
+            ):
+                from .scanner import classify_sas
+                refreshed_classification = await asyncio.wait_for(
+                    classify_sas(symbol, cached.get("quote") or {}, allow_twelve_fallback=True),
+                    timeout=25.0,
+                )
+                if isinstance(refreshed_classification, dict):
+                    cached_sas["classification"] = refreshed_classification
+                    try:
+                        cached_sas["report"] = build_report(symbol, cached.get("quote") or {}, cached_sas.get("targets") or {}, refreshed_classification)
+                    except Exception:
+                        pass
+                    _cache_put(_analysis_memory, symbol, cached)
+        except Exception:
+            logger.exception("Could not refresh cached SAS quality classification for %s", symbol)
         if True:  # تحديث نتيجة يقين في كل تحليل لمنع عرض حكم شرعي قديم من الكاش.
             try:
                 cached.setdefault("sas_pro", {}).setdefault("targets", {})["shariah"] = await asyncio.wait_for(check_shariah(symbol), timeout=8.0)
@@ -3346,11 +3367,32 @@ async def stock_mini_analysis(symbol: str, _: dict = Depends(require_pro)):
             q_live = await quote(symbol)
         except Exception:
             q_live = None
+        cached_quote = q_live if isinstance(q_live, dict) and q_live.get("price") else cached.get("quote", {})
+        cached_classification = cached.get("classification")
+        cached_targets = cached.get("targets")
+        # Quick-cache entries created before the quality panel may lack all classification fields.
+        if not isinstance(cached_classification, dict) or not all(
+            key in cached_classification for key in ("quality_score", "stars", "conditional_plan", "quality_checks", "trading_style")
+        ):
+            try:
+                from .scanner import classify_sas
+                refreshed_classification = await asyncio.wait_for(
+                    classify_sas(symbol, cached_quote or {}, allow_twelve_fallback=True),
+                    timeout=25.0,
+                )
+                if isinstance(refreshed_classification, dict):
+                    cached_classification = refreshed_classification
+                    cached["classification"] = refreshed_classification
+                    _cache_put(_quick_scan_memory, symbol, cached)
+            except Exception:
+                logger.exception("Could not refresh quick-cache SAS quality classification for %s", symbol)
         return {
             "ok": True,
             "symbol": symbol,
-            "quote": q_live if isinstance(q_live, dict) and q_live.get("price") else cached.get("quote", {}),
+            "quote": cached_quote,
             "mini_analysis": cached.get("mini_analysis", cached),
+            "classification": cached_classification or {},
+            "targets": cached_targets or {},
             "cached": True,
         }
 
