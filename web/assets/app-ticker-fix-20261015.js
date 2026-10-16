@@ -718,7 +718,6 @@ function renderMacro(){
   {label:'S&P 500',symbols:['SPX','^GSPC','SPY']},
   {label:'NASDAQ',symbols:['IXIC','^IXIC','QQQ']},
   {label:'DOW JONES',symbols:['DJI','^DJI','DIA']},
-  {label:'VIX',symbols:['VIX','^VIX']},
   {label:'BTC',symbols:['BTC/USD','BTCUSD','BTCUSDT']},
   {label:'GOLD',symbols:['XAU/USD','XAUUSD','GCUSD','GLD']}
  ];
@@ -735,7 +734,7 @@ function renderMacro(){
   }
   // A pending provider placeholder must not mask the last verified browser cache.
   try{
-   const cached=JSON.parse(localStorage.getItem('saspro_macro_'+(item.label==='VIX'?'VIX_INDEX':item.label.replace(/\\s+/g,'_')))||'null');
+   const cached=JSON.parse(localStorage.getItem('saspro_macro_'+item.label.replace(/\\s+/g,'_'))||'null');
    const age=Date.now()-Number(cached?.savedAt||0);
    if(cached && Number(cached.price)>0 && (!cached.savedAt || age<=24*60*60*1000))return {...(found||{}),label:item.label,price:cached.price,change_pct:cached.change_pct,source:'آخر سعر محفوظ',stale:true,diagnostic:null};
   }catch(e){}
@@ -750,7 +749,6 @@ function renderMacro(){
    's&p 500':'<svg viewBox="0 0 48 48" focusable="false"><path d="M7 38V10M7 38H42" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><rect x="12" y="25" width="6" height="10" rx="1.5" fill="currentColor" opacity=".55"/><rect x="22" y="18" width="6" height="17" rx="1.5" fill="currentColor" opacity=".75"/><rect x="32" y="9" width="6" height="26" rx="1.5" fill="currentColor"/><path d="m11 21 9-6 7 2 10-10" fill="none" stroke="#62f5c5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
    'nasdaq':'<svg viewBox="0 0 48 48" focusable="false"><path d="M6 36H42" stroke="currentColor" stroke-width="2" opacity=".45"/><path d="m7 30 8-8 7 4 8-13 5 5 6-11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="41" cy="7" r="3" fill="#62f5c5"/></svg>',
    'dow jones':'<svg viewBox="0 0 48 48" focusable="false"><path d="M7 39H42" stroke="currentColor" stroke-width="2" opacity=".5"/><rect x="9" y="24" width="7" height="15" rx="1.5" fill="currentColor" opacity=".5"/><rect x="21" y="16" width="7" height="23" rx="1.5" fill="currentColor" opacity=".75"/><rect x="33" y="8" width="7" height="31" rx="1.5" fill="currentColor"/></svg>',
-   'vix':'<svg viewBox="0 0 48 48" focusable="false"><path d="M5 25h8l5-13 8 25 6-17 4 5h7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="26" cy="37" r="2.5" fill="#ff9d64"/></svg>',
    'btc':'<svg viewBox="0 0 48 48" focusable="false"><circle cx="24" cy="24" r="19" fill="currentColor" opacity=".16"/><circle cx="24" cy="24" r="17" fill="none" stroke="currentColor" stroke-width="2"/><text x="24" y="32" text-anchor="middle" font-size="25" font-weight="800" fill="currentColor">₿</text></svg>',
    'gold':'<svg viewBox="0 0 48 48" focusable="false"><ellipse cx="24" cy="25" rx="17" ry="18" fill="currentColor" opacity=".18"/><circle cx="24" cy="24" r="16" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="24" cy="24" r="11" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".7"/><path d="m24 12 3.5 8.5 8.5 3.5-8.5 3.5L24 36l-3.5-8.5L12 24l8.5-3.5Z" fill="currentColor" opacity=".8"/></svg>'
   };
@@ -2661,7 +2659,6 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
   {label:'S&P 500',keys:['S&P 500','SPX','^GSPC','SPY'],cache:'S&P_500',icon:'<svg viewBox="0 0 48 48"><path d="M7 38V10M7 38H42" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><rect x="12" y="25" width="6" height="10" rx="1.5" fill="currentColor" opacity=".55"/><rect x="22" y="18" width="6" height="17" rx="1.5" fill="currentColor" opacity=".75"/><rect x="32" y="9" width="6" height="26" rx="1.5" fill="currentColor"/><path d="m11 21 9-6 7 2 10-10" fill="none" stroke="#62f5c5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',tone:'#35e7ff'},
   {label:'NASDAQ',keys:['NASDAQ','IXIC','^IXIC','QQQ'],cache:'NASDAQ',icon:'<svg viewBox="0 0 48 48"><path d="M6 36H42" stroke="currentColor" stroke-width="2" opacity=".45"/><path d="m7 30 8-8 7 4 8-13 5 5 6-11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="41" cy="7" r="3" fill="#62f5c5"/></svg>',tone:'#4b9dff'},
   {label:'DOW JONES',keys:['DOW JONES','DJI','^DJI','DIA'],cache:'DOW_JONES',icon:'<svg viewBox="0 0 48 48"><path d="M7 39H42" stroke="currentColor" stroke-width="2" opacity=".5"/><rect x="9" y="24" width="7" height="15" rx="1.5" fill="currentColor" opacity=".5"/><rect x="21" y="16" width="7" height="23" rx="1.5" fill="currentColor" opacity=".75"/><rect x="33" y="8" width="7" height="31" rx="1.5" fill="currentColor"/></svg>',tone:'#ffd447'},
-  {label:'VIX',keys:['VIX','^VIX'],cache:'VIX_INDEX',icon:'<svg viewBox="0 0 48 48"><path d="M5 25h8l5-13 8 25 6-17 4 5h7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="26" cy="37" r="2.5" fill="#ff9d64"/></svg>',tone:'#ff9d64'},
   {label:'BITCOIN',keys:['BTC','BTC/USD','BTCUSD','BTCUSDT'],cache:'BTC',icon:'<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="19" fill="currentColor" opacity=".16"/><circle cx="24" cy="24" r="17" fill="none" stroke="currentColor" stroke-width="2"/><text x="24" y="32" text-anchor="middle" font-size="25" font-weight="800" fill="currentColor">₿</text></svg>',tone:'#ffb54d'},
   {label:'GOLD',keys:['GOLD','XAU/USD','XAUUSD','GCUSD','GLD'],cache:'GOLD',icon:'<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="24" cy="24" r="11" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".7"/><path d="m24 12 3.5 8.5 8.5 3.5-8.5 3.5L24 36l-3.5-8.5L12 24l8.5-3.5Z" fill="currentColor" opacity=".8"/></svg>',tone:'#ffd447'}
  ];
