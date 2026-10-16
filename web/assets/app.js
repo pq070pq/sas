@@ -2534,7 +2534,6 @@ function renderGiftMessagePreview(){
  if(node)node.textContent=Number.isInteger(days)&&days>0?String(days):'7';
 }
 document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays')renderGiftMessagePreview();});
-+money(atrValue):null;
  const data=[
   {label:'الزخم (RSI 14)',value:rsi,tone:'violet',note:'مؤشر القوة النسبية'},
   {label:'السيولة (RVOL)',value:rvol===null?null:rvol+'×',tone:'green',note:'الحجم النسبي'},
