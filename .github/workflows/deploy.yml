@@ -270,6 +270,34 @@ jobs:
             echo "✅ New JS/CSS assets are present, served with no-store, and referenced by production HTML."
             echo "===== END FRONTEND ASSET VERIFICATION ====="
 
+            # Run a one-time live quote audit only for an explicitly named diagnostic commit.
+            if git log -1 --pretty=%s | grep -q "MARKET QUOTE DIAGNOSTIC"; then
+              echo "===== SAS PRO LIVE MARKET QUOTE DIAGNOSTIC ====="
+              docker compose exec -T saspro python - <<'PY'
+              import asyncio, json
+              from app.market import macro_quote
+              symbols = ["VIX", "XAU/USD", "SPX", "IXIC", "DJI", "BTC/USD"]
+              async def main():
+                  for symbol in symbols:
+                      try:
+                          row = await asyncio.wait_for(macro_quote(symbol), timeout=40)
+                          print(json.dumps({
+                              "symbol": symbol,
+                              "price": row.get("price"),
+                              "change_pct": row.get("change_pct"),
+                              "source": row.get("source"),
+                              "stale": row.get("stale", False),
+                              "delayed": row.get("is_delayed", False),
+                              "datetime": row.get("datetime"),
+                              "diagnostic": row.get("diagnostic"),
+                          }, ensure_ascii=False))
+                      except Exception as exc:
+                          print(json.dumps({"symbol": symbol, "error": type(exc).__name__}, ensure_ascii=False))
+              asyncio.run(main())
+              PY
+              echo "===== END SAS PRO LIVE MARKET QUOTE DIAGNOSTIC ====="
+            fi
+
             set -e
 
             # تشخيص حي اختياري: يُفعّل فقط عندما يحتوي Commit على RADAR DIAGNOSTIC.
