@@ -3393,9 +3393,14 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         await db.rollback()
 
     _cache_put(_analysis_memory, symbol, payload)
+    # The Mini App reads quality classification from this cache.
+    # Store it with the quote/mini summary so the first quick-analysis request
+    # does not receive an empty classification from a freshly completed analysis.
     _cache_put(_quick_scan_memory, symbol, {
         "quote": payload.get("quote") or {},
         "mini_analysis": payload.get("mini_analysis") or {},
+        "classification": payload.get("sas_pro", {}).get("classification", {}),
+        "targets": payload.get("sas_pro", {}).get("targets", {}),
     })
     return payload
 
