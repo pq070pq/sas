@@ -195,6 +195,7 @@ SITE_MEDIA_SLOTS = {
     "icon-search": {"label": "أيقونة البحث", "kind": "icon"},
     "icon-watch": {"label": "أيقونة المحفوظات", "kind": "icon"},
     "icon-account": {"label": "أيقونة الحساب", "kind": "icon"},
+    "icon-profile": {"label": "أيقونة ملف المستخدم الشخصي", "kind": "icon"},
     "icon-live-movers": {"label": "أيقونة أعلى الأسهم حركة", "kind": "icon"},
     "icon-perp-movers": {"label": "أيقونة الأكثر تحركًا خلال 24 ساعة", "kind": "icon"},
     "icon-bitcoin": {"label": "أيقونة البتكوين في مؤشرات السوق", "kind": "icon"},
