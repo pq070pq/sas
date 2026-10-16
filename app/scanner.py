@@ -488,11 +488,32 @@ async def _apply_daily_momentum_filter(candidates):
         return [], {"session_date": now.strftime("%Y-%m-%d"), "status": "outside_main_session"}
     semaphore = asyncio.Semaphore(12)
 
+    # Use Twelve Data only for a tiny, deterministic subset when PanWatch is
+    # unavailable; other candidates continue through the keyless shared OHLCV
+    # fallback chain. This repairs the RVOL gate without spending credits on
+    # every discovered symbol.
+    fallback_symbols = {
+        str(row.get("symbol") or "").upper()
+        for row in sorted(
+            candidates,
+            key=lambda item: (
+                float(item.get("change_pct") or 0),
+                float(item.get("volume") or 0),
+            ),
+            reverse=True,
+        )[:max(0, min(int(settings.twelve_data_scan_fallback_symbols or 0), 3))]
+        if row.get("symbol")
+    }
+
     async def enrich(row):
         symbol = str(row.get("symbol") or "").upper()
         async with semaphore:
             async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 20)) as client:
-                candles, source = await _get_analysis_candles(client, symbol, allow_twelve_fallback=False)
+                candles, source = await _get_analysis_candles(
+                    client,
+                    symbol,
+                    allow_twelve_fallback=symbol in fallback_symbols,
+                )
         rvol10 = _momentum_rvol_10d(candles)
         if rvol10 is None:
             return None
