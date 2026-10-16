@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <title>SAS PRO — Market Terminal</title>
-<link rel="stylesheet" href="/assets/app-ticker-fix-20261015.css?v=profile-redesign-20261017-1">
+<link rel="stylesheet" href="/assets/app-ticker-fix-20261015.css?v=profile-interactive-20261017-2">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 </head>
 <body>
@@ -179,7 +179,39 @@
       </section>
       <section id="tab-radar" class="terminal-tab"><div class="terminal-panel-head"><div><span class="eyebrow">SAS PRO RADAR</span><h2>بيانات الأسهم المرصودة</h2><small>🕒 يوضح لك وقت تنفيذ آخر رصد فعلي بتوقيت الرياض</small><small>السعر • الحركة • الحجم • RVOL • الدخول • الوقف • الهدف • R:R</small></div><button id="radarScanBtn" type="button" class="radar-scan-action" onclick="runRadar()" aria-label="مسح الأسهم"><span class="radar-scan-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><circle cx="14" cy="14" r="9.5" stroke="currentColor" stroke-width="1.8"/><circle cx="14" cy="14" r="4.5" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/><path d="M14 4.5v4M23.5 14h-4M14 23.5v-4M4.5 14h4M21 21l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 14 20.5 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span class="radar-scan-copy"><b>مسح الأسهم</b><small>ابدأ فحص الفرص الآن</small></span><span class="radar-scan-arrow" aria-hidden="true">‹</span></button></div><div id="radarDiagnostics" class="diagnostics"></div><div id="radarCandidates" class="radar-candidates" hidden></div><div id="radarGrid" class="stock-grid"></div></section>
       <section id="tab-search" class="terminal-tab"><div class="search-terminal"><input id="symbolSearch" maxlength="12" autocomplete="off" placeholder="ابحث عن رمز السهم مثل NVDA أو AAPL"><button id="analyzeSymbolBtn" type="button" class="primary-btn symbol-action-btn analyze-action-btn" onclick="analyzeSymbol()" aria-label="تحليل السهم"><span class="symbol-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 9 12l3.5 3.5L20 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7H20v5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="symbol-action-copy"><b>تحليل السهم</b><small>السعر • الرسم • المؤشرات</small></span><span class="symbol-action-arrow" aria-hidden="true">‹</span></button><button id="shariahSearchBtn" type="button" class="secondary-btn shariah-search-btn shariah-search-btn-pro" onclick="searchShariah()" aria-label="بحث الشرعية"><span class="shariah-search-btn-orbit" aria-hidden="true"><span class="shariah-search-btn-icon"><svg viewBox="0 0 24 24" fill="none"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.5 4.5M10.8 7.2v7.2M7.2 10.8h7.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span></span><span class="shariah-search-btn-copy"><b>بحث الشرعية</b><small>تحقق من حالة السهم والمصادر المنشورة</small></span><span class="shariah-search-btn-arrow" aria-hidden="true">⌕</span></button></div><div id="shariahSearchResult" class="shariah-search-result" hidden></div><div id="symbolResult" class="symbol-result"><div class="empty-state">اكتب رمز السهم لعرض السعر، الرسم، المستويات، الأخبار وتحليل SAS PRO، أو استخدم «بحث الشرعية» للتحقق المستقل.</div></div></section>
-      <section id="tab-account" class="terminal-tab"><div class="account-terminal sas-profile-shell"><div class="sas-profile-cover"><span class="sas-profile-orbit orbit-a"></span><span class="sas-profile-orbit orbit-b"></span><span class="sas-profile-cover-kicker">SAS PRO • MEMBER CENTER</span><span class="sas-profile-cover-badge"><i></i> حساب موثّق من المنصة</span></div><div class="sas-profile-identity"><button type="button" class="account-avatar us-account-mark sas-profile-avatar" aria-label="عرض تفاصيل ملفك الشخصي" onclick="toggleProfileDetails()" title="عرض تفاصيل الملف الشخصي">📈</button><div class="sas-profile-identity-copy"><span class="sas-profile-eyebrow">ملف المتداول</span><h2 id="accountName">—</h2><p id="accountPlan">—</p></div><span class="sas-profile-member-mark" aria-hidden="true">✦</span></div><div class="sas-profile-statusline"><span class="sas-profile-status-dot"></span><span id="profileAccessText">جاري التحقق من صلاحية الوصول</span><span class="sas-profile-status-tag">SAS PRO</span></div><div class="account-cards sas-profile-facts" id="accountCards"></div><div id="sasProfileDetails" class="sas-profile-details" hidden><div><small>نوع الحساب</small><b>عضوية SAS PRO</b></div><div><small>حماية الحساب</small><b>التحقق عبر Telegram</b></div><p>بيانات العضوية تُعرض من حالة اشتراكك الحالية في المنصة.</p></div><div class="sas-profile-actions"><button type="button" class="sas-profile-action" onclick="toggleProfileDetails()" aria-controls="sasProfileDetails"><span>⌁</span><b>تفاصيل العضوية</b><small>عرض معلومات الحساب</small></button><button type="button" class="sas-profile-action" onclick="openChannel()"><span>✈</span><b>قناة SAS PRO</b><small>الفرص والتحديثات</small></button></div><div class="account-contact sas-profile-contact"><div class="sas-profile-contact-mark">✉</div><div class="sas-profile-contact-copy"><b>الملاحظات والاقتراحات</b><span>رأيك يساعدنا على تطوير الرادار</span></div><a class="contact-btn" href="https://t.me/SAS770" target="_blank" rel="noopener">مراسلة الدعم <span>↗</span></a></div></div></section>
+      <section id="tab-account" class="terminal-tab">
+        <div class="account-terminal sas-profile-shell">
+          <div class="sas-profile-cover">
+            <span class="sas-profile-orbit orbit-a"></span><span class="sas-profile-orbit orbit-b"></span><span class="sas-profile-grid-glow" aria-hidden="true"></span>
+            <span class="sas-profile-cover-kicker">SAS PRO • MEMBER CENTER</span>
+            <span class="sas-profile-cover-badge"><i></i> مركز عضويتك الآمن</span>
+          </div>
+          <div class="sas-profile-identity">
+            <button type="button" class="account-avatar us-account-mark sas-profile-avatar" aria-label="عرض تفاصيل ملفك الشخصي" onclick="toggleProfileDetails()" title="اضغط لعرض تفاصيل العضوية">📈</button>
+            <div class="sas-profile-identity-copy"><span class="sas-profile-eyebrow">ملف المتداول</span><h2 id="accountName">—</h2><p id="accountPlan">—</p></div>
+            <span class="sas-profile-member-mark" aria-hidden="true">✦</span>
+          </div>
+          <div class="sas-profile-statusline"><span class="sas-profile-status-dot"></span><span id="profileAccessText">جاري التحقق من صلاحية الوصول</span><span class="sas-profile-status-tag">SAS PRO</span></div>
+          <div class="sas-profile-section-title"><span>ملخص عضويتك</span><small>اضغط على أي بطاقة للمزيد</small></div>
+          <div class="account-cards sas-profile-facts" id="accountCards"></div>
+          <div id="sasProfileDetails" class="sas-profile-details" hidden>
+            <div><small>نوع الحساب</small><b>عضوية SAS PRO</b></div>
+            <div><small>اسم المستخدم</small><b data-profile-value="username">—</b></div>
+            <div><small>الباقة الحالية</small><b data-profile-value="plan">—</b></div>
+            <div><small>حالة الوصول</small><b data-profile-value="source">—</b></div>
+            <div><small>تاريخ الانتهاء</small><b data-profile-value="expiry">—</b></div>
+            <div><small>المدة المتبقية</small><b data-profile-value="days">—</b></div>
+            <p>تُحدّث معلومات العضوية من بيانات الحساب المرتبط بتطبيق Telegram.</p>
+          </div>
+          <div class="sas-profile-actions">
+            <button type="button" class="sas-profile-action" onclick="toggleProfileDetails()" aria-controls="sasProfileDetails" aria-expanded="false"><span>⌁</span><b>تفاصيل العضوية</b><small>حالة الوصول والمدة المتبقية</small></button>
+            <button type="button" class="sas-profile-action" id="profileCopyBtn" onclick="copyProfileIdentity()"><span>⧉</span><b>نسخ اسم المستخدم</b><small>نسخ بيانات حسابك بضغطة</small></button>
+            <button type="button" class="sas-profile-action" onclick="openChannel()"><span>✈</span><b>قناة SAS PRO</b><small>الفرص والتحديثات</small></button>
+            <button type="button" class="sas-profile-action" onclick="retryAccountLoad()"><span>↻</span><b>تحديث الحساب</b><small>جلب أحدث حالة للاشتراك</small></button>
+          </div>
+          <div class="account-contact sas-profile-contact"><div class="sas-profile-contact-mark">✉</div><div class="sas-profile-contact-copy"><b>الملاحظات والاقتراحات</b><span>ساهم في تطوير الرادار</span></div><a class="contact-btn" href="https://t.me/SAS770" target="_blank" rel="noopener">مراسلة SAS PRO على الخاص <span>↗</span></a></div>
+        </div>
+      </section>
     </main>
     <footer class="sas-disclaimer-footer" aria-label="تنبيه SAS PRO"><div class="sas-disclaimer-bar"><span class="disclaimer-badge"><span class="disclaimer-icon" aria-hidden="true">⛔</span> تنبيه</span><div class="sas-disclaimer-marquee"><div class="sas-disclaimer-track"><span>المحتوى تعليمي إخباري فقط، وليس توصية شراء أو بيع • قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</span><span aria-hidden="true">المحتوى تعليمي إخباري فقط، وليس توصية شراء أو بيع • قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</span></div></div><span class="disclaimer-live">SAS PRO</span></div></footer>
   </section>
@@ -310,7 +342,7 @@
 
     <section class="admin-panel" id="mediaPanel" hidden>
       <div class="section-head"><b>🖼️ إدارة الصور والأيقونات</b><span>تغيير مباشر مع حفظ دائم للصور</span></div>
-      <p class="media-admin-note">ارفع صورة الواجهة أو أيقونة مصغّرة. الصيغ المدعومة WebP وPNG وJPEG، والحد الأقصى 5 ميغابايت للصورة.</p>
+      <p class="media-admin-note">ارفع صورة الواجهة أو أيقونة مصغّرة. ابدأ ببطاقة <b>أيقونة ملف المستخدم الشخصي</b> لتغيير الرمز الكبير أعلى ملف العضو. الصيغ المدعومة WebP وPNG وJPEG، والحد الأقصى 5 ميغابايت للصورة؛ تُحفظ التغييرات وتظهر في الواجهة تلقائيًا.</p>
       <div class="media-admin-grid media-admin-hero-grid">
         <article class="media-admin-card">
           <div class="media-admin-preview media-admin-preview-hero"><img id="mediaPreview-hero" alt="معاينة صورة الواجهة" hidden><span id="mediaEmpty-hero">الصورة الحالية من الموقع</span></div>
