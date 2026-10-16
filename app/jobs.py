@@ -833,7 +833,22 @@ async def stock_radar_cycle():
         run.diagnostics = json.dumps(diagnostics, ensure_ascii=False)
         if error:
             run.error_type = type(error).__name__
-            run.error_message = str(error)[:4000]
+            error_name = type(error).__name__
+            error_text = str(error)
+            # Add a practical category for the admin monitor without a DB migration.
+            if isinstance(error, (NameError, UnboundLocalError, AttributeError, TypeError, SyntaxError)):
+                error_category = "خطأ برمجي"
+            elif isinstance(error, (TimeoutError, asyncio.TimeoutError, httpx.TimeoutException)):
+                error_category = "مهلة اتصال"
+            elif isinstance(error, httpx.HTTPStatusError):
+                error_category = "استجابة HTTP من مزود خارجي"
+            elif isinstance(error, (IntegrityError,)) or "sqlalchemy" in type(error).__module__.lower():
+                error_category = "خطأ قاعدة بيانات"
+            elif isinstance(error, (ConnectionError, httpx.ConnectError)):
+                error_category = "تعذر الاتصال بمصدر خارجي"
+            else:
+                error_category = "خطأ غير مصنف"
+            run.error_message = f"[{error_category}] {error_name}: {error_text}"[:4000]
         async with SessionLocal() as db:
             db.add(run)
             await db.commit()
