@@ -5133,3 +5133,13 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 #sasOpenCountdown .sas-countdown-live [class*="pulse"]{background:var(--session-glow)!important;border-color:var(--session-glow)!important;color:var(--session-glow)!important;box-shadow:0 0 7px var(--session-glow),0 0 15px var(--session-glow)!important}
 #sasOpenCountdown .sas-countdown-live{color:var(--session-glow)!important;border-color:color-mix(in srgb,var(--session-glow) 60%,transparent)!important;background:color-mix(in srgb,var(--session-glow) 8%,transparent)!important}
 #sasOpenCountdown.market-state-night #sasCountdownStateTitle{color:#bd75ff!important}
+
+/* Final high-specificity status-dot sync: dot, live chip, title and card share one state color */
+#sasOpenCountdown.market-state-open .sas-countdown-live i{background:#00f5a0!important;outline:1px solid #00f5a0!important;box-shadow:0 0 0 3px rgba(0,245,160,.12),0 0 9px #00f5a0,0 0 18px rgba(0,245,160,.8)!important}
+#sasOpenCountdown.market-state-pre .sas-countdown-live i{background:#ffad33!important;outline:1px solid #ffad33!important;box-shadow:0 0 0 3px rgba(255,173,51,.12),0 0 9px #ffad33,0 0 18px rgba(255,173,51,.8)!important}
+#sasOpenCountdown.market-state-after .sas-countdown-live i,#sasOpenCountdown.market-state-night .sas-countdown-live i{background:#bd75ff!important;outline:1px solid #bd75ff!important;box-shadow:0 0 0 3px rgba(189,117,255,.12),0 0 9px #bd75ff,0 0 18px rgba(189,117,255,.8)!important}
+#sasOpenCountdown.market-state-closed .sas-countdown-live i{background:#ff405e!important;outline:1px solid #ff405e!important;box-shadow:0 0 0 3px rgba(255,64,94,.12),0 0 9px #ff405e,0 0 18px rgba(255,64,94,.8)!important}
+#sasOpenCountdown.market-state-open .sas-countdown-live{color:#00f5a0!important}
+#sasOpenCountdown.market-state-pre .sas-countdown-live{color:#ffad33!important}
+#sasOpenCountdown.market-state-after .sas-countdown-live,#sasOpenCountdown.market-state-night .sas-countdown-live{color:#bd75ff!important}
+#sasOpenCountdown.market-state-closed .sas-countdown-live{color:#ff405e!important}
