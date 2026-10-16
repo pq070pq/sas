@@ -810,7 +810,6 @@ _TICKER_SYMBOLS = [
     ("SPX", "S&P 500"),
     ("IXIC", "NASDAQ"),
     ("DJI", "DOW JONES"),
-    ("VIX", "VIX"),
 ]
 
 
