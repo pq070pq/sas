@@ -2174,23 +2174,32 @@ async function checkAdminHealth(){
    title='تعذر الوصول إلى واجهة فحص الإدارة';
    context+=' • أصل الصفحة: '+String(location.origin||'غير معروف');
    context+=' • بيانات Telegram: '+(getInitData()?'متوفرة':'غير متوفرة');
-   try{
+   const probePath=async(path)=>{
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),4000);
-    let probe;
     try{
-     probe=await fetch('/health',{method:'GET',cache:'no-store',headers:headers(),signal:controller.signal});
+     const response=await fetch(path,{method:'GET',cache:'no-store',headers:headers(),signal:controller.signal});
+     return {path,ok:response.ok,status:response.status};
+    }catch(error){
+     return {path,ok:false,error:String(error?.message||error)};
     }finally{clearTimeout(timer);}
-    if(probe.ok){
-     msg='الخادم الأساسي يستجيب عبر /health، لكن طلب /api/admin/health تعذر على المتصفح. افحص توجيه المسار في الوكيل العكسي وسجل طلبات الخادم، ثم تحقق من صلاحية جلسة Telegram.';
-     context+=' • فحص /health: استجاب HTTP '+probe.status;
-    }else{
-     msg='وصل الطلب إلى عنوان الخادم لكن فحص /health أعاد HTTP '+probe.status+'. افحص سجل الخادم والوكيل العكسي وحالة الحاوية.';
-     context+=' • فحص /health: HTTP '+probe.status;
-    }
-   }catch(probeError){
-    msg='تعذر الوصول إلى /api/admin/health وكذلك /health. الاحتمال الأقوى مشكلة اتصال بين Mini App والخادم أو الوكيل العكسي أو توقف الخدمة. لا يمكن تحديد سطر Python من خطأ الشبكة وحده.';
-    context+=' • فشل فحص /health: '+String(probeError?.message||probeError);
+   };
+   const probes=await Promise.all([
+    probePath('/health'),
+    probePath('/'),
+    probePath('/assets/app-ticker-fix-20261015.js')
+   ]);
+   const healthProbe=probes[0],homeProbe=probes[1],assetProbe=probes[2];
+   const describeProbe=p=>p.ok?(p.path+' HTTP '+p.status):(p.path+' فشل: '+(p.status?'HTTP '+p.status:(p.error||'غير معروف')));
+   context+=' • نتائج فحص المسارات: '+probes.map(describeProbe).join(' | ');
+   if(healthProbe.ok){
+    msg='الخادم يستجيب عبر /health، لكن طلب /api/admin/health تعذر. افحص مسار الإدارة وصلاحية جلسة Telegram وسجلات الخادم.';
+   }else if(homeProbe.ok&&assetProbe.ok){
+    msg='الصفحة وملف JavaScript يصلان بنجاح، لكن مسار /health لا يستجيب. هذا يرجّح وجود مشكلة في توجيه مسارات API داخل الوكيل العكسي أو إعدادات المسارات على الخادم، وليس انقطاع اتصال عام. افحص إعدادات proxy وقواعد location وسجلات الوصول والأخطاء.';
+   }else if(homeProbe.ok&&!assetProbe.ok){
+    msg='الصفحة الرئيسية تستجيب لكن ملف JavaScript أو مسار الصحة يفشل. افحص توجيه /assets و/health في الوكيل العكسي وتأكد أن الملفات والمسارات منشورة من الإصدار نفسه.';
+   }else{
+    msg='فشل الوصول إلى مسارات الصحة والصفحة أو الأصول. الاحتمالات تشمل انقطاع الاتصال أو TLS أو الوكيل العكسي أو توقف الخدمة. لا يمكن تحديد سطر Python من خطأ الشبكة وحده.';
    }
   }
   renderAdminHealth([{level,title,message:msg+' — '+context+' — موقع الفحص في الواجهة: web/assets/app-ticker-fix-20261015.js داخل checkAdminHealth().'}]);
