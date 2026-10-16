@@ -2644,6 +2644,7 @@ startSASMediaAutoRefresh();
    if(mins>=240&&mins<570)return 'pre';
    if(mins>=570&&mins<960)return 'open';
    if(mins>=960&&mins<1200)return 'after';
+   if(mins>=1200||mins<240)return 'night';
    return 'closed';
  }
  function paint(){
@@ -2662,18 +2663,18 @@ startSASMediaAutoRefresh();
    const sessionCard=document.getElementById('sasOpenCountdown');
    const sessionTitle=document.getElementById('sasCountdownStateTitle');
    if(sessionCard){
-     sessionCard.classList.remove('market-state-open','market-state-pre','market-state-after','market-state-closed');
-     sessionCard.classList.add(phase==='open'?'market-state-open':phase==='pre'?'market-state-pre':phase==='after'?'market-state-after':'market-state-closed');
+     sessionCard.classList.remove('market-state-open','market-state-pre','market-state-after','market-state-night','market-state-closed');
+     sessionCard.classList.add(phase==='open'?'market-state-open':phase==='pre'?'market-state-pre':phase==='after'?'market-state-after':phase==='night'?'market-state-night':'market-state-closed');
      sessionCard.dataset.marketState=phase;
    }
-   if(sessionTitle)sessionTitle.textContent=phase==='open'?'السوق الأمريكي مفتوح':phase==='pre'?'السوق قبل الافتتاح':phase==='after'?'التداول الليلي':'السوق الأمريكي مغلق';
+   if(sessionTitle)sessionTitle.textContent=phase==='open'?'السوق الأمريكي مفتوح':phase==='pre'?'السوق قبل الافتتاح':phase==='after'?'التداول بعد الإغلاق':phase==='night'?'التداول الليلي':'السوق الأمريكي مغلق';
 
-   if(strip){strip.classList.remove('is-open','is-pre','is-closed','is-after');strip.classList.add(phase==='open'?'is-open':phase==='pre'?'is-pre':phase==='after'?'is-after':'is-closed');strip.dataset.marketState=phase;}
+   if(strip){strip.classList.remove('is-open','is-pre','is-closed','is-after','is-night');strip.classList.add(phase==='open'?'is-open':phase==='pre'?'is-pre':phase==='after'?'is-after':phase==='night'?'is-night':'is-closed');strip.dataset.marketState=phase;}
    if(headline)headline.textContent=phase==='open'?'السوق الأمريكي مفتوح':phase==='pre'?'السوق الأمريكي قبل الافتتاح':phase==='after'?'التداول بعد الإغلاق':'السوق الأمريكي مغلق';
    const sub=document.getElementById('sasMarketSubline');
-   if(sub)sub.textContent=phase==='closed'?'السوق مغلق حاليًا • موعد ما قبل الافتتاح 04:00 نيويورك':phase==='pre'?'فترة ما قبل الافتتاح • بتوقيت نيويورك':'التوقيت حسب بورصة نيويورك • جميع المواعيد بتوقيت الرياض';
+   if(sub)sub.textContent=phase==='closed'?'السوق مغلق حاليًا • موعد ما قبل الافتتاح 04:00 نيويورك':phase==='pre'?'فترة ما قبل الافتتاح • بتوقيت نيويورك':phase==='night'?'التداول الليلي • خارج الجلسة الرسمية':'التوقيت حسب بورصة نيويورك • جميع المواعيد بتوقيت الرياض';
    const session=document.getElementById('sasSessionLabel');
-   if(session)session.textContent=phase==='open'?'الجلسة الرسمية مفتوحة':phase==='pre'?'ما قبل الافتتاح':phase==='after'?'بعد الإغلاق':'مغلق — لا يوجد تداول';
+   if(session)session.textContent=phase==='open'?'الجلسة الرسمية مفتوحة':phase==='pre'?'ما قبل الافتتاح':phase==='after'?'بعد الإغلاق':phase==='night'?'التداول الليلي':'مغلق — لا يوجد تداول';
    document.querySelectorAll('[data-countdown]').forEach(b=>{const active=b.dataset.countdown===selected;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));});
  }
  document.querySelectorAll('[data-countdown]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.countdown;paint();}));
