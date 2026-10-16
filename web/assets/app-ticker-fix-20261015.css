@@ -5085,3 +5085,10 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @media(max-width:560px){.sas-quality-panel{padding:12px;border-radius:15px}.sas-quality-topline h3{font-size:15px}.sas-quality-stars{font-size:22px;letter-spacing:1px}.sas-quality-score-row{gap:9px}.sas-quality-score{min-width:62px;padding-inline-start:8px}.sas-plan-levels{grid-template-columns:repeat(2,minmax(0,1fr))}.sas-quality-checks{grid-template-columns:1fr}.sas-quality-check{grid-template-columns:18px minmax(0,1fr)}}
 @media(prefers-reduced-motion:reduce){.sas-quality-panel.risk-high{animation:none}.sas-quality-glowbar span{transition:none}}
 
+
+/* SAS PRO quality panel visibility + stock-style classification */
+.sas-stock-style{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:6px 10px;margin:12px 0;padding:12px 14px;border:1px solid rgba(78,213,255,.32);border-radius:14px;background:linear-gradient(120deg,rgba(8,39,57,.94),rgba(5,16,29,.94));box-shadow:inset 0 0 18px rgba(42,193,255,.06),0 0 16px rgba(20,174,255,.08)}
+.sas-stock-style>span{color:#8baebe;font-size:12px}.sas-stock-style>b{color:#6be9ff;font-size:14px;text-shadow:0 0 12px rgba(58,221,255,.32)}.sas-stock-style>small{grid-column:1/-1;color:#8da6b5;font-size:10px;line-height:1.7}
+.sas-quality-panel{display:block!important;visibility:visible!important;opacity:1!important;margin:14px 0!important;position:relative;z-index:1}
+.sas-stock-terminal-partial .sas-quality-panel{margin-top:14px!important}
+@media(max-width:420px){.sas-quality-score-row{gap:8px}.sas-stock-style{padding:10px}}
