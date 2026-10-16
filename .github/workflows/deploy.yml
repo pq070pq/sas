@@ -270,7 +270,7 @@ jobs:
             echo "✅ New JS/CSS assets are present, served with no-store, and referenced by production HTML."
             echo "===== END FRONTEND ASSET VERIFICATION ====="
 
-            # Run a one-time live quote audit only for an explicitly named diagnostic commit (MARKET QUOTE DIAGNOSTIC). Run the live provider audit on this commit after the YAML syntax fix.
+            # Run a one-time live quote audit only for an explicitly named diagnostic commit (MARKET QUOTE DIAGNOSTIC).
             if git log -1 --pretty=%s | grep -q "MARKET QUOTE DIAGNOSTIC"; then
               echo "===== SAS PRO LIVE MARKET QUOTE DIAGNOSTIC ====="
               docker compose exec -T saspro python - <<'PY'
