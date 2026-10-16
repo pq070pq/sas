@@ -392,8 +392,23 @@ async def build_private_analysis(symbol: str):
             classify_sas(symbol, quote_data, allow_twelve_fallback=True),
             timeout=12,
         )
-    except Exception:
-        classification = {}
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).exception(
+            "PRIVATE_ANALYSIS_CLASSIFICATION_FAILED symbol=%s error=%s",
+            symbol, type(exc).__name__,
+        )
+        classification = {
+            "type": "غير محدد",
+            "behavior": "غير قابل للتقييم",
+            "reason": "تعذر جلب بيانات المؤشرات الفنية من المصادر الحالية؛ لم يتم تخمين التقييم.",
+            "data_source": "unavailable",
+            "pass": False,
+            "quality_score": None,
+            "stars": None,
+            "quality_checks": {},
+            "recommendation": "غير قابل للتقييم — أعد المحاولة بعد استعادة بيانات المؤشرات.",
+        }
     if not isinstance(classification, dict):
         classification = {}
 
