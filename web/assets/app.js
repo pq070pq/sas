@@ -688,7 +688,6 @@ function renderMacro(){
   {label:'S&P 500',symbols:['SPX','^GSPC','SPY']},
   {label:'NASDAQ',symbols:['IXIC','^IXIC','QQQ']},
   {label:'DOW JONES',symbols:['DJI','^DJI','DIA']},
-  {label:'VIX',symbols:['VIX','^VIX','VIXY']},
   {label:'BTC',symbols:['BTC/USD','BTCUSD','BTCUSDT']},
   {label:'GOLD',symbols:['XAU/USD','XAUUSD','GCUSD','GLD']}
  ];
@@ -714,9 +713,9 @@ function renderMacro(){
  const cards=rows.map(x=>{
   const valid=Number(x.price)>0;
   const labelKey=String(x.label||'').toLowerCase();
-  const iconSlots={'btc':'icon-bitcoin','gold':'icon-gold','s&p 500':'icon-sp500','nasdaq':'icon-nasdaq','dow jones':'icon-dow-jones','vix':'icon-vix'};
+  const iconSlots={'btc':'icon-bitcoin','gold':'icon-gold','s&p 500':'icon-sp500','nasdaq':'icon-nasdaq','dow jones':'icon-dow-jones'};
   const iconSlot=iconSlots[labelKey]||null;
-  const iconFallback=labelKey==='btc'?'₿':labelKey==='gold'?'🪙':labelKey==='vix'?'🌡️':labelKey==='s&p 500'?'📈':labelKey==='nasdaq'?'💹':labelKey==='dow jones'?'🏛️':'◈';
+  const iconFallback=labelKey==='btc'?'₿':labelKey==='gold'?'🪙':labelKey==='s&p 500'?'📈':labelKey==='nasdaq'?'💹':labelKey==='dow jones'?'🏛️':'◈';
   const iconUrl=iconSlot?terminalState.siteMedia?.[iconSlot]?.url:null;
   const iconHtml='<span class="macro-card-icon" aria-hidden="true">'+(iconUrl?'<img src="'+esc(iconUrl)+'" alt="">':iconFallback)+'</span>';
   const changeValid=x.change_pct!==null&&x.change_pct!==undefined&&Number.isFinite(Number(x.change_pct));
