@@ -1222,7 +1222,7 @@ function renderSasQualityPanel(classification,tech,quote,entry,stop,target1,rr){
  const num=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))?Number(v):null;
  const level=v=>{const n=num(v);return n!==null&&n>0?'$'+money(n):'غير متاح من البيانات';};
  const price=num(quote?.price),score=num(c.quality_score)??num(c.score)??num(t.quality_score)??num(t.score);
- const rs=num(c.stars)??num(t.stars),stars=Math.max(0,Math.min(5,Math.round(rs!==null?rs:(score!==null?score/20:0))));
+ const rs=num(c.stars)??num(t.stars),hasRating=rs!==null||score!==null,stars=Math.max(0,Math.min(5,Math.round(rs!==null?rs:(score!==null?score/20:0))));
  const starText='★'.repeat(stars)+'☆'.repeat(5-stars),riskScore=num(c.risk_score)??num(t.risk_score),riskLevel=String(c.risk_level||t.risk_level||'');
  const chase=Boolean(c.chase_risk||t.chase_risk),change=num(quote?.change_pct),dist=num(c.distance_from_ema20_pct)??num(t.distance_from_ema20_pct);
  const trigger=num(plan.trigger_level)??num(c.breakout_level)??num(t.breakout_level),stopVal=num(plan.stop_loss)??num(stop)??num(t.stop_loss),targetOne=num(plan.target_1)??num(target1),targetTwo=num(plan.target_2)??num(t.target_2);
