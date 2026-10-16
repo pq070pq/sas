@@ -1126,6 +1126,34 @@ async def admin_health(user=Depends(telegram_user), db: AsyncSession = Depends(g
         item = {"name": name, "status": status, "message": message}
         if detail:
             item["detail"] = str(detail)[:500]
+            if isinstance(detail, BaseException):
+                item["exception_type"] = type(detail).__name__
+                frames = __import__("traceback").extract_tb(detail.__traceback__)
+                app_frames = []
+                for frame in frames:
+                    filename = frame.filename.replace("\\", "/")
+                    if filename.startswith("/app/"):
+                        filename = "app/" + filename[len("/app/"):]
+                    elif "/app/" in filename:
+                        filename = "app/" + filename.split("/app/", 1)[1]
+                    if filename.startswith("app/") or filename.startswith("web/"):
+                        app_frames.append((filename, frame.lineno, frame.name))
+                if app_frames:
+                    filename, line, function = app_frames[-1]
+                    item["location"] = f"{filename}:{line}"
+                    item["function"] = function
+                error_name = type(detail).__name__
+                diagnosis = {
+                    "TimeoutError": "انتهت مهلة الاتصال؛ افحص استجابة مزود البيانات أو الخدمة الخارجية.",
+                    "ConnectError": "تعذر الاتصال بالخدمة الخارجية؛ تحقق من الشبكة والعنوان والمنفذ.",
+                    "HTTPStatusError": "الخدمة الخارجية أعادت حالة HTTP غير ناجحة؛ افحص المفتاح والصلاحيات وحدود الطلبات.",
+                    "KeyError": "هناك حقل متوقع غير موجود في البيانات؛ راجع بنية الاستجابة أو أسماء المفاتيح.",
+                    "AttributeError": "تم استدعاء خاصية أو دالة غير موجودة؛ راجع نوع البيانات والسطر المحدد.",
+                    "TypeError": "تعارض في نوع البيانات أو عدد الوسائط؛ راجع الاستدعاء والسطر المحدد.",
+                    "OperationalError": "تعذر تنفيذ عملية قاعدة البيانات؛ افحص الاتصال والمخطط وقفل قاعدة البيانات.",
+                    "IntegrityError": "رفضت قاعدة البيانات البيانات بسبب قيد أو تكرار؛ راجع السجل والقيد المتأثر.",
+                }.get(error_name, "افحص السطر المحدد وسجل الخطأ؛ لم يُصنّف السبب تلقائيًا بشكل أدق.")
+                item["diagnosis"] = diagnosis
         out["components"].append(item)
 
     try:

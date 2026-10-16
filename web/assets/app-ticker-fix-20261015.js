@@ -2155,16 +2155,45 @@ async function checkAdminHealth(){
   const components=Array.isArray(d.components)?d.components:[];
   components.forEach(x=>{
    const level=x.status==='error'?'error':(x.status==='warn'?'warn':'info');
-   const detail=x.detail?(' — '+x.detail):'';
-   items.push({level,title:String(x.name||'مكوّن غير معروف'),message:String(x.message||'لا توجد تفاصيل')+detail});
+   const detail=x.detail?(' — تفاصيل الخطأ: '+x.detail):'';
+   const location=x.location?(' — موقع الخلل: '+x.location+(x.function?' داخل '+x.function:'')):'';
+   const diagnosis=x.diagnosis?(' — التشخيص: '+x.diagnosis):'';
+   items.push({level,title:String(x.name||'مكوّن غير معروف'),message:String(x.message||'لا توجد تفاصيل')+detail+location+diagnosis});
   });
   if(!components.length){
    items.push({level:'warn',title:'مراقبة النظام',message:'الخادم استجاب لكن لم يُرجع تفاصيل مكونات الفحص.'});
   }
   renderAdminHealth(items);
  }catch(e){
-  const msg=String(e?.message||'تعذر تنفيذ فحص الحالة.');
-  renderAdminHealth([{level:'error',title:'اتصال لوحة الإدارة بالخادم',message:msg+' — تحقق من اتصال Mini App بالخادم ثم أعد المحاولة.'}]);
+  const raw=String(e?.message||'تعذر تنفيذ فحص الحالة.');
+  let msg=raw;
+  let title='اتصال لوحة الإدارة بالخادم';
+  let level='error';
+  let context='المسار المطلوب: /api/admin/health';
+  if(/failed to fetch|networkerror|load failed|fetch failed/i.test(raw)){
+   title='تعذر الوصول إلى واجهة فحص الإدارة';
+   context+=' • أصل الصفحة: '+String(location.origin||'غير معروف');
+   context+=' • بيانات Telegram: '+(getInitData()?'متوفرة':'غير متوفرة');
+   try{
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),4000);
+    let probe;
+    try{
+     probe=await fetch('/health',{method:'GET',cache:'no-store',headers:headers(),signal:controller.signal});
+    }finally{clearTimeout(timer);}
+    if(probe.ok){
+     msg='الخادم الأساسي يستجيب عبر /health، لكن طلب /api/admin/health تعذر على المتصفح. افحص توجيه المسار في الوكيل العكسي وسجل طلبات الخادم، ثم تحقق من صلاحية جلسة Telegram.';
+     context+=' • فحص /health: استجاب HTTP '+probe.status;
+    }else{
+     msg='وصل الطلب إلى عنوان الخادم لكن فحص /health أعاد HTTP '+probe.status+'. افحص سجل الخادم والوكيل العكسي وحالة الحاوية.';
+     context+=' • فحص /health: HTTP '+probe.status;
+    }
+   }catch(probeError){
+    msg='تعذر الوصول إلى /api/admin/health وكذلك /health. الاحتمال الأقوى مشكلة اتصال بين Mini App والخادم أو الوكيل العكسي أو توقف الخدمة. لا يمكن تحديد سطر Python من خطأ الشبكة وحده.';
+    context+=' • فشل فحص /health: '+String(probeError?.message||probeError);
+   }
+  }
+  renderAdminHealth([{level,title,message:msg+' — '+context+' — موقع الفحص في الواجهة: web/assets/app-ticker-fix-20261015.js داخل checkAdminHealth().'}]);
  }finally{
   adminHealthBusy=false;
  }
