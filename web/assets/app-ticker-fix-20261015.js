@@ -1582,7 +1582,7 @@ function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
  const cuspFundamentalSummary=renderCuspFundamentalSummary(cuspData,displayQuote?.price);
  const cuspText=cuspData?.available?(cuspData.title||cuspData.description||'تم الوصول إلى صفحة CUSP؛ قد تكون التفاصيل محمّلة داخل الموقع.'):(cuspData?.message_ar||'بيانات CUSP غير متاحة آليًا الآن.');
  const cuspHasData=Boolean((cuspData?.available&&(cuspData.title||cuspData.description))||cuspMetricsHtml.includes('cusp-metrics-grid'));
- const quickMetrics=renderStockTerminalQuickMetrics(classification,targets,mini);
+ const quickMetrics=renderStockTerminalQuickMetrics(classification,targets,mini,chart.candles);
  const averages=renderStockTerminalAverages(classification,targets);
  const level=(v)=>{const n=Number(v);return Number.isFinite(n)&&n>0?'$'+money(n):'غير متاح';};
  el.innerHTML=
