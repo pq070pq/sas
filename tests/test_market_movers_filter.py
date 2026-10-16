@@ -50,12 +50,14 @@ def test_finviz_screener_parses_unique_gainers_with_price_band():
     <tr><td>ABCD</td><td>Alpha</td><td>4.25</td><td>+8.10%</td><td>1,200,000</td></tr>
     <tr><td>ABCD</td><td>Alpha duplicate</td><td>4.25</td><td>+8.10%</td><td>1,200,000</td></tr>
     <tr><td>CHEAP</td><td>Too cheap</td><td>0.20</td><td>+30.00%</td><td>900,000</td></tr>
-    <tr><td>EXPENSIVE</td><td>Too expensive</td><td>15.01</td><td>+5.00%</td><td>900,000</td></tr>
+    <tr><td>EDGELOW</td><td>Lower edge</td><td>0.30</td><td>+6.00%</td><td>900,000</td></tr>
+    <tr><td>EDGEHIGH</td><td>Upper edge</td><td>6.00</td><td>+7.00%</td><td>900,000</td></tr>
+    <tr><td>EXPENSIVE</td><td>Too expensive</td><td>6.01</td><td>+5.00%</td><td>900,000</td></tr>
     <tr><td>RED</td><td>Loser</td><td>3.00</td><td>-4.00%</td><td>700,000</td></tr>
     </table>
     """
     rows = _parse_finviz_screener(html, "gainers")
-    assert [x["symbol"] for x in rows] == ["ABCD"]
+    assert [x["symbol"] for x in rows] == ["ABCD", "EDGELOW", "EDGEHIGH"]
     assert rows[0]["change_pct"] == 8.1
     assert rows[0]["source"] == "Finviz"
 
