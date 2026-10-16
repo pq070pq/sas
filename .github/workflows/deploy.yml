@@ -75,7 +75,28 @@ jobs:
           ssh-keygen -y -f "$key_file" >/dev/null
           echo "SSH key decoded successfully."
 
+      # Skip obsolete push runs before opening an SSH session. Multiple rapid
+      # commits otherwise queue full rebuilds of the same production service.
+      - name: Check whether this commit is still the latest main
+        id: freshness
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          latest_sha="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          echo "workflow_sha=${GITHUB_SHA}"
+          echo "latest_main_sha=${latest_sha}"
+          if [ "$latest_sha" = "$GITHUB_SHA" ]; then
+            echo "is_latest=true" >> "$GITHUB_OUTPUT"
+            echo "This is the latest main commit; deployment may proceed."
+          else
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping obsolete deployment; a newer main commit exists."
+          fi
+
       - name: Deploy to OVH
+        if: steps.freshness.outputs.is_latest == 'true'
         uses: appleboy/ssh-action@v1.2.2
         env:
           MARKETAUX_API_KEY: ${{ secrets.MARKETAUX_API_KEY }}
