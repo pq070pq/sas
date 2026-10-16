@@ -9,8 +9,54 @@
 <title>SAS PRO — Market Terminal</title>
 <link rel="stylesheet" href="/assets/app-ticker-fix-20261015.css?v=quality-api-diagnostic-20261016-5">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
-</head>
-<body>
+<style id="sas-interactive-back-style">
+#sasInteractiveBack{position:fixed;top:calc(env(safe-area-inset-top,0px) + 82px);right:14px;z-index:9998;display:none;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:9px 15px;border:1px solid rgba(87,220,255,.58);border-radius:999px;background:linear-gradient(135deg,rgba(5,43,64,.96),rgba(2,13,25,.96));color:#dffaff;box-shadow:0 0 18px rgba(45,201,255,.18),inset 0 0 12px rgba(45,201,255,.08);font:inherit;font-size:14px;font-weight:800;cursor:pointer;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+#sasInteractiveBack.is-visible{display:inline-flex}
+#sasInteractiveBack:active{transform:scale(.96);box-shadow:0 0 24px rgba(45,201,255,.3)}
+#sasInteractiveBack svg{width:18px;height:18px;flex:none}
+@media(min-width:900px){#sasInteractiveBack{top:100px;right:24px}}
+@media(prefers-reduced-motion:reduce){#sasInteractiveBack{transition:none}}
+</style>\n</head>
+<body>\n<button id="sasInteractiveBack" type="button" aria-label="العودة إلى الصفحة السابقة" title="العودة" hidden><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 5 8 12l7 7M8 12h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>رجوع</span></button>
+<script>
+(function(){
+ if(window.__sasInteractiveBackReady)return;window.__sasInteractiveBackReady=true;
+ var btn=document.getElementById('sasInteractiveBack');
+ if(!btn)return;
+ function sync(){
+  var admin=document.getElementById('adminPage');
+  var main=document.getElementById('terminalApp')||document.querySelector('.terminal-app');
+  var dashboard=document.getElementById('tab-dashboard');
+  var active=document.querySelector('.terminal-tab.active');
+  var adminOpen=!!(admin&&!admin.hidden);
+  var show=adminOpen||!!(active&&active.id!=='tab-dashboard')||!!(dashboard&&dashboard.hidden);
+  btn.hidden=!show;btn.classList.toggle('is-visible',show);
+ }
+ function goBack(){
+  var admin=document.getElementById('adminPage');
+  if(admin&&!admin.hidden){
+   if(typeof openAdminUserView==='function'){openAdminUserView();sync();return;}
+   admin.hidden=true;sync();return;
+  }
+  var close=document.querySelector('[role="dialog"] button[aria-label*="إغلاق"],[role="dialog"] button[aria-label*="إغلاق"],.modal .close,.modal-close,[data-close-modal]');
+  if(close){close.click();sync();return;}
+  var active=document.querySelector('.terminal-tab.active');
+  if(active&&active.id!=='tab-dashboard'&&typeof switchTerminalTab==='function'){switchTerminalTab('dashboard');sync();return;}
+  if(typeof switchTerminalTab==='function'){switchTerminalTab('dashboard');sync();}
+ }
+ btn.addEventListener('click',goBack);
+ var observer=new MutationObserver(sync);
+ function start(){
+  var targets=['tab-dashboard','tab-radar','tab-search','tab-account','adminPage','terminalApp'];
+  targets.forEach(function(id){var el=document.getElementById(id);if(el)observer.observe(el,{attributes:true,attributeFilter:['class','hidden','style']});});
+  var nav=document.querySelector('main')||document.body;
+  observer.observe(nav,{subtree:true,attributes:true,attributeFilter:['class','hidden']});
+  sync();
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+ document.addEventListener('click',function(e){if(e.target.closest('[onclick*="switchTerminalTab"],[data-tab]'))setTimeout(sync,0);});
+})();
+</script>
 <div id="sasWelcomeOverlay" class="sas-welcome-overlay" hidden aria-live="polite" role="status">
   <div class="sas-fireworks" aria-hidden="true"></div>
   <div class="sas-welcome-card">
