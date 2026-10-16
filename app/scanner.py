@@ -693,7 +693,7 @@ async def _discover_openterminal(client):
 
 async def _discover_twelvedata(client):
     # Optional fallback only. /market_movers may require a higher plan.
-    if not settings.twelve_data_api_key:
+    if not (settings.twelve_data_api_key or settings.twelve_data_api_keys):
         return []
     try:
         r = await twelve_call(client.get, "https://api.twelvedata.com/market_movers/stocks",
@@ -1143,7 +1143,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
 
     # Preserve the existing, explicitly limited Twelve Data fallback. The broad
     # fallback chain below always disables Twelve Data to avoid draining credits.
-    if allow_twelve_fallback and not _twelve_data_quota_exhausted and settings.twelve_data_api_key:
+    if allow_twelve_fallback and not _twelve_data_quota_exhausted and (settings.twelve_data_api_key or settings.twelve_data_api_keys):
         try:
             async with asyncio.timeout(8):
                 async with _twelvedata_fallback_semaphore:
@@ -1158,9 +1158,6 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
                         },
                         timeout=7,
                     )
-                if r.status_code == 429:
-                    _twelve_data_quota_exhausted = True
-                    raise httpx.HTTPStatusError("Twelve Data quota exhausted", request=r.request, response=r)
                 r.raise_for_status()
                 payload = r.json()
                 candles = _parse_candles(payload.get("values", []))
@@ -2185,7 +2182,7 @@ async def _get_intraday_liquidity(symbols):
     global _twelve_data_quota_exhausted
     symbols = [str(x).upper().strip() for x in symbols if x]
     symbols = list(dict.fromkeys(symbols))[:20]
-    if not symbols or not settings.twelve_data_api_key:
+    if not symbols or not (settings.twelve_data_api_key or settings.twelve_data_api_keys):
         return {}
     now = time.monotonic()
     out, missing = {}, []
@@ -2210,9 +2207,6 @@ async def _get_intraday_liquidity(symbols):
                     "prepost": "true",
                 },
             )
-            if r.status_code == 429:
-                _twelve_data_quota_exhausted = True
-                return out
             r.raise_for_status()
             payload = r.json()
     except Exception:
