@@ -5096,3 +5096,25 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-quality-error{margin:12px 0;padding:12px;border:1px solid rgba(255,91,112,.58);border-radius:13px;background:linear-gradient(135deg,rgba(91,15,32,.34),rgba(12,18,30,.92));color:#ffdbe1;box-shadow:0 0 16px rgba(255,55,88,.09)}.sas-quality-error b{display:block;color:#ff7b8f;font-size:12px}.sas-quality-error p{font-size:11px;line-height:1.8;margin:7px 0;color:#f3d4dc}.sas-quality-error small{font-size:9px;overflow-wrap:anywhere;color:#c59ca6}
 
 .sas-quality-error{display:block!important;visibility:visible!important;opacity:1!important;min-height:56px;position:relative;z-index:3}
+
+
+/* SAS PRO dashboard action cards: stable mobile layout and clear press feedback */
+.sas-action-card{box-sizing:border-box;min-width:0;overflow:hidden;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.sas-action-icon{box-sizing:border-box;flex-shrink:0;transition:transform .16s ease,background .16s ease,border-color .16s ease,box-shadow .16s ease}
+.sas-action-copy{flex:1 1 auto;width:0;min-width:0;overflow-wrap:anywhere;word-break:normal}
+.sas-action-copy b,.sas-action-copy small{display:block;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.sas-action-arrow{flex:0 0 22px;text-align:center;transition:transform .16s ease,color .16s ease}
+.sas-action-card:active{transform:scale(.99);border-color:rgba(49,216,230,.72);background:linear-gradient(145deg,rgba(9,43,57,.98),rgba(4,17,28,.99))}
+.sas-action-card:active .sas-action-icon{transform:scale(.92);background:rgba(49,216,230,.16);border-color:rgba(49,216,230,.7);box-shadow:0 0 18px rgba(49,216,230,.18)}
+.sas-action-card:active .sas-action-arrow{color:#31d8e6;transform:rotate(180deg) translateX(3px)}
+.sas-action-card:focus-visible{outline:2px solid #31d8e6;outline-offset:3px}
+@media(max-width:800px){
+  #tab-dashboard .sas-dashboard-hero{grid-template-columns:minmax(0,1fr);gap:16px}
+  #tab-dashboard .sas-dashboard-actions{grid-template-columns:minmax(0,1fr);width:100%;min-width:0}
+  #tab-dashboard .sas-action-card{width:100%;min-width:0;min-height:70px;gap:11px;padding:11px 13px}
+  #tab-dashboard .sas-action-copy b{font-size:14px;line-height:1.45}
+  #tab-dashboard .sas-action-copy small{font-size:10px;line-height:1.5}
+}
+@media(prefers-reduced-motion:reduce){
+  .sas-action-card,.sas-action-icon,.sas-action-arrow{transition:none!important}
+}
