@@ -558,6 +558,26 @@ def _compact_radar_report(symbol, quote_data, tech, classification, row):
         f"💰 <b>تكلفة الاقتراض (CTB):</b> {ctb_text}",
         f"🗂️ <b>الإفصاح التنظيمي:</b> {html.escape(filing_text)}",
     ]
+    enrichment = tech.get("report_enrichment") if isinstance(tech.get("report_enrichment"), dict) else {}
+    float_source = enrichment.get("float_source")
+    ctb_source = enrichment.get("ctb_source")
+    filing_source = enrichment.get("filing_source")
+    filing_url = tech.get("filing_url")
+    if float_shares is not None and float_source:
+        lines.append(f"🔎 <b>مصدر Float:</b> {html.escape(str(float_source))}")
+    elif float_shares is None:
+        lines.append("ℹ️ <b>بيانات Float:</b> لم تُرجعها مصادر البيانات المفعّلة")
+    if ctb is not None and ctb_source:
+        lines.append(f"🔎 <b>مصدر CTB:</b> {html.escape(str(ctb_source))}")
+    elif ctb is None:
+        lines.append("ℹ️ <b>بيانات CTB:</b> تحتاج مزودًا يدعم تكلفة الاقتراض لهذا السهم")
+    if filing_source:
+        if filing_url:
+            lines.append(f'🔎 <b>مصدر الإفصاح:</b> <a href="{html.escape(str(filing_url), quote=True)}">{html.escape(str(filing_source))}</a>')
+        else:
+            lines.append(f"🔎 <b>مصدر الإفصاح:</b> {html.escape(str(filing_source))}")
+    elif filing_text == "غير متاح":
+        lines.append("ℹ️ <b>الإفصاح:</b> لم يُعثر على ملف عبر مصادر البيانات المفعّلة")
     actions = tech.get("corporate_actions") if isinstance(tech.get("corporate_actions"), dict) else {}
     if actions.get("reverse_split") is True:
         lines += [
