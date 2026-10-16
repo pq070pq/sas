@@ -274,7 +274,7 @@ jobs:
             if git log -1 --pretty=%s | grep -q "MARKET QUOTE DIAGNOSTIC"; then
               echo "===== SAS PRO LIVE MARKET QUOTE DIAGNOSTIC ====="
               for symbol in VIX XAU/USD SPX IXIC DJI BTC/USD; do
-                docker compose exec -T saspro python -c "import asyncio,json; from app.market import macro_quote; s='$symbol'; r=asyncio.run(macro_quote(s)); print(json.dumps({'symbol':s,'price':r.get('price'),'change_pct':r.get('change_pct'),'source':r.get('source'),'stale':r.get('stale',False),'delayed':r.get('is_delayed',False),'datetime':r.get('datetime'),'diagnostic':r.get('diagnostic')},ensure_ascii=False))"
+                docker compose exec -T saspro python -c 'import sys,asyncio,json; from app.market import macro_quote; s=sys.argv[1]; r=asyncio.run(macro_quote(s)); print(json.dumps({"symbol":s,"price":r.get("price"),"change_pct":r.get("change_pct"),"source":r.get("source"),"stale":r.get("stale",False),"delayed":r.get("is_delayed",False),"datetime":r.get("datetime"),"diagnostic":r.get("diagnostic")},ensure_ascii=False))' "$symbol"
               done
               echo "===== END SAS PRO LIVE MARKET QUOTE DIAGNOSTIC ====="
             fi
