@@ -278,6 +278,7 @@ jobs:
             from app import market
             symbols = ["VIX", "XAU/USD", "SPX", "IXIC", "DJI", "BTC/USD"]
             providers = [
+                ("FMPIndex", market._fmp_index_quote),
                 ("FMP", market._fmp_quote),
                 ("Finnhub", market._finnhub_quote),
                 ("Stooq", market._stooq_quote),
