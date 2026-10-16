@@ -65,12 +65,12 @@ class StooqQuoteFallbackTests(unittest.IsolatedAsyncioTestCase):
         class HistoryOnlyClient(_FakeClient):
             async def get(self, url, params=None, headers=None):
                 if "/q/l/" in url:
-                    return _Response("Symbol,Date,Time,Open,High,Low,Close,Volume,Name\\n")
+                    return _Response("Symbol,Date,Time,Open,High,Low,Close,Volume,Name\n")
                 if "/q/d/l/" in url:
                     return _Response(
-                        "Date,Open,High,Low,Close,Volume\\n"
-                        "2026-10-13,9.30,9.60,9.20,9.50,2000000\\n"
-                        "2026-10-14,9.60,9.90,9.55,9.80,1000000\\n"
+                        "Date,Open,High,Low,Close,Volume\n"
+                        "2026-10-13,9.30,9.60,9.20,9.50,2000000\n"
+                        "2026-10-14,9.60,9.90,9.55,9.80,1000000\n"
                     )
                 return _Response("", 404)
 
