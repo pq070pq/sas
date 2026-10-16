@@ -63,7 +63,7 @@ async def _fmp_enrichment(symbol: str) -> dict[str, Any]:
         for key in keys:
             try:
                 profile, filings = await asyncio.gather(
-                    _fmp_json(client, f"/stable/company-screener?symbol={symbol}", key),
+                    _fmp_json(client, f"/stable/shares-float?symbol={symbol}", key),
                     _fmp_json(client, f"/stable/sec-filings-search?symbol={symbol}", key),
                     return_exceptions=True,
                 )
