@@ -542,6 +542,15 @@ function renderDashboard(d){
  const clockLocaleTime=(zone)=>new Date().toLocaleTimeString('en-GB',{timeZone:zone,hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
  if(marketClockEl)marketClockEl.textContent=clockLocaleTime(clockZone);
  if(headline)headline.textContent=session==='regular'?'السوق الأمريكي مفتوح':premarket?'السوق قبل الافتتاح':session==='afterhours'?'التداول بعد الإغلاق':session==='night'?'التداول الليلي':nightPending?'التداول الليلي يفتح قريبًا':'السوق الأمريكي مغلق';
+ const marketBadge=document.getElementById('sasMarketStateBadge');
+ const regularMarketOpen=session==='regular';
+ if(marketBadge){
+   marketBadge.textContent=regularMarketOpen?'مفتوح':'مغلق';
+   marketBadge.classList.toggle('is-open',regularMarketOpen);
+   marketBadge.classList.toggle('is-closed',!regularMarketOpen);
+   marketBadge.setAttribute('aria-label',regularMarketOpen?'السوق مفتوح':'السوق مغلق');
+ }
+
  if(subline)subline.textContent=statusText.replace(/^[🟢🟡🟠🟣🌙🔴 ]+/,'').slice(0,105)||'توقيت الرياض • حالة مباشرة من النظام';
  if(sessionLabelEl)sessionLabelEl.textContent=sessionLabel|| (preopen?'مغلق':'جارٍ التحقق');
  const preEl=document.getElementById('sasPremarketTime'),regularEl=document.getElementById('sasRegularTime'),afterEl=document.getElementById('sasAfterHoursTime');
