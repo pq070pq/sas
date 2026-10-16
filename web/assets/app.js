@@ -1696,7 +1696,7 @@ async function buyPlan(k){
  }catch(e){alert(e.message);}
 }
 
-const SITE_MEDIA_MANAGED_ITEMS=[
+const SAS_SITE_MEDIA_MANAGED_ITEMS_V2=[
  {slot:'icon-radar',label:'أيقونة زر الرادار',fallback:'📡',target:'.radar-icon'},
  {slot:'icon-channel',label:'أيقونة زر القناة',fallback:'✈️',target:'.channel-icon'},
  {slot:'icon-home',label:'أيقونة تبويب الرئيسية',fallback:'⌂',target:'.terminal-tabs button[data-tab="dashboard"]'},
@@ -1715,11 +1715,11 @@ const SITE_MEDIA_MANAGED_ITEMS=[
  {slot:'icon-shariah',label:'أيقونة الشرعية في بطاقة السهم',fallback:'🕌',target:'.stock-shariah-icon'},
  {slot:'icon-disclaimer-alert',label:'أيقونة التنبيه القانوني أسفل الصفحة',fallback:'⛔',target:'.sas-disclaimer-bar .disclaimer-badge .disclaimer-icon'}
 ];
-const SITE_MEDIA_ICON_TARGETS=Object.fromEntries(SITE_MEDIA_MANAGED_ITEMS.map(item=>[item.slot,item.target]));
+const SITE_MEDIA_ICON_TARGETS=Object.fromEntries(SAS_SITE_MEDIA_MANAGED_ITEMS_V2.map(item=>[item.slot,item.target]));
 function renderMediaAdminCards(items={}){
  const grid=document.getElementById('mediaIconsAdminGrid');
  if(!grid)return;
- grid.innerHTML=SITE_MEDIA_MANAGED_ITEMS.map(item=>{
+ grid.innerHTML=SAS_SITE_MEDIA_MANAGED_ITEMS_V2.map(item=>{
   const current=items[item.slot]?.url;
   const slot=esc(item.slot),label=esc(item.label),fallback=esc(item.fallback);
   return '<article class="media-admin-card" data-media-card="'+slot+'">'+
@@ -1783,11 +1783,11 @@ async function loadAdminMedia(){
   if(heroPreview){heroPreview.hidden=!hero;if(hero)heroPreview.src=hero;}
   if(heroEmpty)heroEmpty.hidden=!!hero;
   renderMediaAdminCards(items);
-  if(status)status.textContent='تم تحديث معاينات الصور والأيقونات ('+SITE_MEDIA_MANAGED_ITEMS.length+' موضعًا).';
+  if(status)status.textContent='تم تحديث معاينات الصور والأيقونات ('+SAS_SITE_MEDIA_MANAGED_ITEMS_V2.length+' موضعًا).';
  }catch(e){if(status)status.textContent='تعذر تحميل الصور: '+(e.message||'خطأ غير معروف');}
 }
 async function deleteSiteMedia(slot){
- const label=slot==='hero'?'صورة الواجهة الرئيسية':(SITE_MEDIA_MANAGED_ITEMS.find(item=>item.slot===slot)?.label||'الأيقونة');
+ const label=slot==='hero'?'صورة الواجهة الرئيسية':(SAS_SITE_MEDIA_MANAGED_ITEMS_V2.find(item=>item.slot===slot)?.label||'الأيقونة');
  if(!confirm('هل تريد حذف '+label+' والعودة إلى الشكل الافتراضي؟'))return;
  const status=document.getElementById('mediaUploadStatus');
  const buttons=document.querySelectorAll('#mediaPanel .media-delete-btn, #mediaPanel input[type="file"]');
