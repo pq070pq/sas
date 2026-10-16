@@ -459,7 +459,29 @@
   </div>
 </div>
 
-<script src="/assets/app-ticker-fix-20261015.js?v=account-watchdog-fix-20261016-2"></script>
+<script src="/assets/app-ticker-fix-20261015.js?v=account-watchdog-fix-20261016-3"></script>
+<script>
+/* Independent WebView startup guard: works even if the main app bundle fails before load(). */
+(function(){
+ function guard(){
+  var name=document.getElementById('userName');
+  var grid=document.getElementById('subscriptionStatusGrid');
+  var error=document.getElementById('accountLoadError');
+  var message=document.getElementById('accountLoadErrorText');
+  var retry=document.getElementById('accountRetryBtn');
+  if(!name||!grid||!error)return;
+  if(grid.getAttribute('aria-busy')==='true' && /جار.? التحقق|جارٍ التحقق|جاري التحقق/.test(name.textContent||'')){
+   name.textContent='تعذر تشغيل الواجهة';
+   name.classList.remove('account-loading');
+   grid.setAttribute('aria-busy','false');
+   if(message)message.textContent='لم تكتمل تهيئة التطبيق داخل تيليجرام. أعد تحميل الصفحة؛ إذا تكرر الخطأ فالمشكلة في تشغيل الواجهة وليس بيانات الاشتراك.';
+   error.hidden=false;
+   if(retry){retry.textContent='إعادة تحميل الصفحة ↻';retry.onclick=function(){window.location.reload();};}
+  }
+ }
+ window.setTimeout(guard,12000);
+})();
+</script>
 
 <script>
 /* Presentation-only interactions. Does not modify radar, pricing, API calls, or permissions. */
