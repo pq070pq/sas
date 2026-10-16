@@ -1720,13 +1720,43 @@ async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fall
     # لا نجعل توفر 205 شمعة شرطًا لإسقاط فرصة حديثة؛ نستخدم الحد الأدنى
     # اللازم لـ RSI/البنية/الدعم والمقاومة، وتبقى EMA200 اختيارية عند نقص التاريخ.
     if len(candles) < 60:
+        # Keep the classification response schema stable even when providers
+        # return too little history. Older cache/UI code expects these fields;
+        # omitting them made a valid "insufficient data" result look like an
+        # empty or stale classification and triggered the generic error panel.
         return {
-            "behavior": "غير واضح",
-            "type": "غير واضح",
+            "behavior": "غير قابل للتقييم",
+            "type": "غير محدد",
             "emoji": "⚪",
-            "score": 0,
+            "score": None,
+            "quality_score": None,
+            "stars": None,
+            "star_rating": "☆☆☆☆☆",
+            "quality_checks": {
+                "daily_candles": {
+                    "pass": False,
+                    "value": len(candles),
+                    "required": 60,
+                    "reason": "عدد الشموع اليومية غير كافٍ لحساب التقييم بثقة",
+                },
+                "data_source": {
+                    "pass": False,
+                    "value": data_source,
+                    "reason": "تعذر تأكيد كفاية البيانات من المصدر",
+                },
+            },
+            "conditional_plan": {},
+            "trading_style": None,
+            "risk_level": "غير محدد",
+            "risk_score": None,
+            "risk_emoji": "⚠️",
+            "risk_reasons": ["بيانات الشموع غير كافية"],
+            "holding_horizon": None,
+            "quality_data_available": False,
+            "quality_error": f"insufficient_daily_candles:{len(candles)}",
+            "recommendation": "غير قابل للتقييم — بيانات الشموع غير كافية؛ أعد المحاولة بعد تحديث البيانات.",
             "pass": False,
-            "reason": "بيانات غير كافية من PanWatch وTwelve Data",
+            "reason": f"بيانات غير كافية من PanWatch وTwelve Data ({len(candles)}/60 شمعة)",
             "data_source": data_source,
         }
 
