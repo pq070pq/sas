@@ -1132,10 +1132,10 @@ async def admin_health(user=Depends(telegram_user), db: AsyncSession = Depends(g
                 app_frames = []
                 for frame in frames:
                     filename = frame.filename.replace("\\", "/")
-                    if "/app/" in filename:
-                        filename = filename.split("/app/", 1)[1]
-                    elif filename.startswith("/app/"):
-                        filename = filename[len("/app/"):]
+                    if filename.startswith("/app/"):
+                        filename = "app/" + filename[len("/app/"):]
+                    elif "/app/" in filename:
+                        filename = "app/" + filename.split("/app/", 1)[1]
                     if filename.startswith("app/") or filename.startswith("web/"):
                         app_frames.append((filename, frame.lineno, frame.name))
                 if app_frames:
