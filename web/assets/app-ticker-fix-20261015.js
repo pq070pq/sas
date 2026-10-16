@@ -1832,6 +1832,7 @@ const SITE_MEDIA_MANAGED_ITEMS=[
  {slot:'icon-search',label:'أيقونة تبويب البحث',fallback:'🔎',target:'.terminal-tabs button[data-tab="search"]'},
  {slot:'icon-news',label:'أيقونة أخبار السوق الأمريكي',fallback:'📰',target:'.sas-market-news-icon'},
  {slot:'icon-account',label:'أيقونة تبويب الحساب',fallback:'👤',target:'.terminal-tabs button[data-tab="account"]'},
+ {slot:'icon-profile',label:'أيقونة ملف التعريف الشخصي',fallback:'📈',target:'.sas-profile-avatar'},
 
 
 
@@ -1882,7 +1883,9 @@ async function loadSiteMedia(){
    el.classList.remove('has-managed-icon');
    if(terminalState.siteMedia)delete terminalState.siteMedia[slot];
   };
-  if(el.matches('button')){
+  if(el.matches('.sas-profile-avatar')){
+   el.innerHTML='<img class="sas-profile-managed-avatar" src="'+esc(item.url)+'" alt="" aria-hidden="true">';
+  }else if(el.matches('button')){
    if(!el.dataset.mediaOriginalLabel)el.dataset.mediaOriginalLabel=el.textContent.trim();
    const label=el.dataset.mediaOriginalLabel.replace(/^[^\p{L}\p{N}]+/u,'').trim();
    el.innerHTML='<img class="sas-managed-tab-icon" src="'+esc(item.url)+'" alt="" aria-hidden="true"><span>'+esc(label)+'</span>';
