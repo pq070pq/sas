@@ -5123,3 +5123,13 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 #sasOpenCountdown .sas-countdown-live i{background:var(--session-glow)!important;box-shadow:0 0 7px var(--session-glow),0 0 15px var(--session-glow)!important}
 #sasOpenCountdown.market-state-open .sas-countdown-live i{animation:sasStatusPulse 1.4s infinite}
 @media(prefers-reduced-motion:reduce){#sasOpenCountdown,#sasOpenCountdown #sasCountdownStateTitle{transition:none!important}#sasOpenCountdown .sas-countdown-live i{animation:none!important}}
+
+
+/* Match every countdown status dot and the full card to the active market state */
+#sasOpenCountdown.market-state-night{--session-glow:#bd75ff;border-color:#bd75ff!important;box-shadow:inset 0 0 30px rgba(189,117,255,.12),0 0 10px rgba(189,117,255,.26),0 0 30px rgba(189,117,255,.22)!important}
+#sasOpenCountdown .sas-countdown-live i,
+#sasOpenCountdown .sas-countdown-live .dot,
+#sasOpenCountdown .sas-countdown-live [class*="dot"],
+#sasOpenCountdown .sas-countdown-live [class*="pulse"]{background:var(--session-glow)!important;border-color:var(--session-glow)!important;color:var(--session-glow)!important;box-shadow:0 0 7px var(--session-glow),0 0 15px var(--session-glow)!important}
+#sasOpenCountdown .sas-countdown-live{color:var(--session-glow)!important;border-color:color-mix(in srgb,var(--session-glow) 60%,transparent)!important;background:color-mix(in srgb,var(--session-glow) 8%,transparent)!important}
+#sasOpenCountdown.market-state-night #sasCountdownStateTitle{color:#bd75ff!important}
