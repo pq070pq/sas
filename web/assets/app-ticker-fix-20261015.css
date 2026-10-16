@@ -5143,3 +5143,15 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 #sasOpenCountdown.market-state-pre .sas-countdown-live{color:#ffad33!important}
 #sasOpenCountdown.market-state-after .sas-countdown-live,#sasOpenCountdown.market-state-night .sas-countdown-live{color:#bd75ff!important}
 #sasOpenCountdown.market-state-closed .sas-countdown-live{color:#ff405e!important}
+
+
+/* Sync the top market status indicator and strip with the actual session phase */
+.sas-market-strip.is-open{--sas-strip-state:#00f5a0;border-color:rgba(0,245,160,.48)!important;box-shadow:inset 0 0 22px rgba(0,245,160,.06),0 0 18px rgba(0,245,160,.10)!important}
+.sas-market-strip.is-pre{--sas-strip-state:#ffad33;border-color:rgba(255,173,51,.5)!important;box-shadow:inset 0 0 22px rgba(255,173,51,.06),0 0 18px rgba(255,173,51,.10)!important}
+.sas-market-strip.is-after,.sas-market-strip.is-night{--sas-strip-state:#bd75ff;border-color:rgba(189,117,255,.58)!important;box-shadow:inset 0 0 22px rgba(189,117,255,.08),0 0 18px rgba(189,117,255,.14)!important}
+.sas-market-strip.is-closed{--sas-strip-state:#ff405e;border-color:rgba(255,64,94,.5)!important;box-shadow:inset 0 0 22px rgba(255,64,94,.05),0 0 18px rgba(255,64,94,.09)!important}
+.sas-market-strip .sas-market-live-dot{background:var(--sas-strip-state)!important;border-color:var(--sas-strip-state)!important;box-shadow:0 0 0 4px color-mix(in srgb,var(--sas-strip-state) 13%,transparent),0 0 10px var(--sas-strip-state),0 0 22px color-mix(in srgb,var(--sas-strip-state) 70%,transparent)!important}
+.sas-market-strip.is-open #sasMarketHeadline{color:#00f5a0!important}
+.sas-market-strip.is-pre #sasMarketHeadline{color:#ffad33!important}
+.sas-market-strip.is-after #sasMarketHeadline,.sas-market-strip.is-night #sasMarketHeadline{color:#bd75ff!important}
+.sas-market-strip.is-closed #sasMarketHeadline{color:#ff405e!important}
