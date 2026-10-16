@@ -833,6 +833,62 @@ def _market_news_session_window():
         return None, "legacy:" + date.today().isoformat()
 
 
+def _is_relevant_stock_market_news(row):
+    """Strict relevance gate for the public market-news ribbon.
+
+    Keep US equities, listed-company catalysts, earnings/filings, market indexes,
+    central-bank decisions and macro data that can move stocks. Reject sports,
+    entertainment and unrelated viral/social-media stories even if they contain
+    generic words such as 'record', 'views', 'week' or 'market'.
+    """
+    if not isinstance(row, dict):
+        return False
+    headline = re.sub(r"\\s+", " ", str(row.get("headline") or "")).strip().lower()
+    summary = re.sub(r"\\s+", " ", str(row.get("summary") or "")).strip().lower()
+    related = str(row.get("related") or "").strip()
+    if not headline:
+        return False
+    text = headline + " " + summary[:1200]
+
+    # Reject clearly unrelated verticals unless the same story explicitly reports
+    # a financial/market catalyst. This prevents sports-viewership headlines.
+    off_topic = (
+        "super league", "football", "soccer", "cricket", "ipl ", "nba ", "nfl ",
+        "mlb ", "nhl ", "premier league", "champions league", "world cup",
+        "matchday", "goalkeeper", "striker", "coach sacked", "transfer window",
+        "youtube views", "streaming record", "box office", "celebrity", "reality show",
+        "music video", "album release", "gaming tournament", "esports",
+    )
+    finance_context = (
+        "stock", "stocks", "share price", "shares", "equity", "equities",
+        "earnings", "revenue", "profit", "loss", "guidance", "forecast",
+        "ipo", "listing", "acquisition", "merger", "buyback", "dividend",
+        "sec filing", "10-k", "10-q", "8-k", "analyst", "price target",
+        "dow jones", "nasdaq", "s&p 500", "s&p500", "wall street",
+        "federal reserve", "fomc", "interest rate", "inflation", "cpi",
+        "jobs report", "treasury yield", "bond yield", "tariff", "gdp",
+        "recession", "stock futures", "market rally", "sell-off", "selloff",
+        "trading", "investor", "investors", "market cap", "shares rose",
+        "shares fell", "shares jump", "shares drop", "stock rises", "stock falls",
+    )
+    if any(term in text for term in off_topic) and not any(term in text for term in finance_context):
+        return False
+
+    # Entity-linked company headlines may not use generic market terminology;
+    # allow them only when the headline/summary still describes a business event.
+    business_context = (
+        "company", "corp", "inc.", "plc", "announces", "announced", "launches",
+        "launched", "appoints", "appointed", "recalls", "recall", "settlement",
+        "lawsuit", "regulator", "regulatory", "approval", "contract", "orders",
+        "partnership", "outlook", "results", "quarter", "sales", "revenue",
+        "earnings", "profit", "loss", "shares", "stock", "investigation",
+    )
+    has_symbol = bool(related and re.search(r"\\b[A-Z]{1,5}(?:\\.[A-Z])?\\b", related))
+    if has_symbol and any(term in text for term in business_context):
+        return True
+    return any(term in text for term in finance_context)
+
+
 async def market_news(limit: int = 24):
     """Return current-session US-market news; retain the established 7-day feed on holidays/weekends."""
     now = time.monotonic()
@@ -897,6 +953,10 @@ async def market_news(limit: int = 24):
     # On weekends/US holidays cutoff is None, preserving the prior 7-day behavior.
     if cutoff is not None:
         rows = [row for row in rows if int(row.get("datetime") or 0) >= cutoff]
+
+    # Final strict relevance gate applies uniformly to Marketaux, Newsfilter,
+    # Finnhub and RSS so unrelated sports/entertainment never reaches the ribbon.
+    rows = [row for row in rows if _is_relevant_stock_market_news(row)]
     rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
     result = rows[:max(1, min(40, int(limit)))]
     _MARKET_NEWS_CACHE.update({"at": now, "items": result, "session_key": session_key})
