@@ -542,14 +542,6 @@ function renderDashboard(d){
  const clockLocaleTime=(zone)=>new Date().toLocaleTimeString('en-GB',{timeZone:zone,hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
  if(marketClockEl)marketClockEl.textContent=clockLocaleTime(clockZone);
  if(headline)headline.textContent=session==='regular'?'السوق الأمريكي مفتوح':premarket?'السوق قبل الافتتاح':session==='afterhours'?'التداول بعد الإغلاق':session==='night'?'التداول الليلي':nightPending?'التداول الليلي يفتح قريبًا':'السوق الأمريكي مغلق';
- const marketBadge=document.getElementById('sasMarketStateBadge');
- const regularMarketOpen=session==='regular';
- if(marketBadge){
-   marketBadge.textContent=regularMarketOpen?'مفتوح':'مغلق';
-   marketBadge.classList.toggle('is-open',regularMarketOpen);
-   marketBadge.classList.toggle('is-closed',!regularMarketOpen);
-   marketBadge.setAttribute('aria-label',regularMarketOpen?'السوق مفتوح':'السوق مغلق');
- }
 
  if(subline)subline.textContent=statusText.replace(/^[🟢🟡🟠🟣🌙🔴 ]+/,'').slice(0,105)||'توقيت الرياض • حالة مباشرة من النظام';
  if(sessionLabelEl)sessionLabelEl.textContent=sessionLabel|| (preopen?'مغلق':'جارٍ التحقق');
@@ -2667,6 +2659,15 @@ startSASMediaAutoRefresh();
    if(rw)rw.innerHTML=openingDateTime(regular);
    const date=document.getElementById('sasCountdownDate');if(date)date.innerHTML='<span class="sas-opening-date" dir="rtl">موعد الجلسة القادمة: '+arDate(pre)+'</span><span class="sas-opening-time">جميع الأوقات بتوقيت الرياض</span>';
    const phase=marketPhase(now),strip=document.querySelector('.sas-market-strip'),headline=document.getElementById('sasMarketHeadline');
+   const sessionCard=document.getElementById('sasOpenCountdown');
+   const sessionTitle=document.getElementById('sasCountdownStateTitle');
+   if(sessionCard){
+     sessionCard.classList.remove('market-state-open','market-state-pre','market-state-after','market-state-closed');
+     sessionCard.classList.add(phase==='open'?'market-state-open':phase==='pre'?'market-state-pre':phase==='after'?'market-state-after':'market-state-closed');
+     sessionCard.dataset.marketState=phase;
+   }
+   if(sessionTitle)sessionTitle.textContent=phase==='open'?'السوق الأمريكي مفتوح':phase==='pre'?'السوق قبل الافتتاح':phase==='after'?'التداول بعد الإغلاق':'السوق الأمريكي مغلق';
+
    if(strip){strip.classList.remove('is-open','is-pre','is-closed','is-after');strip.classList.add(phase==='open'?'is-open':phase==='pre'?'is-pre':phase==='after'?'is-after':'is-closed');strip.dataset.marketState=phase;}
    if(headline)headline.textContent=phase==='open'?'السوق الأمريكي مفتوح':phase==='pre'?'السوق الأمريكي قبل الافتتاح':phase==='after'?'التداول بعد الإغلاق':'السوق الأمريكي مغلق';
    const sub=document.getElementById('sasMarketSubline');
