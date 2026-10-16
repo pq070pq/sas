@@ -1150,7 +1150,7 @@ async function searchShariah(){
    '<div class="shariah-review-section-title"><b>مصدر التحقق</b><span>'+sources.length+' مصدر</span></div>'+
    '<div class="shariah-source-list">'+sourceLines+'</div>'+
    (result?.updated_at?'<div class="shariah-updated">◷ آخر تحديث منشور: '+escHtml(result.updated_at)+'</div>':'')+
-   '<div class="shariah-review-warning"><b>⚠ تنبيه مهم</b><p>لا يصدر SAS PRO حكمًا من عنده. عند غياب نتيجة مباشرة موثقة أو اختلاف المصادر، تبقى الحالة «غير واضح / يحتاج تحقق». هذه معلومات للمراجعة وليست فتوى، والتحقق النهائي مسؤولية المستخدم.</p></div>'+
+   '<div class="shariah-review-warning"><b>⚠ تنبيه مهم</b><p>⚠️ مشروعية السهم أنت كمتداول مسؤول عنها. ابحث واجتهد وتوكل على الله.</p></div>'+
    '</div>';
  }catch(e){
   el.innerHTML='<div class="shariah-search-card sh-unknown shariah-error-card" role="status" aria-live="polite"><div class="shariah-error-icon" aria-hidden="true">⚠</div><b>تعذر الاتصال بمصدر التحقق</b><p>لم تصلنا نتيجة موثقة الآن. جرّب إعادة الفحص؛ لن نخمن الحكم الشرعي.</p><button type="button" class="shariah-retry-btn" onclick="searchShariah()" aria-label="إعادة التحقق من شرعية السهم"><span aria-hidden="true">↻</span> إعادة التحقق الآن</button></div>';
