@@ -5094,3 +5094,5 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @media(max-width:420px){.sas-quality-score-row{gap:8px}.sas-stock-style{padding:10px}}
 
 .sas-quality-error{margin:12px 0;padding:12px;border:1px solid rgba(255,91,112,.58);border-radius:13px;background:linear-gradient(135deg,rgba(91,15,32,.34),rgba(12,18,30,.92));color:#ffdbe1;box-shadow:0 0 16px rgba(255,55,88,.09)}.sas-quality-error b{display:block;color:#ff7b8f;font-size:12px}.sas-quality-error p{font-size:11px;line-height:1.8;margin:7px 0;color:#f3d4dc}.sas-quality-error small{font-size:9px;overflow-wrap:anywhere;color:#c59ca6}
+
+.sas-quality-error{display:block!important;visibility:visible!important;opacity:1!important;min-height:56px;position:relative;z-index:3}
