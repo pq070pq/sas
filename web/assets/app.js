@@ -1203,7 +1203,7 @@ function renderStockTerminalQuickMetrics(classification,targets,mini,candles=[])
  const rvol=fmt(pick(m.rvol,c.rvol,nested.rvol,ind.rvol));
  const calcAtr=()=>{if(validCandles.length<15)return null;const rows=validCandles.slice(-14);let total=0;for(let i=0;i<rows.length;i++){const h=Number(rows[i].high),l=Number(rows[i].low),prev=i?Number(rows[i-1].close):Number(rows[i].close);if(!Number.isFinite(h)||!Number.isFinite(l))return null;total+=Math.max(h-l,Math.abs(h-prev),Math.abs(l-prev));}return total/rows.length;};
  const atrValue=pick(c.atr14,c.atr,nested.atr14,ind.atr14,t.atr14,calcAtr());
- const atr=atrValue!==undefined&&Number(atrValue)>0?'
+ const atr=atrValue!==undefined&&Number(atrValue)>0?String.fromCharCode(36)+money(atrValue):null;
  const data=[
   {label:'الزخم (RSI 14)',value:rsi,tone:'violet',note:'مؤشر القوة النسبية'},
   {label:'السيولة (RVOL)',value:rvol===null?null:rvol+'×',tone:'green',note:'الحجم النسبي'},
