@@ -57,7 +57,7 @@ def test_finviz_screener_parses_unique_gainers_with_price_band():
     </table>
     """
     rows = _parse_finviz_screener(html, "gainers")
-    assert [x["symbol"] for x in rows] == ["ABCD", "EDGELOW", "EDGEHIGH"]
+    assert [x["symbol"] for x in rows] == ["ABCD", "EDGEHIGH", "EDGELOW"]
     assert rows[0]["change_pct"] == 8.1
     assert rows[0]["source"] == "Finviz"
 
