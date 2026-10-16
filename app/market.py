@@ -22,7 +22,8 @@ FMP_SYMBOLS = {
     "SPX": ["^GSPC"],
     "IXIC": ["^IXIC"],
     "DJI": ["^DJI"],
-    "XAU/USD": ["GCUSD", "GLD"],
+    # Do not use GLD as a gold spot proxy: its ETF share price is not USD/oz.
+    "XAU/USD": ["GCUSD"],
     "VIX": ["^VIX"],
 }
 
@@ -376,6 +377,9 @@ async def _stooq_quote(symbol: str):
                             "source": (
                                 "Stooq Snapshot" if snapshot else "Stooq Last Close"
                             ),
+                            # Daily history is not an intraday/live quote. Keep this
+                            # explicit so the UI can label it as the last close.
+                            "stale": not bool(snapshot),
                             "is_extended_hours": False,
                             "datetime": timestamp,
                         }
