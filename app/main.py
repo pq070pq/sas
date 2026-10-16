@@ -2984,8 +2984,17 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
                     except Exception:
                         pass
                     _cache_put(_analysis_memory, symbol, cached)
-        except Exception:
+        except Exception as exc:
             logger.exception("Could not refresh cached SAS quality classification for %s", symbol)
+            cached_sas = cached.setdefault("sas_pro", {})
+            old_cls = cached_sas.get("classification") if isinstance(cached_sas.get("classification"), dict) else {}
+            cached_sas["classification"] = {
+                **old_cls,
+                "quality_error": f"{type(exc).__name__}: {str(exc)[:180]}",
+                "quality_data_available": False,
+                "recommendation": "غير قابل للتقييم — تعذر تحديث بيانات المؤشرات؛ لا تعتمد على النجوم أو المستويات القديمة.",
+            }
+            _cache_put(_analysis_memory, symbol, cached)
         if True:  # تحديث نتيجة يقين في كل تحليل لمنع عرض حكم شرعي قديم من الكاش.
             try:
                 cached.setdefault("sas_pro", {}).setdefault("targets", {})["shariah"] = await asyncio.wait_for(check_shariah(symbol), timeout=8.0)
@@ -3076,9 +3085,14 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         from .scanner import classify_sas
         classification = await classify_sas(symbol, q, allow_twelve_fallback=True)
         if isinstance(classification, Exception):
-            classification = {}
-    except Exception:
-        classification = {}
+            classification = {"quality_data_available": False, "quality_error": f"{type(classification).__name__}: {str(classification)[:180]}"}
+    except Exception as exc:
+        logger.exception("SAS quality classification failed for %s", symbol)
+        classification = {
+            "quality_data_available": False,
+            "quality_error": f"{type(exc).__name__}: {str(exc)[:180]}",
+            "recommendation": "غير قابل للتقييم — تعذر حساب المؤشرات من البيانات المتاحة.",
+        }
 
     # FCC reviewer: طبقة مراجعة اختيارية بعد اجتياز SAS، وليست بوابة للرادار.
     fcc_review = {"available": False, "status": "not_called"}
