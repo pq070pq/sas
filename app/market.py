@@ -81,7 +81,12 @@ async def _finnhub_quote(symbol: str):
 
 
 async def _fmp_index_quote(symbol: str):
-    """Use FMP's dedicated index quote endpoint for the three US benchmarks."""
+    """Fetch benchmark quotes through FMP's dedicated index endpoints.
+
+    Stable stock quote endpoints may return an empty list for index symbols.
+    Try the documented batch-index feed first, then legacy index quotes, and
+    finally the stable single-symbol quote endpoint. Never substitute an ETF.
+    """
     keys = [x.strip() for x in str(getattr(settings, "fmp_api_keys", "") or "").split(",") if x.strip()]
     if getattr(settings, "fmp_api_key", ""):
         keys.insert(0, settings.fmp_api_key.strip())
@@ -89,29 +94,55 @@ async def _fmp_index_quote(symbol: str):
     mapped = {"SPX": "^GSPC", "IXIC": "^IXIC", "DJI": "^DJI"}.get(symbol)
     if not keys or not mapped:
         return None
-    async with httpx.AsyncClient(timeout=10) as client:
-        for key in keys:
-            try:
-                r = await client.get(
-                    "https://financialmodelingprep.com/stable/quote",
-                    params={"symbol": mapped, "apikey": key},
-                )
-                if r.status_code >= 400:
-                    continue
-                data = r.json()
-                row = data[0] if isinstance(data, list) and data else None
-                if not isinstance(row, dict) or not _valid_price(row.get("price")):
-                    continue
+
+    def matching_row(data):
+        rows = data if isinstance(data, list) else (
+            data.get("data", []) if isinstance(data, dict) else []
+        )
+        aliases = {
+            "SPX": {"^GSPC", "GSPC", "SP500", "S&P 500", "S&P500"},
+            "IXIC": {"^IXIC", "IXIC", "NASDAQCOM", "NASDAQ COMPOSITE"},
+            "DJI": {"^DJI", "DJI", "DJIA", "DOW JONES", "DOW JONES INDUSTRIAL AVERAGE"},
+        }[symbol]
+        for candidate in rows:
+            if not isinstance(candidate, dict):
+                continue
+            candidate_symbol = str(candidate.get("symbol") or candidate.get("name") or "").strip().upper()
+            if candidate_symbol not in aliases and str(candidate.get("symbol") or "").strip().upper() != mapped:
+                continue
+            price = candidate.get("price")
+            if not _valid_price(price):
+                price = candidate.get("indexValue")
+            if not _valid_price(price):
+                price = candidate.get("value")
+            if _valid_price(price):
                 return {
                     "symbol": symbol,
-                    "price": float(row["price"]),
-                    "change_pct": row.get("changePercentage"),
+                    "price": float(price),
+                    "change_pct": candidate.get("changePercentage", candidate.get("changesPercentage")),
                     "source": "FMP Index",
                     "is_extended_hours": False,
-                    "datetime": row.get("timestamp"),
+                    "datetime": candidate.get("timestamp") or candidate.get("date"),
                 }
-            except Exception:
-                continue
+        return None
+
+    async with httpx.AsyncClient(timeout=5, follow_redirects=True) as client:
+        for key in keys:
+            requests = [
+                ("https://financialmodelingprep.com/stable/batch-index-quotes", {"apikey": key}),
+                ("https://financialmodelingprep.com/api/v3/quotes/index", {"apikey": key}),
+                ("https://financialmodelingprep.com/stable/quote", {"symbol": mapped, "apikey": key}),
+            ]
+            for url, params in requests:
+                try:
+                    response = await client.get(url, params=params)
+                    if response.status_code >= 400:
+                        continue
+                    result = matching_row(response.json())
+                    if result:
+                        return result
+                except Exception as exc:
+                    logger.info("FMP_INDEX_SOURCE_FAILED symbol=%s endpoint=%s error=%s", symbol, url.rsplit("/", 1)[-1], type(exc).__name__)
     return None
 
 
