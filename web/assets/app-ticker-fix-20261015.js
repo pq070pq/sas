@@ -234,31 +234,30 @@ window.addEventListener('unhandledrejection',event=>{
 async function load(){
  if(loadStarted)return;
  loadStarted=true;
- // Guard the entire account startup, including subscription config/plans.
- // Later startup requests can stall after /api/me has already succeeded.
  const watchdog=setTimeout(()=>{
   if(!loadStarted)return;
-  showAccountLoadError('توقف تحميل الحساب قبل اكتماله. اضغط «إعادة المحاولة»؛ وإذا تكرر، أرسل لقطة الشاشة للدعم.');
   loadStarted=false;
- },25000);
+  showAccountLoadError('التحقق تأخر وما اكتمل. اضغط «إعادة المحاولة»، أو أغلق SAS PRO وافتحه من تيليجرام من جديد.');
+ },8000);
  try{
   refreshTelegramWebApp();
   if(!tg)throw new Error('تعذر الوصول إلى Telegram WebApp. افتح SAS PRO من داخل Telegram.');
   const initData=await waitForTelegramInitData(3500);
   if(!initData)throw new Error('لم تصل بيانات Telegram الموثقة إلى التطبيق. أغلق Mini App وافتحه من زر SAS PRO داخل Telegram ثم أعد المحاولة.');
   me=await api('/api/me',{timeoutMs:6500,retries:0});
+  // Verification succeeded; stop the startup watchdog before loading the dashboard.
+  clearTimeout(watchdog);
   if(me.admin){
    document.getElementById('subscriptionPage').hidden=true;
    document.getElementById('adminPage').hidden=false;
    if((me.admin_permissions||[]).includes('admins')){document.getElementById('staffPanel').hidden=false;await loadStaff();}
-   await adminRefresh();showSASWelcome();clearTimeout(watchdog);return;
+   await adminRefresh();showSASWelcome();return;
   }
   if(me.pro){
    document.getElementById('subscriptionPage').hidden=true;
    document.getElementById('terminalPage').hidden=false;
    await initTerminal();
    showSASWelcome();
-   clearTimeout(watchdog);
    return;
   }
   document.getElementById('userName').textContent=me.user?.first_name||me.user?.username||'مستخدم SAS PRO';
@@ -271,11 +270,9 @@ async function load(){
   // الشروط أولًا؛ بعد الموافقة يبدأ الترحيب ثم تظهر دعوة القناة.
   if(!me.terms_accepted){
    openTerms('trial');
-   clearTimeout(watchdog);
    return;
   }
   showSASWelcome();
-  clearTimeout(watchdog);
  }catch(e){
   clearTimeout(watchdog);
   const msg=e?.message||'تعذر التحقق من Telegram.';

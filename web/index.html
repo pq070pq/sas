@@ -9,11 +9,6 @@
 <title>SAS PRO — Market Terminal</title>
 <link rel="stylesheet" href="/assets/app-ticker-fix-20261015.css?v=quality-api-diagnostic-20261016-5">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
-
-<style id="sas-sharia-cta-style">
-.sas-sharia-cta{margin:16px 0 4px;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;border:1px solid rgba(76,220,181,.48);border-radius:20px;background:radial-gradient(ellipse at 100% 0%,rgba(36,190,157,.16),transparent 55%),linear-gradient(135deg,rgba(5,31,42,.98),rgba(3,13,24,.98));box-shadow:0 0 24px rgba(28,205,159,.09),inset 0 1px 0 rgba(255,255,255,.035)}
-.sas-sharia-cta[hidden]{display:none!important}.sas-sharia-cta-copy{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}.sas-sharia-cta-kicker{font-size:10px;letter-spacing:.12em;color:#65e4bd;font-weight:800}.sas-sharia-cta-copy b{font-size:16px;color:#eafff8}.sas-sharia-cta-copy>span:last-child{font-size:12px;line-height:1.7;color:#a9c3ca}.sas-sharia-cta-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:46px;padding:10px 15px;border:1px solid rgba(83,238,190,.7);border-radius:14px;background:linear-gradient(135deg,#0c755f,#074538);color:#edfff9;font:inherit;font-weight:800;font-size:13px;box-shadow:0 0 17px rgba(58,225,177,.18);cursor:pointer;transition:transform .18s ease,filter .18s ease,box-shadow .18s ease}.sas-sharia-cta-button:active{transform:scale(.97);filter:brightness(1.12)}.sas-sharia-cta-icon{width:26px;height:26px;display:grid;place-items:center;border-radius:9px;background:rgba(255,255,255,.1)}.sas-sharia-cta-icon svg{width:19px;height:19px}@media(max-width:520px){.sas-sharia-cta{align-items:stretch}.sas-sharia-cta-button{width:100%}}
-</style>
 </head>
 <body>
 <div id="sasWelcomeOverlay" class="sas-welcome-overlay" hidden aria-live="polite" role="status">
@@ -183,14 +178,7 @@
         <div id="macroGrid" class="macro-grid"></div>
       </section>
       <section id="tab-radar" class="terminal-tab"><div class="terminal-panel-head"><div><span class="eyebrow">SAS PRO RADAR</span><h2>بيانات الأسهم المرصودة</h2><small>🕒 يوضح لك وقت تنفيذ آخر رصد فعلي بتوقيت الرياض</small><small>السعر • الحركة • الحجم • RVOL • الدخول • الوقف • الهدف • R:R</small></div><button id="radarScanBtn" type="button" class="radar-scan-action" onclick="runRadar()" aria-label="مسح الأسهم"><span class="radar-scan-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><circle cx="14" cy="14" r="9.5" stroke="currentColor" stroke-width="1.8"/><circle cx="14" cy="14" r="4.5" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/><path d="M14 4.5v4M23.5 14h-4M14 23.5v-4M4.5 14h4M21 21l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 14 20.5 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span class="radar-scan-copy"><b>مسح الأسهم</b><small>ابدأ فحص الفرص الآن</small></span><span class="radar-scan-arrow" aria-hidden="true">‹</span></button></div><div id="radarDiagnostics" class="diagnostics"></div><div id="radarCandidates" class="radar-candidates" hidden></div><div id="radarGrid" class="stock-grid"></div></section>
-      <section id="tab-search" class="terminal-tab"><div class="search-terminal"><input id="symbolSearch" maxlength="12" autocomplete="off" placeholder="ابحث عن رمز السهم مثل NVDA أو AAPL"><button id="analyzeSymbolBtn" type="button" class="primary-btn symbol-action-btn analyze-action-btn" onclick="analyzeSymbol()" aria-label="تحليل السهم"><span class="symbol-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 9 12l3.5 3.5L20 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7H20v5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="symbol-action-copy"><b>تحليل السهم</b><small>السعر • الرسم • المؤشرات</small></span><span class="symbol-action-arrow" aria-hidden="true">‹</span></button></div><div id="shariahSearchResult" class="shariah-search-result" hidden></div><div id="symbolResult" class="symbol-result"><div class="empty-state">اكتب رمز السهم لعرض السعر، الرسم، المستويات، الأخبار وتحليل SAS PRO، أو استخدم «بحث الشرعية» للتحقق المستقل.</div></div>
-<div id="shariaBotAfterAnalysis" class="sas-sharia-cta" hidden>
- <div class="sas-sharia-cta-copy"><span class="sas-sharia-cta-kicker">SAS PRO • تحقق إضافي</span><b>تحتاج مزيدًا من التحقق؟</b><span>افحص شرعية السهم واحسب نسبة التطهير عبر بوت الشرعية.</span></div>
- <button type="button" class="sas-sharia-cta-button" onclick="if(window.Telegram?.WebApp?.openTelegramLink){window.Telegram.WebApp.openTelegramLink('https://t.me/sharia_stock_bot')}else{window.location.href='https://t.me/sharia_stock_bot'}" aria-label="فتح بوت الشرعية وحساب نسبة التطهير">
-  <span class="sas-sharia-cta-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3.5 14.6 9l5.9.8-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1L9.4 9 12 3.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="m9.5 12.2 1.7 1.7 3.6-3.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-  <span>افتح بوت الشرعية</span><span aria-hidden="true">↗</span>
- </button>
-</div></section>
+      <section id="tab-search" class="terminal-tab"><div class="search-terminal"><input id="symbolSearch" maxlength="12" autocomplete="off" placeholder="ابحث عن رمز السهم مثل NVDA أو AAPL"><button id="analyzeSymbolBtn" type="button" class="primary-btn symbol-action-btn analyze-action-btn" onclick="analyzeSymbol()" aria-label="تحليل السهم"><span class="symbol-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 9 12l3.5 3.5L20 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7H20v5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="symbol-action-copy"><b>تحليل السهم</b><small>السعر • الرسم • المؤشرات</small></span><span class="symbol-action-arrow" aria-hidden="true">‹</span></button><button id="shariahSearchBtn" type="button" class="secondary-btn shariah-search-btn shariah-search-btn-pro" onclick="if(window.Telegram?.WebApp?.openTelegramLink){window.Telegram.WebApp.openTelegramLink('https://t.me/sharia_stock_bot')}else{window.location.href='https://t.me/sharia_stock_bot'}" aria-label="فتح بوت التحقق من الشرعية ونسبة التطهير"><span class="shariah-search-btn-orbit" aria-hidden="true"><span class="shariah-search-btn-icon"><svg viewBox="0 0 24 24" fill="none"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.5 4.5M10.8 7.2v7.2M7.2 10.8h7.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span></span><span class="shariah-search-btn-copy"><b>الشرعية ونسبة التطهير</b><small>افتح بوت التحقق مباشرة في تيليجرام</small></span><span class="shariah-search-btn-arrow" aria-hidden="true">↗</span></button></div><button id="shariahBotDirectBtn" type="button" class="secondary-btn shariah-search-btn shariah-search-btn-pro shariah-search-btn-below" style="width:100%;margin-top:12px" onclick="if(window.Telegram?.WebApp?.openTelegramLink){window.Telegram.WebApp.openTelegramLink('https://t.me/sharia_stock_bot')}else{window.location.href='https://t.me/sharia_stock_bot'}" aria-label="فتح بوت التحقق من الشرعية ونسبة التطهير"><span class="shariah-search-btn-orbit" aria-hidden="true"><span class="shariah-search-btn-icon"><svg viewBox="0 0 24 24" fill="none"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.5 4.5M10.8 7.2v7.2M7.2 10.8h7.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span></span><span class="shariah-search-btn-copy"><b>الشرعية ونسبة التطهير</b><small>اضغط لفتح بوت التحقق مباشرة في تيليجرام</small></span><span class="shariah-search-btn-arrow" aria-hidden="true">↗</span></button><div id="shariahSearchResult" class="shariah-search-result" hidden></div><div id="symbolResult" class="symbol-result"><div class="empty-state">اكتب رمز السهم لعرض السعر، الرسم، المستويات، الأخبار وتحليل SAS PRO، أو استخدم «بحث الشرعية» للتحقق المستقل.</div></div></section>
       <section id="tab-account" class="terminal-tab"><div class="account-terminal"><div class="account-avatar us-account-mark">📈</div><h2 id="accountName">—</h2><p id="accountPlan">—</p><div class="account-cards" id="accountCards"></div><div class="account-contact"><b>📝 للملاحظات والاقتراحات</b><span>تواصل مباشرة مع SAS PRO</span><a class="contact-btn" href="https://t.me/SAS770" target="_blank" rel="noopener">💬 مراسلة SAS PRO على الخاص</a></div></div></section>
     </main>
     <footer class="sas-disclaimer-footer" aria-label="تنبيه SAS PRO"><div class="sas-disclaimer-bar"><span class="disclaimer-badge"><span class="disclaimer-icon" aria-hidden="true">⛔</span> تنبيه</span><div class="sas-disclaimer-marquee"><div class="sas-disclaimer-track"><span>المحتوى تعليمي إخباري فقط، وليس توصية شراء أو بيع • قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</span><span aria-hidden="true">المحتوى تعليمي إخباري فقط، وليس توصية شراء أو بيع • قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️</span></div></div><span class="disclaimer-live">SAS PRO</span></div></footer>
@@ -419,29 +407,7 @@
   </div>
 </div>
 
-<script src="/assets/app-ticker-fix-20261015.js?v=account-stuck-diagnostic-20261016-2"></script>
-<script>
-/* Independent WebView startup guard: works even if the main app bundle fails before load(). */
-(function(){
- function guard(){
-  var name=document.getElementById('userName');
-  var grid=document.getElementById('subscriptionStatusGrid');
-  var error=document.getElementById('accountLoadError');
-  var message=document.getElementById('accountLoadErrorText');
-  var retry=document.getElementById('accountRetryBtn');
-  if(!name||!grid||!error)return;
-  if(/جار.? التحقق|جارٍ التحقق|جاري التحقق/.test(name.textContent||'')){
-   name.textContent='تعذر تشغيل الواجهة';
-   name.classList.remove('account-loading');
-   grid.setAttribute('aria-busy','false');
-   if(message)message.textContent='لم تكتمل تهيئة التطبيق داخل تيليجرام. أعد تحميل الصفحة؛ إذا تكرر الخطأ فالمشكلة في تشغيل الواجهة وليس بيانات الاشتراك.';
-   error.hidden=false;
-   if(retry){retry.textContent='إعادة تحميل الصفحة ↻';retry.onclick=function(){window.location.reload();};}
-  }
- }
- window.setTimeout(guard,8000);
-})();
-</script>
+<script src="/assets/app-ticker-fix-20261015.js?v=shariah-disclaimer-20261016-1"></script>
 
 <script>
 /* Presentation-only interactions. Does not modify radar, pricing, API calls, or permissions. */
@@ -596,24 +562,6 @@
  function paint(){const active=window.__sasClockZone==='America/New_York'?'newyork':'riyadh',cfg=zones[active],other=$('sasOtherClock');if($('sasClockZoneLabel'))$('sasClockZoneLabel').textContent=cfg.label;if($('sasMarketClock'))$('sasMarketClock').textContent=time(cfg.zone);if($('sasOtherClockLabel'))$('sasOtherClockLabel').textContent=cfg.other;if(other)other.textContent=time(cfg.otherZone);const btn=$('sasClockToggle');if(btn){btn.setAttribute('aria-pressed',String(active==='newyork'));btn.setAttribute('aria-label',active==='newyork'?'التبديل إلى توقيت الرياض':'التبديل إلى توقيت نيويورك');}}
  const btn=$('sasClockToggle');if(btn)btn.addEventListener('click',()=>{window.__sasClockZone=window.__sasClockZone==='America/New_York'?'Asia/Riyadh':'America/New_York';paint();});
  paint();window.setInterval(paint,1000);
-})();
-</script>
-<script>
-(function(){
- const init=function(){
-  const result=document.getElementById('symbolResult'),cta=document.getElementById('shariaBotAfterAnalysis');
-  if(!result||!cta)return;
-  function update(){
-   const text=(result.innerText||result.textContent||'').trim();
-   const pending=/جاري التحليل|جاري تحميل|يتم التحليل|loading|analyzing/i.test(text);
-   const empty=!!result.querySelector('.empty-state')&&!result.querySelector('.stock-analysis,.analysis-result,.symbol-analysis-card,[data-analysis-ready="true"]');
-   const hasAnalysis=!!result.querySelector('.stock-analysis,.analysis-result,.symbol-analysis-card,[data-analysis-ready="true"]')||(!empty&&!pending&&text.length>80);
-   cta.hidden=!hasAnalysis;
-  }
-  new MutationObserver(update).observe(result,{childList:true,subtree:true,characterData:true,attributes:true});
-  update();
- };
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
 </script>
 </body>
