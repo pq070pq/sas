@@ -79,8 +79,9 @@ jobs:
         uses: appleboy/ssh-action@v1.2.2
         env:
           MARKETAUX_API_KEY: ${{ secrets.MARKETAUX_API_KEY }}
+          TWELVE_DATA_API_KEYS: ${{ secrets.TWELVE_DATA_API_KEYS }}
         with:
-          envs: MARKETAUX_API_KEY
+          envs: MARKETAUX_API_KEY,TWELVE_DATA_API_KEYS
           host: ${{ secrets.OVH_HOST }}
           username: ${{ secrets.OVH_USER || 'root' }}
           key_path: ${{ runner.temp }}/ovh_key
@@ -89,6 +90,7 @@ jobs:
           script: |
             set -e
             export TWELVE_DATA_API_KEY="${{ secrets.TWELVE_DATA_API_KEY }}"
+            export TWELVE_DATA_API_KEYS="$TWELVE_DATA_API_KEYS"
             cd /opt/saspro
             # إزالة قفل Git عالق من نشر سابق؛ النشر نفسه محمي بـ concurrency ولا توجد عملية Git متزامنة مقصودة.
             if [ -f .git/index.lock ]; then
