@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from app.market import _stooq_quote
+from app.market import FMP_SYMBOLS, _stooq_quote
 
 
 class _Response:
@@ -59,6 +59,30 @@ class StooqQuoteFallbackTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result["price"], 9.85)
         self.assertIsNone(result["change_pct"])
+
+
+    async def test_daily_history_fallback_is_marked_stale(self):
+        class HistoryOnlyClient(_FakeClient):
+            async def get(self, url, params=None, headers=None):
+                if "/q/l/" in url:
+                    return _Response("Symbol,Date,Time,Open,High,Low,Close,Volume,Name\\n")
+                if "/q/d/l/" in url:
+                    return _Response(
+                        "Date,Open,High,Low,Close,Volume\\n"
+                        "2026-10-13,9.30,9.60,9.20,9.50,2000000\\n"
+                        "2026-10-14,9.60,9.90,9.55,9.80,1000000\\n"
+                    )
+                return _Response("", 404)
+
+        with patch("app.market.httpx.AsyncClient", HistoryOnlyClient):
+            result = await _stooq_quote("NOK")
+
+        self.assertEqual(result["source"], "Stooq Last Close")
+        self.assertTrue(result["stale"])
+        self.assertEqual(result["price"], 9.80)
+
+    def test_gold_spot_does_not_fall_back_to_gld_etf_share_price(self):
+        self.assertEqual(FMP_SYMBOLS["XAU/USD"], ["GCUSD"])
 
 
 if __name__ == "__main__":
