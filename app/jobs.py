@@ -1308,6 +1308,40 @@ async def stock_radar_cycle():
                     "live_price_source": q.get("source") or row.get("live_price_source"),
                     "fundamentals": tech.get("fundamentals") or {},
                 })
+                # Fill report-only fields from independent providers. This never changes radar selection.
+                try:
+                    from .stock_report_enrichment import enrich_stock_report_data
+                    extra_data = await enrich_stock_report_data(symbol)
+                    if extra_data:
+                        fundamentals = dict(tech.get("fundamentals") or {})
+                        if extra_data.get("float_shares") is not None:
+                            tech["float_shares"] = extra_data["float_shares"]
+                            fundamentals["float_shares"] = extra_data["float_shares"]
+                            fundamentals["float_source"] = extra_data.get("float_source")
+                        if extra_data.get("ctb") is not None:
+                            fundamentals["ctb"] = extra_data["ctb"]
+                            fundamentals["ctb_source"] = extra_data.get("ctb_source")
+                        if extra_data.get("filing") and not any(
+                            tech.get(k) or fundamentals.get(k)
+                            for k in ("filing", "latest_filing", "filing_type", "sec_filing", "filing_status")
+                        ):
+                            tech["latest_filing"] = extra_data["filing"]
+                            tech["filing_url"] = extra_data.get("filing_url")
+                            tech["filing_source"] = extra_data.get("filing_source")
+                        if extra_data.get("shares_available_to_borrow") is not None:
+                            tech["shares_available_to_borrow"] = extra_data["shares_available_to_borrow"]
+                            fundamentals["shares_available_to_borrow"] = extra_data["shares_available_to_borrow"]
+                        tech["fundamentals"] = fundamentals
+                        tech["report_enrichment"] = {
+                            "checked_at": extra_data.get("enrichment_checked_at"),
+                            "float_source": extra_data.get("float_source"),
+                            "ctb_source": extra_data.get("ctb_source"),
+                            "filing_source": extra_data.get("filing_source"),
+                            "borrow_availability_source": extra_data.get("borrow_availability_source"),
+                        }
+                except Exception:
+                    logger.exception("Stock report data enrichment failed: %s", symbol)
+
                 tech["channel_gate"] = row.get("channel_gate") or {
                     "passed": True,
                     "session": status.get("session"),
