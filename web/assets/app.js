@@ -1559,7 +1559,30 @@ function formatTime(v){return v?new Date(v).toLocaleTimeString('ar-SA',{hour:'2-
 function formatDateTime(v){return v?new Date(v).toLocaleString('ar-SA',{weekday:'long',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';}
 function formatSessionDate(v){return v?new Date(v+'T12:00:00Z').toLocaleDateString('ar-SA',{weekday:'long',year:'numeric',month:'2-digit',day:'2-digit'}):'—';}
 function renderAccount(){
- const exp=me.expires_at||me.trial_expires; document.getElementById('accountCards').innerHTML='<div><small>الحالة</small><b>🟢 فعال</b></div><div><small>الباقة</small><b>'+escHtml(me.user?.plan||'SAS PRO')+'</b></div><div><small>الانتهاء</small><b>'+escHtml(exp?fmtDate(exp):'—')+'</b></div>';
+ const exp=me.expires_at||me.trial_expires;
+ const active=!!me.pro;
+ const source=me.access?.source||null;
+ const name=me.user?.first_name||me.user?.username||'متداول SAS PRO';
+ const accountName=document.getElementById('accountName');
+ if(accountName)accountName.textContent=name;
+ const accountPlan=document.getElementById('accountPlan');
+ if(accountPlan)accountPlan.textContent=(me.user?.username?'@'+me.user.username+' • ':'')+(source==='trial'?'تجربة مجانية':(me.user?.plan||me.plan||'عضوية SAS PRO'));
+ const accessText=document.getElementById('profileAccessText');
+ if(accessText)accessText.textContent=active?'الوصول مفعّل — أهلاً بك في مركز عضويتك':'الوصول غير مفعّل — راجع حالة الاشتراك';
+ const avatar=document.querySelector('.sas-profile-avatar');
+ const profileIcon=terminalState.siteMedia?.['icon-profile']?.url;
+ if(avatar&&profileIcon&&!avatar.querySelector('img'))avatar.innerHTML='<img src="'+esc(profileIcon)+'" alt="" aria-hidden="true">';
+ const status=active?'<span class="sas-profile-active">● فعّال</span>':'<span class="sas-profile-inactive">● غير فعّال</span>';
+ const plan=source==='trial'?'تجربة مجانية':(me.plan||me.user?.plan||'SAS PRO');
+ document.getElementById('accountCards').innerHTML='<div class="sas-profile-fact"><small>حالة الوصول</small><b>'+status+'</b></div><div class="sas-profile-fact"><small>الباقة الحالية</small><b>'+escHtml(plan)+'</b></div><div class="sas-profile-fact"><small>تاريخ الانتهاء</small><b>'+escHtml(exp?fmtDate(exp):(source==='free'?'مفتوح':'—'))+'</b></div>';
+}
+function toggleProfileDetails(){
+ const panel=document.getElementById('sasProfileDetails');
+ if(!panel)return;
+ panel.hidden=!panel.hidden;
+ document.querySelectorAll('.sas-profile-action[aria-controls="sasProfileDetails"]').forEach(btn=>btn.setAttribute('aria-expanded',String(!panel.hidden)));
+ const avatar=document.querySelector('.sas-profile-avatar');
+ if(avatar)avatar.classList.toggle('is-expanded',!panel.hidden);
 }
 
 function renderTrialCard(days){
@@ -1733,6 +1756,7 @@ const SAS_SITE_MEDIA_MANAGED_ITEMS_V2=[
  {slot:'icon-search',label:'أيقونة تبويب البحث',fallback:'🔎',target:'.terminal-tabs button[data-tab="search"]'},
  {slot:'icon-news',label:'أيقونة أخبار السوق الأمريكي',fallback:'📰',target:'.sas-market-news-icon'},
  {slot:'icon-account',label:'أيقونة تبويب الحساب',fallback:'👤',target:'.terminal-tabs button[data-tab="account"]'},
+ {slot:'icon-profile',label:'أيقونة ملف المستخدم الشخصي',fallback:'👤',target:'.sas-profile-avatar'},
 
 
 
