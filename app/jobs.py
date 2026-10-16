@@ -971,6 +971,9 @@ async def stock_radar_cycle():
                 )
             }
             app_active_count = len(app_active_symbols)
+            # Track symbols admitted to the app during this cycle; initialize it
+            # from the active set so every later add/discard is safe.
+            daily_app_symbols = set(app_active_symbols)
 
             # إذا اختفى سهم كان نشطًا من قائمة الفرص المؤكدة في دورة ناجحة،
             # نخرجه من التطبيق حتى تدخل فرصة مؤكدة أخرى مكانه. لا نغيّر سجلات
