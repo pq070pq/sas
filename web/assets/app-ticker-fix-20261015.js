@@ -234,34 +234,31 @@ window.addEventListener('unhandledrejection',event=>{
 async function load(){
  if(loadStarted)return;
  loadStarted=true;
- // Telegram initData can take up to 3.5s and /api/me up to 6.5s.
- // Keep the watchdog beyond their combined bounded wait to avoid a false
- // timeout that races the successful response and leaves the UI in limbo.
+ // Guard the entire account startup, including subscription config/plans.
+ // Later startup requests can stall after /api/me has already succeeded.
  const watchdog=setTimeout(()=>{
   if(!loadStarted)return;
-  showAccountLoadError('تأخر التحقق من الحساب. اضغط «إعادة المحاولة» أو أغلق SAS PRO وافتحه من تيليجرام من جديد.');
-  // Release the loading lock so the retry button can start a fresh attempt.
+  showAccountLoadError('توقف تحميل الحساب قبل اكتماله. اضغط «إعادة المحاولة»؛ وإذا تكرر، أرسل لقطة الشاشة للدعم.');
   loadStarted=false;
- },15000);
+ },25000);
  try{
   refreshTelegramWebApp();
   if(!tg)throw new Error('تعذر الوصول إلى Telegram WebApp. افتح SAS PRO من داخل Telegram.');
   const initData=await waitForTelegramInitData(3500);
   if(!initData)throw new Error('لم تصل بيانات Telegram الموثقة إلى التطبيق. أغلق Mini App وافتحه من زر SAS PRO داخل Telegram ثم أعد المحاولة.');
   me=await api('/api/me',{timeoutMs:6500,retries:0});
-  // Verification succeeded; stop the startup watchdog before loading the dashboard.
-  clearTimeout(watchdog);
   if(me.admin){
    document.getElementById('subscriptionPage').hidden=true;
    document.getElementById('adminPage').hidden=false;
    if((me.admin_permissions||[]).includes('admins')){document.getElementById('staffPanel').hidden=false;await loadStaff();}
-   await adminRefresh();showSASWelcome();return;
+   await adminRefresh();showSASWelcome();clearTimeout(watchdog);return;
   }
   if(me.pro){
    document.getElementById('subscriptionPage').hidden=true;
    document.getElementById('terminalPage').hidden=false;
    await initTerminal();
    showSASWelcome();
+   clearTimeout(watchdog);
    return;
   }
   document.getElementById('userName').textContent=me.user?.first_name||me.user?.username||'مستخدم SAS PRO';
@@ -274,9 +271,11 @@ async function load(){
   // الشروط أولًا؛ بعد الموافقة يبدأ الترحيب ثم تظهر دعوة القناة.
   if(!me.terms_accepted){
    openTerms('trial');
+   clearTimeout(watchdog);
    return;
   }
   showSASWelcome();
+  clearTimeout(watchdog);
  }catch(e){
   clearTimeout(watchdog);
   const msg=e?.message||'تعذر التحقق من Telegram.';
