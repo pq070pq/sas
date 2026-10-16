@@ -273,9 +273,35 @@ jobs:
             # Run a one-time live quote audit only for an explicitly named diagnostic commit (MARKET QUOTE DIAGNOSTIC).
             if git log -1 --pretty=%s | grep -q "MARKET QUOTE DIAGNOSTIC"; then
               echo "===== SAS PRO LIVE MARKET QUOTE DIAGNOSTIC ====="
-              for symbol in VIX XAU/USD SPX IXIC DJI BTC/USD; do
-                docker compose exec -T saspro python -c 'import sys,asyncio,json; from app.market import macro_quote; s=sys.argv[1]; r=asyncio.run(macro_quote(s)); print(json.dumps({"symbol":s,"price":r.get("price"),"change_pct":r.get("change_pct"),"source":r.get("source"),"stale":r.get("stale",False),"delayed":r.get("is_delayed",False),"datetime":r.get("datetime"),"diagnostic":r.get("diagnostic")},ensure_ascii=False))' "$symbol"
-              done
+              docker compose exec -T saspro python - <<'PY'
+import asyncio, json
+from app import market
+symbols = ["VIX", "XAU/USD", "SPX", "IXIC", "DJI", "BTC/USD"]
+providers = [
+    ("FMP", market._fmp_quote),
+    ("Finnhub", market._finnhub_quote),
+    ("Stooq", market._stooq_quote),
+    ("FRED", market._fred_index_quote),
+    ("Public", market._public_macro_quote),
+    ("TwelveLastClose", market._twelve_last_close),
+]
+async def main():
+    for symbol in symbols:
+        for name, provider in providers:
+            if name == "FRED" and symbol not in {"SPX", "IXIC", "DJI"}:
+                continue
+            if name == "Public" and symbol not in {"XAU/USD", "BTC/USD"}:
+                continue
+            try:
+                row = await asyncio.wait_for(provider(symbol), timeout=7)
+                if row:
+                    print(json.dumps({"symbol": symbol, "provider": name, "price": row.get("price"), "change_pct": row.get("change_pct"), "source": row.get("source"), "stale": row.get("stale", False), "datetime": row.get("datetime")}, ensure_ascii=False))
+                else:
+                    print(json.dumps({"symbol": symbol, "provider": name, "result": "no_data"}, ensure_ascii=False))
+            except Exception as exc:
+                print(json.dumps({"symbol": symbol, "provider": name, "error": type(exc).__name__}, ensure_ascii=False))
+asyncio.run(main())
+PY
               echo "===== END SAS PRO LIVE MARKET QUOTE DIAGNOSTIC ====="
             fi
 
