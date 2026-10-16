@@ -14,48 +14,8 @@
 .sas-sharia-cta{margin:16px 0 4px;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;border:1px solid rgba(76,220,181,.48);border-radius:20px;background:radial-gradient(ellipse at 100% 0%,rgba(36,190,157,.16),transparent 55%),linear-gradient(135deg,rgba(5,31,42,.98),rgba(3,13,24,.98));box-shadow:0 0 24px rgba(28,205,159,.09),inset 0 1px 0 rgba(255,255,255,.035)}
 .sas-sharia-cta[hidden]{display:none!important}.sas-sharia-cta-copy{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}.sas-sharia-cta-kicker{font-size:10px;letter-spacing:.12em;color:#65e4bd;font-weight:800}.sas-sharia-cta-copy b{font-size:16px;color:#eafff8}.sas-sharia-cta-copy>span:last-child{font-size:12px;line-height:1.7;color:#a9c3ca}.sas-sharia-cta-button{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:46px;padding:10px 15px;border:1px solid rgba(83,238,190,.7);border-radius:14px;background:linear-gradient(135deg,#0c755f,#074538);color:#edfff9;font:inherit;font-weight:800;font-size:13px;box-shadow:0 0 17px rgba(58,225,177,.18);cursor:pointer;transition:transform .18s ease,filter .18s ease,box-shadow .18s ease}.sas-sharia-cta-button:active{transform:scale(.97);filter:brightness(1.12)}.sas-sharia-cta-icon{width:26px;height:26px;display:grid;place-items:center;border-radius:9px;background:rgba(255,255,255,.1)}.sas-sharia-cta-icon svg{width:19px;height:19px}@media(max-width:520px){.sas-sharia-cta{align-items:stretch}.sas-sharia-cta-button{width:100%}}
 </style>
-<style id="sas-interactive-back-style">
-#sasInteractiveBack{position:fixed;top:calc(env(safe-area-inset-top,0px) + 82px);right:14px;z-index:9998;display:none;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:9px 15px;border:1px solid rgba(87,220,255,.58);border-radius:999px;background:linear-gradient(135deg,rgba(5,43,64,.96),rgba(2,13,25,.96));color:#dffaff;box-shadow:0 0 18px rgba(45,201,255,.18),inset 0 0 12px rgba(45,201,255,.08);font:inherit;font-size:14px;font-weight:800;cursor:pointer;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transition:transform .18s ease,box-shadow .18s ease}
-#sasInteractiveBack.is-visible{display:inline-flex}
-#sasInteractiveBack:active{transform:scale(.96);box-shadow:0 0 24px rgba(45,201,255,.3)}
-#sasInteractiveBack svg{width:18px;height:18px;flex:none}
-@media(min-width:900px){#sasInteractiveBack{top:100px;right:24px}}
-@media(prefers-reduced-motion:reduce){#sasInteractiveBack{transition:none}}
-</style>
 </head>
 <body>
-<button id="sasInteractiveBack" type="button" aria-label="العودة إلى الصفحة الرئيسية" title="العودة إلى الرئيسية" hidden><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 5 8 12l7 7M8 12h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>رجوع</span></button>
-<script>
-(function(){
- if(window.__sasInteractiveBackReady)return;window.__sasInteractiveBackReady=true;
- const btn=document.getElementById('sasInteractiveBack');if(!btn)return;
- function sync(){
-  const admin=document.getElementById('adminPage');
-  const adminOpen=!!(admin&&!admin.hidden);
-  const active=document.querySelector('.terminal-tab.active');
-  const dashboard=document.getElementById('tab-dashboard');
-  const dashboardActive=(active&&active.id==='tab-dashboard')||(!active&&dashboard&&!dashboard.hidden);
-  const show=adminOpen||(!dashboardActive&&!!(active||dashboard));
-  btn.hidden=!show;btn.classList.toggle('is-visible',show);
- }
- function goBack(){
-  const admin=document.getElementById('adminPage');
-  if(admin&&!admin.hidden){if(typeof openAdminUserView==='function'){openAdminUserView();}else{admin.hidden=true;}sync();return;}
-  if(typeof switchTerminalTab==='function'){switchTerminalTab('dashboard');}
-  else{const home=document.getElementById('tab-dashboard');if(home)home.hidden=false;}
-  sync();
- }
- btn.addEventListener('click',goBack);
- function start(){
-  const observer=new MutationObserver(sync);
-  observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','hidden','style']});
-  document.addEventListener('click',function(e){if(e.target.closest('[onclick*="switchTerminalTab"],[data-tab],[data-admin-target]'))setTimeout(sync,0);});
-  window.addEventListener('hashchange',sync);window.addEventListener('popstate',sync);sync();
- }
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
-})();
-</script>
-
 <div id="sasWelcomeOverlay" class="sas-welcome-overlay" hidden aria-live="polite" role="status">
   <div class="sas-fireworks" aria-hidden="true"></div>
   <div class="sas-welcome-card">
@@ -459,7 +419,7 @@
   </div>
 </div>
 
-<script src="/assets/app-ticker-fix-20261015.js?v=account-watchdog-fix-20261016-3"></script>
+<script src="/assets/app-ticker-fix-20261016-pre-back-button-1"></script>
 <script>
 /* Independent WebView startup guard: works even if the main app bundle fails before load(). */
 (function(){
