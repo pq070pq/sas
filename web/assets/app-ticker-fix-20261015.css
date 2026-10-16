@@ -5234,3 +5234,37 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @media(prefers-reduced-motion:reduce){.sas-profile-avatar,.sas-profile-fact,.sas-profile-action{transition:none}.sas-profile-details{animation:none}}
 
 .sas-profile-avatar .sas-managed-tab-icon{display:block;width:100%;height:100%;max-width:none;object-fit:cover;border-radius:inherit}.sas-profile-avatar>span{display:none}
+
+
+/* SAS PRO interactive profile refresh — 2026-10-17 */
+.sas-profile-shell{max-width:650px;padding-bottom:20px;border-color:rgba(48,221,239,.34);background:radial-gradient(ellipse at 50% 0,rgba(15,123,153,.23),transparent 45%),linear-gradient(155deg,rgba(5,22,35,.99),rgba(2,8,16,.99) 68%,rgba(3,14,24,.99));box-shadow:0 24px 65px rgba(0,0,0,.44),0 0 34px rgba(45,244,255,.09),inset 0 1px rgba(255,255,255,.065)}
+.sas-profile-cover{height:142px;background:radial-gradient(ellipse at 78% 25%,rgba(45,244,255,.17),transparent 38%),linear-gradient(120deg,rgba(4,18,30,.2),rgba(5,64,83,.34),rgba(5,13,26,.6))}
+.sas-profile-grid-glow{position:absolute;inset:0;opacity:.5;background-image:linear-gradient(rgba(45,244,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(45,244,255,.045) 1px,transparent 1px);background-size:26px 26px;mask-image:linear-gradient(90deg,transparent,#000 20%,#000 80%,transparent)}
+.sas-profile-identity{margin-top:-40px;gap:13px}
+.sas-profile-avatar{width:86px;height:86px;min-width:86px;border-radius:25px;background:linear-gradient(145deg,#0a2b3a,#06111f);box-shadow:0 9px 28px rgba(0,0,0,.45),0 0 25px rgba(45,244,255,.19)}
+.sas-profile-identity-copy{padding-top:39px}
+.sas-profile-statusline{margin-top:20px;transition:border-color .2s,background .2s}
+.sas-profile-statusline.is-active{border-color:rgba(25,239,139,.3);background:linear-gradient(90deg,rgba(5,42,31,.42),rgba(2,11,20,.62))}
+.sas-profile-statusline.is-inactive{border-color:rgba(255,83,104,.32);background:linear-gradient(90deg,rgba(57,13,25,.35),rgba(2,11,20,.62))}
+.sas-profile-statusline.is-inactive .sas-profile-status-dot{background:#ff5368;box-shadow:0 0 12px rgba(255,83,104,.65)}
+.sas-profile-section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:16px 2px 9px;text-align:right}
+.sas-profile-section-title span{font-size:12px;font-weight:900;color:#dff8ff}
+.sas-profile-section-title small{font-size:9px;color:#7699aa}
+.sas-profile-facts{gap:9px}
+.sas-profile-fact-button{width:100%;text-align:right;color:inherit;cursor:pointer;font:inherit;appearance:none}
+.sas-profile-fact-button>span{font-size:9px;color:#6e9bab;line-height:1.5}
+.sas-profile-fact-button:hover,.sas-profile-fact-button:focus-visible{transform:translateY(-3px);border-color:rgba(45,244,255,.55);box-shadow:0 8px 22px rgba(0,0,0,.2),0 0 20px rgba(45,244,255,.08);outline:none}
+.sas-profile-fact-button:focus-visible,.sas-profile-action:focus-visible{outline:2px solid rgba(45,244,255,.7);outline-offset:2px}
+.sas-profile-fact-button .sas-profile-active,.sas-profile-fact-button .sas-profile-inactive{font-size:13px}
+.sas-profile-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.sas-profile-action{min-height:78px;transition:transform .2s,border-color .2s,box-shadow .2s}
+.sas-profile-action:hover{transform:translateY(-2px)}
+.sas-profile-action:nth-child(2)>span{color:#ffe28a;background:rgba(255,212,71,.08)}
+.sas-profile-action:nth-child(3)>span{color:#72c9ff;background:rgba(64,165,255,.09)}
+.sas-profile-action:nth-child(4)>span{color:#6df0ad;background:rgba(25,239,139,.08)}
+.sas-profile-details>div{align-items:center}
+.sas-profile-details>div b{max-width:65%;text-align:left;overflow-wrap:anywhere}
+.sas-profile-contact{box-shadow:inset 0 1px rgba(255,255,255,.04),0 8px 26px rgba(0,0,0,.15)}
+.sas-profile-avatar img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
+@media(max-width:520px){.sas-profile-shell{margin:12px auto 20px;padding-left:12px;padding-right:12px}.sas-profile-cover{margin-left:-12px;margin-right:-12px;height:128px}.sas-profile-facts{grid-template-columns:1fr}.sas-profile-fact-button{min-height:76px}.sas-profile-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.sas-profile-section-title small{max-width:48%;text-align:left}}
+@media(prefers-reduced-motion:reduce){.sas-profile-shell,.sas-profile-action,.sas-profile-fact-button,.sas-profile-statusline{transition:none}}
