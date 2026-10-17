@@ -5339,3 +5339,8 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @media(max-width:600px){.terminal-tabs button[data-tab]{flex-direction:column!important;gap:5px!important;min-height:68px!important;padding:7px 3px!important;border-radius:14px!important}.terminal-tab-icon{flex-basis:35px;width:35px;height:35px;border-radius:12px}.terminal-tab-icon:after{border-radius:8px}.terminal-tab-icon svg{width:84%;height:84%}.terminal-tab-label{font-size:clamp(10px,2.8vw,12px);white-space:nowrap}}
 @media(max-width:360px){.terminal-tabs{gap:3px!important;padding:4px!important}.terminal-tabs button[data-tab]{min-height:62px!important}.terminal-tab-icon{flex-basis:31px;width:31px;height:31px}.terminal-tab-label{font-size:10px}}
 @media(prefers-reduced-motion:reduce){.terminal-tab-icon{transition:none!important}}
+
+/* Avoid showing the same lone story twice just to fill the infinite ticker loop. */
+.sas-news-lane.is-single-news{animation:none!important;transform:none!important;width:100%;min-width:0;justify-content:flex-start}
+.sas-news-lane.is-single-news>.sas-news-group{width:100%;min-width:0;justify-content:flex-start}
+.sas-news-lane.is-single-news .sas-news-card{flex:0 1 clamp(245px,70vw,330px);max-width:100%}
