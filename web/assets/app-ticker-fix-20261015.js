@@ -2741,7 +2741,11 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
   const track=$('sasMarketNewsTrack');if(!track)return;
   const hasArabic=value=>/[ء-ي]/u.test(String(value||''));
   // لا تُخفِ الأخبار الموثقة إذا تعطلت خدمة الترجمة؛ اعرض تنبيهًا عربيًا واضحًا بدل إسقاط الشريط كله.
-  const valid=(Array.isArray(items)?items:[]).filter(x=>x&&safeUrl(x.url)&&String(x.headline||'').trim()).sort((a,b)=>Number(b.datetime||0)-Number(a.datetime||0)).slice(0,16);
+  const timestampOf=value=>{if(value===null||value===undefined||value==='')return 0;const numeric=Number(value);if(Number.isFinite(numeric)&&numeric>0)return numeric<1e12?numeric*1000:numeric;const parsed=Date.parse(String(value));return Number.isFinite(parsed)?parsed:0;};
+  const canonicalNewsUrl=value=>{try{const u=new URL(safeUrl(value));u.hash='';for(const key of [...u.searchParams.keys()])if(/^(utm_.+|fbclid|gclid|mc_cid|mc_eid|ref|source)$/i.test(key))u.searchParams.delete(key);u.hostname=u.hostname.toLowerCase().replace(/^www\\./,'');u.pathname=u.pathname.replace(/\\/+$/,'');return u.href;}catch(e){return '';}};
+  const uniqueNews=new Map();
+  (Array.isArray(items)?items:[]).forEach(item=>{if(!item||!safeUrl(item.url)||!String(item.headline||'').trim())return;const urlKey=canonicalNewsUrl(item.url);const titleKey=String(item.translated_headline||item.headline||'').normalize('NFKC').toLowerCase().replace(/[\\s\\p{P}\\p{S}]+/gu,' ').trim();const key=urlKey||titleKey;if(!key)return;const oldItem=uniqueNews.get(key);if(!oldItem||timestampOf(item.datetime)>timestampOf(oldItem.datetime)||(!oldItem.translated_headline&&item.translated_headline))uniqueNews.set(key,item);});
+  const valid=[...uniqueNews.values()].sort((a,b)=>timestampOf(b.datetime)-timestampOf(a.datetime)).slice(0,12);
   const key=valid.map(x=>String(x.url)+'|'+String(x.translated_headline||'')).join('|');
   if(key===lastNewsKey&&track.querySelector('.sas-news-lane')){const status=$('sasNewsStatus');if(status&&!fromCache)status.textContent=valid.length+' خبرًا • الأخبار محدثة • آخر تحقق '+new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date())+' بتوقيت الرياض';return;}
   lastNewsKey=key;
