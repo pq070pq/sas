@@ -6,7 +6,7 @@ import httpx
 from sqlalchemy import select
 
 from .config import settings
-from .market import macro_quote, quote
+from .market import macro_quote, quote, _fred_index_quote, _stooq_quote
 from .market_calendar import market_status
 from .telegram import send_message
 from .db import SessionLocal, ScheduledReport
@@ -107,9 +107,22 @@ async def publish_market_brief():
             try:
                 # استخدم نفس مسار المؤشرات المستقل المستخدم في شريط التطبيق والرادار,
                 # حتى لا تتوقف الأسعار في التقرير عند تعطل/نفاد مصدر Twelve Data.
-                quotes.append((label, await macro_quote(symbol)))
+                result = await macro_quote(symbol)
+                # Last-resort independent index sources for the opening brief.
+                if symbol in {"IXIC", "SPX", "DJI"} and not result.get("price"):
+                    for fallback in (_fred_index_quote, _stooq_quote):
+                        try:
+                            candidate = await fallback(symbol)
+                            if candidate and candidate.get("price"):
+                                result = dict(candidate)
+                                result["stale"] = True
+                                result["source"] = str(result.get("source") or "آخر إغلاق موثق")
+                                break
+                        except Exception:
+                            continue
+                quotes.append((label, result))
             except Exception:
-                quotes.append((label, {"price": None, "change_pct": None}))
+                quotes.append((label, {"price": None, "change_pct": None, "source": "غير متاح"}))
 
         async with httpx.AsyncClient(timeout=12) as client:
             news = await _general_news(client)
@@ -121,6 +134,15 @@ async def publish_market_brief():
             news = list(await enrich_news_items(news, limit=3))
         except Exception:
             pass
+
+        # Translate verified headlines and available summaries; keep original URLs.
+        translations = {}
+        try:
+            from .news_translation import translate_stock_news
+            translated = await translate_stock_news("MARKET", news[:5])
+            translations = {str(item.get("url") or ""): item for item in translated}
+        except Exception:
+            translations = {}
 
         ai = {"enabled": False, "status": "unavailable"}
         try:
@@ -154,28 +176,30 @@ async def publish_market_brief():
             ]
             # حتى عند نجاح الترجمة/التحليل، يبقى رابط الخبر الأصلي ظاهرًا لكل خبر.
             for item in news[:3]:
-                headline = html.escape(str(item.get("headline") or "").strip())
+                original = str(item.get("headline") or "").strip()
+                translation = translations.get(str(item.get("url") or ""), {})
+                headline = html.escape(str(translation.get("translated_headline") or original).strip())
                 source = html.escape(str(item.get("source") or "المصدر"))
+                summary = html.escape(str(translation.get("summary") or item.get("ai_summary") or item.get("summary") or "").strip())
                 link = _news_link(item)
                 if headline:
-                    lines.append(f"📰 <b>المصدر:</b> {source} — {headline} {link}")
+                    lines.append(f"📰 <b>{headline}</b> — <i>{source}</i> {link}")
+                    if summary:
+                        lines.append(f"   {summary}")
         elif news:
             for item in news[:3]:
-                headline = html.escape(str(item.get("headline") or "").strip())
+                original = str(item.get("headline") or "").strip()
+                translation = translations.get(str(item.get("url") or ""), {})
+                headline = html.escape(str(translation.get("translated_headline") or original).strip())
                 source = html.escape(str(item.get("source") or "المصدر"))
+                summary = html.escape(str(translation.get("summary") or item.get("ai_summary") or item.get("summary") or "").strip())
                 link = _news_link(item)
                 if headline:
-                    lines.append(f"• <b>{headline}</b> — {source} {link}")
+                    lines.append(f"• <b>{headline}</b> — <i>{source}</i> {link}")
+                    if summary:
+                        lines.append(f"   {summary}")
         else:
             lines.append("• لا يوجد خبر موثوق متاح حاليًا.")
-
-        lines += ["", "📚 <b>المصادر</b>"]
-        for item in news[:3]:
-            headline = html.escape(str(item.get("headline") or "").strip())
-            source = html.escape(str(item.get("source") or "المصدر"))
-            link = _news_link(item)
-            if headline:
-                lines.append(f"• {source}: {headline} {link}")
 
         lines += ["", "📅 <b>أحداث اليوم المؤثرة</b>"]
         if events:
