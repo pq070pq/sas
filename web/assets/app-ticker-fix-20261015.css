@@ -5286,3 +5286,12 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @keyframes sasProfileReveal{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:520px){.sas-profile-shell{padding-left:12px;padding-right:12px;border-radius:22px}.sas-profile-cover{margin-left:-12px;margin-right:-12px}.sas-profile-facts{gap:6px}.sas-profile-fact{padding:11px 8px;min-height:86px}.sas-profile-identity h2{font-size:21px}}
 @media(prefers-reduced-motion:reduce){.sas-profile-shell,.sas-profile-avatar,.sas-profile-fact,.sas-profile-action,.sas-profile-details{animation:none!important;transition:none!important}}
+
+
+/* Safe in-app previous-page control: home remains the root screen. */
+.terminal-navigation-row{display:flex;justify-content:flex-start;align-items:center;min-height:0;padding:0 14px;margin:0 auto 8px;width:100%;max-width:1100px}
+.terminal-previous-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:8px 14px;border:1px solid rgba(45,244,255,.28);border-radius:12px;background:linear-gradient(135deg,rgba(7,35,43,.96),rgba(3,15,23,.96));color:#b9f8ff;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 0 16px rgba(45,244,255,.06);transition:background .18s ease,border-color .18s ease,transform .18s ease}
+.terminal-previous-btn:hover{border-color:rgba(45,244,255,.6);background:rgba(7,45,54,.98)}
+.terminal-previous-btn:active{transform:scale(.98)}
+.terminal-previous-btn[hidden]{display:none!important}
+@media(max-width:600px){.terminal-navigation-row{padding-inline:12px;margin-bottom:6px}.terminal-previous-btn{min-height:36px;padding:7px 12px;font-size:13px}}
