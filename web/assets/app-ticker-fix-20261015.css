@@ -5289,12 +5289,13 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 
 
 /* Safe in-app previous-page control: home remains the root screen. */
-.terminal-navigation-row{position:relative;display:flex;justify-content:flex-start;align-items:center;min-height:0;padding:0 14px;margin:0 auto 8px;width:100%;max-width:1100px;z-index:1}
-.terminal-previous-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:7px 11px;border:1px solid rgba(174,185,192,.25);border-radius:10px;background:rgba(8,15,20,.34);color:#b7c0c5;font:inherit;font-size:13px;font-weight:700;cursor:pointer;box-shadow:none;isolation:isolate;overflow:hidden;transition:color .2s ease,border-color .2s ease,background .2s ease,transform .2s ease}
-.terminal-previous-btn:before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(110deg,transparent 20%,rgba(210,220,225,.12) 50%,transparent 80%);transform:translateX(-120%);animation:terminalBackSheen 3.2s ease-in-out infinite;pointer-events:none}
-.terminal-previous-btn:hover{border-color:rgba(190,202,208,.48);background:rgba(8,15,20,.5);color:#eef2f4;transform:translateY(-1px)}
-.terminal-previous-btn:active{transform:scale(.97)}
+.terminal-navigation-row{position:relative;display:flex;justify-content:center;align-items:center;min-height:0;padding:0 14px;margin:0 auto 12px;width:100%;max-width:1100px;z-index:1;box-sizing:border-box}
+.terminal-previous-btn{position:relative;display:flex;width:min(100%,720px);min-height:54px;box-sizing:border-box;align-items:center;justify-content:center;gap:13px;padding:12px 22px;border:1px solid rgba(190,202,208,.42);border-radius:15px;background:linear-gradient(105deg,rgba(145,158,166,.10),rgba(198,209,215,.16),rgba(145,158,166,.10));color:#d5dde1;font:inherit;font-size:clamp(14px,1.6vw,17px);font-weight:750;letter-spacing:.1px;cursor:pointer;box-shadow:0 0 0 1px rgba(180,194,202,.05),0 0 18px rgba(174,190,198,.13),inset 0 0 18px rgba(174,190,198,.045);isolation:isolate;overflow:hidden;transition:color .2s ease,border-color .2s ease,background .2s ease,transform .2s ease,box-shadow .2s ease}
+.terminal-previous-btn:before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(110deg,transparent 20%,rgba(225,233,237,.18) 50%,transparent 80%);transform:translateX(-120%);animation:terminalBackSheen 3.2s ease-in-out infinite;pointer-events:none}
+.terminal-previous-arrow{font-size:26px;line-height:1;font-weight:500;color:#c4cdd2;text-shadow:0 0 10px rgba(200,213,220,.28)}
+.terminal-previous-btn:hover{border-color:rgba(210,220,225,.68);background:linear-gradient(105deg,rgba(145,158,166,.15),rgba(198,209,215,.23),rgba(145,158,166,.15));color:#f0f4f6;box-shadow:0 0 0 1px rgba(190,202,208,.08),0 0 24px rgba(174,190,198,.22);transform:translateY(-1px)}
+.terminal-previous-btn:active{transform:scale(.99)}
 .terminal-previous-btn[hidden]{display:none!important}
 @keyframes terminalBackSheen{0%,70%,100%{transform:translateX(-120%)}85%{transform:translateX(120%)}}
 @media(prefers-reduced-motion:reduce){.terminal-previous-btn:before{animation:none}}
-@media(max-width:600px){.terminal-navigation-row{padding-inline:12px;margin-bottom:6px}.terminal-previous-btn{min-height:34px;padding:6px 10px;font-size:12px}}
+@media(max-width:600px){.terminal-navigation-row{padding-inline:12px;margin-bottom:9px}.terminal-previous-btn{min-height:48px;padding:10px 14px;gap:10px;font-size:14px;border-radius:12px}.terminal-previous-arrow{font-size:23px}}
