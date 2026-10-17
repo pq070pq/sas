@@ -5289,10 +5289,12 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 
 
 /* Safe in-app previous-page control: home remains the root screen. */
-.terminal-navigation-row{position:fixed;top:88px;right:max(10px,calc((100vw - 1040px)/2 + 10px));z-index:80;display:flex;align-items:center;justify-content:center;padding:0;margin:0;width:auto;pointer-events:none}
-.terminal-previous-btn{pointer-events:auto;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;min-height:38px;padding:0;border:0;border-radius:0;background:transparent;color:#aeb9c0;font:inherit;font-size:25px;font-weight:500;line-height:1;cursor:pointer;box-shadow:none;transition:color .18s ease,transform .18s ease;opacity:.9}
-.terminal-previous-btn:hover{background:transparent;color:#e0e6e9;transform:translateX(2px)}
-.terminal-previous-btn:active{transform:scale(.92)}
-.terminal-previous-btn span{display:none}
+.terminal-navigation-row{position:relative;display:flex;justify-content:flex-start;align-items:center;min-height:0;padding:0 14px;margin:0 auto 8px;width:100%;max-width:1100px;z-index:1}
+.terminal-previous-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:7px 11px;border:1px solid rgba(174,185,192,.25);border-radius:10px;background:rgba(8,15,20,.34);color:#b7c0c5;font:inherit;font-size:13px;font-weight:700;cursor:pointer;box-shadow:none;isolation:isolate;overflow:hidden;transition:color .2s ease,border-color .2s ease,background .2s ease,transform .2s ease}
+.terminal-previous-btn:before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(110deg,transparent 20%,rgba(210,220,225,.12) 50%,transparent 80%);transform:translateX(-120%);animation:terminalBackSheen 3.2s ease-in-out infinite;pointer-events:none}
+.terminal-previous-btn:hover{border-color:rgba(190,202,208,.48);background:rgba(8,15,20,.5);color:#eef2f4;transform:translateY(-1px)}
+.terminal-previous-btn:active{transform:scale(.97)}
 .terminal-previous-btn[hidden]{display:none!important}
-@media(max-width:600px){.terminal-navigation-row{top:76px;right:8px}.terminal-previous-btn{width:34px;height:34px;font-size:23px}}
+@keyframes terminalBackSheen{0%,70%,100%{transform:translateX(-120%)}85%{transform:translateX(120%)}}
+@media(prefers-reduced-motion:reduce){.terminal-previous-btn:before{animation:none}}
+@media(max-width:600px){.terminal-navigation-row{padding-inline:12px;margin-bottom:6px}.terminal-previous-btn{min-height:34px;padding:6px 10px;font-size:12px}}
