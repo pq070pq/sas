@@ -5288,6 +5288,16 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @media(prefers-reduced-motion:reduce){.sas-profile-shell,.sas-profile-avatar,.sas-profile-fact,.sas-profile-action,.sas-profile-details{animation:none!important;transition:none!important}}
 
 
+/* Animated red AI analysis disclaimer above the news ribbon */
+.sas-ai-disclaimer{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;max-width:1100px;margin:0 auto 12px;padding:12px 16px;box-sizing:border-box;border:1px solid rgba(255,55,78,.62);border-radius:13px;background:linear-gradient(105deg,rgba(62,7,20,.84),rgba(22,6,15,.94),rgba(62,7,20,.84));color:#ffe8ec;font-size:clamp(11px,1.3vw,13px);line-height:1.9;text-align:center;box-shadow:0 0 9px rgba(255,36,65,.24),0 0 22px rgba(255,36,65,.14),inset 0 0 18px rgba(255,36,65,.07);animation:sasAiDisclaimerGlow 2.4s ease-in-out infinite;overflow:hidden;isolation:isolate}
+.sas-ai-disclaimer:before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(110deg,transparent 18%,rgba(255,105,125,.12) 48%,transparent 78%);transform:translateX(-120%);animation:sasAiDisclaimerSweep 4.2s ease-in-out infinite}
+.sas-ai-disclaimer-icon{flex:0 0 auto;display:grid;place-items:center;width:27px;height:27px;border:1px solid rgba(255,91,112,.48);border-radius:9px;background:rgba(255,50,75,.13);color:#ff6b81;font-size:16px;text-shadow:0 0 12px rgba(255,49,75,.65)}
+.sas-ai-disclaimer b{color:#ff7186;font-weight:900;text-shadow:0 0 10px rgba(255,49,75,.35)}
+@keyframes sasAiDisclaimerGlow{0%,100%{border-color:rgba(255,55,78,.48);box-shadow:0 0 7px rgba(255,36,65,.18),0 0 17px rgba(255,36,65,.1),inset 0 0 14px rgba(255,36,65,.04)}50%{border-color:rgba(255,76,98,.9);box-shadow:0 0 13px rgba(255,36,65,.34),0 0 30px rgba(255,36,65,.2),inset 0 0 20px rgba(255,36,65,.09)}}
+@keyframes sasAiDisclaimerSweep{0%,65%,100%{transform:translateX(-120%)}82%{transform:translateX(120%)}}
+@media(max-width:600px){.sas-ai-disclaimer{gap:8px;margin:0 10px 10px;padding:10px 11px;border-radius:11px;font-size:11px;line-height:1.8;text-align:right}.sas-ai-disclaimer-icon{width:24px;height:24px;border-radius:8px}}
+@media(prefers-reduced-motion:reduce){.sas-ai-disclaimer,.sas-ai-disclaimer:before{animation:none!important}}
+ 
 /* Safe in-app previous-page control: home remains the root screen. */
 .terminal-navigation-row{position:relative;display:flex;justify-content:center;align-items:center;min-height:0;padding:0 14px;margin:0 auto 12px;width:100%;max-width:1100px;z-index:1;box-sizing:border-box}
 .terminal-previous-btn{position:relative;display:flex;width:min(100%,720px);min-height:54px;box-sizing:border-box;align-items:center;justify-content:center;gap:13px;padding:12px 22px;border:1px solid rgba(190,202,208,.42);border-radius:15px;background:linear-gradient(105deg,rgba(145,158,166,.10),rgba(198,209,215,.16),rgba(145,158,166,.10));color:#d5dde1;font:inherit;font-size:clamp(14px,1.6vw,17px);font-weight:750;letter-spacing:.1px;cursor:pointer;box-shadow:0 0 0 1px rgba(180,194,202,.05),0 0 18px rgba(174,190,198,.13),inset 0 0 18px rgba(174,190,198,.045);isolation:isolate;overflow:hidden;transition:color .2s ease,border-color .2s ease,background .2s ease,transform .2s ease,box-shadow .2s ease}
