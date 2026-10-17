@@ -5325,3 +5325,17 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 #sasMarketPulse #sasMarketIndicesTrack .sas-index-card .sas-index-watermark svg{display:block;width:100%;height:100%;max-width:none;max-height:none;overflow:visible;}
 #sasMarketPulse #sasMarketIndicesTrack .sas-index-card>:not(.sas-index-watermark){position:relative;z-index:1;}
 @media(max-width:600px){#sasMarketPulse #sasMarketIndicesTrack .sas-index-card .sas-index-watermark{width:94%;height:94%;opacity:.09;}}
+
+
+/* Refined SAS PRO navigation icons: larger custom vector marks, balanced spacing and soft neon detail. */
+.terminal-tabs button[data-tab]{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:center!important;gap:clamp(8px,1.2vw,14px)!important;padding:10px clamp(7px,1.25vw,15px)!important;min-height:clamp(62px,8vw,78px)!important;border-radius:19px!important;overflow:hidden!important}
+.terminal-tabs button[data-tab]::first-letter{font-size:inherit!important;filter:none!important}
+.terminal-tab-icon{position:relative;display:grid;place-items:center;flex:0 0 clamp(34px,4.3vw,46px);width:clamp(34px,4.3vw,46px);height:clamp(34px,4.3vw,46px);border:1px solid rgba(47,224,255,.32);border-radius:14px;background:radial-gradient(circle at 28% 20%,rgba(74,241,255,.2),transparent 56%),linear-gradient(145deg,rgba(0,151,208,.2),rgba(3,24,43,.88));color:#56eaff;box-shadow:inset 0 1px rgba(255,255,255,.13),0 0 0 3px rgba(0,201,255,.035),0 0 17px rgba(0,196,255,.12);transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+.terminal-tab-icon:after{content:"";position:absolute;inset:3px;border:1px solid rgba(104,232,255,.12);border-radius:10px;pointer-events:none}
+.terminal-tab-icon svg{display:block;width:82%;height:82%;overflow:visible;filter:drop-shadow(0 0 4px rgba(45,231,255,.24))}
+.terminal-tab-label{display:inline-block;min-width:0;line-height:1.2;letter-spacing:.1px}
+.terminal-tabs button.active .terminal-tab-icon{color:#c5fbff;border-color:rgba(59,242,255,.8);background:radial-gradient(circle at 30% 15%,rgba(57,239,255,.34),transparent 55%),linear-gradient(145deg,rgba(0,193,230,.32),rgba(4,44,67,.92));box-shadow:inset 0 1px rgba(255,255,255,.22),0 0 0 3px rgba(0,220,255,.07),0 0 22px rgba(0,216,255,.27)}
+.terminal-tabs button:hover .terminal-tab-icon,.terminal-tabs button:focus-visible .terminal-tab-icon{transform:translateY(-1px) scale(1.04);border-color:rgba(77,237,255,.7);box-shadow:inset 0 1px rgba(255,255,255,.2),0 0 20px rgba(0,207,255,.23)}
+@media(max-width:600px){.terminal-tabs button[data-tab]{flex-direction:column!important;gap:5px!important;min-height:68px!important;padding:7px 3px!important;border-radius:14px!important}.terminal-tab-icon{flex-basis:35px;width:35px;height:35px;border-radius:12px}.terminal-tab-icon:after{border-radius:8px}.terminal-tab-icon svg{width:84%;height:84%}.terminal-tab-label{font-size:clamp(10px,2.8vw,12px);white-space:nowrap}}
+@media(max-width:360px){.terminal-tabs{gap:3px!important;padding:4px!important}.terminal-tabs button[data-tab]{min-height:62px!important}.terminal-tab-icon{flex-basis:31px;width:31px;height:31px}.terminal-tab-label{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.terminal-tab-icon{transition:none!important}}
