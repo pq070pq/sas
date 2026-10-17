@@ -8,6 +8,7 @@ PREMARKET_START = (4, 0)
 REGULAR_START = (9, 30)
 REGULAR_END = (16, 0)
 AFTERHOURS_END = (20, 0)
+NIGHT_SESSION_START = (21, 0)
 
 
 def _nth_weekday(year: int, month: int, weekday: int, n: int) -> date:
@@ -118,8 +119,8 @@ def market_status(now: datetime | None = None) -> dict:
     # It is separate from the official exchange session; availability depends on broker/data.
     t = (local.hour, local.minute)
     night_active = (
-        (local.weekday() == 6 and t >= (20, 0)) or
-        (local.weekday() in (0, 1, 2, 3) and (t >= (20, 0) or t < (4, 0))) or
+        (local.weekday() == 6 and t >= NIGHT_SESSION_START) or
+        (local.weekday() in (0, 1, 2, 3) and (t >= NIGHT_SESSION_START or t < (4, 0))) or
         (local.weekday() == 4 and t < (4, 0))
     )
     if night_active:
@@ -128,8 +129,8 @@ def market_status(now: datetime | None = None) -> dict:
             "label_ar": "التداول الليلي عبر وسطاء داعمين 🟣", "short_ar": "تداول ليلي",
             "reason": "broker-supported overnight ATS session", "date": d.isoformat(),
             "local_time": local.isoformat(),
-            "night_session_et": "20:00–04:00",
-            "night_session_riyadh": "03:00–11:00",
+            "night_session_et": "21:00–04:00",
+            "night_session_riyadh": "حسب فرق التوقيت الموسمي",
             "broker_dependent": True,
         }
 
@@ -183,8 +184,8 @@ def market_status(now: datetime | None = None) -> dict:
 
     # 20:00–21:00 ET is the transition/maintenance window before the
     # planned NYSE Arca overnight session. Never label it as active trading.
-    if d >= NIGHT_SESSION_LAUNCH and local.weekday() <= 4 and local.hour == 20:
-        night_open = _dt_at(local, 21, 0)
+    if local.weekday() <= 4 and t >= (20, 0) and t < NIGHT_SESSION_START:
+        night_open = _dt_at(local, *NIGHT_SESSION_START)
         return {
             "open": False, "radar_active": False, "holiday": False, "session": "night_pending",
             "label_ar": "🟣 التداول الليلي يفتح قريبًا",
