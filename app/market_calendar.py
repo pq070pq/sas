@@ -184,7 +184,7 @@ def market_status(now: datetime | None = None) -> dict:
 
     # 20:00–21:00 ET is the transition/maintenance window before the
     # planned NYSE Arca overnight session. Never label it as active trading.
-    if local.weekday() <= 4 and t >= (20, 0) and t < NIGHT_SESSION_START:
+    if local.weekday() in (6, 0, 1, 2, 3) and t >= (20, 0) and t < NIGHT_SESSION_START:
         night_open = _dt_at(local, *NIGHT_SESSION_START)
         return {
             "open": False, "radar_active": False, "holiday": False, "session": "night_pending",
