@@ -2743,9 +2743,12 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
   // لا تُخفِ الأخبار الموثقة إذا تعطلت خدمة الترجمة؛ اعرض تنبيهًا عربيًا واضحًا بدل إسقاط الشريط كله.
   const timestampOf=value=>{if(value===null||value===undefined||value==='')return 0;const numeric=Number(value);if(Number.isFinite(numeric)&&numeric>0)return numeric<1e12?numeric*1000:numeric;const parsed=Date.parse(String(value));return Number.isFinite(parsed)?parsed:0;};
   const canonicalNewsUrl=value=>{try{const u=new URL(safeUrl(value));u.hash='';for(const key of [...u.searchParams.keys()])if(/^(utm_.+|fbclid|gclid|mc_cid|mc_eid|ref|source)$/i.test(key))u.searchParams.delete(key);u.hostname=u.hostname.toLowerCase().replace(/^www\./,'');u.pathname=u.pathname.replace(/\/+$/,'');return u.href;}catch(e){return '';}};
-  const uniqueNews=new Map();
-  (Array.isArray(items)?items:[]).forEach(item=>{if(!item||!safeUrl(item.url)||!String(item.headline||'').trim())return;const urlKey=canonicalNewsUrl(item.url);const titleKey=String(item.translated_headline||item.headline||'').normalize('NFKC').toLowerCase().replace(/[\\s\\p{P}\\p{S}]+/gu,' ').trim();const key=urlKey||titleKey;if(!key)return;const oldItem=uniqueNews.get(key);if(!oldItem||timestampOf(item.datetime)>timestampOf(oldItem.datetime)||(!oldItem.translated_headline&&item.translated_headline))uniqueNews.set(key,item);});
-  const valid=[...uniqueNews.values()].sort((a,b)=>timestampOf(b.datetime)-timestampOf(a.datetime)).slice(0,12);
+  const titleKeyOf=value=>String(value||'').normalize('NFKC').toLocaleLowerCase('en-US').replace(/[\\s\\p{P}\\p{S}]+/gu,' ').trim();
+  const uniqueByUrl=new Map();
+  (Array.isArray(items)?items:[]).forEach(item=>{if(!item||!safeUrl(item.url)||!String(item.headline||'').trim())return;const urlKey=canonicalNewsUrl(item.url);if(!urlKey)return;const oldItem=uniqueByUrl.get(urlKey);if(!oldItem||timestampOf(item.datetime)>timestampOf(oldItem.datetime)||(!oldItem.translated_headline&&item.translated_headline))uniqueByUrl.set(urlKey,item);});
+  const uniqueNews=[],seenTitles=new Set();
+  [...uniqueByUrl.values()].sort((a,b)=>timestampOf(b.datetime)-timestampOf(a.datetime)).forEach(item=>{const titles=[titleKeyOf(item.translated_headline),titleKeyOf(item.headline)].filter(Boolean);if(titles.some(t=>seenTitles.has(t)))return;titles.forEach(t=>seenTitles.add(t));uniqueNews.push(item);});
+  const valid=uniqueNews.slice(0,12);
   const key=valid.map(x=>String(x.url)+'|'+String(x.translated_headline||'')).join('|');
   if(key===lastNewsKey&&track.querySelector('.sas-news-lane')){const status=$('sasNewsStatus');if(status&&!fromCache)status.textContent=valid.length+' خبرًا • الأخبار محدثة • آخر تحقق '+new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date())+' بتوقيت الرياض';return;}
   lastNewsKey=key;
@@ -2761,7 +2764,8 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
    const originalTitle=translated&&String(item.headline||'').trim()&&String(item.headline).trim()!==translatedHeadline?'<span class="sas-news-original-title">Original: '+escapeText(String(item.headline).trim())+'</span>':'';
    return '<a class="sas-news-card '+(translated?'is-translated':'is-untranslated')+'" href="'+escapeText(url)+'" target="_blank" rel="noopener noreferrer" aria-label="قراءة الخبر: '+escapeText(headline)+'"><span class="sas-news-card-top"><span class="sas-news-tag '+category.cls+'">'+category.label+'</span><span class="sas-news-source">'+escapeText(source)+'</span></span><strong>'+escapeText(headline)+'</strong>'+originalTitle+translationNote+(summary?'<span class="sas-news-card-summary">'+escapeText(summary)+'</span>':'')+'<span class="sas-news-card-bottom"><span>قراءة الخبر الأصلي ↗</span><time>'+ago(item.datetime)+'</time></span></a>';
   }).join('');
-  track.innerHTML='<div class="sas-news-lane"><div class="sas-news-group">'+cards+'</div><div class="sas-news-group" aria-hidden="true" inert>'+cards+'</div></div>';
+  const duplicateGroup=valid.length>1?'<div class="sas-news-group" aria-hidden="true" inert>'+cards+'</div>':'';
+  track.innerHTML='<div class="sas-news-lane'+(valid.length===1?' is-single-news':'')+'"><div class="sas-news-group">'+cards+'</div>'+duplicateGroup+'</div>';
   const newsAnimation=track.querySelector('.sas-news-lane')?.getAnimations?.()[0];if(newsAnimation&&Number.isFinite(animationTime))newsAnimation.currentTime=animationTime;
   const status=$('sasNewsStatus');if(status)status.textContent=fromCache?valid.length+' خبرًا محفوظًا • جارٍ تحديث الأخبار الآن':valid.length+' خبرًا • ترجمة عربية عند توفرها • آخر تحديث '+new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date())+' بتوقيت الرياض';
  }
