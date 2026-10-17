@@ -1121,14 +1121,6 @@ async function shareOpportunityCard(card,symbol,downloadOnly=false){
 }
 
 function openSymbol(symbol,focusChart=false){document.getElementById('symbolSearch').value=symbol;switchTerminalTab('search');analyzeSymbol().then(()=>{if(focusChart){const detail=document.getElementById('symbolResult');const chart=detail?.querySelector('.chart-title')||detail?.querySelector('canvas')||detail?.querySelector('.quote-line');if(chart){chart.scrollIntoView({behavior:'smooth',block:'start'});chart.classList.add('chart-focus');setTimeout(()=>chart.classList.remove('chart-focus'),1800);}}});}
-function copyShariahSymbol(symbol,button){
- const value=String(symbol||'').trim().toUpperCase();
- if(!/^[A-Z]{1,5}(?:[.-][A-Z])?$/.test(value))return;
- const done=()=>{if(button){const original=button.dataset.originalLabel||(button.innerText||'').trim();button.dataset.originalLabel=original;button.innerText='✓ تم نسخ '+value;button.classList.add('is-copied');window.setTimeout(()=>{button.innerText=original;button.classList.remove('is-copied');},2200);}};
- if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(value).then(done).catch(()=>fallback());return;}
- fallback();
- function fallback(){const area=document.createElement('textarea');area.value=value;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();let ok=false;try{ok=document.execCommand('copy');}catch(e){}area.remove();if(ok)done();else if(button){button.innerText='الرمز: '+value+' — حدده وانسخه';}}
-}
 function openShariah(symbol){const input=document.getElementById('symbolSearch');if(input)input.value=String(symbol||'').toUpperCase();switchTerminalTab('search');const result=document.getElementById('shariahSearchResult');if(result)result.hidden=false;searchShariah();setTimeout(()=>{const target=document.getElementById('shariahSearchResult');target?.scrollIntoView({behavior:'smooth',block:'center'});},120);}
 async function searchShariah(){
  const actionBtn=document.getElementById('shariahSearchBtn');
@@ -1179,7 +1171,7 @@ async function searchShariah(){
    '<div class="shariah-source-list">'+sourceLines+'</div>'+
    (result?.updated_at?'<div class="shariah-updated">◷ آخر تحديث منشور: '+escHtml(result.updated_at)+'</div>':'')+
    '<div class="shariah-review-warning"><b>⚠ تنبيه مهم</b><p>⚠️ مشروعية السهم أنت كمتداول مسؤول عنها. ابحث واجتهد وتوكل على الله.</p></div>'+
-   '<button type="button" class="secondary-btn shariah-search-btn shariah-search-btn-pro" style="display:flex;width:100%;margin-top:12px;justify-content:center" onclick="copyShariahSymbol(\''+escHtml(symbol)+'\',this)" aria-label="نسخ رمز السهم '+escHtml(symbol)+'"><span class="shariah-search-btn-copy"><b>📋 نسخ رمز السهم: <span dir="ltr">'+escHtml(symbol)+'</span></b><small>انسخ الرمز ثم الصقه داخل بوت الشرعية</small></span></button>'+\n   '<a class="secondary-btn shariah-search-btn shariah-search-btn-pro shariah-search-btn-below shariah-result-bot-link" style="display:flex;width:100%;margin-top:8px;text-decoration:none" href="https://t.me/sharia_stock_bot?start='+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer" aria-label="فتح بوت الشرعية للرمز '+escHtml(symbol)+'"><span class="shariah-search-btn-orbit" aria-hidden="true"><span class="shariah-search-btn-icon">↗</span></span><span class="shariah-search-btn-copy"><b>فتح بوت الشرعية — <span dir="ltr">'+escHtml(symbol)+'</span></b><small>إذا كان البوت يدعم الرمز سيستلمه تلقائيًا؛ وإلا الصق الرمز المنسوخ</small></span><span class="shariah-search-btn-arrow" aria-hidden="true">↗</span></a>'+
+   '<a class="secondary-btn shariah-search-btn shariah-search-btn-pro shariah-search-btn-below shariah-result-bot-link" style="display:flex;width:100%;margin-top:12px;text-decoration:none" href="https://t.me/sharia_stock_bot" target="_blank" rel="noopener noreferrer" aria-label="لمزيد من التحقق من الشرعية وحاسبة التطهير"><span class="shariah-search-btn-orbit" aria-hidden="true"><span class="shariah-search-btn-icon">↗</span></span><span class="shariah-search-btn-copy"><b>لمزيد من التحقق من الشرعية وحاسبة التطهير</b><small>فتح بوت الشرعية في تيليجرام</small></span><span class="shariah-search-btn-arrow" aria-hidden="true">↗</span></a>'+
    '</div>';
  }catch(e){
   el.innerHTML='<div class="shariah-search-card sh-unknown shariah-error-card" role="status" aria-live="polite"><div class="shariah-error-icon" aria-hidden="true">⚠</div><b>تعذر الاتصال بمصدر التحقق</b><p>لم تصلنا نتيجة موثقة الآن. جرّب إعادة الفحص؛ لن نخمن الحكم الشرعي.</p><button type="button" class="shariah-retry-btn" onclick="searchShariah()" aria-label="إعادة التحقق من شرعية السهم"><span aria-hidden="true">↻</span> إعادة التحقق الآن</button></div>';
