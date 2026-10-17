@@ -2720,6 +2720,9 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
  if(window.__sasMarketPulseReady)return;window.__sasMarketPulseReady=true;
  const $=id=>document.getElementById(id);
  let newsBusy=false,newsTimer=null,lastNewsKey='';
+ const NEWS_CACHE_KEY='saspro_market_news_cache_v1',NEWS_CACHE_MAX_AGE=12*60*60*1000;
+ function readCachedNews(){try{const item=JSON.parse(localStorage.getItem(NEWS_CACHE_KEY)||'null');if(!item||!Array.isArray(item.items)||!item.items.length||Date.now()-Number(item.savedAt||0)>NEWS_CACHE_MAX_AGE)return null;return item;}catch(e){return null;}}
+ function writeCachedNews(items){try{localStorage.setItem(NEWS_CACHE_KEY,JSON.stringify({savedAt:Date.now(),items:items.slice(0,16)}));}catch(e){}}
  const indices=[
   {label:'S&P 500',keys:['S&P 500','SPX','^GSPC','SPY'],cache:'S&P_500',icon:'<svg viewBox="0 0 48 48"><path d="M7 38V10M7 38H42" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><rect x="12" y="25" width="6" height="10" rx="1.5" fill="currentColor" opacity=".55"/><rect x="22" y="18" width="6" height="17" rx="1.5" fill="currentColor" opacity=".75"/><rect x="32" y="9" width="6" height="26" rx="1.5" fill="currentColor"/><path d="m11 21 9-6 7 2 10-10" fill="none" stroke="#62f5c5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',tone:'#35e7ff'},
   {label:'NASDAQ',keys:['NASDAQ','IXIC','^IXIC','QQQ'],cache:'NASDAQ',icon:'<svg viewBox="0 0 48 48"><path d="M6 36H42" stroke="currentColor" stroke-width="2" opacity=".45"/><path d="m7 30 8-8 7 4 8-13 5 5 6-11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="41" cy="7" r="3" fill="#62f5c5"/></svg>',tone:'#4b9dff'},
@@ -2733,15 +2736,16 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
  function fmtChange(value){if(value===null||value===undefined||value===''||!Number.isFinite(Number(value)))return {text:'—',cls:'neutral'};const n=Number(value);return {text:(n>0?'+':'')+n.toFixed(2)+'%',cls:n>0?'up':n<0?'down':'neutral'};}
  function ago(stamp){const n=Number(stamp||0);if(!n)return 'وقت النشر غير متاح';const d=Math.max(0,Math.floor(Date.now()/1000-n));if(d<60)return 'قبل لحظات';if(d<3600)return 'قبل '+Math.floor(d/60)+' دقيقة';if(d<86400)return 'قبل '+Math.floor(d/3600)+' ساعة';return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',day:'numeric',month:'short'}).format(new Date(n*1000));}
  function newsCategory(item){const s=(String(item.category||'')+' '+String(item.headline||'')+' '+String(item.translated_headline||'')).toLowerCase();if(/federal|fed |fomc|powell|interest rate|الفيدرالي|الفائدة|جيروم باول|قرار الفائدة/.test(s))return {label:'الفيدرالي والفائدة',cls:'fed'};if(/inflation|cpi|ppi|jobs report|payroll|gdp|التضخم|الوظائف|الناتج المحلي/.test(s))return {label:'الاقتصاد',cls:''};if(/earnings|revenue|quarter|profit|نتائج|أرباح|إيرادات/.test(s))return {label:'الأرباح',cls:''};if(/nasdaq|s&p|dow|stock|market|shares|أسهم|السوق/.test(s))return {label:'السوق والأسهم',cls:''};return {label:'أخبار مؤثرة',cls:''};}
- function renderNews(items){
+ function renderNews(items,fromCache=false){
   const track=$('sasMarketNewsTrack');if(!track)return;
   const hasArabic=value=>/[ء-ي]/u.test(String(value||''));
   // لا تُخفِ الأخبار الموثقة إذا تعطلت خدمة الترجمة؛ اعرض تنبيهًا عربيًا واضحًا بدل إسقاط الشريط كله.
   const valid=(Array.isArray(items)?items:[]).filter(x=>x&&safeUrl(x.url)&&String(x.headline||'').trim()).sort((a,b)=>Number(b.datetime||0)-Number(a.datetime||0)).slice(0,16);
   const key=valid.map(x=>String(x.url)+'|'+String(x.translated_headline||'')).join('|');
-  if(key===lastNewsKey&&track.querySelector('.sas-news-lane'))return;
+  if(key===lastNewsKey&&track.querySelector('.sas-news-lane')){const status=$('sasNewsStatus');if(status&&!fromCache)status.textContent=valid.length+' خبرًا • الأخبار محدثة • آخر تحقق '+new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date())+' بتوقيت الرياض';return;}
   lastNewsKey=key;
-  if(!valid.length){track.innerHTML='<div class="sas-news-empty"><span>◌</span><span>لا تتوفر أخبار سوق موثقة حاليًا. ستتم إعادة المحاولة تلقائيًا.</span></div>';return;}
+  if(!valid.length){if(track.querySelector('.sas-news-lane'))return;track.innerHTML='<div class="sas-news-empty"><span>◌</span><span>لا تتوفر أخبار سوق موثقة حاليًا. ستتم إعادة المحاولة تلقائيًا.</span></div>';return;}
+  if(!fromCache)writeCachedNews(valid);
   const animationTime=track.querySelector('.sas-news-lane')?.getAnimations?.()[0]?.currentTime;
   const cards=valid.map(item=>{
    const url=safeUrl(item.url),translatedHeadline=String(item.translated_headline||'').trim();
@@ -2754,7 +2758,7 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
   }).join('');
   track.innerHTML='<div class="sas-news-lane"><div class="sas-news-group">'+cards+'</div><div class="sas-news-group" aria-hidden="true" inert>'+cards+'</div></div>';
   const newsAnimation=track.querySelector('.sas-news-lane')?.getAnimations?.()[0];if(newsAnimation&&Number.isFinite(animationTime))newsAnimation.currentTime=animationTime;
-  const status=$('sasNewsStatus');if(status)status.textContent=valid.length+' خبرًا • ترجمة عربية عند توفرها • آخر تحديث '+new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date())+' بتوقيت الرياض';
+  const status=$('sasNewsStatus');if(status)status.textContent=fromCache?valid.length+' خبرًا محفوظًا • جارٍ تحديث الأخبار الآن':valid.length+' خبرًا • ترجمة عربية عند توفرها • آخر تحديث '+new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date())+' بتوقيت الرياض';
  }
  async function refreshNews(force){
   if(newsBusy||document.visibilityState==='hidden'||$('terminalPage')?.hidden)return;
@@ -2803,7 +2807,7 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
     try{localStorage.setItem('saspro_macro_'+meta.cache,JSON.stringify({price,change_pct:rawChange??null,source:source||'مزود البيانات',savedAt:Date.now()}));}catch(e){}
    }
    const priceText=valid?fmtPrice(price):(row?.source==='unavailable'?'غير متاح':'بانتظار السعر');
-   return '<button type="button" class="sas-index-card '+(!valid?'is-stale':'')+(row?.stale?' is-cached':'')+'" style="--index-tone:'+meta.tone+'" data-sas-index="'+escapeText(label)+'" aria-label="تفاصيل '+label+'"><span class="sas-index-card-top"><span class="sas-index-symbol">'+label+'</span><span class="sas-index-icon market-style-index-icon" aria-hidden="true">'+meta.icon+'</span></span><span class="sas-index-name">'+label+'</span><b class="sas-index-price">'+priceText+'</b><span class="sas-index-change '+change.cls+'">'+(valid?change.text:'لا يتوفر سعر موثّق')+'</span><small>'+escapeText(row?.stale?'آخر سعر موثق محفوظ':(source||'مزود البيانات'))+'</small></button>';
+   return '<button type="button" class="sas-index-card '+(!valid?'is-stale':'')+(row?.stale?' is-cached':'')+'" style="--index-tone:'+meta.tone+'" data-sas-index="'+escapeText(label)+'" aria-label="تفاصيل '+label+'"><span class="sas-index-watermark" aria-hidden="true">'+meta.icon+'</span><span class="sas-index-card-top"><span class="sas-index-symbol">'+label+'</span><span class="sas-index-icon market-style-index-icon" aria-hidden="true">'+meta.icon+'</span></span><span class="sas-index-name">'+label+'</span><b class="sas-index-price">'+priceText+'</b><span class="sas-index-change '+change.cls+'">'+(valid?change.text:'لا يتوفر سعر موثّق')+'</span><small>'+escapeText(row?.stale?'آخر سعر موثق محفوظ':(source||'مزود البيانات'))+'</small></button>';
   }).join('');
   track.innerHTML='<div class="sas-index-lane"><div class="sas-index-group">'+cards+'</div><div class="sas-index-group" aria-hidden="true" inert>'+cards+'</div></div>';
   const indexAnimation=track.querySelector('.sas-index-lane')?.getAnimations?.()[0];if(indexAnimation&&Number.isFinite(animationTime))indexAnimation.currentTime=animationTime;
@@ -2811,9 +2815,11 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
  }
  function startTimers(){
   if($('terminalPage')?.hidden)return;
+  const track=$('sasMarketNewsTrack');
+  if(track&&!track.querySelector('.sas-news-lane')){const cached=readCachedNews();if(cached)renderNews(cached.items,true);}
   void refreshNews(false);
-  if(Array.isArray(window.__sasLastTicker))renderIndices(window.__sasLastTicker);
-  if(!newsTimer)newsTimer=window.setInterval(()=>refreshNews(false),90000);
+  renderIndices(Array.isArray(window.__sasLastTicker)?window.__sasLastTicker:[]);
+  if(!newsTimer)newsTimer=window.setInterval(()=>refreshNews(false),60000);
  }
  // The legacy dashboard ticker is the single source of truth for every index card.
  window.addEventListener('saspro:ticker-updated',event=>{

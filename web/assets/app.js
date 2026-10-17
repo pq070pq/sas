@@ -725,6 +725,9 @@ function renderMacro(){
   return '<button type="button" class="macro-card '+(valid?'':'macro-unavailable')+(x.stale?' macro-stale':'')+'" data-macro-label="'+labelKey+'" aria-label="تفاصيل '+escHtml(x.label)+'" title="اضغط لعرض تفاصيل '+escHtml(x.label)+'">'+iconHtml+'<span class="macro-card-label">'+escHtml(x.label)+'</span><b>'+ (valid?money(x.price):'غير متاح') +'</b><em class="'+changeClass+'">'+changeText+'</em><small class="macro-source">'+escHtml(sourceText)+'</small></button>';
  }).join('');
  document.getElementById('macroGrid').innerHTML=cards || '<div class="empty-state">لا تتوفر بيانات السوق حاليًا.</div>';
+ // Keep the news/index ribbon synchronized as soon as the ticker response paints.
+ window.__sasLastTicker=Array.isArray(terminalState.ticker)?terminalState.ticker:[];
+ window.dispatchEvent(new CustomEvent('saspro:ticker-updated',{detail:{ticker:window.__sasLastTicker}}));
  if(!window.__sasMacroCardInteraction){
   window.__sasMacroCardInteraction=true;
   document.addEventListener('click',function(event){
