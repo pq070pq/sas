@@ -751,12 +751,12 @@ function renderMacro(){
   });
   if(found && Number(found.price)>0){
    const normalized={...found,label:item.label};
-   try{localStorage.setItem('saspro_macro_'+(item.label==='VIX'?'VIX_INDEX':item.label.replace(/\\s+/g,'_')),JSON.stringify({price:Number(found.price),change_pct:found.change_pct??null,source:found.source||'مزود البيانات',savedAt:Date.now()}));}catch(e){}
+   try{localStorage.setItem('saspro_macro_'+(item.label==='VIX'?'VIX_INDEX':item.label.replace(/\s+/g,'_')),JSON.stringify({price:Number(found.price),change_pct:found.change_pct??null,source:found.source||'مزود البيانات',savedAt:Date.now()}));}catch(e){}
    return normalized;
   }
   // A pending provider placeholder must not mask the last verified browser cache.
   try{
-   const cached=JSON.parse(localStorage.getItem('saspro_macro_'+item.label.replace(/\\s+/g,'_'))||'null');
+   const cached=JSON.parse(localStorage.getItem('saspro_macro_'+item.label.replace(/\s+/g,'_'))||'null');
    const age=Date.now()-Number(cached?.savedAt||0);
    if(cached && Number(cached.price)>0 && (!cached.savedAt || age<=24*60*60*1000))return {...(found||{}),label:item.label,price:cached.price,change_pct:cached.change_pct,source:'آخر سعر محفوظ',stale:true,diagnostic:null};
   }catch(e){}
@@ -2720,7 +2720,7 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
  if(window.__sasMarketPulseReady)return;window.__sasMarketPulseReady=true;
  const $=id=>document.getElementById(id);
  let newsBusy=false,newsTimer=null,lastNewsKey='';
- const NEWS_CACHE_KEY='saspro_market_news_cache_v1',NEWS_CACHE_MAX_AGE=12*60*60*1000;
+ const NEWS_CACHE_KEY='saspro_market_news_cache_v1',NEWS_CACHE_MAX_AGE=24*60*60*1000;
  function readCachedNews(){try{const item=JSON.parse(localStorage.getItem(NEWS_CACHE_KEY)||'null');if(!item||!Array.isArray(item.items)||!item.items.length||Date.now()-Number(item.savedAt||0)>NEWS_CACHE_MAX_AGE)return null;return item;}catch(e){return null;}}
  function writeCachedNews(items){try{localStorage.setItem(NEWS_CACHE_KEY,JSON.stringify({savedAt:Date.now(),items:items.slice(0,16)}));}catch(e){}}
  const indices=[
@@ -2819,7 +2819,7 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
   if(track&&!track.querySelector('.sas-news-lane')){const cached=readCachedNews();if(cached)renderNews(cached.items,true);}
   void refreshNews(false);
   renderIndices(Array.isArray(window.__sasLastTicker)?window.__sasLastTicker:[]);
-  if(!newsTimer)newsTimer=window.setInterval(()=>refreshNews(false),60000);
+  if(!newsTimer)newsTimer=window.setInterval(()=>refreshNews(false),45000);
  }
  // The legacy dashboard ticker is the single source of truth for every index card.
  window.addEventListener('saspro:ticker-updated',event=>{
