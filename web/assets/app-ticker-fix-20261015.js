@@ -323,14 +323,35 @@ function renderNewsItems(items,limit=5,translatedItems=[]){
 }
 function money(v){const n=Number(v);return Number.isFinite(n)&&n>0?n.toLocaleString('en-US',{minimumFractionDigits:n<10?2:0,maximumFractionDigits:4}):'—';}
 function pct(v){const n=Number(v);return Number.isFinite(n)?(n>=0?'+':'')+n.toFixed(2)+'%':'—';}
+window.sasTerminalTabHistory=window.sasTerminalTabHistory||[];
+function updateTerminalPreviousButton(){
+ const button=document.getElementById('terminalPreviousBtn');
+ if(button)button.hidden=terminalState.tab==='dashboard';
+}
 function switchTerminalTab(tab){
+ if(!['dashboard','radar','search','account'].includes(tab))return;
+ const previous=terminalState.tab||'dashboard';
+ if(tab!==previous&&!window.sasTerminalBackInProgress){
+  window.sasTerminalTabHistory.push(previous);
+  if(window.sasTerminalTabHistory.length>30)window.sasTerminalTabHistory.shift();
+ }
+ if(tab==='dashboard')window.sasTerminalTabHistory=[];
  if(tab!=='search'&&activeSymbolSearchController){activeSymbolSearchController.abort();activeSymbolSearchController=null;}
  terminalState.tab=tab;
  document.querySelectorAll('.terminal-tab').forEach(x=>x.classList.toggle('active',x.id==='tab-'+tab));
  document.querySelectorAll('.terminal-tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
  document.querySelectorAll('.sas-mobile-dock button').forEach(x=>x.classList.toggle('is-active',x.getAttribute('onclick')?.includes("'"+tab+"'")));
+ updateTerminalPreviousButton();
  if(tab==='radar'){renderRadar();if(!terminalState.radarScanning&&(!Array.isArray(terminalState.radar)||terminalState.radar.length===0))void runRadar(false);}
-
+}
+function goPreviousTerminalTab(){
+ if(terminalState.tab==='dashboard')return;
+ const previous=window.sasTerminalTabHistory.pop()||'dashboard';
+ window.sasTerminalBackInProgress=true;
+ try{switchTerminalTab(previous);}finally{window.sasTerminalBackInProgress=false;}
+ if(terminalState.tab==='dashboard')window.sasTerminalTabHistory=[];
+ updateTerminalPreviousButton();
+ window.scrollTo({top:0,behavior:'smooth'});
 }
 async function initTerminal(){
  const backBtn=document.getElementById('adminBackBtn');
