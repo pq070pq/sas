@@ -5309,3 +5309,11 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @keyframes terminalBackSheen{0%,70%,100%{transform:translateX(-120%)}85%{transform:translateX(120%)}}
 @media(prefers-reduced-motion:reduce){.terminal-previous-btn:before{animation:none}}
 @media(max-width:600px){.terminal-navigation-row{padding-inline:12px;margin-bottom:9px}.terminal-previous-btn{min-height:48px;padding:10px 14px;gap:10px;font-size:14px;border-radius:12px}.terminal-previous-arrow{font-size:23px}}
+
+
+/* Animated AI disclaimer text: CSS-only, isolated to the existing notice. */
+.sas-ai-disclaimer{justify-content:flex-start;text-align:right}
+.sas-ai-disclaimer>span:not(.sas-ai-disclaimer-icon){display:block;flex:0 0 auto;width:max-content;max-width:none;white-space:nowrap;animation:sasAiDisclaimerMarquee 18s linear infinite;will-change:transform}
+@keyframes sasAiDisclaimerMarquee{0%{transform:translateX(100%)}100%{transform:translateX(-100%)}}
+@media(hover:hover){.sas-ai-disclaimer:hover>span:not(.sas-ai-disclaimer-icon){animation-play-state:paused}}
+@media(prefers-reduced-motion:reduce){.sas-ai-disclaimer>span:not(.sas-ai-disclaimer-icon){animation:none;white-space:normal;width:auto;max-width:100%;flex:1;will-change:auto}}
