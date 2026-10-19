@@ -1608,8 +1608,28 @@ async def weekly_radar_report():
                 payload = json.loads(signal.payload or "{}")
             except (TypeError, ValueError):
                 payload = {}
+            # Signal payloads store Quality Score as either a number or
+            # an object ({"score": N, ...}); normalize both shapes before
+            # aggregation so valid scores are not silently bucketed as unknown.
+            raw_quality = payload.get("quality_score")
+            if isinstance(raw_quality, dict):
+                raw_quality = raw_quality.get("score", raw_quality.get("value"))
+            if raw_quality is None:
+                for parent_key in ("technical", "tech", "analysis", "classification"):
+                    parent = payload.get(parent_key)
+                    if isinstance(parent, dict):
+                        nested = parent.get("quality_score")
+                        if isinstance(nested, dict):
+                            nested = nested.get("score", nested.get("value"))
+                        if nested is not None:
+                            raw_quality = nested
+                            break
+            try:
+                normalized_quality = float(raw_quality) if raw_quality is not None else None
+            except (TypeError, ValueError):
+                normalized_quality = None
             quality_records.append({
-                "quality_score": payload.get("quality_score"),
+                "quality_score": normalized_quality,
                 "status": outcome.status,
                 "achieved_target": outcome.achieved_target,
             })
