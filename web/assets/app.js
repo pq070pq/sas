@@ -842,10 +842,15 @@ async function runRadar(show=true){
   }
   if(d?.error){
     const reason=String(d.error.message||d.error.type||'خطأ غير معروف');
-    if(show&&grid)grid.innerHTML='<div class="fatal"><b>🔴 تعذر إكمال مسح الأسهم</b><br><small>'+escHtml(reason)+'</small><br><small>تم الاحتفاظ بآخر نتائج الرصد إن وُجدت.</small></div>';
+    if(show&&grid&&!terminalState.radar.length)grid.innerHTML='<div class="fatal"><b>🔴 تعذر إكمال مسح الأسهم</b><br><small>'+escHtml(reason)+'</small><br><small>تم الاحتفاظ بآخر نتائج الرصد إن وُجدت.</small></div>';
     if(copyText)copyText.textContent='تعذر إكمال المسح. يمكنك إعادة المحاولة؛ احتفظنا بالنتائج السابقة.';
     if(statusText)statusText.textContent='تعذر المسح';
     console.error('SAS PRO radar API error:',d.error);
+    return;
+  }
+  if(d.enabled===false&&(!Array.isArray(d.stocks)||d.stocks.length===0)){
+    if(copyText)copyText.textContent=String(d.reason||'الرصد الحي غير متاح خارج جلسة الرصد؛ احتفظنا بآخر النتائج.');
+    if(statusText)statusText.textContent='الرصد الحي غير متاح';
     return;
   }
   terminalState.radar=d.stocks||[];
