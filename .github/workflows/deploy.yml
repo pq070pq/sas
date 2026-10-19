@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: saspro-production
+  group: saspro-production-v2
   # لا تلغِ نشرًا جارياً؛ قد تستمر أوامر SSH على الخادم بعد إلغاء GitHub Actions
   # وتتداخل مع النشر التالي، فتختفي الحاوية أثناء docker compose up.
   cancel-in-progress: false
@@ -15,6 +15,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-22.04
+    timeout-minutes: 45
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
