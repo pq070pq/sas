@@ -80,18 +80,50 @@ def _is_allowed_exchange(row):
 
 
 def _parse_candles(rows):
+    """Normalize OHLCV rows from PanWatch, Twelve Data, Finnhub, FMP and Stooq.
+
+    Provider payloads differ in key casing and timestamp fields. Reject malformed
+    bars, sort chronologically when a timestamp exists, and deduplicate dates so
+    the scanner never mistakes malformed/duplicate rows for sufficient history.
+    """
     out = []
+    seen_times = set()
+    aliases = {
+        "open": ("open", "o", "Open"),
+        "high": ("high", "h", "High"),
+        "low": ("low", "l", "Low"),
+        "close": ("close", "c", "Close", "adj_close", "adjClose"),
+        "volume": ("volume", "v", "Volume"),
+        "time": ("time", "date", "datetime", "timestamp", "Date", "Datetime"),
+    }
     for row in rows or []:
-        try:
-            out.append({
-                "open": _f(row["open"]),
-                "high": _f(row["high"]),
-                "low": _f(row["low"]),
-                "close": _f(row["close"]),
-                "volume": _f(row.get("volume")),
-            })
-        except (TypeError, ValueError, KeyError):
+        if not isinstance(row, dict):
             continue
+        normalized = {name: next((row.get(k) for k in keys if row.get(k) not in (None, "")), None)
+                      for name, keys in aliases.items()}
+        try:
+            bar = {
+                "open": float(normalized["open"]),
+                "high": float(normalized["high"]),
+                "low": float(normalized["low"]),
+                "close": float(normalized["close"]),
+                "volume": max(0.0, float(normalized["volume"] or 0)),
+            }
+        except (TypeError, ValueError):
+            continue
+        if not all(math.isfinite(bar[k]) and bar[k] > 0 for k in ("open", "high", "low", "close")):
+            continue
+        if bar["high"] < max(bar["open"], bar["close"], bar["low"]) or bar["low"] > min(bar["open"], bar["close"], bar["high"]):
+            continue
+        stamp = str(normalized["time"] or "")
+        if stamp and stamp in seen_times:
+            continue
+        if stamp:
+            seen_times.add(stamp)
+            bar["time"] = stamp
+        out.append(bar)
+    if any(row.get("time") for row in out):
+        out.sort(key=lambda row: str(row.get("time") or ""))
     return out
 
 
