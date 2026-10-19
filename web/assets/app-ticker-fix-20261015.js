@@ -332,7 +332,7 @@ function updateTerminalPreviousButton(){
  if(button)button.hidden=terminalState.tab==='dashboard';
 }
 async function loadRadarSnapshot(){
- if(terminalState.radar.length||Date.now()-radarSnapshotLastChecked<15000)return;
+ if(Date.now()-radarSnapshotLastChecked<15000)return;
  if(radarSnapshotLoadPromise)return radarSnapshotLoadPromise;
  radarSnapshotLastChecked=Date.now();
  radarSnapshotLoadPromise=(async()=>{
