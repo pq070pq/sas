@@ -688,21 +688,11 @@ function toggleSasMetric(id){
  panel.append(icon,body,close);panel.hidden=false;
 }
 function renderPerpEquitiesMovers(data){
+ // Public view: provider names and source links are reserved for admin tools.
  const sourceLink=document.querySelector('.sas-movers-source');
- if(sourceLink){sourceLink.hidden=false;sourceLink.removeAttribute('aria-hidden');sourceLink.href='https://finviz.com/screener?v=111&f=exch_nasd%2Csh_curvol_o100%2Csh_float_u50%2Csh_relvol_o0.5%2Cta_perf_1wup&ft=4';sourceLink.textContent='فلاتر Finviz ↗';}
-
- const quickLinks=[
-  ['أعلى الرابحين اليوم','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15&s=ta_topgainers'],
-  ['أعلى الخاسرين اليوم','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15&s=ta_toplosers'],
-  ['حجم غير اعتيادي','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15&s=ta_unusualvolume'],
-  ['Float منخفض','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15,sh_float_u50,sh_curvol_o100']
- ];
- const title=document.querySelector('.sas-perp-movers-panel .sas-insight-title');
- if(title&&!document.getElementById('sasFinvizQuickLinks')){
-  const links=document.createElement('nav');links.id='sasFinvizQuickLinks';links.className='sas-finviz-quick-links';links.setAttribute('aria-label','فلاتر Finviz');
-  quickLinks.forEach(([label,url])=>{const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=label+' ↗';links.appendChild(a);});
-  title.insertAdjacentElement('afterend',links);
- }
+ if(sourceLink){sourceLink.hidden=true;sourceLink.setAttribute('aria-hidden','true');sourceLink.removeAttribute('href');}
+ const publicSourceLinks=document.getElementById('sasFinvizQuickLinks');
+ if(publicSourceLinks)publicSourceLinks.remove();
 
  const updated=document.getElementById('perpMoversUpdated'),state=document.getElementById('perpMoversState');
  const gainers=document.getElementById('perpMoversGainers'),losers=document.getElementById('perpMoversLosers');
