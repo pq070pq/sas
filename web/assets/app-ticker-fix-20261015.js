@@ -994,8 +994,81 @@ async function runRadar(show=true){
    if(radarVisual)radarVisual.disabled=false;
    terminalState.radarScanning=false;
    document.querySelectorAll('.sas-radar-showcase,.sas-radar-visual,.terminal-page').forEach(el=>el.classList.remove('sas-radar-scanning'));
+   scheduleSASAutomaticRadar(Date.now()-startedAt);
  }
 }
+
+/* Automatic radar cadence is based on the measured duration of the previous scan.
+   It runs only for authenticated Pro members while the terminal is open. */
+let sasRadarAutoTimer=null,sasRadarAutoTicker=null,sasRadarAutoDueAt=0,sasRadarLastDurationMs=0,sasRadarAutoStarted=false;
+function sasRadarAutoSet(state,title,detail,remaining=0,total=1){
+ const panel=document.getElementById('sasRadarAutoPanel'),titleEl=document.getElementById('sasRadarAutoTitle'),detailEl=document.getElementById('sasRadarAutoDetail'),count=document.getElementById('sasRadarCountdown'),arc=document.getElementById('sasRadarGaugeProgress');
+ if(!panel)return;
+ panel.dataset.state=state;
+ if(titleEl)titleEl.textContent=title;
+ if(detailEl)detailEl.textContent=detail;
+ if(count){const sec=Math.max(0,Math.ceil(remaining/1000));count.textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');}
+ if(arc){const circumference=113.1;const fraction=total>0?Math.max(0,Math.min(1,remaining/total)):0;arc.style.strokeDashoffset=String(circumference*(1-fraction));}
+}
+function sasRadarAutoStopTimers(){
+ if(sasRadarAutoTimer){clearTimeout(sasRadarAutoTimer);sasRadarAutoTimer=null;}
+ if(sasRadarAutoTicker){clearInterval(sasRadarAutoTicker);sasRadarAutoTicker=null;}
+}
+function sasRadarTerminalReady(){
+ const terminal=document.getElementById('terminalPage');
+ return Boolean(terminal&&!terminal.hidden&&me?.pro&&document.visibilityState!=='hidden');
+}
+function scheduleSASAutomaticRadar(lastDurationMs=0){
+ sasRadarAutoStopTimers();
+ if(lastDurationMs>0)sasRadarLastDurationMs=lastDurationMs;
+ if(!sasRadarTerminalReady()){
+  sasRadarAutoSet('paused','الرادار بانتظارك','افتح SAS PRO وسيستأنف الفحص تلقائيًا');
+  return;
+ }
+ const delay=Math.max(90000,Math.min(300000,Math.round((sasRadarLastDurationMs||60000)*1.35)));
+ sasRadarAutoDueAt=Date.now()+delay;
+ sasRadarAutoSet('waiting','اكتمل المسح • التحديث القادم','الفاصل محسوب حسب سرعة المسح السابقة',delay,delay);
+ sasRadarAutoTicker=setInterval(()=>{
+  if(!sasRadarTerminalReady()){
+   sasRadarAutoStopTimers();
+   sasRadarAutoSet('paused','الرادار متوقف مؤقتًا','سيستأنف تلقائيًا عند العودة إلى التطبيق');
+   return;
+  }
+  const remaining=Math.max(0,sasRadarAutoDueAt-Date.now());
+  sasRadarAutoSet('waiting','اكتمل المسح • التحديث القادم','الفاصل محسوب حسب سرعة المسح السابقة',remaining,delay);
+ },1000);
+ sasRadarAutoTimer=setTimeout(()=>{
+  sasRadarAutoStopTimers();
+  if(!sasRadarTerminalReady()){
+   sasRadarAutoSet('paused','الرادار بانتظارك','سيبدأ تلقائيًا عند فتح مساحة الرصد');
+   return;
+  }
+  if(!terminalState.radarScanning)void runRadar(false);
+ },delay);
+}
+function startSASAutomaticRadar(){
+ if(sasRadarAutoStarted)return;
+ sasRadarAutoStarted=true;
+ const terminal=document.getElementById('terminalPage');
+ if(!terminal)return;
+ const startIfReady=()=>{
+  if(!sasRadarTerminalReady())return;
+  if(sasRadarAutoTimer||terminalState.radarScanning)return;
+  sasRadarAutoSet('scanning','الرادار يمسح الآن','نبحث عن فرص مطابقة للشروط المعتمدة');
+  void runRadar(false);
+ };
+ const observer=new MutationObserver(()=>{
+  if(sasRadarTerminalReady())startIfReady();
+  else if(!terminal.hidden){sasRadarAutoStopTimers();sasRadarAutoSet('paused','الرادار متوقف مؤقتًا','يستأنف عند توفر صلاحية الرصد وظهور التطبيق');}
+ });
+ observer.observe(terminal,{attributes:true,attributeFilter:['hidden']});
+ document.addEventListener('visibilitychange',()=>{
+  if(sasRadarTerminalReady())startIfReady();
+  else if(document.visibilityState==='hidden'){sasRadarAutoStopTimers();sasRadarAutoSet('paused','الرادار ينتظر العودة','لن يبدأ فحصًا جديدًا أثناء إخفاء التطبيق');}
+ });
+ if(sasRadarTerminalReady())window.setTimeout(startIfReady,1800);
+}
+
 function renderRadar(){renderCards(document.getElementById('radarGrid'),terminalState.radar);}
 function renderCards(el,rows){
  if(!el)return;
@@ -2891,6 +2964,7 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
   const updated=$('sasIndicesUpdated');if(updated)updated.textContent='تحديث '+new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date());
  }
  function startTimers(){
+  startSASAutomaticRadar();
   if($('terminalPage')?.hidden)return;
   const track=$('sasMarketNewsTrack');
   if(track&&!track.querySelector('.sas-news-lane')){const cached=readCachedNews();if(cached)renderNews(cached.items,true);}
