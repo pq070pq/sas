@@ -488,7 +488,9 @@ function renderMarketStrip(s){
 }
 function renderDashboard(d){
  const r=d.radar||{};
- if(Array.isArray(r.stocks)) terminalState.radar=r.stocks;
+ // Keep fresh manual-scan results when the background dashboard endpoint still has an empty/stale snapshot.
+ // A completed manual scan is newer than the persisted dashboard snapshot; do not let polling erase it.
+ if(Array.isArray(r.stocks) && (r.stocks.length>0 || terminalState.radar.length===0)) terminalState.radar=r.stocks;
  const historical=Boolean(r.historical);
  const enabled=Boolean(r.enabled);
  const market=d.market||{};
