@@ -2584,9 +2584,21 @@ async def market_news_endpoint(_: dict = Depends(require_pro)):
     session_key = cycle_key + ":" + session
     now_mono = time.monotonic()
     cached = _MARKET_NEWS_RESPONSE_CACHE
+    cached_payload = cached.get("payload") if isinstance(cached, dict) else None
+    cached_items = cached_payload.get("items", []) if isinstance(cached_payload, dict) else []
+    cached_translated = int(cached_payload.get("translated_count") or 0) if isinstance(cached_payload, dict) else 0
+    # Retry translation periodically when the cached feed contains untranslated headlines.
+    # A 24-hour news cache must not freeze a temporary translation-provider failure for the whole day.
+    translation_retry_due = (
+        isinstance(cached_items, list)
+        and bool(cached_items)
+        and cached_translated < min(16, len(cached_items))
+        and now_mono - float(cached.get("at") or 0) >= 10 * 60
+    )
     if (cached.get("payload") and cached.get("session_key") == session_key
             and now_mono - cached["at"] < refresh_ttl
-            and (cached["payload"].get("available") or refresh_ttl < 86400)):
+            and (cached["payload"].get("available") or refresh_ttl < 86400)
+            and not translation_retry_due):
         return copy.deepcopy(cached["payload"])
 
     try:
