@@ -26,7 +26,7 @@ from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarS
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
-from .news import company_news, corporate_events, tipranks_analysis, market_news
+from .news import company_news, corporate_events, tipranks_analysis, market_news, _is_relevant_stock_market_news
 from .news_translation import translate_stock_news
 from .scheduler import scheduler
 from .market_calendar import market_status, us_market_holidays
@@ -2591,12 +2591,20 @@ async def market_news_endpoint(_: dict = Depends(require_pro)):
         # an empty response. The frontend can still retry on the next refresh.
         previous = cached.get("payload") if isinstance(cached, dict) else None
         previous_items = previous.get("items", []) if isinstance(previous, dict) else []
+        # Re-validate cached items before fallback: old cache entries may predate
+        # the US-market relevance filter and must never leak unrelated headlines.
         if isinstance(previous_items, list) and previous_items:
-            fallback = copy.deepcopy(previous)
-            fallback["available"] = True
-            fallback["stale"] = True
-            fallback["message_ar"] = "تعذر تحديث الأخبار مؤقتًا؛ المعروض آخر أخبار تم جلبها."
-            return fallback
+            safe_items = [
+                item for item in previous_items
+                if isinstance(item, dict) and _is_relevant_stock_market_news(item)
+            ]
+            if safe_items:
+                fallback = copy.deepcopy(previous)
+                fallback["items"] = safe_items
+                fallback["available"] = True
+                fallback["stale"] = True
+                fallback["message_ar"] = "تعذر تحديث الأخبار مؤقتًا؛ المعروض آخر أخبار السوق الأمريكي المطابقة."
+                return fallback
         payload = {"items": [], "updated_at": datetime.now(timezone.utc).isoformat(), "available": False, "translated_count": 0}
         _MARKET_NEWS_RESPONSE_CACHE.update({"at": now_mono, "session_key": session_key, "payload": payload})
         return payload
