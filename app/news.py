@@ -858,6 +858,11 @@ def _is_relevant_stock_market_news(row):
         "matchday", "goalkeeper", "striker", "coach sacked", "transfer window",
         "youtube views", "streaming record", "box office", "celebrity", "reality show",
         "music video", "album release", "gaming tournament", "esports",
+        # Exclude non-US market stories from the US-market ribbon unless the same
+        # article explicitly mentions a US index, Federal Reserve, or US-listed stock.
+        "indian derivatives", "india's derivatives", "india derivatives", "nifty",
+        "sensex", "sebi", "national stock exchange of india", "bombay stock exchange",
+        "nse india", "bse india", "indian stock market",
     )
     finance_context = (
         "stock", "stocks", "share price", "shares", "equity", "equities",
@@ -871,8 +876,15 @@ def _is_relevant_stock_market_news(row):
         "trading", "investor", "investors", "market cap", "shares rose",
         "shares fell", "shares jump", "shares drop", "stock rises", "stock falls",
     )
-    if any(term in text for term in off_topic) and not any(term in text for term in finance_context):
-        return False
+    if any(term in text for term in off_topic):
+        us_market_context = (
+            "s&p 500", "s&p500", "nasdaq", "dow jones", "wall street",
+            "federal reserve", "fomc", "u.s. stocks", "us stocks",
+            "nyse", "nyse-listed", "nasdaq-listed", "american stocks",
+            "u.s. listed", "us-listed", "sec filing",
+        )
+        if not any(term in text for term in us_market_context):
+            return False
 
     # Entity-linked company headlines may not use generic market terminology;
     # allow them only when the headline/summary still describes a business event.
