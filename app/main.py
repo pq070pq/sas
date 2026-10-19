@@ -2664,7 +2664,7 @@ async def dashboard_home(_: dict = Depends(require_pro)):
             ).lower()
             current_session_watch = (
                 str(row.session_date or "") == str(session_date)
-                and opportunity_status in {"watch", "confirmed"}
+                and opportunity_status in {"watch", "confirmed", "not_confirmed"}
             )
             if not is_current_active_opportunity(payload) and not current_session_watch:
                 continue
