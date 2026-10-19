@@ -1155,7 +1155,20 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
             r.raise_for_status()
             payload = r.json()
             data = payload.get("data") or payload
-            candles = _parse_candles(data.get("klines", []))
+            # PanWatch deployments may return history under different common
+            # keys (klines/candles/values) or as a bare list. Accept the actual
+            # response shape rather than silently treating valid history as empty.
+            if isinstance(data, list):
+                candle_rows = data
+            elif isinstance(data, dict):
+                candle_rows = next(
+                    (data.get(name) for name in ("klines", "candles", "values", "items", "results")
+                     if isinstance(data.get(name), list)),
+                    [],
+                )
+            else:
+                candle_rows = []
+            candles = _parse_candles(candle_rows)
             if len(candles) >= min_candles:
                 _candle_cache.put(key, {"candles": candles, "source": "PanWatch"})
                 return candles, "PanWatch"
