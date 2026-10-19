@@ -111,7 +111,7 @@ jobs:
           key_file="$RUNNER_TEMP/ovh_key"
           test -s "$key_file" || { echo "::error::OVH SSH key file is missing or empty"; exit 1; }
           ssh_opts=(-i "$key_file" -p "$OVH_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=15)
-          ssh "${ssh_opts[@]}" "$OVH_USER@$OVH_HOST" 'cd /opt/saspro && docker compose logs --tail=500 saspro 2>&1 | grep -E "RADAR_CYCLE_(STARTED|FINISHED)|RADAR_SCAN_DIAGNOSTICS|RADAR HEALTH ALERT|RADAR WATCHDOG|Stock radar cycle failed|Stock radar scan completed" || true' > "$GITHUB_WORKSPACE/radar-live-logs.txt"
+          ssh "${ssh_opts[@]}" "$OVH_USER@$OVH_HOST" 'cd /opt/saspro && { echo "===== CONTAINER STATUS ====="; docker compose ps saspro; echo "===== RECENT RADAR / DATA / SCHEDULER EVENTS ====="; docker compose logs --tail=1200 --timestamps saspro 2>&1 | grep -Ei "radar|scan|momentum|candle|panwatch|twelve.?data|scheduler|watchdog|exception|traceback|error|timeout|interrupted" | tail -n 500 || true; echo "===== END EVENTS ====="; }' > "$GITHUB_WORKSPACE/radar-live-logs.txt"
           echo "===== RECENT RADAR EVENTS ====="
           cat "$GITHUB_WORKSPACE/radar-live-logs.txt"
           echo "===== END RECENT RADAR EVENTS ====="
