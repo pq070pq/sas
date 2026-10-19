@@ -925,7 +925,8 @@ async function runRadar(show=true){
     renderRadar();
     return;
   }
-  terminalState.radar=d.stocks||[];
+  const detectedAt=d.scan_at||new Date().toISOString();
+  terminalState.radar=(Array.isArray(d.stocks)?d.stocks:[]).map(stock=>({...stock,created_at:stock.created_at||stock.detected_at||detectedAt}));
   try{localStorage.setItem('saspro_radar_snapshot',JSON.stringify(terminalState.radar));}catch(e){console.warn('SAS PRO radar snapshot not cached:',e?.message||e);}
   const diag=d.diagnostics||{};
   const nextPremarket=d.next_premarket_riyadh||'11:00';
@@ -1073,7 +1074,7 @@ function stockCard(x){
  ].join(''):'';
  const displayStatus=x._radarDisplayStatus||((x.opportunity_status||cls.opportunity_status)==='confirmed'||x.radar_tier==='confirmed'?'confirmed':'watch');
  const statusBadge=displayStatus==='confirmed'?'<i class="radar-stock-status is-confirmed">فرصة مؤكدة</i>':'<i class="radar-stock-status is-watch">تحت المراقبة</i>';
- return '<article class="stock-card '+(displayStatus==='watch'?'radar-watch-card':'radar-confirmed-card')+'"><div class="stock-head"><div><b>'+s+'</b><small>'+statusBadge+' '+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • '+formatTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+
+ return '<article class="stock-card '+(displayStatus==='watch'?'radar-watch-card':'radar-confirmed-card')+'"><div class="stock-head"><div><b>'+s+'</b><small>'+statusBadge+' '+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • رُصد: '+formatDateTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+
   '<div class="sas-card-price-trend"><svg class="sas-card-uptrend" viewBox="0 0 180 48" role="img" aria-label="مؤشر بصري صاعد وليس بيانات شارت فعلية"><path d="M4 40 C18 39 20 25 34 28 S52 39 66 23 S88 27 103 18 S126 28 140 12 S161 14 176 3" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg><strong>$'+money(price)+'</strong></div>'+
  '<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
  '<div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div>'+
