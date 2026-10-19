@@ -258,7 +258,10 @@ function readLocalJson(key,fallback){
  try{const raw=localStorage.getItem(key);return raw?JSON.parse(raw):fallback;}
  catch(error){console.warn('SAS PRO local cache ignored:',key,error?.message||error);return fallback;}
 }
-const terminalState={ticker:[],radar:[],perpAssets:{},watch:readLocalJson('saspro_watchlist',[]),timer:null,moversTimer:null,newsTimer:null,newsItems:[],newsFilter:'all',moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
+const savedRadarSnapshot=readLocalJson('saspro_radar_snapshot',[]);
+const terminalState={ticker:[],radar:Array.isArray(savedRadarSnapshot)?savedRadarSnapshot:[],perpAssets:{},watch:readLocalJson('saspro_watchlist',[]),timer:null,moversTimer:null,newsTimer:null,newsItems:[],newsFilter:'all',moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
+let radarSnapshotLastChecked=0;
+let radarSnapshotLoadPromise=null;
 function escHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 function safeNewsUrl(value){
  try{
@@ -296,13 +299,34 @@ function renderNewsItems(items,limit=5,translatedItems=[]){
 }
 function money(v){const n=Number(v);return Number.isFinite(n)&&n>0?n.toLocaleString('en-US',{minimumFractionDigits:n<10?2:0,maximumFractionDigits:4}):'—';}
 function pct(v){const n=Number(v);return Number.isFinite(n)?(n>=0?'+':'')+n.toFixed(2)+'%':'—';}
+async function loadRadarSnapshot(){
+ if(terminalState.radar.length||Date.now()-radarSnapshotLastChecked<15000)return;
+ if(radarSnapshotLoadPromise)return radarSnapshotLoadPromise;
+ radarSnapshotLastChecked=Date.now();
+ radarSnapshotLoadPromise=(async()=>{
+  try{
+   // A normal tab open reads the saved snapshot only; it must not trigger a fresh multi-minute scan.
+   const d=await api('/api/radar/scan',{timeoutMs:12000,retries:0});
+   if(Array.isArray(d.stocks)&&d.stocks.length){
+    terminalState.radar=d.stocks;
+    try{localStorage.setItem('saspro_radar_snapshot',JSON.stringify(terminalState.radar));}catch(e){}
+   }
+  }catch(e){
+   console.warn('SAS PRO saved radar snapshot unavailable:',e?.message||e);
+  }finally{
+   renderRadar();
+   radarSnapshotLoadPromise=null;
+  }
+ })();
+ return radarSnapshotLoadPromise;
+}
 function switchTerminalTab(tab){
  if(tab!=='search'&&activeSymbolSearchController){activeSymbolSearchController.abort();activeSymbolSearchController=null;}
  terminalState.tab=tab;
  document.querySelectorAll('.terminal-tab').forEach(x=>x.classList.toggle('active',x.id==='tab-'+tab));
  document.querySelectorAll('.terminal-tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
  document.querySelectorAll('.sas-mobile-dock button').forEach(x=>x.classList.toggle('is-active',x.getAttribute('onclick')?.includes("'"+tab+"'")));
- if(tab==='radar'){renderRadar();if(!terminalState.radarScanning&&(!Array.isArray(terminalState.radar)||terminalState.radar.length===0))void runRadar(false);}
+ if(tab==='radar'){renderRadar();void loadRadarSnapshot();}
 
 }
 async function initTerminal(){
@@ -790,25 +814,48 @@ async function runRadar(show=true){
    if(actions)actions.before(progress);
    else showcase.append(progress);
   }
-  const stages=['نبحث عن الأسهم النشطة…','نراجع الحركة والسيولة…','نتحقق من الشروط الفنية…','نرتب النتائج التي اجتازت الفحص…'];
   elapsedTimer=setInterval(()=>{
    const elapsed=Math.floor((Date.now()-startedAt)/1000);
    const label=progress?.querySelector('.radar-scan-elapsed');
-   const stage=progress?.querySelector('.radar-scan-stage');
-   if(label)label.textContent='⏱️ '+elapsed+' ث · نكمل مراجعة الفرص';
-   if(stage)stage.textContent=stages[Math.floor(elapsed/5)%stages.length];
+   if(label)label.textContent='⏱️ '+elapsed+' ث · يستمر الرصد في الخلفية';
   },1000);
-  // Start a real fresh scan, retaining previous cards until the new results return.
-  const d=await api('/api/radar/scan?fresh=1',{timeoutMs:180000,retries:0});
+  // Start or join one shared background scan; polling short status calls avoids the old 180s request timeout.
+  const started=await api('/api/radar/scan/start',{method:'POST',timeoutMs:12000,retries:0});
+  const jobId=String(started.job_id||'');
+  let d=started.status==='completed'?(started.result||{}):null;
+  if(!d){
+   if(!jobId)throw new Error('لم يُرجع الخادم معرّف مهمة الرصد.');
+   while(true){
+    await sleep(2000);
+    const job=await api('/api/radar/scan/status?job_id='+encodeURIComponent(jobId),{timeoutMs:12000,retries:1});
+    const serverProgress=job.progress||{};
+    const stage=progress?.querySelector('.radar-scan-stage');
+    if(stage&&serverProgress.message_ar)stage.textContent=serverProgress.message_ar;
+    if(stage&&Number(serverProgress.total)>0){
+     stage.textContent=String(serverProgress.message_ar||'تحليل المرشحين')+' ('+Number(serverProgress.done||0)+'/'+Number(serverProgress.total)+')';
+    }
+    if(job.status==='running')continue;
+    if(job.status==='success'){d=job.result||{};break;}
+    if(job.status==='failed')throw new Error(job.error?.message||'تعذر إكمال مسح الأسهم.');
+    throw new Error('انقطع تتبع مهمة الرصد قبل استلام النتيجة. أعد المحاولة؛ النتائج السابقة محفوظة.');
+   }
+  }
   if(d?.error){
     const reason=String(d.error.message||d.error.type||'خطأ غير معروف');
-    if(show&&grid)grid.innerHTML='<div class="fatal"><b>🔴 تعذر إكمال مسح الأسهم</b><br><small>'+escHtml(reason)+'</small><br><small>تم الاحتفاظ بآخر نتائج الرصد إن وُجدت.</small></div>';
+    if(show&&grid&&!terminalState.radar.length)grid.innerHTML='<div class="fatal"><b>🔴 تعذر إكمال مسح الأسهم</b><br><small>'+escHtml(reason)+'</small><br><small>تم الاحتفاظ بآخر نتائج الرصد إن وُجدت.</small></div>';
     if(copyText)copyText.textContent='تعذر إكمال المسح. يمكنك إعادة المحاولة؛ احتفظنا بالنتائج السابقة.';
     if(statusText)statusText.textContent='تعذر المسح';
     console.error('SAS PRO radar API error:',d.error);
     return;
   }
+  if(d.enabled===false&&(!Array.isArray(d.stocks)||d.stocks.length===0)){
+    if(copyText)copyText.textContent=String(d.reason||'الرصد الحي غير متاح خارج جلسة الرصد؛ احتفظنا بآخر النتائج.');
+    if(statusText)statusText.textContent='الرصد الحي غير متاح';
+    renderRadar();
+    return;
+  }
   terminalState.radar=d.stocks||[];
+  try{localStorage.setItem('saspro_radar_snapshot',JSON.stringify(terminalState.radar));}catch(e){console.warn('SAS PRO radar snapshot not cached:',e?.message||e);}
   const diag=d.diagnostics||{};
   const nextPremarket=d.next_premarket_riyadh||'11:00';
   const mode=d.historical
@@ -861,7 +908,7 @@ async function runRadar(show=true){
     openTerms('trial');
     return;
    }
-   if(show&&grid)grid.innerHTML='<div class="fatal"><b>تعذر إكمال مسح الأسهم</b><br>'+escHtml(msg||'حدث خطأ غير معروف')+'<br><small>يمكنك إعادة المحاولة؛ لم تُحذف نتائج الرصد السابقة من قاعدة البيانات.</small></div>';
+   if(show&&grid&&!terminalState.radar.length)grid.innerHTML='<div class="fatal"><b>تعذر إكمال مسح الأسهم</b><br>'+escHtml(msg||'حدث خطأ غير معروف')+'<br><small>يمكنك إعادة المحاولة؛ لم تُحذف نتائج الرصد السابقة.</small></div>';
    if(copyText)copyText.textContent='حدث خطأ أثناء المسح. احتفظنا بالنتائج السابقة؛ حاول مرة أخرى.';
    if(statusText)statusText.textContent='حدث خطأ في المسح';
  }finally{

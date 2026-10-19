@@ -117,6 +117,15 @@ private_analysis_task = None
 radar_health_task = None
 radar_manual_lock = asyncio.Lock()
 
+# Manual Mini App scans run in the background so the HTTP request never has to
+# stay open for the full multi-minute radar cycle. Keep a bounded in-process
+# history so multiple authorized clients can poll the same active job.
+_radar_app_scan_lock = asyncio.Lock()
+_radar_app_active_scan_job_id = None
+_radar_app_scan_jobs = {}
+_radar_app_scan_tasks = {}
+_RADAR_APP_SCAN_JOB_HISTORY_LIMIT = 6
+
 # ذاكرة SAS PRO الذكية: TTL + حد أقصى + إزالة تلقائية للقديم.
 _ANALYSIS_CACHE_TTL = 900
 _QUICK_SCAN_CACHE_TTL = 300
@@ -2703,6 +2712,178 @@ async def dashboard_home(_: dict = Depends(require_pro)):
         },
         "updated_at": utcnow().isoformat(),
     }
+
+def _update_radar_app_scan_progress(job_id: str, progress: dict):
+    job = _radar_app_scan_jobs.get(job_id)
+    if job and job.get("status") == "running" and isinstance(progress, dict):
+        job["progress"] = dict(progress)
+
+
+async def _execute_radar_app_scan(job_id: str):
+    """Run a manual Mini App scan asynchronously and retain its result for pollers."""
+    started_monotonic = time.monotonic()
+    job = _radar_app_scan_jobs.get(job_id)
+    if not job:
+        return
+
+    try:
+        from .scanner import scan_us_low_price_stocks
+
+        status = market_status()
+        app_limit = max(1, int(settings.radar_app_daily_limit or 15))
+        session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+        logger.info("RADAR_APP_SCAN_STARTED job_id=%s session=%s", job_id, status.get("session", "unknown"))
+
+        if not stock_radar_enabled():
+            result = {
+                "enabled": False,
+                "historical": True,
+                "reason": status.get("label_ar", "السوق خارج جلسة الرصد"),
+                "session": status.get("session", "unknown"),
+                "scan_at": None,
+                "session_date": session_date,
+                "stocks": [],
+                "diagnostics": {
+                    "candidates": 0, "passed": 0, "filtered": 0, "errors": 0,
+                    "daily_limit": app_limit,
+                },
+            }
+        else:
+            _update_radar_app_scan_progress(job_id, {
+                "stage": "discovering",
+                "message_ar": "نجمع الأسهم الأمريكية النشطة من مصادر السوق…",
+                "done": 0,
+                "total": 0,
+            })
+
+            def progress_callback(progress):
+                _update_radar_app_scan_progress(job_id, progress)
+
+            scanned = await scan_us_low_price_stocks(
+                force_refresh=True,
+                progress_callback=progress_callback,
+            )
+            result = {
+                "enabled": True,
+                "historical": False,
+                "persisted": False,
+                "scan_at": datetime.now(timezone.utc).isoformat(),
+                "range": {"min": 0.30, "max": 6.00},
+                "method": "SAS PRO Radar",
+                "session": status.get("session", "unknown"),
+                "stocks": (scanned.get("stocks") or [])[:app_limit],
+                "diagnostics": {
+                    **(scanned.get("diagnostics") or {}),
+                    "daily_limit": app_limit,
+                },
+            }
+
+        job["result"] = result
+        job["status"] = "success"
+        job["progress"] = {
+            "stage": "completed",
+            "message_ar": "اكتمل الرصد وتم تجهيز النتائج.",
+            "done": 1,
+            "total": 1,
+        }
+        elapsed = round(time.monotonic() - started_monotonic, 2)
+        diag = result.get("diagnostics") or {}
+        logger.info(
+            "RADAR_APP_SCAN_FINISHED job_id=%s status=success duration_seconds=%s candidates=%s passed=%s errors=%s",
+            job_id, elapsed, diag.get("candidates", 0), diag.get("passed", 0), diag.get("errors", 0),
+        )
+    except Exception as exc:
+        job["status"] = "failed"
+        job["error"] = {"type": type(exc).__name__, "message": str(exc)[:240]}
+        job["progress"] = {
+            "stage": "failed",
+            "message_ar": "تعذر إكمال الرصد؛ احتفظنا بالنتائج السابقة.",
+            "done": 0,
+            "total": 0,
+        }
+        logger.exception("RADAR_APP_SCAN_FAILED job_id=%s", job_id)
+    finally:
+        job["finished_at"] = utcnow().isoformat()
+        job["duration_seconds"] = round(time.monotonic() - started_monotonic, 2)
+        _radar_app_scan_tasks.pop(job_id, None)
+
+
+@app.post("/api/radar/scan/start")
+async def radar_scan_start(_: dict = Depends(require_pro)):
+    """Queue one shared manual scan and return immediately."""
+    global _radar_app_active_scan_job_id
+
+    async with _radar_app_scan_lock:
+        active = _radar_app_scan_jobs.get(_radar_app_active_scan_job_id or "")
+        if active and active.get("status") == "running":
+            return {
+                "job_id": _radar_app_active_scan_job_id,
+                "status": "running",
+                "started_at": active.get("started_at"),
+                "progress": active.get("progress") or {},
+            }
+
+        job_id = str(time.time_ns())
+        _radar_app_scan_jobs[job_id] = {
+            "job_id": job_id,
+            "status": "running",
+            "started_at": utcnow().isoformat(),
+            "finished_at": None,
+            "duration_seconds": None,
+            "progress": {
+                "stage": "starting",
+                "message_ar": "نجهز دورة الرصد…",
+                "done": 0,
+                "total": 0,
+            },
+            "result": None,
+            "error": None,
+        }
+        _radar_app_active_scan_job_id = job_id
+        task = asyncio.create_task(_execute_radar_app_scan(job_id), name=f"saspro-radar-app-scan-{job_id}")
+        _radar_app_scan_tasks[job_id] = task
+
+        # Discard only old, completed job snapshots; never remove the active one.
+        for old_id in list(_radar_app_scan_jobs):
+            if len(_radar_app_scan_jobs) <= _RADAR_APP_SCAN_JOB_HISTORY_LIMIT:
+                break
+            old_job = _radar_app_scan_jobs.get(old_id) or {}
+            if old_id != job_id and old_job.get("status") != "running":
+                _radar_app_scan_jobs.pop(old_id, None)
+                _radar_app_scan_tasks.pop(old_id, None)
+
+        return {
+            "job_id": job_id,
+            "status": "running",
+            "started_at": _radar_app_scan_jobs[job_id]["started_at"],
+            "progress": _radar_app_scan_jobs[job_id]["progress"],
+        }
+
+
+@app.get("/api/radar/scan/status")
+async def radar_scan_status(job_id: str, _: dict = Depends(require_pro)):
+    """Return the current stage or completed payload for an authorized scan job."""
+    if not job_id or len(job_id) > 32 or not job_id.isdigit():
+        raise HTTPException(400, "معرّف مهمة الرصد غير صالح.")
+
+    job = _radar_app_scan_jobs.get(job_id)
+    if not job:
+        return {"job_id": job_id, "status": "not_found"}
+
+    response = {
+        "job_id": job_id,
+        "status": job.get("status", "unknown"),
+        "started_at": job.get("started_at"),
+        "finished_at": job.get("finished_at"),
+        "duration_seconds": job.get("duration_seconds"),
+        "progress": job.get("progress") or {},
+    }
+    if job.get("status") == "success":
+        response["result"] = job.get("result")
+    elif job.get("status") == "failed":
+        response["error"] = job.get("error") or {"type": "UnknownError", "message": "تعذر إكمال مسح الأسهم."}
+    return response
+
 
 @app.get("/api/radar/scan")
 async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
