@@ -824,6 +824,7 @@ function renderMacro(){
 async function runRadar(show=true){
  if(terminalState.radarScanning)return;
  terminalState.radarScanning=true;
+ sasRadarAutoSet('scanning','الرادار يمسح الآن','نبحث عن فرص مطابقة للشروط المعتمدة');
  document.querySelectorAll('.sas-radar-showcase,.sas-radar-visual,.terminal-page').forEach(el=>el.classList.add('sas-radar-scanning'));
  const button=document.getElementById('radarScanBtn');
  const showcase=document.querySelector('.sas-radar-showcase');
