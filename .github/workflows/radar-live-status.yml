@@ -12,10 +12,12 @@ on:
 
 concurrency:
   group: saspro-radar-live-status
-  cancel-in-progress: false
+  # Status collection is read-only; keep only the newest queued snapshot.
+  cancel-in-progress: true
 
 jobs:
   status:
+    timeout-minutes: 10
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-22.04
     steps:
