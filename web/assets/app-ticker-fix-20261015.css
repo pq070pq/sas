@@ -5344,3 +5344,24 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-news-lane.is-single-news{animation:none!important;transform:none!important;width:100%;min-width:0;justify-content:flex-start}
 .sas-news-lane.is-single-news>.sas-news-group{width:100%;min-width:0;justify-content:flex-start}
 .sas-news-lane.is-single-news .sas-news-card{flex:0 1 clamp(245px,70vw,330px);max-width:100%}
+
+
+/* SAS PRO automatic radar: scan pulse, adaptive countdown and clear live state. */
+.sas-radar-auto-panel{display:flex;align-items:center;justify-content:center;gap:10px;width:min(100%,260px);margin:13px auto 0;padding:9px 11px;border:1px solid rgba(45,244,255,.2);border-radius:16px;background:linear-gradient(145deg,rgba(2,20,32,.92),rgba(2,12,22,.96));box-shadow:inset 0 1px rgba(255,255,255,.035),0 0 18px rgba(0,180,220,.055);text-align:right;direction:rtl}
+.sas-radar-auto-gauge{position:relative;display:grid;place-items:center;flex:0 0 46px;width:46px;height:46px;color:#79eaff;font-size:10px;font-weight:900;font-variant-numeric:tabular-nums}
+.sas-radar-auto-gauge svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
+.sas-radar-gauge-track,.sas-radar-gauge-progress{fill:none;stroke-width:3.5}
+.sas-radar-gauge-track{stroke:rgba(95,193,220,.17)}
+.sas-radar-gauge-progress{stroke:#35e8ff;stroke-linecap:round;stroke-dasharray:113.1;stroke-dashoffset:113.1;filter:drop-shadow(0 0 3px rgba(53,232,255,.65));transition:stroke-dashoffset .5s linear,stroke .25s ease}
+.sas-radar-auto-copy{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.sas-radar-auto-copy b{font-size:11px;line-height:1.6;color:#dffaff}
+.sas-radar-auto-copy small{font-size:9px;line-height:1.6;color:#8eb5c5}
+.sas-radar-auto-panel[data-state="scanning"]{border-color:rgba(48,239,190,.4);box-shadow:0 0 20px rgba(48,239,190,.08),inset 0 1px rgba(255,255,255,.04)}
+.sas-radar-auto-panel[data-state="scanning"] .sas-radar-gauge-progress{stroke:#36efb7;stroke-dashoffset:0;animation:sasAutoRadarGauge 2.8s linear infinite}
+.sas-radar-auto-panel[data-state="scanning"] .sas-radar-auto-gauge{animation:sasRadarPulse 1.8s ease-in-out infinite}
+.sas-radar-auto-panel[data-state="waiting"] .sas-radar-gauge-progress{stroke:#35e8ff}
+.sas-radar-auto-panel[data-state="paused"] .sas-radar-gauge-progress{stroke:#ffd166}
+.sas-radar-auto-panel[data-state="error"] .sas-radar-gauge-progress{stroke:#ff647a}
+@keyframes sasAutoRadarGauge{0%{stroke-dashoffset:113.1}100%{stroke-dashoffset:0}}
+@media(max-width:520px){.sas-radar-auto-panel{width:100%;max-width:210px;gap:7px;margin-top:9px;padding:7px 8px}.sas-radar-auto-gauge{flex-basis:40px;width:40px;height:40px;font-size:9px}.sas-radar-auto-copy b{font-size:10px}.sas-radar-auto-copy small{font-size:8px}}
+@media(prefers-reduced-motion:reduce){.sas-radar-auto-panel[data-state="scanning"] .sas-radar-gauge-progress,.sas-radar-auto-panel[data-state="scanning"] .sas-radar-auto-gauge{animation:none!important}}
