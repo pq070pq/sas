@@ -2586,6 +2586,17 @@ async def market_news_endpoint(_: dict = Depends(require_pro)):
         logger.warning("Market news provider failed: %s", type(exc).__name__)
         rows = []
     if not rows:
+        # If providers temporarily fail or return no matching stories, keep the
+        # last known non-empty feed visible instead of replacing the ribbon with
+        # an empty response. The frontend can still retry on the next refresh.
+        previous = cached.get("payload") if isinstance(cached, dict) else None
+        previous_items = previous.get("items", []) if isinstance(previous, dict) else []
+        if isinstance(previous_items, list) and previous_items:
+            fallback = copy.deepcopy(previous)
+            fallback["available"] = True
+            fallback["stale"] = True
+            fallback["message_ar"] = "تعذر تحديث الأخبار مؤقتًا؛ المعروض آخر أخبار تم جلبها."
+            return fallback
         payload = {"items": [], "updated_at": datetime.now(timezone.utc).isoformat(), "available": False, "translated_count": 0}
         _MARKET_NEWS_RESPONSE_CACHE.update({"at": now_mono, "session_key": session_key, "payload": payload})
         return payload
