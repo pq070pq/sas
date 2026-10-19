@@ -1202,6 +1202,27 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
         except Exception as exc:
             logger.debug("OHLCV_TWELVE_DATA_FAILED symbol=%s error=%s", key, type(exc).__name__)
 
+    # Direct Stooq fallback before the shared chart pipeline. This is intentionally
+    # keyless and avoids letting a failed PanWatch response hide otherwise available
+    # daily candles behind provider-specific normalization or timeouts.
+    try:
+        async with asyncio.timeout(14):
+            stooq_rows = await _stooq_ohlcv(key, days=260)
+        stooq_candles = _parse_candles(stooq_rows)
+        if len(stooq_candles) >= min_candles:
+            _candle_cache.put(key, {"candles": stooq_candles, "source": "Stooq direct fallback"})
+            logger.info(
+                "OHLCV_DIRECT_STOOQ_FALLBACK symbol=%s candles=%d required=%d",
+                key, len(stooq_candles), min_candles,
+            )
+            return stooq_candles, "Stooq direct fallback"
+        logger.warning(
+            "OHLCV_DIRECT_STOOQ_INSUFFICIENT symbol=%s candles=%d required=%d",
+            key, len(stooq_candles), min_candles,
+        )
+    except Exception as exc:
+        logger.warning("OHLCV_DIRECT_STOOQ_FAILED symbol=%s error=%s", key, type(exc).__name__)
+
     # Reuse the chart's existing fallback chain for Finnhub/FMP/Yahoo/Stooq.
     # Twelve Data is deliberately disabled here; its quota guard above remains
     # the only path that can spend credits.
