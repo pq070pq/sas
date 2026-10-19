@@ -5344,3 +5344,43 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-news-lane.is-single-news{animation:none!important;transform:none!important;width:100%;min-width:0;justify-content:flex-start}
 .sas-news-lane.is-single-news>.sas-news-group{width:100%;min-width:0;justify-content:flex-start}
 .sas-news-lane.is-single-news .sas-news-card{flex:0 1 clamp(245px,70vw,330px);max-width:100%}
+
+/* Mobile dashboard action cards: keep icon geometry stable during press/focus. */
+#tab-dashboard .sas-action-card,
+#tab-dashboard .sas-action-card:hover,
+#tab-dashboard .sas-action-card:active,
+#tab-dashboard .sas-action-card:focus,
+#tab-dashboard .sas-action-card:focus-visible{
+  box-sizing:border-box;
+  transform:none!important;
+}
+#tab-dashboard .sas-action-card:active .sas-action-icon,
+#tab-dashboard .sas-action-card:focus .sas-action-icon,
+#tab-dashboard .sas-action-card:focus-visible .sas-action-icon{
+  width:43px!important;height:43px!important;flex:0 0 43px!important;
+  min-width:43px!important;max-width:43px!important;
+  transform:none!important;writing-mode:horizontal-tb!important;
+}
+#tab-dashboard .sas-action-icon{
+  box-sizing:border-box;min-width:43px;max-width:48px;overflow:hidden;
+  align-self:center;white-space:nowrap;writing-mode:horizontal-tb;
+}
+#tab-dashboard .sas-action-copy,
+#tab-dashboard .sas-action-copy b,
+#tab-dashboard .sas-action-copy small{
+  min-width:0;max-width:100%;writing-mode:horizontal-tb;overflow-wrap:anywhere;
+  word-break:normal;
+}
+@media(max-width:900px){
+  #tab-dashboard .sas-dashboard-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #tab-dashboard .sas-action-card{min-width:0!important;overflow:hidden;align-items:center}
+  #tab-dashboard .sas-action-icon{width:38px;height:38px;min-width:38px;max-width:38px;flex:0 0 38px;font-size:20px}
+  #tab-dashboard .sas-action-card:active .sas-action-icon,
+  #tab-dashboard .sas-action-card:focus .sas-action-icon,
+  #tab-dashboard .sas-action-card:focus-visible .sas-action-icon{width:38px!important;height:38px!important;min-width:38px!important;max-width:38px!important;flex:0 0 38px!important}
+  #tab-dashboard .sas-action-copy{flex:1 1 auto}
+  #tab-dashboard .sas-action-arrow{flex:0 0 auto}
+}
+@media(max-width:380px){
+  #tab-dashboard .sas-dashboard-actions{grid-template-columns:minmax(0,1fr)!important}
+}
