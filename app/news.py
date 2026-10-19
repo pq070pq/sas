@@ -902,74 +902,72 @@ def _is_relevant_stock_market_news(row):
 
 
 async def market_news(limit: int = 24):
-    """Return current-session US-market news; retain the established 7-day feed on holidays/weekends."""
+    """Aggregate current-session US-market headlines across configured providers."""
     now = time.monotonic()
     cutoff, session_key = _market_news_session_window()
     cached = _MARKET_NEWS_CACHE
+    requested_limit = max(1, min(40, int(limit)))
     if (cached["items"] and cached.get("session_key") == session_key
             and now - cached["at"] < _MARKET_NEWS_TTL):
-        return cached["items"][:max(1, min(40, int(limit)))]
+        return cached["items"][:requested_limit]
 
-    rows = await _marketaux_market_news(limit)
-    if cutoff is not None and rows:
-        rows = [row for row in rows if int(row.get("datetime") or 0) >= cutoff]
-    if not rows:
-        rows = await _newsfilter_market_news(limit)
-        if cutoff is not None and rows:
-            rows = [row for row in rows if int(row.get("datetime") or 0) >= cutoff]
-    if not rows:
-        payload = await _finnhub_get("news", {"category": "general"}, timeout=10)
-        if isinstance(payload, list):
-            rows = []
-            seen = set()
-            cutoff_7d = int(time.time()) - 7 * 86400
-            for item in payload:
-                if not isinstance(item, dict):
-                    continue
-                headline = re.sub(r"\s+", " ", str(item.get("headline") or "")).strip()
-                url = str(item.get("url") or "").strip()
-                try:
-                    stamp = int(item.get("datetime") or 0)
-                except (TypeError, ValueError):
-                    stamp = 0
-                if not headline or not url.startswith(("https://", "http://")) or stamp < cutoff_7d or stamp > int(time.time()) + 3600:
-                    continue
-                normal = headline.lower()
-                if not any(term in normal for term in _US_EQUITY_TERMS) and not any(
-                    term in normal for term in _MARKET_IMPACT_TERMS
-                ):
-                    continue
-                key = re.sub(r"[^a-z0-9]+", " ", normal).strip()
-                if not key or key in seen:
-                    continue
-                seen.add(key)
-                rows.append({
-                    "headline": headline,
-                    "source": str(item.get("source") or "Finnhub"),
-                    "url": url,
-                    "datetime": stamp,
-                    "summary": re.sub(r"<[^>]+>", " ", str(item.get("summary") or "")).strip()[:500],
-                    "category": str(item.get("category") or "general"),
-                    "related": str(item.get("related") or ""),
-                    "provider": "Finnhub",
-                })
-            rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
-        else:
-            rows = []
-    if cutoff is not None and rows:
-        rows = [row for row in rows if int(row.get("datetime") or 0) >= cutoff]
-    if not rows:
-        rows = await _rss_market_news(limit)
+    # Do not stop at the first provider that returns a single story. Collect
+    # from every configured source so the ribbon can show a useful multi-story feed.
+    marketaux_rows, newsfilter_rows, finnhub_payload, rss_rows = await asyncio.gather(
+        _marketaux_market_news(requested_limit),
+        _newsfilter_market_news(requested_limit),
+        _finnhub_get("news", {"category": "general"}, timeout=10),
+        _rss_market_news(requested_limit),
+        return_exceptions=True,
+    )
 
-    # During an ordinary trading day, only keep stories published since 04:00 ET.
-    # On weekends/US holidays cutoff is None, preserving the prior 7-day behavior.
+    rows = []
+    for provider_rows in (marketaux_rows, newsfilter_rows, rss_rows):
+        if isinstance(provider_rows, list):
+            rows.extend(row for row in provider_rows if isinstance(row, dict))
+
+    if isinstance(finnhub_payload, list):
+        cutoff_7d = int(time.time()) - 7 * 86400
+        now_epoch = int(time.time())
+        for item in finnhub_payload:
+            if not isinstance(item, dict):
+                continue
+            headline = re.sub(r"\\s+", " ", str(item.get("headline") or "")).strip()
+            url = str(item.get("url") or "").strip()
+            try:
+                stamp = int(item.get("datetime") or 0)
+            except (TypeError, ValueError):
+                stamp = 0
+            if not headline or not url.startswith(("https://", "http://")) or stamp < cutoff_7d or stamp > now_epoch + 3600:
+                continue
+            rows.append({
+                "headline": headline,
+                "source": str(item.get("source") or "Finnhub"),
+                "url": url,
+                "datetime": stamp,
+                "summary": re.sub(r"<[^>]+>", " ", str(item.get("summary") or "")).strip()[:500],
+                "category": str(item.get("category") or "general"),
+                "related": str(item.get("related") or ""),
+                "provider": "Finnhub",
+            })
+
+    # Apply the same time window and strict relevance gate to every provider.
     if cutoff is not None:
         rows = [row for row in rows if int(row.get("datetime") or 0) >= cutoff]
-
-    # Final strict relevance gate applies uniformly to Marketaux, Newsfilter,
-    # Finnhub and RSS so unrelated sports/entertainment never reaches the ribbon.
     rows = [row for row in rows if _is_relevant_stock_market_news(row)]
-    rows.sort(key=lambda row: int(row.get("datetime") or 0), reverse=True)
-    result = rows[:max(1, min(40, int(limit)))]
+
+    # Deduplicate syndicated copies by normalized headline, then prefer the
+    # newest items. Keep URLs source-linked for the original-article action.
+    unique = []
+    seen = set()
+    for row in sorted(rows, key=lambda item: int(item.get("datetime") or 0), reverse=True):
+        headline = re.sub(r"\\s+", " ", str(row.get("headline") or "")).strip()
+        key = re.sub(r"[^a-z0-9]+", " ", headline.lower()).strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        unique.append(row)
+
+    result = unique[:requested_limit]
     _MARKET_NEWS_CACHE.update({"at": now, "items": result, "session_key": session_key})
     return result
