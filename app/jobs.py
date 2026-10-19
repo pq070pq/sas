@@ -987,13 +987,6 @@ async def stock_radar_cycle():
                             old_payload["radar_active"] = False
                             old_payload["strategy_status"] = "inactive"
                             old_payload["strategy_inactive_reason"] = "فقد شروط التأكيد في دورة رادار لاحقة"
-                            old_payload["opportunity_status"] = "not_confirmed"
-                            old_payload["status_label_ar"] = "لم تعد مؤكدة"
-                            old_payload["last_status_check_at"] = utcnow().isoformat()
-                            old_classification = old_payload.get("classification")
-                            if isinstance(old_classification, dict):
-                                old_classification["opportunity_status"] = "not_confirmed"
-                                old_classification["confirmation_ready"] = False
                             old.payload = json.dumps(old_payload, ensure_ascii=False)
                             logger.info(
                                 "Radar active opportunity removed: %s | reason=lost_confirmation",
@@ -1043,31 +1036,6 @@ async def stock_radar_cycle():
                     continue
 
                 existing = existing_map.get(symbol)
-                # ثبّت وقت الرصد الأول، وافصل عنه آخر وقت تأكيد فعلي.
-                _now_iso = utcnow().isoformat()
-                _classification = row.get("classification") or {}
-                _is_confirmed_now = (
-                    _classification.get("opportunity_status") == "confirmed"
-                    and bool(_classification.get("confirmation_ready"))
-                )
-                if existing:
-                    try:
-                        _previous_payload = json.loads(existing.payload or "{}")
-                    except Exception:
-                        _previous_payload = {}
-                    row["detected_at"] = (
-                        _previous_payload.get("detected_at")
-                        or (existing.created_at.isoformat() if existing.created_at else _now_iso)
-                    )
-                    row["last_confirmed_at"] = (
-                        _now_iso if _is_confirmed_now
-                        else _previous_payload.get("last_confirmed_at")
-                    )
-                else:
-                    row["detected_at"] = _now_iso
-                    if _is_confirmed_now:
-                        row["last_confirmed_at"] = _now_iso
-                row["last_status_check_at"] = _now_iso
                 # لا نكرر نفس السهم بلا سبب.
                 if existing and existing.telegram_message_id:
                     try:
