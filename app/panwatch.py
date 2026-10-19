@@ -77,7 +77,17 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
             r.raise_for_status()
             payload = r.json()
             data = payload.get("data") or payload
-            rows = data.get("klines", []) if isinstance(data, dict) else []
+            # Support response variants used by PanWatch history endpoints.
+            if isinstance(data, list):
+                rows = data
+            elif isinstance(data, dict):
+                rows = next(
+                    (data.get(name) for name in ("klines", "candles", "values", "items", "results")
+                     if isinstance(data.get(name), list)),
+                    [],
+                )
+            else:
+                rows = []
             if len(rows) >= minimum: source = "PanWatch"
             else: attempts.append("PanWatch:insufficient")
         except Exception as exc:
