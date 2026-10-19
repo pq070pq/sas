@@ -80,50 +80,18 @@ def _is_allowed_exchange(row):
 
 
 def _parse_candles(rows):
-    """Normalize OHLCV rows from PanWatch, Twelve Data, Finnhub, FMP and Stooq.
-
-    Provider payloads differ in key casing and timestamp fields. Reject malformed
-    bars, sort chronologically when a timestamp exists, and deduplicate dates so
-    the scanner never mistakes malformed/duplicate rows for sufficient history.
-    """
     out = []
-    seen_times = set()
-    aliases = {
-        "open": ("open", "o", "Open"),
-        "high": ("high", "h", "High"),
-        "low": ("low", "l", "Low"),
-        "close": ("close", "c", "Close", "adj_close", "adjClose"),
-        "volume": ("volume", "v", "Volume"),
-        "time": ("time", "date", "datetime", "timestamp", "Date", "Datetime"),
-    }
     for row in rows or []:
-        if not isinstance(row, dict):
-            continue
-        normalized = {name: next((row.get(k) for k in keys if row.get(k) not in (None, "")), None)
-                      for name, keys in aliases.items()}
         try:
-            bar = {
-                "open": float(normalized["open"]),
-                "high": float(normalized["high"]),
-                "low": float(normalized["low"]),
-                "close": float(normalized["close"]),
-                "volume": max(0.0, float(normalized["volume"] or 0)),
-            }
-        except (TypeError, ValueError):
+            out.append({
+                "open": _f(row["open"]),
+                "high": _f(row["high"]),
+                "low": _f(row["low"]),
+                "close": _f(row["close"]),
+                "volume": _f(row.get("volume")),
+            })
+        except (TypeError, ValueError, KeyError):
             continue
-        if not all(math.isfinite(bar[k]) and bar[k] > 0 for k in ("open", "high", "low", "close")):
-            continue
-        if bar["high"] < max(bar["open"], bar["close"], bar["low"]) or bar["low"] > min(bar["open"], bar["close"], bar["high"]):
-            continue
-        stamp = str(normalized["time"] or "")
-        if stamp and stamp in seen_times:
-            continue
-        if stamp:
-            seen_times.add(stamp)
-            bar["time"] = stamp
-        out.append(bar)
-    if any(row.get("time") for row in out):
-        out.sort(key=lambda row: str(row.get("time") or ""))
     return out
 
 
@@ -1187,20 +1155,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
             r.raise_for_status()
             payload = r.json()
             data = payload.get("data") or payload
-            # PanWatch deployments may return history under different common
-            # keys (klines/candles/values) or as a bare list. Accept the actual
-            # response shape rather than silently treating valid history as empty.
-            if isinstance(data, list):
-                candle_rows = data
-            elif isinstance(data, dict):
-                candle_rows = next(
-                    (data.get(name) for name in ("klines", "candles", "values", "items", "results")
-                     if isinstance(data.get(name), list)),
-                    [],
-                )
-            else:
-                candle_rows = []
-            candles = _parse_candles(candle_rows)
+            candles = _parse_candles(data.get("klines", []))
             if len(candles) >= min_candles:
                 _candle_cache.put(key, {"candles": candles, "source": "PanWatch"})
                 return candles, "PanWatch"
@@ -1233,27 +1188,6 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
                     return candles, "Twelve Data"
         except Exception as exc:
             logger.debug("OHLCV_TWELVE_DATA_FAILED symbol=%s error=%s", key, type(exc).__name__)
-
-    # Direct Stooq fallback before the shared chart pipeline. This is intentionally
-    # keyless and avoids letting a failed PanWatch response hide otherwise available
-    # daily candles behind provider-specific normalization or timeouts.
-    try:
-        async with asyncio.timeout(14):
-            stooq_rows = await _stooq_ohlcv(key, days=260)
-        stooq_candles = _parse_candles(stooq_rows)
-        if len(stooq_candles) >= min_candles:
-            _candle_cache.put(key, {"candles": stooq_candles, "source": "Stooq direct fallback"})
-            logger.info(
-                "OHLCV_DIRECT_STOOQ_FALLBACK symbol=%s candles=%d required=%d",
-                key, len(stooq_candles), min_candles,
-            )
-            return stooq_candles, "Stooq direct fallback"
-        logger.warning(
-            "OHLCV_DIRECT_STOOQ_INSUFFICIENT symbol=%s candles=%d required=%d",
-            key, len(stooq_candles), min_candles,
-        )
-    except Exception as exc:
-        logger.warning("OHLCV_DIRECT_STOOQ_FAILED symbol=%s error=%s", key, type(exc).__name__)
 
     # Reuse the chart's existing fallback chain for Finnhub/FMP/Yahoo/Stooq.
     # Twelve Data is deliberately disabled here; its quota guard above remains
