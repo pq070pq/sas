@@ -2389,7 +2389,21 @@ async def discover_market_movers():
             "message_ar": None if rows else "لم تصل بيانات حركة موثوقة لأسهم ناسداك ضمن نطاق 0.30–15 دولارًا. تحقق من اتصال مزودي بيانات السوق."}
 
 
-async def scan_us_low_price_stocks(force_refresh: bool = False):
+async def scan_us_low_price_stocks(force_refresh: bool = False, progress_callback=None):
+    """Scan the US low-price radar, optionally reporting real stage progress."""
+    def report_progress(stage, message, done=None, total=None):
+        if not callable(progress_callback):
+            return
+        payload = {"stage": stage, "message_ar": message}
+        if done is not None:
+            payload["done"] = int(done)
+        if total is not None:
+            payload["total"] = int(total)
+        try:
+            progress_callback(payload)
+        except Exception as exc:
+            logger.debug("RADAR_PROGRESS_CALLBACK_FAILED error=%s", type(exc).__name__)
+
     # الطلب اليدوي من Mini App يبدأ دورة رصد جديدة فعلًا ولا يعتمد على
     # مؤشرات اللحظي المخزنة من الدورة السابقة.
     if force_refresh:
@@ -2397,6 +2411,7 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
         logger.info("RADAR_FORCE_REFRESH requested: intraday cache cleared")
     # لا نعيد ضبط حالة استنفاد الحصة كل 30 دقيقة؛ عند 429 يتوقف Twelve Data
     # حتى إعادة تشغيل الخدمة، بينما يستمر الرادار بالمصادر الأساسية.
+    report_progress("discovering", "نجمع الأسهم الأمريكية النشطة ونتحقق من بيانات السوق…", 0, 0)
     candidates = await discover_low_price_stocks()
     results = []
     diagnostics = []
@@ -2447,6 +2462,13 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
         key=lambda x: (float(x.get("momentum_rvol_10d") or 0), float(x.get("change_pct") or 0)),
         reverse=True,
     )[:180]
+    analyzed_count = 0
+    report_progress(
+        "analyzing",
+        f"تم تجهيز {len(shortlist)} مرشحًا؛ نبدأ التحليل الفني والتأكيد…",
+        0,
+        len(shortlist),
+    )
 
     earnings_events = await earnings_calendar_window(5)
     earnings_by_symbol = {}
@@ -2473,6 +2495,7 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
     }
 
     async def analyze_candidate(row):
+        nonlocal analyzed_count
         symbol = str(row.get("symbol") or "").upper()
         async with semaphore:
             try:
@@ -2943,6 +2966,19 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
                     "status": "error",
                     "reason": f"{type(exc).__name__}: {exc}",
                 }
+            finally:
+                analyzed_count += 1
+                if (
+                    analyzed_count == 1
+                    or analyzed_count % 5 == 0
+                    or analyzed_count >= len(shortlist)
+                ):
+                    report_progress(
+                        "analyzing",
+                        f"التحليل الفني: {analyzed_count} من {len(shortlist)} مرشحًا",
+                        analyzed_count,
+                        len(shortlist),
+                    )
 
     # Optional PerpEquities context is fetched in parallel. It never blocks or filters
     # the radar, and contract metrics never replace spot price / stock liquidity.
@@ -2952,6 +2988,12 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
     analyzed = await asyncio.gather(
         *(analyze_candidate(row) for row in shortlist),
         return_exceptions=False,
+    )
+    report_progress(
+        "finalizing",
+        "اكتمل التحليل الأولي؛ نراجع النتائج والمستويات النهائية…",
+        len(shortlist),
+        len(shortlist),
     )
     perp_contexts = {}
     if perp_context_task.done() and not perp_context_task.cancelled():
@@ -3050,6 +3092,7 @@ async def scan_us_low_price_stocks(force_refresh: bool = False):
     filtered = [x for x in diagnostics if x.get("status") == "filtered"]
     errors = [x for x in diagnostics if x.get("status") == "error"]
 
+    report_progress("completed", "اكتملت مراحل الرصد وتحليل النتائج.", 1, 1)
     return {
         "stocks": results,
         "momentum_sections": {"small": small, "large": large},
