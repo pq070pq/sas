@@ -851,6 +851,7 @@ async function runRadar(show=true){
   if(d.enabled===false&&(!Array.isArray(d.stocks)||d.stocks.length===0)){
     if(copyText)copyText.textContent=String(d.reason||'الرصد الحي غير متاح خارج جلسة الرصد؛ احتفظنا بآخر النتائج.');
     if(statusText)statusText.textContent='الرصد الحي غير متاح';
+    renderRadar();
     return;
   }
   terminalState.radar=d.stocks||[];
