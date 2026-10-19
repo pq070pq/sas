@@ -2655,16 +2655,15 @@ async def dashboard_home(_: dict = Depends(require_pro)):
             payload.setdefault("symbol", row.symbol)
             payload.setdefault("created_at", row.created_at.isoformat() if row.created_at else None)
             payload.setdefault("session_date", row.session_date)
-            # أعلى الأسهم حركة تعرض أيضًا مرشحي المراقبة المسجلين في جلسة اليوم،
-            # مع إبقاء السجلات القديمة غير النشطة خارج القائمة.
-            opportunity_status = str(
-                payload.get("opportunity_status")
-                or (payload.get("classification") or {}).get("opportunity_status")
-                or "watch"
-            ).lower()
+            # لا تعرض في بطاقات الفرص أي إشارة لم تعد مؤكدة، حتى لو كانت من جلسة اليوم.
+            # تُعرض فقط الفرص النشطة المؤكدة، وتبقى السجلات التاريخية في قاعدة البيانات للتدقيق.
             current_session_watch = (
                 str(row.session_date or "") == str(session_date)
-                and opportunity_status in {"watch", "confirmed", "not_confirmed"}
+                and str(
+                    payload.get("opportunity_status")
+                    or (payload.get("classification") or {}).get("opportunity_status")
+                    or "watch"
+                ).lower() in {"watch", "confirmed"}
             )
             if not is_current_active_opportunity(payload) and not current_session_watch:
                 continue
