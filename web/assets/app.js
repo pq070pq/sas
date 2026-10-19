@@ -825,9 +825,23 @@ async function runRadar(show=true){
   let d=started.status==='completed'?(started.result||{}):null;
   if(!d){
    if(!jobId)throw new Error('لم يُرجع الخادم معرّف مهمة الرصد.');
+   let consecutivePollErrors=0;
    while(true){
     await sleep(2000);
-    const job=await api('/api/radar/scan/status?job_id='+encodeURIComponent(jobId),{timeoutMs:12000,retries:1});
+    let job;
+    try{
+     job=await api('/api/radar/scan/status?job_id='+encodeURIComponent(jobId),{timeoutMs:30000,retries:1});
+     consecutivePollErrors=0;
+    }catch(pollError){
+     consecutivePollErrors++;
+     const stage=progress?.querySelector('.radar-scan-stage');
+     if(stage)stage.textContent='تأخر رد الخادم؛ نحاول الاتصال مجددًا دون إلغاء المسح ('+consecutivePollErrors+')…';
+     console.warn('SAS PRO radar status poll delayed:',pollError?.message||pollError);
+     // A slow scan can briefly delay status responses. Do not report a failed
+     // scan merely because one or several polling requests timed out.
+     if(consecutivePollErrors<15)continue;
+     throw new Error('تأخر رد الخادم أكثر من المتوقع. لم نلغِ مهمة الرصد، واحتفظنا بالنتائج السابقة؛ أعد فتح الرادار بعد قليل للتحقق من النتيجة.');
+    }
     const serverProgress=job.progress||{};
     const stage=progress?.querySelector('.radar-scan-stage');
     if(stage&&serverProgress.message_ar)stage.textContent=serverProgress.message_ar;
@@ -837,7 +851,10 @@ async function runRadar(show=true){
     if(job.status==='running')continue;
     if(job.status==='success'){d=job.result||{};break;}
     if(job.status==='failed')throw new Error(job.error?.message||'تعذر إكمال مسح الأسهم.');
-    throw new Error('انقطع تتبع مهمة الرصد قبل استلام النتيجة. أعد المحاولة؛ النتائج السابقة محفوظة.');
+    if(job.status==='not_found'){
+     throw new Error('فقد الخادم حالة مهمة الرصد (قد يكون أعيد تشغيله). النتائج السابقة محفوظة؛ ابدأ مسحًا جديدًا.');
+    }
+    throw new Error('حالة مهمة الرصد غير معروفة. النتائج السابقة محفوظة؛ أعد المحاولة.');
    }
   }
   if(d?.error){
