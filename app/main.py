@@ -2775,6 +2775,14 @@ async def _execute_radar_app_scan(job_id: str):
                 force_refresh=True,
                 progress_callback=progress_callback,
             )
+            # Keep the discovery engine and its filters unchanged. Apply the same
+            # lifecycle/publish gate used by saved results before labeling these
+            # manual-scan results as current confirmed opportunities.
+            scanned_stocks = scanned.get("stocks") or []
+            active_stocks = [
+                stock for stock in scanned_stocks
+                if is_current_active_opportunity(stock)
+            ]
             result = {
                 "enabled": True,
                 "historical": False,
@@ -2783,10 +2791,11 @@ async def _execute_radar_app_scan(job_id: str):
                 "range": {"min": 0.30, "max": 6.00},
                 "method": "SAS PRO Radar",
                 "session": status.get("session", "unknown"),
-                "stocks": (scanned.get("stocks") or [])[:app_limit],
+                "stocks": active_stocks[:app_limit],
                 "diagnostics": {
                     **(scanned.get("diagnostics") or {}),
                     "daily_limit": app_limit,
+                    "lifecycle_rejected": len(scanned_stocks) - len(active_stocks),
                 },
             }
 
