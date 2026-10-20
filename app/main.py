@@ -2269,8 +2269,9 @@ async def market_status_api(_: dict = Depends(require_pro)):
     return market_status()
 
 @app.get("/api/radar/learning-profile")
-async def radar_learning_profile_api(_: dict = Depends(require_pro)):
-    """Return the last persisted learning profile; never triggers a scan or provider request."""
+async def radar_learning_profile_api(user=Depends(telegram_user)):
+    """Admin-only read of the persisted learning profile; never triggers a scan or provider request."""
+    await require_admin_permission(user, "radar")
     from .radar_learning import get_radar_profile
     return await get_radar_profile()
 
