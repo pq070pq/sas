@@ -5503,3 +5503,12 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 
 /* Mobile repair: give the real candlestick chart its own full-width row. */
 @media(max-width:600px){.stock-card .sas-card-price-trend{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto auto;gap:8px!important;align-items:stretch!important}.stock-card .sas-card-chart-wrap{grid-column:1!important;grid-row:1!important;width:100%;min-width:0}.stock-card .sas-card-price-trend>strong{grid-column:1!important;grid-row:2!important;text-align:start;font-size:clamp(23px,7vw,32px);line-height:1.15}.stock-card .sas-candlestick-chart{height:100px!important;min-height:100px!important}.stock-card .stock-levels{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}.stock-card .stock-levels>span{min-width:0!important;text-align:center;overflow-wrap:anywhere;padding:8px 4px!important}.stock-card .stock-levels b{display:block;margin-top:4px}.stock-card .stock-meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px}.stock-card .stock-meta>span{flex:1 1 30%;min-width:0;text-align:center;overflow-wrap:anywhere}}
+
+
+/* SAS PRO: prominent orange glowing preliminary-analysis notice */
+.radar-candidates{border:1.5px solid rgba(255,139,24,.95)!important;background:linear-gradient(145deg,rgba(45,18,2,.96),rgba(15,10,5,.97))!important;box-shadow:0 0 0 1px rgba(255,123,0,.24),0 0 18px rgba(255,111,0,.32),inset 0 0 22px rgba(255,112,0,.08)!important;animation:sasPreliminaryGlow 2.4s ease-in-out infinite}
+.radar-candidates .candidate-title b{font-size:clamp(17px,4.4vw,21px)!important;color:#ffb34d!important;text-shadow:0 0 7px rgba(255,111,0,.85),0 0 18px rgba(255,111,0,.38)!important}
+.radar-candidates .candidate-title small{max-width:100%!important;font-size:clamp(12px,3.1vw,14px)!important;line-height:1.8!important;color:#ffd9ad!important;text-shadow:0 0 8px rgba(255,111,0,.18)}
+.radar-candidates .candidate-card{border-color:rgba(255,145,35,.28)!important}
+@keyframes sasPreliminaryGlow{0%,100%{box-shadow:0 0 0 1px rgba(255,123,0,.18),0 0 12px rgba(255,111,0,.22),inset 0 0 16px rgba(255,112,0,.05)}50%{box-shadow:0 0 0 1px rgba(255,123,0,.36),0 0 24px rgba(255,111,0,.4),inset 0 0 24px rgba(255,112,0,.1)}}
+@media(prefers-reduced-motion:reduce){.radar-candidates{animation:none}}
