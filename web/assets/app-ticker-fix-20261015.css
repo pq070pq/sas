@@ -5388,3 +5388,18 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 #radarDiagnostics .sas-radar-session-footer{margin-top:10px;color:#8daab5;font-size:11px;line-height:1.7}
 @media(max-width:480px){#radarDiagnostics .sas-radar-session-summary{padding:12px 10px;gap:7px}#radarDiagnostics .sas-radar-session-title{font-size:12px}#radarDiagnostics .sas-radar-session-count{font-size:10px;padding:4px 6px}#radarDiagnostics .sas-radar-session-metrics{gap:5px}#radarDiagnostics .sas-radar-metric{padding:10px 2px}#radarDiagnostics .sas-radar-metric span{font-size:10px}}
 @media(prefers-reduced-motion:reduce){#radarDiagnostics .sas-radar-session-chevron{transition:none}}
+
+
+/* Read-only radar learning profile panel; DB-backed and provider-quota neutral */
+.sas-learning-panel{width:100%;margin:12px 0 16px;padding:14px;border:1px solid rgba(77,202,216,.25);border-radius:16px;background:linear-gradient(145deg,rgba(8,25,39,.98),rgba(5,15,27,.98));color:#e9f8fb;box-sizing:border-box}
+.sas-learning-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.sas-learning-head b{font-size:15px;font-weight:850;color:#b7f5fa}
+.sas-learning-head span,.sas-learning-foot{font-size:11px;line-height:1.8;color:#9bb7c4}
+.sas-learning-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.sas-learning-metrics>div{min-width:0;padding:10px 6px;border:1px solid rgba(77,202,216,.15);border-radius:11px;background:rgba(255,255,255,.025);text-align:center}
+.sas-learning-metrics b{display:block;font-size:19px;color:#e9fcff;font-variant-numeric:tabular-nums}
+.sas-learning-metrics span{display:block;margin-top:3px;font-size:10px;color:#9bb7c4}
+.sas-learning-foot{margin-top:10px}
+.sas-learning-sessions{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
+.sas-learning-sessions span{font-size:10px;color:#b9dce5;border:1px solid rgba(77,202,216,.18);border-radius:8px;padding:5px 8px}
+@media(max-width:420px){.sas-learning-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.sas-learning-head{align-items:flex-start;flex-direction:column;gap:3px}}

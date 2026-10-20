@@ -2268,6 +2268,13 @@ async def channel_access(user=Depends(require_pro)):
 async def market_status_api(_: dict = Depends(require_pro)):
     return market_status()
 
+@app.get("/api/radar/learning-profile")
+async def radar_learning_profile_api(_: dict = Depends(require_pro)):
+    """Return the last persisted learning profile; never triggers a scan or provider request."""
+    from .radar_learning import get_radar_profile
+    return await get_radar_profile()
+
+
 @app.get("/api/radar/status-message")
 async def radar_status_message(_: dict = Depends(require_pro)):
     status = market_status()
