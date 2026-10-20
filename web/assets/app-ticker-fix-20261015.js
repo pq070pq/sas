@@ -352,6 +352,37 @@ async function loadRadarSnapshot(){
  })();
  return radarSnapshotLoadPromise;
 }
+let radarLearningLastChecked=0;
+let radarLearningLoadPromise=null;
+async function loadRadarLearning(force=false){
+ const panel=document.getElementById('radarLearningPanel');
+ if(!panel)return;
+ if(!force&&Date.now()-radarLearningLastChecked<60000)return;
+ if(radarLearningLoadPromise)return radarLearningLoadPromise;
+ radarLearningLastChecked=Date.now();
+ radarLearningLoadPromise=(async()=>{
+  try{
+   const p=await api('/api/radar/learning-profile',{timeoutMs:8000,retries:0});
+   const n=v=>Number.isFinite(Number(v))?Math.max(0,Number(v)):0;
+   const samples=n(p.samples),wins=n(p.wins),losses=n(p.losses);
+   const rate=Math.max(0,Math.min(100,n(p.win_rate)*100));
+   const confidence=samples<20?'منخفضة — عينات غير كافية':samples<50?'متوسطة':'أعلى نسبيًا';
+   const updated=p.updated_at?new Date(p.updated_at).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'}):'لم تُسجّل دورة تعلّم بعد';
+   const sessions=p.session_stats&&typeof p.session_stats==='object'?Object.entries(p.session_stats):[];
+   panel.innerHTML='<div class="sas-learning-head"><b>🧠 تعلّم الرادار</b><span>قراءة من قاعدة البيانات • دون طلب أسعار جديد</span></div>'+
+    '<div class="sas-learning-metrics">'+
+    '<div><b>'+samples.toLocaleString('ar-SA')+'</b><span>عينة مكتملة</span></div>'+
+    '<div><b>'+wins.toLocaleString('ar-SA')+'</b><span>نتائج رابحة</span></div>'+
+    '<div><b>'+losses.toLocaleString('ar-SA')+'</b><span>نتائج خاسرة</span></div>'+
+    '<div><b>'+rate.toLocaleString('ar-SA',{maximumFractionDigits:1})+'%</b><span>نسبة النجاح</span></div></div>'+
+    '<div class="sas-learning-foot">الثقة: '+escHtml(confidence)+' • غير المحسوم المستبعد: '+n(p.unresolved_excluded).toLocaleString('ar-SA')+' • آخر تحديث: '+escHtml(updated)+'</div>'+
+    (sessions.length?'<div class="sas-learning-sessions">'+sessions.map(([name,s])=>'<span>'+escHtml(name)+': '+n(s.samples).toLocaleString('ar-SA')+' عينة / '+(n(s.win_rate)*100).toLocaleString('ar-SA',{maximumFractionDigits:1})+'% نجاح</span>').join('')+'</div>':'');
+  }catch(e){
+   panel.innerHTML='<div class="sas-learning-head"><b>🧠 تعلّم الرادار</b><span>تعذر قراءة الملف المحفوظ حاليًا؛ لم يبدأ أي مسح جديد.</span></div>';
+  }finally{radarLearningLoadPromise=null;}
+ })();
+ return radarLearningLoadPromise;
+}
 function switchTerminalTab(tab){
  if(!['dashboard','radar','search','account'].includes(tab))return;
  const previous=terminalState.tab||'dashboard';
@@ -366,7 +397,7 @@ function switchTerminalTab(tab){
  document.querySelectorAll('.terminal-tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
  document.querySelectorAll('.sas-mobile-dock button').forEach(x=>x.classList.toggle('is-active',x.getAttribute('onclick')?.includes("'"+tab+"'")));
  updateTerminalPreviousButton();
- if(tab==='radar'){renderRadar();void loadRadarSnapshot();}
+ if(tab==='radar'){renderRadar();void loadRadarSnapshot();void loadRadarLearning();}
 }
 function goPreviousTerminalTab(){
  if(terminalState.tab==='dashboard')return;
