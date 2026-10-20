@@ -541,7 +541,15 @@ function renderDashboard(d){
    .sas-market-strip.sas-session-night::after{opacity:.34;background:radial-gradient(ellipse at 25% 45%,rgba(155,114,255,.25),transparent 48%),radial-gradient(ellipse at 78% 55%,rgba(56,149,255,.18),transparent 44%);animation-duration:18s}
    .sas-market-strip.sas-session-closed::after{opacity:.18;background:radial-gradient(ellipse at 25% 45%,rgba(111,142,168,.20),transparent 48%),radial-gradient(ellipse at 78% 55%,rgba(75,93,126,.13),transparent 44%);animation-duration:22s}
    @keyframes sasRadarAmbientFlow{0%{transform:translate3d(-12%,-4%,0) scale(.96)}100%{transform:translate3d(12%,5%,0) scale(1.08)}}
-   @media(prefers-reduced-motion:reduce){.sas-market-strip::after{animation:none!important;transform:none!important}}
+   #app{position:relative;isolation:isolate;min-height:100vh}
+   #app::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.24;filter:blur(2px);background:radial-gradient(ellipse at 12% 18%,rgba(70,150,220,.15),transparent 42%),radial-gradient(ellipse at 86% 78%,rgba(100,110,190,.12),transparent 45%);transition:opacity .8s ease,background 1s ease;animation:sasPageAtmosphere 24s ease-in-out infinite alternate}
+   #app.sas-page-regular::before{opacity:.36;background:radial-gradient(ellipse at 15% 20%,rgba(35,220,140,.22),transparent 43%),radial-gradient(ellipse at 82% 72%,rgba(40,150,255,.18),transparent 46%)}
+   #app.sas-page-pre::before{opacity:.32;background:radial-gradient(ellipse at 15% 20%,rgba(255,185,65,.22),transparent 43%),radial-gradient(ellipse at 82% 72%,rgba(45,150,255,.16),transparent 46%)}
+   #app.sas-page-after::before{opacity:.32;background:radial-gradient(ellipse at 15% 20%,rgba(255,135,65,.20),transparent 43%),radial-gradient(ellipse at 82% 72%,rgba(150,90,255,.17),transparent 46%)}
+   #app.sas-page-night::before{opacity:.28;background:radial-gradient(ellipse at 15% 20%,rgba(150,105,255,.20),transparent 43%),radial-gradient(ellipse at 82% 72%,rgba(45,140,255,.17),transparent 46%)}
+   #app.sas-page-closed::before{opacity:.18;background:radial-gradient(ellipse at 15% 20%,rgba(95,130,160,.17),transparent 43%),radial-gradient(ellipse at 82% 72%,rgba(75,90,135,.13),transparent 46%)}
+   @keyframes sasPageAtmosphere{0%{background-position:0% 0%;transform:scale(1)}100%{background-position:100% 100%;transform:scale(1.035)}}
+   @media(prefers-reduced-motion:reduce){.sas-market-strip::after,#app::before{animation:none!important;transform:none!important}}
   `;
   document.head.appendChild(style);
  }
@@ -560,6 +568,8 @@ function renderDashboard(d){
  if(preEl)preEl.textContent=nextPremarket;
  if(regularEl)regularEl.textContent=regularOpen+' – '+regularClose;
  if(afterEl)afterEl.textContent='حتى '+afterClose;
+ const sasApp=document.getElementById('app');
+ if(sasApp){sasApp.classList.remove('sas-page-regular','sas-page-pre','sas-page-after','sas-page-night','sas-page-closed');sasApp.classList.add(session==='regular'?'sas-page-regular':premarket?'sas-page-pre':session==='afterhours'?'sas-page-after':session==='night'?'sas-page-night':'sas-page-closed');sasApp.dataset.session=session||'unknown';}
  if(strip){strip.classList.remove('is-open','is-pre','is-closed','sas-session-regular','sas-session-pre','sas-session-after','sas-session-night','sas-session-closed');strip.classList.add(session==='regular'||session==='afterhours'||session==='night'?'is-open':premarket?'is-pre':'is-closed');strip.classList.add(session==='regular'?'sas-session-regular':premarket?'sas-session-pre':session==='afterhours'?'sas-session-after':session==='night'?'sas-session-night':'sas-session-closed');strip.dataset.marketState=session==='regular'?'regular':premarket?'premarket':session==='afterhours'?'afterhours':session==='night'?'night':'closed';}
  const dock=document.querySelector('.sas-mobile-dock');
  if(dock){dock.querySelectorAll('button').forEach(b=>b.classList.remove('is-active'));const active=dock.querySelector('button[onclick*="'+(terminalState.tab||'dashboard')+'"]');if(active)active.classList.add('is-active');}
