@@ -1202,14 +1202,26 @@ function renderRadar(){
  });
  renderCards(document.getElementById('radarGrid'),rows);
 }
+function radarClassificationLabel(x){
+ const cls=x?.classification||{};
+ const gates=x?.radar_checks||{};
+ const raw=gates.momentum_label||cls.momentum_label||x?.momentum_label||x?.momentum_section||x?.section||'';
+ const key=String(raw).toLowerCase().trim().replace(/[ -]+/g,'_');
+ const labels={
+  accumulation:'تجميع',movement:'حركة',breakout:'اختراق قريب',
+  breakout_setup:'اختراق قريب',early_breakout:'اختراق قريب',
+  early_mover:'حركة مبكرة',small:'زخم سهم صغير',large:'زخم سهم كبير',
+  watch:'تحت المراقبة'
+ };
+ return labels[key]||String(raw||'').trim()||'قيد التحديد';
+}
+function radarDisplayStatus(x){
+ const cls=x?.classification||{};
+ return x?._radarDisplayStatus||(x?._radar_preliminary_candidate?'preliminary':((x?.opportunity_status||cls.opportunity_status)==='confirmed'||x?.radar_tier==='confirmed'?'confirmed':'watch'));
+}
 function renderCards(el,rows){
  if(!el)return;
  const all=Array.isArray(rows)?rows:[];
- const isConfirmed=x=>(x.opportunity_status||x.classification?.opportunity_status)==='confirmed'||x.radar_tier==='confirmed';
- const confirmed=all.filter(isConfirmed);
- const preliminary=all.filter(x=>!isConfirmed(x)&&x._radar_preliminary_candidate===true);
- const reserved=new Set([...confirmed,...preliminary].map(x=>String(x.symbol||'').toUpperCase()));
- const watch=all.filter(x=>!reserved.has(String(x.symbol||'').toUpperCase()));
  const empty='<div class="radar-empty-card">'+
    '<div class="radar-empty-orbit" aria-hidden="true"><span></span><i></i><b></b></div>'+
    '<div class="radar-empty-content">'+
@@ -1221,13 +1233,33 @@ function renderCards(el,rows){
     '<div class="radar-empty-help" hidden>الفرصة المؤكدة تحتاج اجتياز الاستراتيجية وتوفر سعر حي ومستويات فنية صالحة ونسبة عائد إلى مخاطرة لا تقل عن 1.5. المرشح تحت المراقبة ليس توصية دخول.</div>'+
    '</div></div>';
  if(!all.length){el.innerHTML=empty;return;}
+ const categoryOrder=['اختراق قريب','حركة مبكرة','تجميع','حركة','زخم سهم صغير','زخم سهم كبير','تحت المراقبة','قيد التحديد'];
+ const categoryMeta={
+  'اختراق قريب':{icon:'🚀',description:'أسهم ظهرت عليها إشارات اقتراب من الاختراق؛ لا تُعد مؤكدة إلا بعد اجتياز الشروط.'},
+  'حركة مبكرة':{icon:'⚡',description:'أسهم ترصد فيها حركة مبكرة وتحتاج متابعة تأكيد الزخم والسيولة.'},
+  'تجميع':{icon:'🟣',description:'أسهم تظهر عليها مؤشرات تجميع وفق البيانات المتاحة.'},
+  'حركة':{icon:'📈',description:'أسهم ترصد عليها حركة سعرية وتخضع لمتابعة الرادار.'},
+  'زخم سهم صغير':{icon:'🔥',description:'أسهم صغيرة السعر تظهر عليها إشارات زخم وتحتاج تحققًا إضافيًا.'},
+  'زخم سهم كبير':{icon:'📊',description:'أسهم أكبر حجمًا تظهر عليها إشارات زخم.'},
+  'تحت المراقبة':{icon:'🔵',description:'أسهم لم يظهر لها تصنيف زخم واضح بعد؛ تبقى تحت المراقبة.'},
+  'قيد التحديد':{icon:'🔎',description:'أسهم لم تتوفر لها بيانات تصنيف كافية حتى الآن.'}
+ };
+ const grouped=new Map();
+ all.forEach(stock=>{
+  const label=radarClassificationLabel(stock);
+  if(!grouped.has(label))grouped.set(label,[]);
+  grouped.get(label).push(stock);
+ });
+ const extraCategories=[...grouped.keys()].filter(label=>!categoryOrder.includes(label)).sort((a,b)=>a.localeCompare(b,'ar'));
+ const ordered=[...categoryOrder.filter(label=>grouped.has(label)),...extraCategories];
  const heading=(title,count,description)=>'<div class="radar-list-heading" style="width:100%;box-sizing:border-box;flex:0 0 100%"><b>'+title+'</b><span>'+count.toLocaleString('ar-SA')+' سهم</span><small>'+description+'</small></div>';
- const group=(title,count,description,items,status)=>items.length?'<section class="radar-category sas-radar-carousel" aria-label="'+escHtml(title)+'" style="grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin:0 0 18px;width:100%;min-width:0;box-sizing:border-box">'+heading(title,count,description)+'<div class="sas-radar-swipe-track" role="region" aria-label="بطاقات '+escHtml(title)+'" tabindex="0" style="display:flex;flex:0 0 100%;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:thin;padding:4px 2px 14px;box-sizing:border-box">'+items.map(x=>'<div class="sas-radar-swipe-card" style="flex:0 0 min(82%,300px);min-width:0;scroll-snap-align:start">'+stockCard({...x,_radarDisplayStatus:status})+'</div>').join('')+'</div><div class="sas-radar-swipe-hint" style="flex:0 0 100%;font-size:11px;color:#8ebfc9;text-align:center">اسحب أفقيًا لاستعراض بقية الأسهم ←</div></section>':'';
- const confirmedHtml=group('🟢 الفرص المؤكدة',confirmed.length,'اجتازت شروط الرادار النهائية.',confirmed,'confirmed');
- const preliminaryHtml=group('🟡 الأسهم المرشحة مبدئيًا',preliminary.length,'مرشحات من دورة الفحص؛ ليست فرصًا مؤكدة ولا تُرسل للقناة قبل اجتياز شروط النشر.',preliminary,'preliminary');
- const watchHtml=group('🔵 أسهم تحت المراقبة',watch.length,'لم تثبت بعد اجتياز البوابة الأولية.',watch,'watch');
- el.innerHTML=confirmedHtml+preliminaryHtml+watchHtml+(confirmed.length||preliminary.length||watch.length?'':empty);
-
+ const sections=ordered.map(label=>{
+  const items=grouped.get(label)||[];
+  const meta=categoryMeta[label]||{icon:'🔎',description:'أسهم مصنفة حسب بيانات الرادار المتاحة.'};
+  const cards=items.map(x=>'<div class="sas-radar-swipe-card" style="flex:0 0 min(82%,300px);min-width:0;scroll-snap-align:start">'+stockCard({...x,_radarDisplayStatus:radarDisplayStatus(x)})+'</div>').join('');
+  return '<section class="radar-category sas-radar-carousel" aria-label="'+escHtml(label)+'" style="grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin:0 0 18px;width:100%;min-width:0;box-sizing:border-box">'+heading(meta.icon+' '+escHtml(label),items.length,meta.description)+'<div class="sas-radar-swipe-track" role="region" aria-label="بطاقات تصنيف '+escHtml(label)+'" tabindex="0" style="display:flex;flex:0 0 100%;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:thin;padding:4px 2px 14px;box-sizing:border-box">'+cards+'</div><div class="sas-radar-swipe-hint" style="flex:0 0 100%;font-size:11px;color:#8ebfc9;text-align:center">اسحب أفقيًا لاستعراض بقية الأسهم ←</div></section>';
+ }).join('');
+ el.innerHTML=sections||empty;
 }
 function toggleRadarEmptyHelp(button){
  const help=button.closest('.radar-empty-content')?.querySelector('.radar-empty-help');
