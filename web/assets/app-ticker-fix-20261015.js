@@ -342,9 +342,23 @@ async function loadRadarSnapshot(){
   try{
    // A normal tab open reads the saved snapshot only; it must not trigger a fresh multi-minute scan.
    const d=await api('/api/radar/scan',{timeoutMs:12000,retries:0});
-   if(Array.isArray(d.stocks)&&d.stocks.length){
+   if(Array.isArray(d.stocks)){
+    // Refresh confirmed results and preliminary candidates from the same server snapshot.
     terminalState.radar=d.stocks;
-    try{localStorage.setItem('saspro_radar_snapshot',JSON.stringify(terminalState.radar));}catch(e){}
+    if(Array.isArray(d.preliminary_stocks)){
+     terminalState.preliminaryRadar=d.preliminary_stocks
+      .filter(stock=>stock&&String(stock.symbol||stock.ticker||'').trim())
+      .slice(0,12)
+      .map(stock=>({...stock,_radar_preliminary_candidate:true}));
+    }
+    try{
+     localStorage.setItem('saspro_radar_snapshot',JSON.stringify(terminalState.radar));
+     localStorage.setItem('saspro_preliminary_radar_snapshot',JSON.stringify({
+      session_date:d.session_date||currentUsSessionDate,
+      saved_at:Date.now(),
+      stocks:terminalState.preliminaryRadar
+     }));
+    }catch(e){}
    }
   }catch(e){
    console.warn('SAS PRO saved radar snapshot unavailable:',e?.message||e);
