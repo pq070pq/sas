@@ -24,8 +24,8 @@
    const s=session(),now=Date.now();
    if(s.key!==lastMode){lastMode=s.key;nextAt=now+s.interval*1000;}
    const left=Math.max(0,Math.ceil((nextAt-now)/1000)),mm=String(Math.floor(left/60)).padStart(2,'0'),ss=String(left%60).padStart(2,'0');
-   const countdown=$('sasRadarCountdown'),title=$('sasRadarAutoTitle'),detail=$('sasRadarAutoDetail'),panel=$('sasRadarAutoPanel'),gauge=$('sasRadarGaugeProgress');
-   if(countdown)countdown.textContent=mm+':'+ss;
+   const countdown=$('sasRadarCountdown'),circleCountdown=$('sasRadarCircleCountdown'),title=$('sasRadarAutoTitle'),detail=$('sasRadarAutoDetail'),panel=$('sasRadarAutoPanel'),gauge=$('sasRadarGaugeProgress');
+   if(countdown)countdown.textContent=mm+':'+ss;if(circleCountdown)circleCountdown.textContent=mm+':'+ss;
    if(title)title.textContent=s.label;
    if(detail)detail.textContent=s.active?'فحص دوري كل 5 دقائق خلال الجلسة الرئيسية':s.key==='preopen'?'فحص كل 20 دقيقة قبل الافتتاح':s.key==='after'?'فحص كل 30 دقيقة بعد الإغلاق':'فحص هادئ كل 45 دقيقة خارج الجلسة';
    if(panel){panel.dataset.state=s.key;panel.setAttribute('aria-label',s.label+'، التحديث التالي خلال '+mm+':'+ss);}
@@ -36,7 +36,7 @@
  function init(){
    const visual=document.querySelector('.sas-radar-visual');
    if(visual&&!visual.querySelector('.sas-radar-live-countdown')){
-     const timer=document.createElement('span');timer.className='sas-radar-live-countdown';timer.innerHTML='<b id="sasRadarCountdown">--:--</b><small>حتى التحديث</small>';visual.appendChild(timer);
+     const timer=document.createElement('span');timer.className='sas-radar-live-countdown';timer.innerHTML='<b id="sasRadarCircleCountdown">--:--</b><small>حتى التحديث</small>';visual.appendChild(timer);
    }
    const panel=$('sasRadarAutoPanel');
    if(panel&&!$('sasRadarScheduleStatus')){const small=document.createElement('small');small.id='sasRadarScheduleStatus';small.className='sas-radar-schedule-status';panel.appendChild(small);}
