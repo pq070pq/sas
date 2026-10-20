@@ -1283,7 +1283,7 @@ function renderCards(el,rows){
  const sections=ordered.map(label=>{
   const items=grouped.get(label)||[];
   const meta=categoryMeta[label]||{icon:'🔎',description:'أسهم مصنفة حسب بيانات الرادار المتاحة.'};
-  const cards=items.map(x=>'<div class="sas-radar-swipe-card" style="flex:0 0 min(82%,300px);min-width:0;scroll-snap-align:start">'+stockCard({...x,_radarDisplayStatus:radarDisplayStatus(x)})+'</div>').join('');
+  const cards=items.map(x=>'<div class="sas-radar-swipe-card" style="flex:0 0 min(88%,360px);width:min(88%,360px);min-width:0;max-width:100%;scroll-snap-align:start">'+stockCard({...x,_radarDisplayStatus:radarDisplayStatus(x)})+'</div>').join('');
   return '<section class="radar-category sas-radar-carousel" aria-label="'+escHtml(label)+'" style="grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin:0 0 18px;width:100%;min-width:0;box-sizing:border-box">'+heading(meta.icon+' '+escHtml(label),items.length,meta.description)+'<div class="sas-radar-swipe-track" role="region" aria-label="بطاقات تصنيف '+escHtml(label)+'" tabindex="0" style="display:flex;flex:0 0 100%;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;overscroll-behavior-x:contain;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding:4px 2px 14px;box-sizing:border-box">'+cards+'</div><div class="sas-radar-swipe-hint" style="flex:0 0 100%;font-size:11px;color:#8ebfc9;text-align:center">اسحب أفقيًا لاستعراض بقية الأسهم ←</div></section>';
  }).join('');
  el.innerHTML=sections||empty;
@@ -1297,6 +1297,36 @@ function toggleRadarEmptyHelp(button){
  const label=button.querySelector('span');
  if(label)label.textContent=open?'⌃':'⌄';
 }
+function installSasMobileChartPolish(){
+ if(document.getElementById('sas-mobile-chart-polish'))return;
+ const style=document.createElement('style');
+ style.id='sas-mobile-chart-polish';
+ style.textContent=`
+ .sas-radar-swipe-track{align-items:stretch;scroll-padding-inline:8px;scrollbar-color:rgba(70,205,220,.45) transparent}
+ .sas-radar-swipe-card{display:flex;flex-direction:column;min-width:0;box-sizing:border-box;transition:transform .22s ease,filter .22s ease}
+ .sas-radar-swipe-card>*,.sas-radar-swipe-card .stock-card{min-width:0;max-width:100%;box-sizing:border-box}
+ .sas-card-chart-wrap{position:relative;width:100%;min-width:0;overflow:hidden;border-radius:10px;background:linear-gradient(180deg,rgba(4,28,40,.5),rgba(2,14,23,.25));}
+ .sas-candlestick-chart{display:block;width:100%;height:clamp(76px,20vw,104px);overflow:visible;touch-action:pan-y}
+ .sas-candlestick-chart .sas-candle{transform-box:fill-box;transform-origin:center bottom;animation:sasCandleReveal .45s cubic-bezier(.2,.7,.2,1) both}
+ .sas-candlestick-chart:focus-visible{outline:2px solid #42d9e9;outline-offset:3px;border-radius:6px}
+ .sas-chart-caption{display:block;padding:4px 8px 7px;font-size:10px;line-height:1.4;color:#82aebd;text-align:start;white-space:normal}
+ .sas-radar-swipe-card .sas-card-uptrend{max-width:100%}
+ .sas-radar-swipe-track>*{scroll-snap-align:start}
+ @keyframes sasCandleReveal{from{opacity:.15;transform:scaleY(.35)}to{opacity:1;transform:scaleY(1)}}
+ @media(max-width:480px){
+  .radar-category{gap:8px!important;margin-bottom:14px!important}
+  .sas-radar-swipe-track{gap:10px!important;padding:4px 1px 12px!important}
+  .sas-radar-swipe-card{flex-basis:min(88%,360px)!important;width:min(88%,360px)!important}
+  .sas-radar-swipe-hint{font-size:10px!important}
+  .sas-card-chart-wrap{margin-inline:0}
+ }
+ @media(prefers-reduced-motion:reduce){
+  .sas-radar-swipe-card,.sas-candlestick-chart .sas-candle{animation:none!important;transition:none!important}
+ }
+ `;
+ document.head.appendChild(style);
+}
+installSasMobileChartPolish();
 function sasCandlestickMiniChart(x){
  const raw=Array.isArray(x?.candles)?x.candles:Array.isArray(x?.ohlcv)?x.ohlcv:Array.isArray(x?.price_history)?x.price_history:Array.isArray(x?.chart_data)?x.chart_data:[];
  const points=raw.map(p=>({o:Number(p.open??p.o),h:Number(p.high??p.h),l:Number(p.low??p.l),c:Number(p.close??p.c)})).filter(p=>[p.o,p.h,p.l,p.c].every(Number.isFinite)&&p.h>0&&p.l>0&&p.h>=Math.max(p.o,p.c)&&p.l<=Math.min(p.o,p.c)).slice(-24);
