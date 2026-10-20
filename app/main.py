@@ -2747,8 +2747,18 @@ async def market_news_endpoint(_: dict = Depends(require_pro)):
     except Exception as exc:
         logger.info("Market news Arabic translation unavailable: %s", type(exc).__name__)
         translated = []
+    def normalized_news_url(value):
+        # Match translation to source if tracking parameters or trailing slash differ.
+        try:
+            parts = urlsplit(str(value or "").strip())
+            if not parts.scheme or not parts.netloc:
+                return str(value or "").strip().rstrip("/")
+            return f"{parts.scheme.lower()}://{parts.netloc.lower()}{parts.path.rstrip('/')}"
+        except Exception:
+            return str(value or "").strip().rstrip("/")
+
     by_url = {
-        str(item.get("url") or "").strip(): item
+        normalized_news_url(item.get("url")): item
         for item in translated if isinstance(item, dict) and item.get("url")
     }
     by_headline = {
@@ -2760,7 +2770,7 @@ async def market_news_endpoint(_: dict = Depends(require_pro)):
     for row in rows:
         url = str(row.get("url") or "").strip()
         headline = str(row.get("headline") or row.get("title") or "").strip()
-        translation = by_url.get(url) or by_headline.get(headline.casefold()) or {}
+        translation = by_url.get(normalized_news_url(url)) or by_headline.get(headline.casefold()) or {}
         translated_headline = str(translation.get("translated_headline") or "").strip()
         if translated_headline:
             translated_count += 1
