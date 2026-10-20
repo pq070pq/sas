@@ -85,7 +85,7 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
     ]
     prompt = (
         "أنت مترجم أخبار مالية. أعد JSON فقط بالشكل "
-        '{"items":[{"url":"نفس الرابط حرفيًا","translated_headline":"عنوان عربي دقيق",'
+        '{"items":[{"id":"نفس رقم الخبر","url":"الرابط كما ورد إن أمكن","headline":"العنوان الإنجليزي الأصلي","translated_headline":"عنوان عربي دقيق",'
         '"summary":"ملخص عربي واضح من جملتين كحد أقصى","basis":"article_or_headline_only"}]}. '
         "ترجم دون إضافة معلومات أو استنتاجات غير موجودة. إذا لم يوجد ملخص، لخّص العنوان فقط وضع "
         "basis=headline_only. لا تدّع أن الخبر يؤثر على السهم ما لم يذكر ذلك صراحة. "
