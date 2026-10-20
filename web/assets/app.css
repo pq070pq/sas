@@ -4581,3 +4581,23 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @media(max-width:600px){
   #marketTicker .ticker-track{animation-duration:46s!important}
 }
+
+
+/* Session-aware translucent ambience: decorative only; does not affect radar logic. */
+body::before{
+ content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.12;
+ background:
+  radial-gradient(ellipse at 82% 14%,var(--sas-session-glow-a,rgba(45,244,255,.5)) 0%,transparent 36%),
+  radial-gradient(ellipse at 14% 78%,var(--sas-session-glow-b,rgba(130,70,255,.35)) 0%,transparent 34%);
+ background-size:140% 140%;background-position:0% 0%;
+ animation:sasSessionAmbience 18s ease-in-out infinite alternate;
+ transition:opacity .8s ease,filter .8s ease;
+}
+body[data-sas-session="premarket"]{--sas-session-glow-a:rgba(255,177,65,.62);--sas-session-glow-b:rgba(255,120,50,.30)}
+body[data-sas-session="regular"]{--sas-session-glow-a:rgba(25,239,139,.62);--sas-session-glow-b:rgba(45,244,255,.28)}
+body[data-sas-session="afterhours"]{--sas-session-glow-a:rgba(255,139,55,.58);--sas-session-glow-b:rgba(255,82,120,.28)}
+body[data-sas-session="night"]{--sas-session-glow-a:rgba(170,75,255,.62);--sas-session-glow-b:rgba(55,105,255,.30)}
+body[data-sas-session="night_pending"]{--sas-session-glow-a:rgba(160,105,255,.42);--sas-session-glow-b:rgba(45,160,220,.24)}
+body[data-sas-session="overnight"],body[data-sas-session="weekend"],body[data-sas-session="holiday"]{--sas-session-glow-a:rgba(100,130,170,.32);--sas-session-glow-b:rgba(115,70,190,.22)}
+@keyframes sasSessionAmbience{from{background-position:0% 0%;transform:scale(1)}to{background-position:100% 100%;transform:scale(1.035)}}
+@media(prefers-reduced-motion:reduce){body::before{animation:none;transition:none}}
