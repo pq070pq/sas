@@ -26,7 +26,7 @@ from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarS
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
-from .news import company_news, corporate_events, tipranks_analysis, market_news, _is_relevant_stock_market_news
+from .news import company_news, company_fundamentals, corporate_events, tipranks_analysis, market_news, _is_relevant_stock_market_news
 from .news_translation import translate_stock_news
 from .scheduler import scheduler
 from .market_calendar import market_status, us_market_holidays
