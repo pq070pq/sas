@@ -843,8 +843,8 @@ def _is_relevant_stock_market_news(row):
     """
     if not isinstance(row, dict):
         return False
-    headline = re.sub(r"\\s+", " ", str(row.get("headline") or "")).strip().lower()
-    summary = re.sub(r"\\s+", " ", str(row.get("summary") or "")).strip().lower()
+    headline = re.sub(r"\s+", " ", str(row.get("headline") or "")).strip().lower()
+    summary = re.sub(r"\s+", " ", str(row.get("summary") or "")).strip().lower()
     related = str(row.get("related") or "").strip()
     if not headline:
         return False
@@ -895,7 +895,7 @@ def _is_relevant_stock_market_news(row):
         "partnership", "outlook", "results", "quarter", "sales", "revenue",
         "earnings", "profit", "loss", "shares", "stock", "investigation",
     )
-    has_symbol = bool(related and re.search(r"\\b[A-Z]{1,5}(?:\\.[A-Z])?\\b", related))
+    has_symbol = bool(related and re.search(r"\b[A-Z]{1,5}(?:\.[A-Z])?\b", related))
     if has_symbol and any(term in text for term in business_context):
         return True
     return any(term in text for term in finance_context)
