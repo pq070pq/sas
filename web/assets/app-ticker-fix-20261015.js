@@ -952,7 +952,32 @@ async function runRadar(show=true){
    ? (sessionDate ? 'جلسة '+sessionDate+(scanAt?' — آخر تحديث '+scanAt:'') : 'غير متوفر')
    : (scanAt ? scanAt+' بتوقيت الرياض' : 'غير متوفر');
   const diagnosticsEl=document.getElementById('radarDiagnostics');
-  if(diagnosticsEl)diagnosticsEl.innerHTML='<b class="radar-mode">'+mode+'</b><span>🕒 وقت الرصد: '+escHtml(scanLabel)+'</span><span>مرشحون '+Number(diag.candidates||0)+'</span><span>اجتازوا '+Number(diag.passed||0)+'</span><span>مستبعدون '+Number(diag.filtered||0)+'</span><span>أخطاء '+Number(diag.errors||0)+'</span>';
+  if(diagnosticsEl){
+    const candidatesCount=Array.isArray(diag.filtered_examples)?diag.filtered_examples.length:0;
+    const countValue=value=>Number.isFinite(Number(value))?Math.max(0,Number(value)):0;
+    const candidateCount=countValue(diag.candidates);
+    const passedCount=countValue(diag.passed);
+    const filteredCount=countValue(diag.filtered);
+    const errorsCount=countValue(diag.errors);
+    diagnosticsEl.innerHTML=
+      '<details class="sas-radar-session-dropdown" open>'+
+        '<summary class="sas-radar-session-summary">'+
+          '<span class="sas-radar-session-title">'+escHtml(mode)+'</span>'+
+          '<span class="sas-radar-session-count">'+candidateCount.toLocaleString("ar-SA")+' مرشحًا</span>'+
+          '<span class="sas-radar-session-chevron" aria-hidden="true">⌄</span>'+
+        '</summary>'+
+        '<div class="sas-radar-session-body">'+
+          '<div class="sas-radar-session-meta">🕒 وقت الرصد: '+escHtml(scanLabel)+'</div>'+
+          '<div class="sas-radar-session-metrics">'+
+            '<div class="sas-radar-metric sas-radar-metric-total"><b>'+candidateCount.toLocaleString("ar-SA")+'</b><span>تم فحصهم</span></div>'+
+            '<div class="sas-radar-metric sas-radar-metric-passed"><b>'+passedCount.toLocaleString("ar-SA")+'</b><span>اجتازوا</span></div>'+
+            '<div class="sas-radar-metric sas-radar-metric-filtered"><b>'+filteredCount.toLocaleString("ar-SA")+'</b><span>مستبعدون</span></div>'+
+            '<div class="sas-radar-metric sas-radar-metric-errors"><b>'+errorsCount.toLocaleString("ar-SA")+'</b><span>أخطاء</span></div>'+
+          '</div>'+
+          '<div class="sas-radar-session-footer">أمثلة أسباب الاستبعاد المتاحة: '+candidatesCount.toLocaleString("ar-SA")+' • الأعداد تخص جلسة الفحص المعروضة فقط.</div>'+
+        '</div>'+
+      '</details>';
+  }
   const candidateEl=document.getElementById('radarCandidates');
   const candidates=Array.isArray(diag.filtered_examples)?diag.filtered_examples:[];
   if(candidateEl && candidates.length){
