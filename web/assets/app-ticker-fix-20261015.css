@@ -5512,3 +5512,13 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .radar-candidates .candidate-card{border-color:rgba(255,145,35,.28)!important}
 @keyframes sasPreliminaryGlow{0%,100%{box-shadow:0 0 0 1px rgba(255,123,0,.18),0 0 12px rgba(255,111,0,.22),inset 0 0 16px rgba(255,112,0,.05)}50%{box-shadow:0 0 0 1px rgba(255,123,0,.36),0 0 24px rgba(255,111,0,.4),inset 0 0 24px rgba(255,112,0,.1)}}
 @media(prefers-reduced-motion:reduce){.radar-candidates{animation:none}}
+
+
+/* SAS PRO status lighting: preliminary=orange, confirmed=green */
+.stock-card.radar-preliminary-card,.radar-preliminary-card{border:1.5px solid rgba(255,139,24,.98)!important;box-shadow:0 0 0 1px rgba(255,123,0,.28),0 0 15px rgba(255,111,0,.28),inset 0 0 18px rgba(255,112,0,.07)!important;animation:sasPreliminaryCardPulse 2.2s ease-in-out infinite!important}
+.stock-card.radar-confirmed-card,.radar-confirmed-card{border:1.5px solid rgba(40,255,158,.82)!important;box-shadow:0 0 0 1px rgba(40,255,158,.18),0 0 14px rgba(0,255,145,.2),inset 0 0 18px rgba(0,255,145,.045)!important;animation:sasConfirmedCardPulse 2.1s ease-in-out infinite!important}
+.stock-card.radar-preliminary-card .radar-stock-status.is-preliminary{color:#ffc16a!important;border-color:rgba(255,145,35,.72)!important;background:rgba(255,126,0,.14)!important;text-shadow:0 0 8px rgba(255,112,0,.35)}
+.stock-card.radar-confirmed-card .radar-stock-status.is-confirmed{color:#71ffc0!important;border-color:rgba(40,255,158,.58)!important;background:rgba(0,255,145,.09)!important;text-shadow:0 0 8px rgba(0,255,145,.35)}
+@keyframes sasPreliminaryCardPulse{0%,100%{border-color:rgba(255,139,24,.72);box-shadow:0 0 0 1px rgba(255,123,0,.16),0 0 9px rgba(255,111,0,.18),inset 0 0 12px rgba(255,112,0,.04)}50%{border-color:rgba(255,166,48,1);box-shadow:0 0 0 1px rgba(255,123,0,.38),0 0 22px rgba(255,111,0,.42),inset 0 0 22px rgba(255,112,0,.1)}}
+@keyframes sasConfirmedCardPulse{0%,100%{border-color:rgba(40,255,158,.58);box-shadow:0 0 0 1px rgba(40,255,158,.12),0 0 8px rgba(0,255,145,.13),inset 0 0 10px rgba(0,255,145,.025)}50%{border-color:rgba(40,255,158,1);box-shadow:0 0 0 1px rgba(40,255,158,.34),0 0 22px rgba(0,255,145,.38),inset 0 0 20px rgba(0,255,145,.09)}}
+@media(prefers-reduced-motion:reduce){.stock-card.radar-preliminary-card,.stock-card.radar-confirmed-card,.radar-preliminary-card,.radar-confirmed-card{animation:none!important}}
