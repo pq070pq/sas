@@ -2779,9 +2779,30 @@ async def _execute_radar_app_scan(job_id: str):
             # lifecycle/publish gate used by saved results before labeling these
             # manual-scan results as current confirmed opportunities.
             scanned_stocks = scanned.get("stocks") or []
+            def _is_confirmed_manual_scan_result(stock):
+                if not isinstance(stock, dict):
+                    return False
+                classification = stock.get("classification")
+                if not isinstance(classification, dict):
+                    return False
+                # Scanner output has classification fields, but does not currently
+                # emit the saved-opportunity envelope (radar_active/channel_gate).
+                # Fail closed on explicit negative state; do not require absent
+                # persistence-only fields or the manual scan would go empty.
+                if classification.get("opportunity_status") != "confirmed":
+                    return False
+                if classification.get("confirmation_ready") is not True:
+                    return False
+                if stock.get("radar_active") is False:
+                    return False
+                gate = stock.get("channel_gate")
+                if isinstance(gate, dict) and gate.get("passed") is not True:
+                    return False
+                return True
+
             active_stocks = [
                 stock for stock in scanned_stocks
-                if is_current_active_opportunity(stock)
+                if _is_confirmed_manual_scan_result(stock)
             ]
             result = {
                 "enabled": True,
