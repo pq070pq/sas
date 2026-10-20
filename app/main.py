@@ -1201,9 +1201,13 @@ async def admin_health(user=Depends(telegram_user), db: AsyncSession = Depends(g
         add("لوحة الرادار", "error", "تعذر قراءة بيانات لوحة الرادار.", exc)
 
     try:
-        ticker_data = await ticker()
+        # The admin health check must not wait on slow market-data providers.
+        # Report a warning and keep the diagnostics responsive if quotes stall.
+        ticker_data = await asyncio.wait_for(ticker(), timeout=2.5)
         valid = isinstance(ticker_data, list) and any(float(x.get("price") or 0) > 0 for x in ticker_data if isinstance(x, dict))
         add("أسعار السوق", "ok" if valid else "warn", "تم تحديث أسعار السوق." if valid else "مصادر الأسعار لم تُرجع أسعارًا صالحة حاليًا.")
+    except asyncio.TimeoutError as exc:
+        add("أسعار السوق", "warn", "تأخر مزود أسعار السوق؛ اكتمل فحص الإدارة دون انتظار الأسعار.")
     except Exception as exc:
         add("أسعار السوق", "warn", "تعذر تحديث شريط أسعار السوق حاليًا؛ لا يمنع تشغيل الرادار.", exc)
 
