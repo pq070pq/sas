@@ -55,6 +55,7 @@ async function api(path,opt={}){
    }
    return await r.json();
   }catch(e){
+   updateRadarStage(-1);
    lastError=e;
    if(attempt<retries){
     await sleep(350*(attempt+1));
@@ -559,17 +560,28 @@ function renderDashboard(d){
    #app.sas-page-night::before{opacity:.28;background:radial-gradient(ellipse at 15% 20%,rgba(150,105,255,.20),transparent 43%),radial-gradient(ellipse at 82% 72%,rgba(45,140,255,.17),transparent 46%)}
    #app.sas-page-closed::before{opacity:.18;background:radial-gradient(ellipse at 15% 20%,rgba(95,130,160,.17),transparent 43%),radial-gradient(ellipse at 82% 72%,rgba(75,90,135,.13),transparent 46%)}
    @keyframes sasPageAtmosphere{0%{background-position:0% 0%;transform:scale(1)}100%{background-position:100% 100%;transform:scale(1.035)}}
-   .sas-radar-control{margin-top:14px;padding:13px;border:1px solid rgba(67,196,222,.25);border-radius:16px;background:linear-gradient(145deg,rgba(7,42,58,.72),rgba(3,19,31,.9));box-shadow:inset 0 1px rgba(255,255,255,.035)}
-   .sas-radar-control-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
-   .sas-radar-control-head b{color:#d8f8ff;font-size:13px}.sas-radar-control-head small{color:#7faab9;font-size:10px}
-   .sas-radar-control-row{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#a8c9d3;font-size:12px}
-   .sas-radar-control-row select{max-width:145px;background:#061b28;color:#d8f8ff;border:1px solid rgba(77,194,220,.35);border-radius:9px;padding:8px;font:inherit}
-   .sas-radar-countdown{display:grid;grid-template-columns:8px 1fr;gap:3px 8px;align-items:center;margin-top:10px;padding:10px;border-radius:11px;background:rgba(5,23,35,.72)}
-   .sas-radar-countdown-dot{grid-row:span 2;width:8px;height:8px;border-radius:50%;background:#49d8b3;box-shadow:0 0 12px rgba(73,216,179,.65)}
-   .sas-radar-countdown b{font-size:12px;color:#d6f7ff}.sas-radar-countdown small{font-size:10px;color:#7fa8b6}
-   .sas-radar-control .sas-radar-actions{margin-top:10px}
+   .sas-radar-control{margin-top:14px;padding:15px;border:1px solid rgba(64,207,233,.38);border-radius:22px;background:radial-gradient(circle at 12% 15%,rgba(24,135,164,.2),transparent 38%),linear-gradient(145deg,rgba(6,35,51,.96),rgba(2,13,25,.98));box-shadow:0 0 28px rgba(20,168,202,.09),inset 0 1px rgba(255,255,255,.07);overflow:hidden}
+   .sas-radar-control-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:14px}.sas-radar-control-head>div{display:grid;gap:4px}
+   .sas-radar-control-head b{color:#e0fbff;font-size:15px}.sas-radar-control-head small{color:#85b9c8;font-size:11px}
+   .sas-radar-live-pill{font-size:10px;color:#7df5d0;border:1px solid rgba(75,231,190,.25);background:rgba(26,164,126,.12);padding:6px 9px;border-radius:99px;white-space:nowrap}
+   .sas-radar-clock-layout{display:grid;grid-template-columns:minmax(112px,142px) 1fr;align-items:center;gap:15px}
+   .sas-radar-clock{position:relative;aspect-ratio:1;max-width:142px;display:grid;place-items:center;margin:auto}
+   .sas-radar-clock svg{position:absolute;inset:0;width:100%;height:100%}.sas-clock-track,.sas-clock-inner{fill:rgba(3,23,36,.55);stroke:rgba(89,189,211,.2);stroke-width:1.5}
+   .sas-clock-progress{fill:none;stroke:#53dff1;stroke-width:3.5;stroke-linecap:round;stroke-dasharray:307.88;stroke-dashoffset:307.88;transform:rotate(-90deg);transform-origin:60px 60px;transition:stroke-dashoffset .8s linear}
+   .sas-clock-hand{stroke:#a2f4ff;stroke-width:2;stroke-linecap:round;transform-origin:60px 60px}.sas-clock-pin{fill:#5ee7f4}.sas-clock-tick{stroke:#64dff0;stroke-width:2;stroke-linecap:round}
+   .sas-radar-clock-time{position:relative;color:#e3fbff;font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;text-shadow:0 0 12px rgba(61,210,236,.3)}
+   .sas-radar-clock>small{position:absolute;top:69%;font-size:9px;color:#80afbd}
+   .sas-radar-clock-info{display:grid;gap:8px;min-width:0}.sas-radar-clock-info label{font-size:11px;color:#91c3d0}
+   .sas-radar-clock-info select{width:100%;background:#061c2a;color:#d8f8ff;border:1px solid rgba(77,194,220,.4);border-radius:10px;padding:9px;font:inherit;font-size:12px}
+   .sas-radar-clock-info>b{font-size:13px;color:#d9f9ff;line-height:1.5}.sas-radar-clock-info p{margin:0;color:#7fa8b6;font-size:10px;line-height:1.8}
+   .sas-radar-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:17px}.sas-radar-step{display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;padding:10px 3px 8px;border:1px solid rgba(76,155,179,.18);border-radius:12px;background:rgba(3,20,32,.7);min-width:0;transition:all .25s}
+   .sas-radar-step>span{display:grid;place-items:center;width:24px;height:24px;border:1px solid #355d6d;border-radius:50%;color:#7faab8;font-size:11px;font-weight:800}.sas-radar-step b{font-size:10px;color:#91b8c5;line-height:1.4}.sas-radar-step small{font-size:8px;color:#638997;line-height:1.4}
+   .sas-radar-step.is-active{border-color:rgba(71,218,240,.7);background:linear-gradient(180deg,rgba(19,108,132,.27),rgba(4,29,43,.8));box-shadow:0 0 16px rgba(51,198,225,.1)}.sas-radar-step.is-active>span{border-color:#5fe3f4;color:#e7fdff;box-shadow:0 0 12px rgba(63,213,236,.25)}
+   .sas-radar-step.is-done>span{background:#168c79;border-color:#4de2bf;color:#fff}.sas-radar-step.is-done b{color:#82f0d0}
+   .sas-radar-duration-track{height:4px;background:rgba(95,158,178,.17);border-radius:99px;overflow:hidden;margin-top:12px}.sas-radar-duration-track span{display:block;width:0;height:100%;background:linear-gradient(90deg,#28a9dc,#62f3d0);border-radius:99px;transition:width .7s linear}
+   .sas-radar-control .sas-radar-actions{margin-top:13px}.sas-radar-control .sas-radar-scan-btn{width:100%;min-height:46px;border-radius:13px;font-weight:800}.sas-radar-control .sas-view-all{width:100%;margin-top:8px}
    #dashboardRadar .dashboard-saved-empty{display:none!important}
-   @media(max-width:520px){.sas-radar-control-head{align-items:flex-start;flex-direction:column;gap:3px}.sas-radar-control-row{font-size:11px}}
+   @media(max-width:390px){.sas-radar-clock-layout{grid-template-columns:108px 1fr;gap:10px}.sas-radar-clock-time{font-size:17px}.sas-radar-step b{font-size:9px}.sas-radar-step small{font-size:7px}.sas-radar-steps{gap:5px}}
    @media(prefers-reduced-motion:reduce){.sas-market-strip::after,#app::before{animation:none!important;transform:none!important}}
   `;
   document.head.appendChild(style);
@@ -814,37 +826,20 @@ function renderMacro(){
  }
 
 }
-let sasRadarStartTimer=null;
+let sasRadarUiTimer=null;
+function updateRadarStage(index){
+ const steps=[...document.querySelectorAll('.sas-radar-step')];
+ steps.forEach((el,i)=>{el.classList.toggle('is-active',i===index);el.classList.toggle('is-done',i<index||index>=4);});
+ const titles=['جمع المرشحين','فحص السيولة والحركة','التحليل الفني والتأكيد','اعتماد النتائج'];
+ const title=document.getElementById('sasRadarStageTitle');if(title)title.textContent=index<0?'جاهز لبدء الفحص':index>=4?'اكتمل الفحص':titles[index];
+}
 function startRadarWithCountdown(show=false){
- if(terminalState.radarScanning||sasRadarStartTimer)return;
- const select=document.getElementById('sasRadarStartDelay');
- const countdown=document.getElementById('sasRadarCountdownValue');
- const liveStatus=document.getElementById('sasRadarLiveStatus');
- const startButtons=[...document.querySelectorAll('.sas-radar-scan-btn')];
- let remaining=Math.max(0,Number(select?.value)||0);
- startButtons.forEach(b=>{b.disabled=true;});
- if(select)select.disabled=true;
- const paint=()=>{
-  if(countdown)countdown.textContent=remaining>0?'يبدأ الفحص خلال '+remaining+' ث':'جارٍ بدء الفحص…';
-  if(liveStatus)liveStatus.textContent=remaining>0?'العد التنازلي قبل الفحص':'بدء الفحص';
- };
- paint();
- if(remaining===0){
-  if(select)select.disabled=false;
-  startButtons.forEach(b=>{b.disabled=false;});
-  void runRadar(show);
-  return;
- }
- sasRadarStartTimer=window.setInterval(()=>{
-  remaining--;
-  paint();
-  if(remaining<=0){
-   window.clearInterval(sasRadarStartTimer);sasRadarStartTimer=null;
-   if(select)select.disabled=false;
-   startButtons.forEach(b=>{b.disabled=false;});
-   void runRadar(show);
-  }
- },1000);
+ if(terminalState.radarScanning||sasRadarUiTimer)return;
+ const durationEl=document.getElementById('sasRadarDuration'),duration=Math.max(60,Number(durationEl?.value)||120),started=Date.now();
+ const clock=document.getElementById('sasRadarCountdownValue'),clockLabel=document.getElementById('sasRadarClockLabel'),elapsedNode=document.getElementById('sasRadarElapsed'),bar=document.getElementById('sasRadarDurationBar'),gauge=document.getElementById('sasRadarClockProgress'),pill=document.getElementById('sasRadarLivePill');
+ const buttons=[...document.querySelectorAll('.sas-radar-scan-btn')];if(durationEl)durationEl.disabled=true;buttons.forEach(b=>{b.disabled=true;b.setAttribute('aria-busy','true');});if(pill)pill.textContent='● جارٍ الفحص';updateRadarStage(0);
+ const tick=()=>{const elapsed=Math.floor((Date.now()-started)/1000),remaining=Math.max(0,duration-elapsed),fmt=n=>String(Math.floor(n)).padStart(2,'0');if(clock)clock.textContent=remaining?fmt(remaining/60)+':'+fmt(remaining%60):fmt(elapsed/60)+':'+fmt(elapsed%60);if(clockLabel)clockLabel.textContent=remaining?'الوقت المتبقي تقديري':'الوقت المنقضي';if(elapsedNode)elapsedNode.textContent=remaining?'المدة تقديرية؛ يستمر الرادار حتى اكتمال المعالجة الفعلية.':'انتهى الوقت التقديري؛ ما زال الرادار يعمل حتى تكتمل النتائج.';if(bar)bar.style.width=Math.min(100,elapsed/duration*100)+'%';if(gauge)gauge.style.strokeDashoffset=String(307.88*(1-Math.min(1,elapsed/duration)));};
+ tick();sasRadarUiTimer=window.setInterval(tick,1000);void runRadar(show);
 }
 async function runRadar(show=true){
  if(terminalState.radarScanning)return;
@@ -924,6 +919,12 @@ async function runRadar(show=true){
      throw new Error('تأخر رد الخادم أكثر من المتوقع. لم نلغِ مهمة الرصد، واحتفظنا بالنتائج السابقة؛ أعد فتح الرادار بعد قليل للتحقق من النتيجة.');
     }
     const serverProgress=job.progress||{};
+    const doneCount=Number(serverProgress.done||0),totalCount=Number(serverProgress.total||0);
+    if(totalCount>0)updateRadarStage(Math.min(3,Math.floor(doneCount/totalCount*3)));
+    else if(/مرشح|اكتشاف|جمع/i.test(String(serverProgress.message_ar||'')))updateRadarStage(0);
+    else if(/سيول|حجم|حركة|فلتر/i.test(String(serverProgress.message_ar||'')))updateRadarStage(1);
+    else if(/تحليل|زخم|تأكيد|فني/i.test(String(serverProgress.message_ar||'')))updateRadarStage(2);
+
     const stage=progress?.querySelector('.radar-scan-stage');
     if(stage&&serverProgress.message_ar)stage.textContent=serverProgress.message_ar;
     if(stage&&Number(serverProgress.total)>0){
@@ -1025,6 +1026,9 @@ async function runRadar(show=true){
    if(copyText)copyText.textContent='حدث خطأ أثناء المسح. احتفظنا بالنتائج السابقة؛ حاول مرة أخرى.';
    if(statusText)statusText.textContent='حدث خطأ في المسح';
  }finally{
+   if(sasRadarUiTimer){clearInterval(sasRadarUiTimer);sasRadarUiTimer=null;}
+   const durationEl=document.getElementById('sasRadarDuration');if(durationEl)durationEl.disabled=false;
+   const pill=document.getElementById('sasRadarLivePill');if(pill)pill.textContent='● '+(terminalState.radarScanning?'جارٍ الفحص':'انتهى الفحص');
    if(elapsedTimer)clearInterval(elapsedTimer);
    progress?.remove();
    if(button){button.disabled=false;button.classList.remove('is-scanning');button.removeAttribute('aria-busy');button.innerHTML='<span class="radar-scan-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><circle cx="14" cy="14" r="9.5" stroke="currentColor" stroke-width="1.8"/><circle cx="14" cy="14" r="4.5" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/><path d="M14 4.5v4M23.5 14h-4M14 23.5v-4M4.5 14h4M21 21l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 14 20.5 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span class="radar-scan-copy"><b>مسح الأسهم</b><small>ابدأ فحص الفرص الآن</small></span><span class="radar-scan-arrow" aria-hidden="true">‹</span>';}
