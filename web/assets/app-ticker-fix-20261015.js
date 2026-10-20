@@ -1254,11 +1254,14 @@ function stockCard(x){
  const section=x.momentum_section||x.section;
  const gates=x.radar_checks||{};
  const rawMomentumLabel=gates.momentum_label||cls.momentum_label||x.momentum_label||section||'';
+ const momentumKey=String(rawMomentumLabel).toLowerCase().trim().replace(/[ -]+/g,'_');
  const momentumLabel=({
   accumulation:'تجميع', movement:'حركة', breakout:'اختراق قريب',
-  early_breakout:'اختراق قريب', watch:'تحت المراقبة'
- })[String(rawMomentumLabel).toLowerCase()]||String(rawMomentumLabel||'').trim();
- const displayStatus=x._radarDisplayStatus||((x.opportunity_status||cls.opportunity_status)==='confirmed'||x.radar_tier==='confirmed'?'confirmed':'watch');
+  breakout_setup:'اختراق قريب', early_breakout:'اختراق قريب',
+  early_mover:'حركة مبكرة', small:'زخم سهم صغير', large:'زخم سهم كبير',
+  watch:'تحت المراقبة'
+ })[momentumKey]||String(rawMomentumLabel||'').trim();
+ const displayStatus=x._radarDisplayStatus||(x._radar_preliminary_candidate?'preliminary':((x.opportunity_status||cls.opportunity_status)==='confirmed'||x.radar_tier==='confirmed'?'confirmed':'watch'));
  const score=Number(cls.score);
  const ai=x.ai_analysis||x.ai||{};
  const sh=x.shariah||{};
