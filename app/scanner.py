@@ -2486,7 +2486,9 @@ async def scan_us_low_price_stocks(force_refresh: bool = False, progress_callbac
             }
 
     # Keep the radar responsive: analyze the staged shortlist concurrently.
-    semaphore = asyncio.Semaphore(16)
+    # A modest increase from 16 to 20 overlaps provider latency without changing
+    # candidate ordering, scoring thresholds, or the shortlist size.
+    semaphore = asyncio.Semaphore(20)
     # Twelve Data fallback is deliberately limited per cycle to preserve
     # the daily API allowance across the full trading day.
     twelve_fallback_symbols = {
