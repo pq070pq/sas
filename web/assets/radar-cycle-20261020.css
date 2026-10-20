@@ -1,0 +1,13 @@
+/* Session-aware radar refinements — mobile first */
+.sas-radar-visual{touch-action:manipulation}
+.sas-radar-live-countdown{position:absolute;z-index:5;inset:35%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid rgba(45,244,255,.25);border-radius:50%;background:rgba(1,13,25,.88);box-shadow:0 0 22px rgba(45,244,255,.15);pointer-events:none}
+.sas-radar-live-countdown b{font-size:clamp(15px,3.2vw,21px);font-variant-numeric:tabular-nums;color:#d8fbff;text-shadow:0 0 10px rgba(45,244,255,.5)}
+.sas-radar-live-countdown small{font-size:9px;color:#8cb9c8;white-space:nowrap}
+.sas-radar-auto-panel{display:flex;align-items:center;gap:10px}
+.sas-radar-auto-panel[data-state="open"]{border-color:rgba(25,239,139,.5);box-shadow:0 0 20px rgba(25,239,139,.08)}
+.sas-radar-auto-panel[data-state="preopen"]{border-color:rgba(255,212,71,.35)}
+.sas-radar-auto-panel[data-state="night"]{opacity:.78}
+.sas-radar-schedule-status{display:block;grid-column:1/-1;color:#82aebd;font-size:10px;line-height:1.6}
+.sas-radar-gauge-progress{transition:stroke-dashoffset .5s linear}
+@media(max-width:640px){.sas-radar-showcase{grid-template-columns:minmax(0,1fr);gap:14px;padding:15px;border-radius:20px}.sas-radar-visual{width:min(64vw,210px)}.sas-radar-copy{text-align:center}.sas-radar-status,.sas-radar-actions{justify-content:center}.sas-radar-status b{margin-inline-start:0}.sas-radar-auto-panel{max-width:100%}}
+@media(prefers-reduced-motion:reduce){.sas-radar-sweep,.sas-radar-dot{animation:none!important}.sas-radar-gauge-progress{transition:none}}
