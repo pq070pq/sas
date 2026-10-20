@@ -339,17 +339,37 @@ async function loadRadarSnapshot(){
  if(radarSnapshotLoadPromise)return radarSnapshotLoadPromise;
  radarSnapshotLastChecked=Date.now();
  radarSnapshotLoadPromise=(async()=>{
+  let cachedConfirmed=[],cachedPreliminary=[],cacheIsCurrentSession=false;
   try{
-   // A normal tab open reads the saved snapshot only; it must not trigger a fresh multi-minute scan.
+   const savedConfirmed=JSON.parse(localStorage.getItem('saspro_radar_snapshot')||'[]');
+   const savedPreliminary=JSON.parse(localStorage.getItem('saspro_preliminary_radar_snapshot')||'null');
+   cacheIsCurrentSession=!!savedPreliminary&&String(savedPreliminary.session_date||'')===String(currentUsSessionDate||'');
+   if(cacheIsCurrentSession){
+    if(Array.isArray(savedConfirmed))cachedConfirmed=savedConfirmed;
+    if(Array.isArray(savedPreliminary.stocks))cachedPreliminary=savedPreliminary.stocks
+     .filter(stock=>stock&&String(stock.symbol||stock.ticker||'').trim())
+     .slice(0,12).map(stock=>({...stock,_radar_preliminary_candidate:true}));
+    if(!terminalState.radar.length&&cachedConfirmed.length)terminalState.radar=cachedConfirmed;
+    if(!terminalState.preliminaryRadar.length&&cachedPreliminary.length)terminalState.preliminaryRadar=cachedPreliminary;
+   }
+  }catch(e){console.warn('SAS PRO local radar snapshot unavailable:',e?.message||e);}
+  try{
+   // Normal page opening reads the saved server snapshot; it must not launch a slow scan.
    const d=await api('/api/radar/scan',{timeoutMs:12000,retries:0});
    if(Array.isArray(d.stocks)){
-    // Refresh confirmed results and preliminary candidates from the same server snapshot.
-    terminalState.radar=d.stocks;
-    if(Array.isArray(d.preliminary_stocks)){
-     terminalState.preliminaryRadar=d.preliminary_stocks
-      .filter(stock=>stock&&String(stock.symbol||stock.ticker||'').trim())
-      .slice(0,12)
-      .map(stock=>({...stock,_radar_preliminary_candidate:true}));
+    const serverConfirmed=d.stocks.filter(stock=>stock&&String(stock.symbol||stock.ticker||'').trim());
+    const serverPreliminary=Array.isArray(d.preliminary_stocks)
+     ?d.preliminary_stocks.filter(stock=>stock&&String(stock.symbol||stock.ticker||'').trim()).slice(0,12).map(stock=>({...stock,_radar_preliminary_candidate:true}))
+     :null;
+    const sameServerSession=String(d.session_date||currentUsSessionDate||'')===String(currentUsSessionDate||'');
+    // Do not erase a valid same-session snapshot when an empty response arrives during a transient server/data gap.
+    terminalState.radar=serverConfirmed.length?serverConfirmed:(cacheIsCurrentSession&&cachedConfirmed.length?cachedConfirmed:[]);
+    if(serverPreliminary&&serverPreliminary.length){
+     terminalState.preliminaryRadar=serverPreliminary;
+    }else if(serverPreliminary&&serverPreliminary.length===0){
+     terminalState.preliminaryRadar=(cacheIsCurrentSession&&sameServerSession&&cachedPreliminary.length)?cachedPreliminary:[];
+    }else{
+     terminalState.preliminaryRadar=cacheIsCurrentSession&&sameServerSession?cachedPreliminary:[];
     }
     try{
      localStorage.setItem('saspro_radar_snapshot',JSON.stringify(terminalState.radar));
@@ -369,7 +389,6 @@ async function loadRadarSnapshot(){
  })();
  return radarSnapshotLoadPromise;
 }
-
 let radarDailyStatsBusy=false;
 async function loadRadarDailyStats(){
  const panel=document.getElementById('radarDailyStatsPanel');
