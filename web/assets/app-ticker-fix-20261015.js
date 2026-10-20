@@ -352,6 +352,44 @@ async function loadRadarSnapshot(){
  })();
  return radarSnapshotLoadPromise;
 }
+
+let radarDailyStatsBusy=false;
+async function loadRadarDailyStats(){
+ const panel=document.getElementById('radarDailyStatsPanel');
+ const status=document.getElementById('radarDailyStatsStatus');
+ const content=document.getElementById('radarDailyStatsContent');
+ const dateInput=document.getElementById('radarDailyStatsDate');
+ if(!panel||radarDailyStatsBusy)return;
+ radarDailyStatsBusy=true;
+ const refresh=document.getElementById('radarDailyStatsRefresh');
+ if(refresh)refresh.disabled=true;
+ if(status)status.textContent='جارٍ قراءة إحصائيات الرادار المحفوظة…';
+ try{
+  const selected=String(dateInput?.value||'').trim();
+  const data=await api('/api/admin/radar/daily-summary'+(selected?'?session_date='+encodeURIComponent(selected):''),{timeoutMs:12000,retries:0});
+  if(dateInput&&!dateInput.value&&data.session_date)dateInput.value=data.session_date;
+  if(!data.found){if(status)status.textContent=data.message||'لا توجد بيانات لهذا اليوم.';if(content)content.innerHTML='';return;}
+  if(status)status.textContent=(data.report_ready?'✅ تقرير مكتمل بعد إغلاق السوق':'⏳ '+(data.market_state||'بانتظار إغلاق السوق'))+' • تاريخ الجلسة: '+String(data.session_date||'—');
+  if(!data.report_ready&&(!selected||selected===data.session_date)){if(content)content.innerHTML='<div class="sas-radar-daily-waiting">⏳ ستظهر إحصائيات هذا اليوم بعد إغلاق السوق الأمريكي، حتى لا نعرض أرقامًا جزئية.</div>';return;}
+  const s=data.summary||{};
+  const num=v=>Number(v||0).toLocaleString('en-US');
+  const cards=[['🔁','دورات الرصد',s.runs],['🔎','أسهم مفحوصة',s.candidates],['🎯','اجتازت الشروط',s.passed],['🧹','مستبعدة',s.filtered],['📨','أُرسلت للقناة',s.channel_sent],['📱','فرص داخل التطبيق',s.app_only],['🏁','أهداف مسجلة',s.target_hits],['⚠️','أخطاء الرصد',s.errors]];
+  const opportunities=Array.isArray(data.top_opportunities)?data.top_opportunities:[];
+  const esc=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const rejectionRows=Object.entries(data.rejections||{}).sort((a,b)=>Number(b[1])-Number(a[1])).slice(0,6);
+  const maxReject=Math.max(1,...rejectionRows.map(x=>Number(x[1])||0));
+  const formatOpportunity=o=>{if(!o||typeof o!=='object')return '';const symbol=esc(o.symbol||o.ticker||'—');const score=Number(o.score??o.sas_score);const price=Number(o.price);return '<div class="sas-radar-daily-opportunity"><b>'+symbol+'</b><span>'+(Number.isFinite(price)&&price>0?'$'+price.toFixed(3):'السعر غير مسجل')+'</span><span>'+(Number.isFinite(score)?'درجة SAS '+score.toFixed(1):'فرصة مرصودة')+'</span></div>';};
+  if(content)content.innerHTML=
+   '<div class="sas-radar-daily-metrics">'+cards.map(x=>'<button type="button" class="sas-radar-daily-metric" data-metric="'+esc(x[1])+'" aria-label="'+esc(x[1]+': '+num(x[2]))+'"><span>'+x[0]+'</span><b>'+num(x[2])+'</b><small>'+esc(x[1])+'</small></button>').join('')+'</div>'+
+   '<div class="sas-radar-daily-details"><details><summary>📈 تفاصيل النتائج وسلامة التشغيل</summary><div class="sas-radar-daily-detail-grid"><span>قائمة الفرز الأولية <b>'+num(s.shortlist)+'</b></span><span>الإشارات الفريدة <b>'+num(s.unique_signals)+'</b></span><span>دورات مكتملة <b>'+num(s.completed_runs)+'</b></span><span>دورات متعثرة <b>'+num(s.failed_runs)+'</b></span><span>نتائج مكتملة <b>'+num(s.completed_outcomes)+'</b></span><span>نتائج غير محققة <b>'+num(s.failed_outcomes)+'</b></span><span>فرص ما زالت نشطة <b>'+num(s.active_outcomes)+'</b></span><span>وقت الرصد التراكمي <b>'+num(s.duration_seconds)+' ث</b></span></div></details></div>'+
+   (rejectionRows.length?'<div class="sas-radar-daily-rejections"><b>أبرز أسباب الاستبعاد</b>'+rejectionRows.map(([k,v])=>'<div class="sas-radar-daily-rejection"><span>'+esc(k)+'</span><div><i style="width:'+Math.max(3,Math.min(100,(Number(v)||0)/maxReject*100))+'%"></i></div><strong>'+num(v)+'</strong></div>').join('')+'</div>':'')+
+   '<div class="sas-radar-daily-opportunities-wrap"><b>⭐ أبرز الفرص في آخر دورة محفوظة</b>'+(opportunities.length?opportunities.slice(0,5).map(formatOpportunity).join(''):'<p>لا توجد فرص مسجلة في آخر دورة.</p>')+'</div>'+
+   '<p class="sas-radar-daily-foot">آخر دورة محفوظة: '+esc(data.last_finished_at?new Date(data.last_finished_at).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'}):'غير متاح')+' • الأرقام مجمعة لدورات الرصد وليست عدد أسهم فريدة إلا حيث ذُكر ذلك صراحة.</p>';
+  content?.querySelectorAll('[data-metric]').forEach(el=>el.addEventListener('click',()=>{content.querySelectorAll('.sas-radar-daily-metric').forEach(x=>x.classList.remove('is-selected'));el.classList.add('is-selected');const detail=content.querySelector('.sas-radar-daily-details details');if(detail){detail.open=true;detail.scrollIntoView({behavior:'smooth',block:'nearest'});}}));
+ }catch(e){if(status)status.textContent='تعذر تحميل التقرير: '+String(e?.message||'خطأ غير معروف')+' — اضغط تحديث للمحاولة مجددًا.';}
+ finally{radarDailyStatsBusy=false;if(refresh)refresh.disabled=false;}
+}
+
 let radarLearningLastChecked=0;
 let radarLearningLoadPromise=null;
 async function loadRadarLearning(force=false){
@@ -2320,7 +2358,7 @@ function adminSection(id,btn){
  if(!item||item.hidden||!trigger)return;
  const open=trigger.getAttribute('aria-expanded')==='true';
  trigger.click();
- if(id==='adminRadarPreviewPanel')void loadRadarLearning(true);
+ if(id==='adminRadarPreviewPanel'){void loadRadarDailyStats();void loadRadarLearning(true);}
 }
 
 let adminHealthTimer=null;

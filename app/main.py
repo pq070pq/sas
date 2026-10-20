@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
-from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, RadarRun, AccessRequest, Setting, Invite, AdminRole, get_session, init_db
+from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, RadarRun, RadarOutcome, AccessRequest, Setting, Invite, AdminRole, get_session, init_db
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
@@ -2267,6 +2267,87 @@ async def channel_access(user=Depends(require_pro)):
 @app.get("/api/market/status")
 async def market_status_api(_: dict = Depends(require_pro)):
     return market_status()
+
+
+@app.get("/api/admin/radar/daily-summary")
+async def admin_radar_daily_summary(session_date: str | None = None, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    """Read-only end-of-day radar summary. It never starts a scan or contacts market-data providers."""
+    await require_admin_permission(user, "radar")
+    from .db import RadarOutcome
+    if session_date:
+        try:
+            datetime.strptime(session_date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(400, "صيغة التاريخ يجب أن تكون YYYY-MM-DD")
+
+    dates = (await db.execute(
+        select(RadarRun.session_date).where(RadarRun.status != "running")
+        .distinct().order_by(RadarRun.session_date.desc()).limit(10)
+    )).scalars().all()
+    chosen_date = session_date or (dates[0] if dates else None)
+    if not chosen_date:
+        return {"ok": True, "found": False, "dates": [], "message": "لا توجد إحصائيات رادار محفوظة بعد."}
+
+    runs = (await db.execute(
+        select(RadarRun).where(RadarRun.session_date == chosen_date)
+        .order_by(RadarRun.started_at.asc())
+    )).scalars().all()
+    signals = (await db.execute(
+        select(RadarSignal).where(RadarSignal.session_date == chosen_date)
+        .order_by(RadarSignal.created_at.desc())
+    )).scalars().all()
+    outcomes = (await db.execute(
+        select(RadarOutcome).where(RadarOutcome.session_date == chosen_date)
+    )).scalars().all()
+
+    def loads(value, fallback):
+        try:
+            result = json.loads(value or "")
+            return result if isinstance(result, type(fallback)) else fallback
+        except Exception:
+            return fallback
+
+    rejection_totals = {}
+    for run in runs:
+        for key, value in loads(run.channel_gate_rejections, {}).items():
+            try:
+                rejection_totals[str(key)] = rejection_totals.get(str(key), 0) + int(value or 0)
+            except (TypeError, ValueError):
+                continue
+
+    latest = next((r for r in reversed(runs) if r.status != "running"), runs[-1] if runs else None)
+    latest_ny = datetime.now(ZoneInfo("America/New_York"))
+    report_ready = chosen_date != latest_ny.strftime("%Y-%m-%d") or (latest_ny.hour >= 16)
+    completed_outcomes = sum(1 for o in outcomes if o.status == "completed")
+    failed_outcomes = sum(1 for o in outcomes if o.status == "failed")
+    active_outcomes = sum(1 for o in outcomes if o.status == "active")
+    target_hits = sum(1 for o in outcomes if int(o.achieved_target or 0) > 0)
+    return {
+        "ok": True, "found": bool(runs or signals), "session_date": chosen_date,
+        "dates": dates, "report_ready": report_ready,
+        "market_state": "مكتمل" if report_ready else "بانتظار إغلاق السوق الأمريكي",
+        "summary": {
+            "runs": len(runs),
+            "completed_runs": sum(1 for r in runs if r.status == "completed"),
+            "failed_runs": sum(1 for r in runs if r.status == "failed"),
+            "candidates": sum(int(r.candidates or 0) for r in runs),
+            "shortlist": sum(int(r.shortlist or 0) for r in runs),
+            "passed": sum(int(r.passed or 0) for r in runs),
+            "filtered": sum(int(r.filtered or 0) for r in runs),
+            "errors": sum(int(r.errors or 0) for r in runs),
+            "channel_sent": sum(int(r.channel_sent or 0) for r in runs),
+            "app_only": sum(int(r.channel_app_only or 0) for r in runs),
+            "unique_signals": len({str(s.symbol or "").upper() for s in signals if s.symbol}),
+            "target_hits": target_hits, "completed_outcomes": completed_outcomes,
+            "failed_outcomes": failed_outcomes, "active_outcomes": active_outcomes,
+            "duration_seconds": round(sum(float(r.duration_seconds or 0) for r in runs), 1),
+        },
+        "rejections": rejection_totals,
+        "top_opportunities": loads(latest.top_opportunities, []) if latest else [],
+        "last_finished_at": aware(latest.finished_at).isoformat() if latest and latest.finished_at else None,
+        "last_status": latest.status if latest else None,
+    }
+
 
 @app.get("/api/radar/learning-profile")
 async def radar_learning_profile_api(user=Depends(telegram_user)):
