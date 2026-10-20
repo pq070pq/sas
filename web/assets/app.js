@@ -259,7 +259,7 @@ function readLocalJson(key,fallback){
  catch(error){console.warn('SAS PRO local cache ignored:',key,error?.message||error);return fallback;}
 }
 const savedRadarSnapshot=readLocalJson('saspro_radar_snapshot',[]);
-const terminalState={ticker:[],radar:Array.isArray(savedRadarSnapshot)?savedRadarSnapshot:[],perpAssets:{},watch:readLocalJson('saspro_watchlist',[]),timer:null,moversTimer:null,newsTimer:null,newsItems:[],newsFilter:'all',moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
+const terminalState={ticker:[],radar:Array.isArray(savedRadarSnapshot)?savedRadarSnapshot:[],preliminaryRadar:[],radarAutoScanAttempted:false,perpAssets:{},watch:readLocalJson('saspro_watchlist',[]),timer:null,moversTimer:null,newsTimer:null,newsItems:[],newsFilter:'all',moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
 let radarSnapshotLastChecked=0;
 let radarSnapshotLoadPromise=null;
 function escHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
@@ -425,6 +425,7 @@ async function refreshTerminal(){
   ];
   // Start the radar scan independently too; it must not wait for ticker/movers.
   if(terminalState.tab==='radar')void runRadar(false);
+  else if(!terminalState.radar.length&&!terminalState.preliminaryRadar.length&&!terminalState.radarAutoScanAttempted){terminalState.radarAutoScanAttempted=true;void runRadar(false);}
   const results=await Promise.allSettled(requests);
   const errors=results.filter(x=>x.status==='rejected').map(x=>x.reason?.message||'خطأ غير معروف');
   if(errors.length)console.warn('SAS PRO panel refresh partial failures:',errors);
@@ -600,6 +601,7 @@ function renderDashboard(d){
 
  const el=document.getElementById('dashboardRadar');
  if(terminalState.radar.length) renderCards(el,terminalState.radar.slice(0,6));
+ else if(Array.isArray(terminalState.preliminaryRadar)&&terminalState.preliminaryRadar.length) renderPreliminaryDashboardCards(el,terminalState.preliminaryRadar);
  else el.innerHTML='<div class="radar-empty-card dashboard-saved-empty">'+
   '<div class="radar-empty-orbit" aria-hidden="true"><span></span><i></i><b></b></div>'+
   '<div class="radar-empty-content">'+
@@ -611,6 +613,25 @@ function renderDashboard(d){
    '<div class="radar-empty-actions"><button type="button" class="radar-empty-primary" onclick="runRadar()">⟳ ابدأ مسحًا جديدًا</button><button type="button" class="radar-empty-secondary" onclick="switchTerminalTab(\'radar\')">افتح صفحة الرادار ↗</button><button type="button" class="radar-empty-secondary dashboard-empty-help-btn" onclick="toggleRadarEmptyHelp(this)" aria-expanded="false">كيف يعمل؟ <span>⌄</span></button></div>'+
    '<div class="radar-empty-help" hidden>لا يعرض SAS PRO سهمًا لمجرد ارتفاعه؛ بل ينتظر تحقق شروط الرصد المعتمدة. إذا لم تظهر فرص، فهذا يعني أن النتائج الحالية لم تجتز الفلاتر بعد.</div>'+
   '</div></div>';
+}
+
+
+function renderPreliminaryDashboardCards(el,stocks){
+ if(!el)return;
+ const rows=(Array.isArray(stocks)?stocks:[]).filter(x=>x&&String(x.symbol||'').trim()).slice(0,3);
+ if(!rows.length)return;
+ const cards=rows.map(x=>{
+  const sym=String(x.symbol||'—');
+  const price=Number(x.live_price??x.price);
+  const change=Number(x.live_change_pct??x.change_pct);
+  const priceText=Number.isFinite(price)&&price>0?'$'+price.toLocaleString('en-US',{maximumFractionDigits:4}):'السعر غير متاح';
+  const changeText=Number.isFinite(change)?(change>=0?'+':'')+change.toFixed(2)+'%':'التغير غير متاح';
+  const cls=x.classification||{};
+  const gate=cls.smart_levels_ict||cls.smart_levels||{};
+  const reason=x.gate_reason||x.preliminary_reason||x.reason||gate.reason||(Array.isArray(gate.reasons)?gate.reasons.join('، '):'')||'مرشح أولي؛ لم يكتمل التأكيد النهائي بعد';
+  return '<article class="candidate-card dashboard-preliminary-card"><div><b>'+escHtml(sym)+'</b><small>🟡 مرشح أولي — قيد التحقق</small></div><p>'+escHtml(priceText)+' · '+escHtml(changeText)+'</p><p class="candidate-reason">'+escHtml(String(reason))+'</p><button type="button" data-symbol="'+escHtml(sym)+'" onclick="openSymbol(this.dataset.symbol)">عرض التحليل</button></article>';
+ }).join('');
+ el.innerHTML='<div class="candidate-title dashboard-preliminary-title"><b>🔎 بطاقات الرصد الأولي</b><small>مرشحون فعليون من نتيجة المسح، وليسوا فرصًا مؤكدة. لا تُرسل القناة إلا الإشارات التي تجتاز شروط النشر.</small></div><div class="candidate-grid dashboard-preliminary-grid">'+cards+'</div>';
 }
 
 function renderRadarMovementSignals(){
@@ -951,6 +972,7 @@ async function runRadar(show=true){
   if(diagnosticsEl)diagnosticsEl.innerHTML='<b class="radar-mode">'+mode+'</b><span>🕒 وقت الرصد: '+escHtml(scanLabel)+'</span><span>مرشحون '+Number(diag.candidates||0)+'</span><span>اجتازوا '+Number(diag.passed||0)+'</span><span>مستبعدون '+Number(diag.filtered||0)+'</span><span>أخطاء '+Number(diag.errors||0)+'</span>';
   const candidateEl=document.getElementById('radarCandidates');
   const preliminary=Array.isArray(d.preliminary_stocks)?d.preliminary_stocks:[];
+  terminalState.preliminaryRadar=preliminary.filter(x=>x&&String(x.symbol||'').trim()).slice(0,12);
   const candidates=Array.isArray(diag.filtered_examples)?diag.filtered_examples:[];
   if(candidateEl && preliminary.length){
     candidateEl.hidden=false;
