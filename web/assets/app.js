@@ -1041,6 +1041,7 @@ function renderCards(el,rows){
  const isConfirmed=x=>(x.opportunity_status||x.classification?.opportunity_status)==='confirmed'||x.radar_tier==='confirmed';
  const isPreliminary=x=>{
   if(isConfirmed(x))return false;
+  if(x._radar_preliminary_candidate===true)return true;
   const gate=x.channel_gate||x.technical?.channel_gate||{};
   const status=String(x.radar_candidate_status||x.candidate_status||'');
   if(gate.passed===true||status.includes('اجتاز بوابة النشر الفنية'))return true;
