@@ -266,6 +266,19 @@
       <div id="adminRadarPreviewSummary" class="subscriber-status-summary"><span>الرادار يعمل تلقائيًا أثناء جلسات السوق، والقناة تستقبل أفضل 5 فقط.</span></div>
       <div id="adminRadarPreviewTop" class="subscriber-status-list"></div>
       <div id="adminRadarPreviewRejects" class="subscriber-status-list"></div>
+      
+      <section id="radarDailyStatsPanel" class="sas-radar-daily-panel" aria-live="polite">
+        <div class="sas-radar-daily-head">
+          <div><b>📊 إحصائيات نهاية اليوم</b><small>ملخص أداء رادار الأسهم • بيانات محفوظة فقط</small></div>
+          <div class="sas-radar-daily-controls">
+            <input id="radarDailyStatsDate" type="date" aria-label="اختيار يوم التقرير">
+            <button type="button" id="radarDailyStatsRefresh" onclick="loadRadarDailyStats()">↻ تحديث</button>
+          </div>
+        </div>
+        <div id="radarDailyStatsStatus" class="sas-radar-daily-status">يتم تحميل إحصائيات الرادار…</div>
+        <div id="radarDailyStatsContent"></div>
+      </section>
+
       <section id="radarLearningPanel" class="sas-learning-panel" aria-live="polite"><div class="sas-learning-head"><b>🧠 تعلّم الرادار</b><span>جاري قراءة آخر ملف تعلّم محفوظ…</span></div></section>
     </section>
 
