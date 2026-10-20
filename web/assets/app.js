@@ -1043,7 +1043,15 @@ function renderCards(el,rows){
   if(isConfirmed(x))return false;
   const gate=x.channel_gate||x.technical?.channel_gate||{};
   const status=String(x.radar_candidate_status||x.candidate_status||'');
-  return gate.passed===true||status.includes('اجتاز بوابة النشر الفنية');
+  if(gate.passed===true||status.includes('اجتاز بوابة النشر الفنية'))return true;
+  // Two or more passed checks mark a stock as preliminary only, never confirmed.
+  const checks=x.radar_checks||x.technical?.radar_checks||{};
+  const checkPassed=value=>value===true||Boolean(value&&typeof value==='object'&&(value.pass===true||value.passed===true||value.ok===true));
+  const passedCount=Object.values(checks).filter(checkPassed).length;
+  const cls=x.classification||{};
+  const smart=cls.smart_levels_ict||checks.smart_levels_ict||{};
+  const smartPassed=Boolean(smart&&typeof smart==='object'&&(smart.pass===true||smart.passed===true||smart.ok===true||smart.status==='passed'));
+  return passedCount+(smartPassed?1:0)>=2;
  };
  const confirmed=all.filter(isConfirmed);
  const preliminary=all.filter(isPreliminary);
