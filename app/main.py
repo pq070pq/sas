@@ -2888,6 +2888,20 @@ async def _execute_radar_app_scan(job_id: str):
                 },
             }
 
+            # Persist preliminary candidates separately from published RadarSignal rows.
+            # This allows the Mini App to display candidates after reopening without
+            # triggering an expensive new scan or weakening publication requirements.
+            try:
+                async with SessionLocal() as db:
+                    await setting_set(db, "radar_preliminary_snapshot", json.dumps({
+                        "session_date": session_date,
+                        "scan_at": result["scan_at"],
+                        "stocks": preliminary_stocks[:app_limit],
+                    }, ensure_ascii=False))
+                    await db.commit()
+            except Exception:
+                logger.exception("Failed to persist preliminary radar snapshot")
+
         job["result"] = result
         job["status"] = "success"
         job["progress"] = {
@@ -3047,19 +3061,36 @@ async def radar_scan(fresh: int = 0, _: dict = Depends(require_pro)):
                 reverse=True,
             )
             latest = rows[0] if rows else None
+            preliminary_stocks = []
+            preliminary_scan_at = None
+            try:
+                async with SessionLocal() as db:
+                    snapshot = await db.get(Setting, "radar_preliminary_snapshot")
+                    saved = json.loads(snapshot.value or "{}") if snapshot else {}
+                if isinstance(saved, dict) and saved.get("session_date") == session_date:
+                    preliminary_stocks = [
+                        {**stock, "_radar_preliminary_candidate": True}
+                        for stock in (saved.get("stocks") or [])
+                        if isinstance(stock, dict) and str(stock.get("symbol") or stock.get("ticker") or "").strip()
+                    ][:app_limit]
+                    preliminary_scan_at = saved.get("scan_at")
+            except Exception:
+                logger.exception("Failed to load preliminary radar snapshot")
             return {
                 "enabled": stock_radar_enabled(),
                 "historical": False,
                 "persisted": True,
-                "scan_at": latest.created_at.isoformat() if latest and latest.created_at else None,
+                "scan_at": latest.created_at.isoformat() if latest and latest.created_at else preliminary_scan_at,
                 "session_date": session_date,
                 "session": status.get("session", "unknown"),
                 "stocks": stocks[:app_limit],
+                "preliminary_stocks": preliminary_stocks,
                 "diagnostics": {
                     "candidates": 0,
                     "passed": len(stocks[:app_limit]),
                     "filtered": 0,
                     "errors": 0,
+                    "preliminary_count": len(preliminary_stocks),
                     "daily_limit": app_limit,
                 },
             }
