@@ -5500,3 +5500,6 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .stock-card .stock-meta>span{font-size:9px}
 }
 @media(prefers-reduced-motion:reduce){.sas-candlestick-chart .sas-candle{animation:none}}
+
+/* Mobile repair: give the real candlestick chart its own full-width row. */
+@media(max-width:600px){.stock-card .sas-card-price-trend{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto auto;gap:8px!important;align-items:stretch!important}.stock-card .sas-card-chart-wrap{grid-column:1!important;grid-row:1!important;width:100%;min-width:0}.stock-card .sas-card-price-trend>strong{grid-column:1!important;grid-row:2!important;text-align:start;font-size:clamp(23px,7vw,32px);line-height:1.15}.stock-card .sas-candlestick-chart{height:100px!important;min-height:100px!important}.stock-card .stock-levels{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}.stock-card .stock-levels>span{min-width:0!important;text-align:center;overflow-wrap:anywhere;padding:8px 4px!important}.stock-card .stock-levels b{display:block;margin-top:4px}.stock-card .stock-meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px}.stock-card .stock-meta>span{flex:1 1 30%;min-width:0;text-align:center;overflow-wrap:anywhere}}
