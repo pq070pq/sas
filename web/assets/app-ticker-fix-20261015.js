@@ -370,6 +370,7 @@ async function loadRadarDailyStats(){
   if(dateInput&&!dateInput.value&&data.session_date)dateInput.value=data.session_date;
   if(!data.found){if(status)status.textContent=data.message||'لا توجد بيانات لهذا اليوم.';if(content)content.innerHTML='';return;}
   if(status)status.textContent=(data.report_ready?'✅ تقرير مكتمل بعد إغلاق السوق':'⏳ '+(data.market_state||'بانتظار إغلاق السوق'))+' • تاريخ الجلسة: '+String(data.session_date||'—');
+  if(!data.report_ready&&(!selected||selected===data.session_date)){if(content)content.innerHTML='<div class="sas-radar-daily-waiting">⏳ ستظهر إحصائيات هذا اليوم بعد إغلاق السوق الأمريكي، حتى لا نعرض أرقامًا جزئية.</div>';return;}
   const s=data.summary||{};
   const num=v=>Number(v||0).toLocaleString('en-US');
   const cards=[['🔁','دورات الرصد',s.runs],['🔎','أسهم مفحوصة',s.candidates],['🎯','اجتازت الشروط',s.passed],['🧹','مستبعدة',s.filtered],['📨','أُرسلت للقناة',s.channel_sent],['📱','فرص داخل التطبيق',s.app_only],['🏁','أهداف مسجلة',s.target_hits],['⚠️','أخطاء الرصد',s.errors]];
