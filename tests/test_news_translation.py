@@ -1,9 +1,16 @@
 import unittest
 from unittest.mock import patch
-from app.news_translation import translate_stock_news
+from app.news_translation import translate_stock_news, _has_arabic, _normalize_news_url
 
 
 class StockNewsTranslationTests(unittest.IsolatedAsyncioTestCase):
+    def test_arabic_output_validation(self):
+        self.assertTrue(_has_arabic("ارتفعت الأسهم الأمريكية"))
+        self.assertFalse(_has_arabic("US stocks rose 4%"))
+
+    def test_news_url_normalization(self):
+        self.assertEqual(_normalize_news_url("HTTPS://Example.com/story/?utm_source=x"), "https://example.com/story")
+
     async def test_empty_news_returns_empty(self):
         self.assertEqual(await translate_stock_news("ABC", []), [])
 
