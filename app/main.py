@@ -2762,17 +2762,8 @@ async def dashboard_home(_: dict = Depends(require_pro)):
             .order_by(RadarSignal.created_at.desc())
         )).scalars().all()
 
-        # خارج الجلسة لا نخفي آخر رصد ناجح؛ نعرض آخر جلسة محفوظة بدل إظهار
-        # شاشة فارغة وكأن الرادار لم يعمل.
-        source_session = session_date
-        if not rows:
-            rows = (await db.execute(
-                select(RadarSignal)
-                .order_by(RadarSignal.created_at.desc())
-                .limit(100)
-            )).scalars().all()
-            if rows:
-                source_session = rows[0].session_date
+        # Dashboard cards are for the current session only. Historical records remain
+        # in the database for analytics, but must not masquerade as current opportunities.
 
     radar_stocks = []
     moves = []
@@ -2808,7 +2799,7 @@ async def dashboard_home(_: dict = Depends(require_pro)):
             "top_volume": max(volumes) if volumes else None,
             "last_signal_at": radar_stocks[0].get("created_at") if radar_stocks else None,
             "source_session": radar_stocks[0].get("session_date") if radar_stocks else None,
-            "historical": bool(radar_stocks and radar_stocks[0].get("session_date") != session_date),
+            "historical": False,
             "stocks": radar_stocks[:20],
         },
         "updated_at": utcnow().isoformat(),

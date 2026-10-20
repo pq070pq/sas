@@ -307,7 +307,9 @@ async function loadRadarSnapshot(){
   try{
    // A normal tab open reads the saved snapshot only; it must not trigger a fresh multi-minute scan.
    const d=await api('/api/radar/scan',{timeoutMs:12000,retries:0});
-   if(Array.isArray(d.stocks)&&d.stocks.length){
+   if(Array.isArray(d.stocks)){
+    // An empty successful snapshot is meaningful: clear old opportunities instead of
+    // keeping yesterday's cards alive in memory/localStorage.
     terminalState.radar=d.stocks;
     try{localStorage.setItem('saspro_radar_snapshot',JSON.stringify(terminalState.radar));}catch(e){}
    }
@@ -902,8 +904,11 @@ async function runRadar(show=true){
     return;
   }
   if(d.enabled===false&&(!Array.isArray(d.stocks)||d.stocks.length===0)){
-    if(copyText)copyText.textContent=String(d.reason||'الرصد الحي غير متاح خارج جلسة الرصد؛ احتفظنا بآخر النتائج.');
-    if(statusText)statusText.textContent='الرصد الحي غير متاح';
+    // Do not present a previous scan as if it were current when live radar is disabled.
+    terminalState.radar=[];
+    try{localStorage.setItem('saspro_radar_snapshot','[]');}catch(e){}
+    if(copyText)copyText.textContent=String(d.reason||'الرصد الحي غير متاح حاليًا؛ لا توجد فرص حالية مؤكدة.');
+    if(statusText)statusText.textContent='لا توجد فرص حالية';
     renderRadar();
     return;
   }
