@@ -1035,8 +1035,7 @@ async function runRadar(show=true){
     renderRadar();
     return;
   }
-  const detectedAt=d.scan_at||new Date().toISOString();
-  terminalState.radar=(Array.isArray(d.stocks)?d.stocks:[]).map(stock=>({...stock,created_at:stock.created_at||stock.detected_at||detectedAt}));
+  terminalState.radar=d.stocks||[];
   terminalState.preliminaryRadar=(Array.isArray(d.preliminary_stocks)?d.preliminary_stocks:[]).filter(stock=>stock&&String(stock.symbol||'').trim()).slice(0,12).map(stock=>({...stock,_radar_preliminary_candidate:true}));
   try{localStorage.setItem('saspro_radar_snapshot',JSON.stringify(terminalState.radar));localStorage.setItem('saspro_preliminary_radar_snapshot',JSON.stringify({session_date:d.session_date||currentUsSessionDate,saved_at:Date.now(),stocks:terminalState.preliminaryRadar}));}catch(e){console.warn('SAS PRO radar snapshot not cached:',e?.message||e);}
   const diag=d.diagnostics||{};
@@ -1434,7 +1433,7 @@ function stockCard(x){
  ].join(''):'';
  const statusBadge=displayStatus==='confirmed'?'<i class="radar-stock-status is-confirmed">فرصة مؤكدة</i>':(displayStatus==='preliminary'?'<i class="radar-stock-status is-watch">مرشح مبدئي</i>':'<i class="radar-stock-status is-watch">تحت المراقبة</i>');
  const classificationRow='<div class="sas-radar-classification" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0;padding:8px 10px;border:1px solid rgba(37,203,231,.22);border-radius:10px;background:rgba(5,65,83,.22);font-size:12px"><span style="color:#8fbac6">تصنيف الرصد:</span><b style="color:#52dff5">'+(momentumLabel?escHtml(momentumLabel):'قيد التحديد')+'</b><span style="margin-inline-start:auto;color:#b8dce4">'+(displayStatus==='confirmed'?'اجتاز شروط التأكيد':displayStatus==='preliminary'?'قيد التحقق الفني':'تحت المراقبة')+'</span></div>';
- return '<article class="stock-card '+(displayStatus==='watch'?'radar-watch-card':'radar-confirmed-card')+'"><div class="stock-head"><div><b>'+s+'</b><small>'+statusBadge+' '+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • رُصد: '+formatDateTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+classificationRow+
+ return '<article class="stock-card '+(displayStatus==='watch'?'radar-watch-card':'radar-confirmed-card')+'"><div class="stock-head"><div><b>'+s+'</b><small>'+statusBadge+' '+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • '+formatTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+classificationRow+
   '<div class="sas-card-price-trend">'+sasCandlestickMiniChart(x)+'<strong>$'+money(price)+'</strong></div>'+
  '<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
  '<div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div>'+
