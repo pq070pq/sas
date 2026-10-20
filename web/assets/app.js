@@ -980,7 +980,7 @@ async function runRadar(show=true){
   if(diagnosticsEl)diagnosticsEl.innerHTML='<b class="radar-mode">'+mode+'</b><span>🕒 وقت الرصد: '+escHtml(scanLabel)+'</span><span>مرشحون '+Number(diag.candidates||0)+'</span><span>اجتازوا '+Number(diag.passed||0)+'</span><span>مستبعدون '+Number(diag.filtered||0)+'</span><span>أخطاء '+Number(diag.errors||0)+'</span>';
   const candidateEl=document.getElementById('radarCandidates');
   const preliminary=Array.isArray(d.preliminary_stocks)?d.preliminary_stocks:[];
-  terminalState.preliminaryRadar=preliminary.filter(x=>x&&String(x.symbol||'').trim()).slice(0,12);
+  terminalState.preliminaryRadar=preliminary.filter(x=>x&&String(x.symbol||'').trim()).slice(0,12).map(x=>({...x,_radar_preliminary_candidate:true}));
   const candidates=Array.isArray(diag.filtered_examples)?diag.filtered_examples:[];
   if(candidateEl && preliminary.length){
     candidateEl.hidden=false;
@@ -1041,6 +1041,7 @@ function renderCards(el,rows){
  const isConfirmed=x=>(x.opportunity_status||x.classification?.opportunity_status)==='confirmed'||x.radar_tier==='confirmed';
  const isPreliminary=x=>{
   if(isConfirmed(x))return false;
+  if(x._radar_preliminary_candidate===true)return true;
   const gate=x.channel_gate||x.technical?.channel_gate||{};
   const status=String(x.radar_candidate_status||x.candidate_status||'');
   if(gate.passed===true||status.includes('اجتاز بوابة النشر الفنية'))return true;
@@ -1071,7 +1072,7 @@ function renderCards(el,rows){
  const heading=(title,count,description)=>'<div class="radar-list-heading" style="grid-column:1/-1;width:100%;box-sizing:border-box"><b>'+title+'</b><span>'+count.toLocaleString('ar-SA')+' سهم</span><small>'+description+'</small></div>';
  const group=(title,count,description,items,status)=>items.length?'<section class="radar-category" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:10px;margin:0 0 18px;width:100%;min-width:0;box-sizing:border-box">'+heading(title,count,description)+items.map(x=>stockCard({...x,_radarDisplayStatus:status})).join('')+'</section>':'';
  const confirmedHtml=group('🟢 الفرص المؤكدة',confirmed.length,'اجتازت شروط الرادار الكاملة؛ راجع السعر والمستويات قبل اتخاذ القرار.',confirmed,'confirmed');
- const preliminaryHtml=group('🟡 الفرص المجتازة مبدئيًا',preliminary.length,'اجتازت بوابة الفحص الأولي فقط؛ لا تعد فرصة مؤكدة حتى تكتمل الشروط.',preliminary,'preliminary');
+ const preliminaryHtml=group('🟡 الأسهم المرشحة مبدئيًا',preliminary.length,'مرشحون فعليون من دورة الرصد ويحتاجون مراجعة الشروط المتبقية؛ لا تعد فرصة مؤكدة حتى يكتمل التأكيد.',preliminary,'preliminary');
  const watchHtml=group('🔵 أسهم تحت المراقبة',watch.length,'مرشحة للتحليل والمتابعة ولم يثبت اجتيازها للبوابة الأولية.',watch,'watch');
  el.innerHTML=confirmedHtml+preliminaryHtml+watchHtml+(confirmed.length||preliminary.length||watch.length?'':empty);
 
