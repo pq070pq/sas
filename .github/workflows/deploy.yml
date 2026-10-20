@@ -97,8 +97,11 @@ jobs:
             if [ -f .git/index.lock ]; then
               rm -f .git/index.lock
             fi
-            git fetch origin main
-            git reset --hard origin/main
+            # Recover a stale/corrupt remote-tracking ref left by an interrupted Git fetch.
+            # The deployment workflow is serialized above, so it is safe to refresh this ref here.
+            git update-ref -d refs/remotes/origin/main || true
+            git fetch --prune origin +refs/heads/main:refs/remotes/origin/main
+            git reset --hard refs/remotes/origin/main
             # Install the repository-managed, safe daily cleanup timer (GitHub remains the source of truth).
             install -d -m 0755 /etc/systemd/system
             install -m 0644 /opt/saspro/systemd/saspro-cleanup.service /etc/systemd/system/saspro-cleanup.service
