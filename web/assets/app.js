@@ -442,6 +442,7 @@ function renderDashboard(d){
  const enabled=Boolean(r.enabled);
  const market=d.market||{};
  const session=String(market.session||'');
+ document.body.dataset.sasSession=['premarket','regular','afterhours','night','night_pending','overnight','weekend','holiday'].includes(session)?session:'unknown';
  const extended=['premarket','afterhours','night'].includes(session);
  const premarket=session==='premarket';
  const preopen=['overnight','weekend','holiday'].includes(session);
