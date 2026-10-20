@@ -5419,3 +5419,9 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @media(prefers-reduced-motion:reduce){.sas-radar-daily-metric{transition:none}}
 
 .sas-radar-daily-waiting{padding:18px 12px;border:1px dashed rgba(92,201,224,.24);border-radius:12px;text-align:center;font-size:12px;line-height:1.9;color:#b8d9e4;background:rgba(255,255,255,.02)}
+
+/* SAS PRO: visually distinct preliminary-pass opportunity cards */
+.radar-preliminary-card{border-color:rgba(255,193,70,.68)!important;box-shadow:0 0 0 1px rgba(255,193,70,.14),0 8px 28px rgba(255,174,40,.11)!important;background:linear-gradient(145deg,rgba(43,32,10,.94),rgba(4,18,24,.96))!important}
+.radar-stock-status.is-preliminary{display:inline-flex;align-items:center;padding:3px 7px;border:1px solid rgba(255,193,70,.58);border-radius:999px;background:rgba(255,193,70,.12);color:#ffd16a;font-size:10px;font-style:normal;font-weight:700}
+.sas-preliminary-reason{display:grid;gap:4px;margin:8px 0;padding:9px 10px;border:1px solid rgba(255,193,70,.32);border-radius:10px;background:rgba(255,193,70,.055);font-size:11px;line-height:1.7}
+.sas-preliminary-reason b{color:#ffd16a}.sas-preliminary-reason span{color:#e5edf1;overflow-wrap:anywhere}.sas-preliminary-reason small{color:#b9a879}
