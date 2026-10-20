@@ -795,7 +795,8 @@ async def discover_low_price_stocks():
     source_counts = {name: 0 for name in source_names}
     source_errors = {}
 
-    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
+    # Discovery providers are independent; cap this stage so one slow feed cannot leave the UI spinning for a long time.
+    async with httpx.AsyncClient(timeout=min(float(settings.panwatch_timeout_seconds), 12.0)) as client:
         sources = await asyncio.gather(
             _discover_us_exchanges(client),
             _discover_yahoo_top_gainers(client),
