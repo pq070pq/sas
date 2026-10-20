@@ -1072,10 +1072,9 @@ async def stock_radar_cycle():
                             and classification.get("confirmation_ready")
                             and channel_ok
                         )
-                        app_cap_reached = (
-                            symbol not in app_active_symbols
-                            and app_active_count >= daily_app_limit
-                        )
+                        # A Telegram-published, confirmed signal must remain eligible for
+                        # the app cards; the display cap must not silently hide channel posts.
+                        app_cap_reached = False
                         row["channel_gate"] = {
                             "passed": bool(channel_ok),
                             "session": status.get("session"),
@@ -1088,7 +1087,7 @@ async def stock_radar_cycle():
                             "reason": (
                                 "فرصة مؤكدة وما زالت مستوفية للشروط"
                                 if row["radar_active"]
-                                else "فقد السهم شروط الفرصة المؤكدة أو حدّ التطبيق"
+                                else "لم يعد السهم يحقق شروط الفرصة المؤكدة"
                             ),
                         }
                         if row["radar_active"]:
@@ -1213,11 +1212,9 @@ async def stock_radar_cycle():
 
                 channel_gate_passed += 1
                 confirmation_stats["gate_passed"] += 1
-                # التطبيق يبقي سقف الفرص النشطة مستقلًا؛ هذا السقف لا يمنع نشر المرشح للقناة.
-                app_cap_reached = (
-                    symbol not in app_active_symbols
-                    and app_active_count >= daily_app_limit
-                )
+                # Keep every confirmed signal published to Telegram visible in app cards.
+                # The UI display cap must not create a channel/app mismatch.
+                app_cap_reached = False
                 row["channel_gate"] = {
                     "passed": True,
                     "session": status.get("session"),
@@ -1237,7 +1234,7 @@ async def stock_radar_cycle():
                     row["channel_delivery"] = {
                         "published": True,
                         "app_visible": False,
-                        "reason": f"أُرسل للقناة، لكنه خارج حد الفرص النشطة في التطبيق ({daily_app_limit})",
+                        "reason": "تم النشر للقناة؛ لا يُخفى بسبب حد عرض البطاقات",
                         "limit": daily_app_limit,
                     }
                 else:
