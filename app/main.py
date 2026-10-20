@@ -1201,15 +1201,32 @@ async def admin_health(user=Depends(telegram_user), db: AsyncSession = Depends(g
         add("لوحة الرادار", "error", "تعذر قراءة بيانات لوحة الرادار.", exc)
 
     try:
-        # The admin health check must not wait on slow market-data providers.
-        # Report a warning and keep the diagnostics responsive if quotes stall.
-        ticker_data = await asyncio.wait_for(ticker(), timeout=2.5)
-        valid = isinstance(ticker_data, list) and any(float(x.get("price") or 0) > 0 for x in ticker_data if isinstance(x, dict))
-        add("أسعار السوق", "ok" if valid else "warn", "تم تحديث أسعار السوق." if valid else "مصادر الأسعار لم تُرجع أسعارًا صالحة حاليًا.")
-    except asyncio.TimeoutError as exc:
-        add("أسعار السوق", "warn", "تأخر مزود أسعار السوق؛ اكتمل فحص الإدارة دون انتظار الأسعار.")
+        # Health checks must not call the network-backed ticker refresh: its
+        # provider chain can take much longer than this endpoint's UI timeout.
+        # Start/continue the normal ticker refresh in the background and inspect
+        # only the in-process cache so diagnostics stay fast and do not cancel
+        # the market-data fallback path.
+        from . import market as market_data
+        refresh_task = getattr(market_data, "_TICKER_REFRESH_TASK", None)
+        if refresh_task is None or refresh_task.done():
+            refresh_task = asyncio.create_task(market_data._refresh_ticker_cache())
+            market_data._TICKER_REFRESH_TASK = refresh_task
+        cache = getattr(market_data, "_TICKER_CACHE", {})
+        symbols = [symbol for symbol, _label in getattr(market_data, "_TICKER_SYMBOLS", [])]
+        valid_cached = [
+            symbol for symbol in symbols
+            if isinstance(cache.get(symbol), dict)
+            and float(cache[symbol].get("price") or 0) > 0
+        ]
+        missing = len(symbols) - len(valid_cached)
+        if valid_cached and not missing:
+            add("أسعار السوق", "ok", "تتوفر أسعار محفوظة صالحة؛ يجري تحديثها بالخلفية.")
+        elif valid_cached:
+            add("أسعار السوق", "warn", f"تتوفر أسعار صالحة لـ {len(valid_cached)} من {len(symbols)} مؤشرات؛ يجري استكمال البقية بالخلفية.")
+        else:
+            add("أسعار السوق", "warn", "مصادر الأسعار قيد التحديث بالخلفية؛ لن يتوقف فحص الإدارة بسببها.")
     except Exception as exc:
-        add("أسعار السوق", "warn", "تعذر تحديث شريط أسعار السوق حاليًا؛ لا يمنع تشغيل الرادار.", exc)
+        add("أسعار السوق", "warn", "تعذر فحص حالة أسعار السوق؛ لا يمنع ذلك تشغيل الرادار.", exc)
 
     try:
         run = (await db.execute(select(RadarRun).order_by(RadarRun.started_at.desc()).limit(1))).scalars().first()
