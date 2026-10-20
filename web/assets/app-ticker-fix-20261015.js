@@ -1363,7 +1363,1855 @@ function stockCard(x){
  const statusBadge=displayStatus==='confirmed'?'<i class="radar-stock-status is-confirmed">فرصة مؤكدة</i>':(displayStatus==='preliminary'?'<i class="radar-stock-status is-watch">مرشح مبدئي</i>':'<i class="radar-stock-status is-watch">تحت المراقبة</i>');
  const classificationRow='<div class="sas-radar-classification" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0;padding:8px 10px;border:1px solid rgba(37,203,231,.22);border-radius:10px;background:rgba(5,65,83,.22);font-size:12px"><span style="color:#8fbac6">تصنيف الرصد:</span><b style="color:#52dff5">'+(momentumLabel?escHtml(momentumLabel):'قيد التحديد')+'</b><span style="margin-inline-start:auto;color:#b8dce4">'+(displayStatus==='confirmed'?'اجتاز شروط التأكيد':displayStatus==='preliminary'?'قيد التحقق الفني':'تحت المراقبة')+'</span></div>';
  return '<article class="stock-card '+(displayStatus==='watch'?'radar-watch-card':'radar-confirmed-card')+'"><div class="stock-head"><div><b>'+s+'</b><small>'+statusBadge+' '+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • رُصد: '+formatDateTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+classificationRow+
-  ''<div class="sas-card-price-trend">'+sasCandlestickMiniChart(x)+'<strong>$'+money(price)+'</strong></div>'+\n '<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
+  '<div class="sas-card-price-trend">'+sasCandlestickMiniChart(x)+'<strong>'<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
+ '<div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div>'+
+ '<div class="stock-gates">'+gate(gates.sas_core!==false,'SAS Core')+gate(gates.liquidity!==false,'السيولة')+gate(gates.target!==false,'الهدف')+gate(gates.live_levels!==false,'المستويات')+'</div>'+
+ ' <button type="button" title="اضغط للتحقق من شرعية السهم" aria-label="تحقق من شرعية '+s+'" class="stock-shariah stock-shariah-action '+shClass+'" style="min-height:30px;padding:5px 8px;gap:6px" onclick="event.stopPropagation();openShariah(\''+raw+'\')"><span class="stock-shariah-icon-label"><span class="stock-shariah-icon" aria-hidden="true">🕌</span><b>تحقق الشرعية</b></span><strong style="font-size:10px">'+(shClass==='sh-unknown'?'تحقق':escHtml(shLabel))+'</strong></button>'+
+
+ '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+'<span>'+catalystLabel+(catalyst>0?' '+catalyst+'/100':'')+'</span>'+'</div>'+
+ perpContext+
+ '<div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||cls.reason||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div>'+
+ '<div class="stock-actions stock-card-actions"><button class="stock-chart-action" onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">🔍 تحليل السهم</button></div><footer class="sas-card-copyright">SAS PRO RADAR · © جميع الحقوق محفوظة · معلومات تعليمية وليست توصية استثمارية</footer></article>';
+}
+
+
+
+
+
+function showOpportunityCardModal(blob,file,symbol){
+  const old=document.getElementById('sasOpportunityCardModal');if(old)old.remove();
+  const url=URL.createObjectURL(blob);
+  const modal=document.createElement('div');modal.id='sasOpportunityCardModal';modal.className='sas-card-modal';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');modal.setAttribute('aria-label','مشاركة أو حفظ بطاقة السهم');
+  modal.innerHTML='<div class="sas-card-modal-panel"><button type="button" class="sas-card-modal-close" aria-label="إغلاق">×</button><h3>بطاقة '+String(symbol).replace(/[<>&"]/g,'')+'</h3><p>اختر مشاركة البطاقة أو حفظها في جهازك</p><img class="sas-card-preview" alt="معاينة بطاقة السهم"><div class="sas-card-modal-actions"><button type="button" class="sas-card-modal-share">↗ مشاركة الصورة</button><button type="button" class="sas-card-modal-download">▣ حفظ في الجهاز</button></div><p class="sas-card-modal-status" role="status" aria-live="polite">إذا ما فتح الحفظ، افتح الصورة واضغط عليها مطولًا للحفظ أو المشاركة.</p><small>SAS PRO RADAR · معلومات تعليمية وليست توصية استثمارية</small></div>';
+  const preview=modal.querySelector('.sas-card-preview');
+  const status=modal.querySelector('.sas-card-modal-status');
+  const shareBtn=modal.querySelector('.sas-card-modal-share');
+  const saveBtn=modal.querySelector('.sas-card-modal-download');
+  preview.src=url;
+  preview.tabIndex=0;
+  preview.style.cursor='zoom-in';
+  const openImage=()=>{
+    // Open the generated image directly so mobile WebViews can use their native
+    // long-press Save/Share actions when download/share APIs are unavailable.
+    const win=window.open(url,'_blank');
+    if(!win){
+      preview.style.maxHeight='none';
+      preview.style.width='100%';
+      status.textContent='الصورة ظاهرة أعلاه. اضغط عليها مطولًا ثم اختر حفظ الصورة أو مشاركتها.';
+    }else{
+      status.textContent='فتحت الصورة في صفحة مستقلة؛ اضغط عليها مطولًا للحفظ أو المشاركة.';
+    }
+  };
+  const close=()=>{modal.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);};
+  modal.querySelector('.sas-card-modal-close').addEventListener('click',close);
+  modal.addEventListener('click',e=>{if(e.target===modal)close();});
+  preview.addEventListener('click',openImage);
+  preview.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openImage();}});
+  saveBtn.addEventListener('click',()=>{
+    try{
+      const a=document.createElement('a');
+      a.href=url;a.download=file.name||('SAS-PRO-'+symbol+'.png');
+      a.style.display='none';document.body.appendChild(a);a.click();a.remove();
+      status.textContent='إذا لم يبدأ التنزيل، اضغط على معاينة الصورة مطولًا واختر حفظ الصورة.';
+      // WebViews often ignore the download attribute; provide a user-gesture fallback.
+      setTimeout(()=>{if(document.getElementById('sasOpportunityCardModal')){status.textContent='إذا ما نزلت الصورة تلقائيًا، اضغط على المعاينة مطولًا للحفظ أو افتحها من زر المشاركة.';}},900);
+    }catch(e){
+      status.textContent='تعذر التنزيل التلقائي. افتح الصورة بالضغط على المعاينة ثم احفظها من جهازك.';
+    }
+  });
+  shareBtn.addEventListener('click',async()=>{
+    shareBtn.disabled=true;
+    try{
+      if(navigator.share&&typeof File!=='undefined'){
+        const shareFile=new File([blob],file.name||('SAS-PRO-'+symbol+'.png'),{type:'image/png'});
+        if(!navigator.canShare||navigator.canShare({files:[shareFile]})){
+          await navigator.share({title:'SAS PRO — '+symbol,text:'بطاقة سهم من رادار SAS PRO. ليست توصية شراء أو بيع.',files:[shareFile]});
+          status.textContent='تم فتح خيارات المشاركة.';
+          return;
+        }
+      }
+      status.textContent='المشاركة المباشرة غير مدعومة في نافذة التطبيق. افتح الصورة بالضغط على المعاينة ثم شاركها من جهازك.';
+      openImage();
+    }catch(e){
+      if(e?.name!=='AbortError'){
+        status.textContent='تعذرت المشاركة المباشرة. اضغط على معاينة الصورة مطولًا ثم اختر مشاركة.';
+        openImage();
+      }
+    }finally{shareBtn.disabled=false;}
+  });
+  document.body.appendChild(modal);
+}
+function downloadOpportunityImage(blob,filename){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename; a.style.display='none';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}
+async function shareOpportunityCard(card,symbol,downloadOnly=false){
+ if(!card){showActionNotice('radar','تعذر تحديد بطاقة السهم. حدّث الصفحة وجرب مرة ثانية.');return;}
+ const btns=card.querySelectorAll('.stock-card-actions button');btns.forEach(b=>b.disabled=true);
+ try{
+  const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1350;
+  const ctx=canvas.getContext('2d');if(!ctx)throw new Error('تعذر تجهيز صورة البطاقة.');
+  const bg=ctx.createLinearGradient(0,0,1080,1350);bg.addColorStop(0,'#061d2d');bg.addColorStop(.58,'#03111d');bg.addColorStop(1,'#061a29');ctx.fillStyle=bg;ctx.fillRect(0,0,1080,1350);
+  ctx.strokeStyle='rgba(66,210,245,.55)';ctx.lineWidth=3;ctx.beginPath();ctx.roundRect(28,28,1024,1294,38);ctx.stroke();
+  const glow=ctx.createRadialGradient(920,120,10,920,120,420);glow.addColorStop(0,'rgba(0,183,230,.18)');glow.addColorStop(1,'rgba(0,183,230,0)');ctx.fillStyle=glow;ctx.fillRect(0,0,1080,600);
+  const rtl=(text,x,y,size,color,weight='500')=>{ctx.font=weight+' '+size+'px Arial, sans-serif';ctx.fillStyle=color;ctx.textAlign='right';ctx.direction='rtl';ctx.fillText(String(text||''),x,y,920);};
+  const ltr=(text,x,y,size,color,weight='700')=>{ctx.font=weight+' '+size+'px Arial, sans-serif';ctx.fillStyle=color;ctx.textAlign='left';ctx.direction='ltr';ctx.fillText(String(text||''),x,y,920);};
+  ltr('SAS PRO RADAR',72,100,29,'#55dffb','700');rtl('بطاقة فرصة مرصودة',1000,165,43,'#eaf8ff','700');ltr(symbol,72,230,52,'#f2fbff','700');
+  const status=card.querySelector('.radar-stock-status')?.textContent||'تحت المراقبة';rtl(status,1000,230,27,status.includes('مؤكدة')?'#65e9b5':'#ffd27b','700');
+  const price=card.querySelector(':scope > strong')?.textContent||'السعر غير متاح';ltr(price,72,325,58,'#66e4b8','700');
+  const change=card.querySelector('.stock-head > span')?.textContent||'';ltr(change,72,380,30,change.includes('-')?'#ff7d91':'#67e6b8','700');
+  const levelEls=[...card.querySelectorAll('.stock-levels span')].map(e=>e.innerText.replace(/\s+/g,' ').trim());
+  const box=(x,y,w,h,label,value)=>{ctx.fillStyle='rgba(3,15,26,.86)';ctx.strokeStyle='rgba(65,151,183,.28)';ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(x,y,w,h,22);ctx.fill();ctx.stroke();ctx.textAlign='center';ctx.direction='rtl';ctx.fillStyle='#91adbf';ctx.font='500 25px Arial';ctx.fillText(label,x+w/2,y+42);ctx.fillStyle='#f0fbff';ctx.font='700 31px Arial';ctx.direction='ltr';ctx.fillText(value,x+w/2,y+91);};
+  [['دخول',levelEls.find(x=>x.includes('دخول'))],['وقف',levelEls.find(x=>x.includes('وقف'))],['الهدف',levelEls.find(x=>x.includes('هدف'))]].forEach((a,i)=>box(65+i*320,420,290,118,a[0],(a[1]||'—').split(' ').slice(-1)[0]));
+  const meta=[...card.querySelectorAll('.stock-meta span')].map(e=>e.innerText.replace(/\s+/g,' ').trim());rtl(meta.join('     •     '),1000,600,26,'#b3cbd9','500');
+  const sh=card.querySelector('.stock-shariah');ctx.fillStyle='rgba(52,42,16,.35)';ctx.strokeStyle='rgba(227,190,94,.82)';ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(65,650,950,105,20);ctx.fill();ctx.stroke();rtl('🕌 تحقق من الشرعية',980,692,28,'#f1d58b','700');rtl(sh?.innerText?.replace(/\s+/g,' ').trim()||'غير واضح / يحتاج تحقق — تحقق داخل SAS PRO',980,735,23,'#f5d989','500');
+  const gates=[...card.querySelectorAll('.stock-gates i')].map(e=>e.innerText.replace(/\s+/g,' ').trim());rtl(gates.join('     •     '),1000,825,25,'#82e8c1','500');
+  const summary=card.querySelector('.stock-ai')?.innerText||'';rtl(summary,1000,920,27,'#c6d8e5','500');
+  ctx.strokeStyle='rgba(55,177,207,.25)';ctx.beginPath();ctx.moveTo(65,1132);ctx.lineTo(1015,1132);ctx.stroke();rtl('SAS PRO • رادار الأسهم الأمريكية',1000,1180,26,'#5cddf8','700');rtl('© جميع الحقوق محفوظة',1000,1223,22,'#9ab1c1','500');rtl('معلومات تعليمية وليست توصية شراء أو بيع',1000,1262,20,'#9ab1c1','500');
+  const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('تعذر إنشاء صورة البطاقة.')),'image/png'));
+  const file=new File([blob],'SAS-PRO-'+symbol+'.png',{type:'image/png'});
+  showOpportunityCardModal(blob,file,symbol);
+ }catch(e){if(e?.name!=='AbortError')showActionNotice('radar',e?.message||'تعذر إنشاء البطاقة.');}
+ finally{btns.forEach(b=>b.disabled=false);}
+}
+
+function openSymbol(symbol,focusChart=false){document.getElementById('symbolSearch').value=symbol;switchTerminalTab('search');analyzeSymbol().then(()=>{if(focusChart){const detail=document.getElementById('symbolResult');const chart=detail?.querySelector('.chart-title')||detail?.querySelector('canvas')||detail?.querySelector('.quote-line');if(chart){chart.scrollIntoView({behavior:'smooth',block:'start'});chart.classList.add('chart-focus');setTimeout(()=>chart.classList.remove('chart-focus'),1800);}}});}
+function openShariah(symbol){const input=document.getElementById('symbolSearch');if(input)input.value=String(symbol||'').toUpperCase();switchTerminalTab('search');const result=document.getElementById('shariahSearchResult');if(result)result.hidden=false;searchShariah();setTimeout(()=>{const target=document.getElementById('shariahSearchResult');target?.scrollIntoView({behavior:'smooth',block:'center'});},120);}
+async function searchShariah(){
+ const actionBtn=document.getElementById('shariahSearchBtn');
+ if(actionBtn?.disabled)return;
+ const input=document.getElementById('symbolSearch');
+ const symbol=(input.value||'').trim().toUpperCase().replace(/[^A-Z.\-]/g,'');
+ const el=document.getElementById('shariahSearchResult');
+ if(!el)return;
+ if(!symbol){
+  el.hidden=false;
+  el.innerHTML='<div class="shariah-search-card sh-unknown"><b>🕌 بحث الشرعية</b><p>اكتب رمز السهم أولًا، مثل <b>AAPL</b> أو <b>HTZ</b>.</p></div>';
+  return;
+ }
+ if(actionBtn){actionBtn.disabled=true;actionBtn.classList.add('is-searching');actionBtn.setAttribute('aria-busy','true');}
+ el.hidden=false;
+ el.innerHTML='<div class="shariah-search-card sh-unknown"><b>🕌 بحث الشرعية — '+escHtml(symbol)+'</b><p>⏳ جاري التحقق من النتيجة المنشورة...</p></div>';
+ try{
+  const result=await api('/api/stocks/'+encodeURIComponent(symbol)+'/shariah',{timeoutMs:12000});
+  const status=result?.status;
+  const label=result?.status_ar||'غير واضح / يحتاج تحقق';
+  const cls=status==='compliant'||status==='halal'?'sh-ok':(status==='non_compliant'||status==='haram'?'sh-bad':'sh-unknown');
+  const icon=cls==='sh-ok'?'🟢':(cls==='sh-bad'?'🔴':'🟡');
+  const sources=Array.isArray(result?.sources)?result.sources:[];
+  const sourceLines=sources.length?sources.map(src=>{
+   if(!src||typeof src!=='object')return '';
+   const sourceName=String(src.source||'مصدر');
+   const sourceGlyph=sourceName==='مصرف الراجحي'?'🏦':(sourceName==='بنك البلاد'?'🏛️':(sourceName==='يقين'?'🔎':'◎'));
+   const name='<span class="shariah-source-identity"><span class="shariah-source-brand-icon" aria-hidden="true">'+sourceGlyph+'</span><b>'+escHtml(sourceName)+'</b></span>';
+   const statusText=escHtml(src.status_ar||'غير واضح / يحتاج تحقق');
+   let meaning='';
+   if(src.source==='يقين') meaning=src.verified?'نتيجة منشورة مباشرة للسهم.':'لم تظهر نتيجة مباشرة موثقة.';
+   else meaning=src.verified?'نتيجة مباشرة موثقة.':'لا توجد نتيجة مباشرة موثقة.';
+   const sourceState=String(src.status||'').toLowerCase();
+   const sourceClass=(sourceState==='compliant'||sourceState==='halal')?'source-ok':((sourceState==='non_compliant'||sourceState==='haram')?'source-bad':'source-unknown');
+   const sourceIcon=sourceClass==='source-ok'?'✓':(sourceClass==='source-bad'?'×':'?');
+   return '<div class="shariah-source-row '+sourceClass+'"><span class="shariah-source-description">'+name+'<small>'+escHtml(meaning)+'</small></span><b class="shariah-source-status"><i aria-hidden="true">'+sourceIcon+'</i>'+statusText+'</b></div>';
+  }).filter(Boolean).join(''):'<div class="shariah-source-row"><span>المصادر</span><b>لا توجد نتيجة موثقة كافية</b></div>';
+  const isDoubtful=status==='doubtful'||status==='questionable';
+  const statusTitle=isDoubtful?'محل نظر بحسب المصدر المنشور':(cls==='sh-ok'?'متوافق بحسب النتيجة المنشورة':(cls==='sh-bad'?'غير متوافق بحسب النتيجة المنشورة':'غير واضح / يحتاج تحقق'));
+  const statusIcon=cls==='sh-ok'?'✓':(cls==='sh-bad'?'×':(isDoubtful?'!':'?'));
+  const statusExplanation=isDoubtful?(result?.message||'المصدر المباشر يصنف السهم «محل نظر»؛ هذه ليست موافقة شرعية. راجع تفاصيل المصدر وتاريخ التحديث.'):(cls==='sh-unknown'?'لم تتوفر نتيجة مباشرة موثقة أو توجد معلومات غير كافية. لن نخمن الحكم الشرعي.':(result?.reason||result?.message||'الحالة بحسب المصدر المنشور؛ راجع تفاصيل المصادر أدناه.'));
+  el.innerHTML='<div class="shariah-search-card shariah-review '+cls+'">'+
+   '<div class="shariah-review-hero">'+
+    '<div class="shariah-emblem '+cls+'" aria-hidden="true"><span class="shariah-emblem-mark">'+statusIcon+'</span><span class="shariah-emblem-caption">SAS PRO</span></div>'+
+    '<div class="shariah-verdict"><span class="shariah-eyebrow">التحقق من شرعية السهم</span><h3 dir="ltr">'+escHtml(symbol)+'</h3><div class="shariah-verdict-state '+cls+'"><span aria-hidden="true">'+statusIcon+'</span>'+escHtml(statusTitle)+'</div><p>'+escHtml(statusExplanation)+'</p></div>'+
+   '</div>'+
+   '<div class="shariah-review-section-title"><b>مصدر التحقق</b><span>'+sources.length+' مصدر</span></div>'+
+   '<div class="shariah-source-list">'+sourceLines+'</div>'+
+   (result?.updated_at?'<div class="shariah-updated">◷ آخر تحديث منشور: '+escHtml(result.updated_at)+'</div>':'')+
+   '<div class="shariah-review-warning"><b>⚠ تنبيه مهم</b><p>⚠️ مشروعية السهم أنت كمتداول مسؤول عنها. ابحث واجتهد وتوكل على الله.</p></div>'+
+   '<a class="secondary-btn shariah-search-btn shariah-search-btn-pro shariah-search-btn-below shariah-result-bot-link" style="display:flex;width:100%;margin-top:12px;text-decoration:none" href="https://t.me/sharia_stock_bot" target="_blank" rel="noopener noreferrer" aria-label="لمزيد من التحقق من الشرعية وحاسبة التطهير"><span class="shariah-search-btn-orbit" aria-hidden="true"><span class="shariah-search-btn-icon">↗</span></span><span class="shariah-search-btn-copy"><b>لمزيد من التحقق من الشرعية وحاسبة التطهير</b><small>فتح بوت الشرعية في تيليجرام</small></span><span class="shariah-search-btn-arrow" aria-hidden="true">↗</span></a>'+
+   '</div>';
+ }catch(e){
+  el.innerHTML='<div class="shariah-search-card sh-unknown shariah-error-card" role="status" aria-live="polite"><div class="shariah-error-icon" aria-hidden="true">⚠</div><b>تعذر الاتصال بمصدر التحقق</b><p>لم تصلنا نتيجة موثقة الآن. جرّب إعادة الفحص؛ لن نخمن الحكم الشرعي.</p><button type="button" class="shariah-retry-btn" onclick="searchShariah()" aria-label="إعادة التحقق من شرعية السهم"><span aria-hidden="true">↻</span> إعادة التحقق الآن</button></div>';
+ }finally{
+  if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-searching');actionBtn.removeAttribute('aria-busy');}
+ }
+}
+
+let stockAnalysisLoaderTimer=null;
+let stockAnalysisStartedAt=0;
+function stopStockAnalysisLoader(){
+ if(stockAnalysisLoaderTimer){clearInterval(stockAnalysisLoaderTimer);stockAnalysisLoaderTimer=null;}
+}
+function startStockAnalysisLoader(el,symbol){
+ stopStockAnalysisLoader();
+ stockAnalysisStartedAt=Date.now();
+ const stages=[
+  {title:'نجهّز بيانات السعر والسيولة',detail:'نجمع أحدث البيانات المتاحة للسهم.'},
+  {title:'نفحص الرسم والحركة الفنية',detail:'نراجع الشموع والاتجاه والمستويات.'},
+  {title:'نرتّب الأخبار ذات الصلة',detail:'نجهّز الأخبار والملخصات المتاحة.'},
+  {title:'نراجع النتائج قبل العرض',detail:'نتأكد من وضوح البيانات وعدم تخمين القيم.'}
+ ];
+ el.innerHTML='<section class="stock-analysis-loader" role="status" aria-live="polite" aria-label="جاري تحليل السهم">'+
+  '<div class="sal-loader-top"><div class="sal-orbit" aria-hidden="true"><span>📡</span></div><div class="sal-loader-title"><span class="eyebrow">SAS PRO • SMART ANALYSIS</span><b>يجري تحليل <strong>'+escHtml(symbol)+'</strong></b><small>لحظات ونرتّب لك الصورة بشكل واضح</small></div></div>'+
+  '<div class="sal-progress-head"><span id="salStageTitle">'+stages[0].title+'</span><b id="salProgressPct">08%</b></div>'+
+  '<div class="sal-progress-track"><span id="salProgressFill"></span></div>'+
+  '<div class="sal-loader-meta"><span id="salStageDetail">'+stages[0].detail+'</span><span class="sal-timer">⏱ <b id="salElapsed">00:00</b></span></div>'+
+  '<div class="sal-steps"><span class="sal-step active"><i>1</i> السعر</span><span class="sal-step"><i>2</i> الفني</span><span class="sal-step"><i>3</i> الأخبار</span><span class="sal-step"><i>4</i> النتيجة</span></div>'+
+  '<div class="sal-loader-tip"><span>💡</span><span id="salTip">نستخدم البيانات المتاحة فقط؛ لن نخمن سعرًا أو هدفًا غير موثّق.</span></div>'+
+  '</section>';
+ let tick=0;
+ stockAnalysisLoaderTimer=setInterval(()=>{
+  tick++;
+  const elapsed=Math.floor((Date.now()-stockAnalysisStartedAt)/1000);
+  const pct=Math.min(92,8+Math.floor(84*(1-Math.exp(-tick/10))));
+  const stageIndex=Math.min(stages.length-1,Math.floor(tick/4));
+  const elapsedNode=el.querySelector('#salElapsed');
+  const pctNode=el.querySelector('#salProgressPct');
+  const fill=el.querySelector('#salProgressFill');
+  const title=el.querySelector('#salStageTitle');
+  const detail=el.querySelector('#salStageDetail');
+  if(!elapsedNode||!pctNode||!fill||!title||!detail){stopStockAnalysisLoader();return;}
+  elapsedNode.textContent=String(Math.floor(elapsed/60)).padStart(2,'0')+':'+String(elapsed%60).padStart(2,'0');
+  pctNode.textContent=String(pct).padStart(2,'0')+'%';
+  fill.style.width=pct+'%';
+  title.textContent=stages[stageIndex].title;
+  detail.textContent=elapsed>=18?'ما زلنا ننتظر اكتمال البيانات من المصادر…':stages[stageIndex].detail;
+  el.querySelectorAll('.sal-step').forEach((node,index)=>node.classList.toggle('active',index<=stageIndex));
+  const tip=el.querySelector('#salTip');
+  if(tip&&elapsed>=12)tip.textContent='قد يختلف وقت التحليل حسب استجابة مصادر البيانات، ولا يعني الانتظار وجود فرصة تداول.';
+ },1000);
+}
+
+function mountPerpEquitiesAnalysis(root,data,symbol){
+ const host=root?.querySelector('#perpEquitiesAnalysis');if(!host)return;
+ const panel=document.createElement('section');panel.className='perp-analysis-panel';
+ const heading=document.createElement('div');heading.className='perp-analysis-heading';
+ const title=document.createElement('div');title.innerHTML='<span class="eyebrow">PERPEQUITIES · LIVE CONTEXT</span><b>📊 شارت وتحليل السهم من المصدر</b>';heading.appendChild(title);
+ if(me?.admin){const link=document.createElement('a');link.className='perp-analysis-open';link.href=safeNewsUrl(data?.chart_url||data?.source_url)||'https://perpequities.com/ar';link.target='_blank';link.rel='noopener noreferrer';link.textContent='فتح الشارت والتحليل الكامل ↗';heading.appendChild(link);}panel.appendChild(heading);
+ if(!data?.available){const msg=document.createElement('p');msg.className='perp-analysis-empty';msg.textContent=data?.message_ar||'بيانات المصدر غير متاحة الآن.';panel.appendChild(msg);host.appendChild(panel);return;}
+ const money=v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))?'$'+Number(v).toLocaleString('en-US',{maximumFractionDigits:4}):'—';
+ const pct=v=>v!==null&&v!==undefined&&Number.isFinite(Number(v))?(Number(v)>=0?'+':'')+(Number(v)*100).toFixed(2)+'%':'—';
+ const metrics=[['السعر المرجعي للعقد',money(data.reference_price)],['التغير 24 ساعة',pct(data.change_24h_fraction)],['التغير 7 أيام',pct(data.change_7d_fraction)],['حجم العقود 24 ساعة',money(data.volume_24h_usd)],['العقود المفتوحة',money(data.open_interest_usd)],['الأسواق الحية',String(data.fresh_live_markets??data.live_markets??'—')]];
+ const grid=document.createElement('div');grid.className='perp-analysis-metrics';metrics.forEach(([label,value])=>{const card=document.createElement('div');card.className='perp-analysis-metric';const small=document.createElement('small');small.textContent=label;const strong=document.createElement('b');strong.textContent=value;card.append(small,strong);grid.appendChild(card);});panel.appendChild(grid);
+ const venues=document.createElement('div');venues.className='perp-analysis-venues';const names=Array.isArray(data.venues)?data.venues.slice(0,5).map(v=>v.venue).filter(Boolean).join(' · '):'';const venueLine=document.createElement('small');venueLine.textContent='المنصات: '+(names||'غير متاحة');venues.appendChild(venueLine);const updateLine=document.createElement('small');const time=data.market_data_at?new Date(data.market_data_at):null;updateLine.textContent='آخر بيانات المصدر: '+(time&&Number.isFinite(time.getTime())?new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',hour12:true}).format(time)+' بتوقيت الرياض':'غير متاح');venues.appendChild(updateLine);panel.appendChild(venues);
+ const chartUrl=safeNewsUrl(data?.chart_url||data?.source_url)||'https://perpequities.com/ar';
+ const embedTitle=document.createElement('div');embedTitle.className='perp-embed-title';embedTitle.innerHTML='<b>الشارت التفاعلي الأصلي</b><span>1D · 7D · 30D · 90D · All</span>';panel.appendChild(embedTitle);
+ // PerpEquities may block embedding with X-Frame-Options/CSP (ERR_BLOCKED_BY_RESPONSE).
+ // Avoid a broken black iframe; open the provider directly while keeping SAS metrics visible.
+ const externalCard=document.createElement('div');externalCard.className='perp-external-card';
+ const externalMessage=document.createElement('p');externalMessage.className='perp-analysis-empty';
+ externalMessage.textContent='المصدر يمنع عرض الشارت داخل التطبيق. بيانات العقود أعلاه متاحة هنا، ويمكن فتح الشارت الأصلي مباشرة.';
+ externalCard.appendChild(externalMessage);
+ const externalLink=document.createElement('a');externalLink.className='perp-analysis-open';externalLink.href=chartUrl;externalLink.target='_blank';externalLink.rel='noopener noreferrer';externalLink.textContent='فتح الشارت الأصلي في صفحة مستقلة ↗';externalCard.appendChild(externalLink);panel.appendChild(externalCard);
+ const note=document.createElement('p');note.className='perp-analysis-disclaimer';note.textContent='بيانات العقود الدائمة قد تختلف عن سعر السهم الفوري. مصدر البيانات: PerpEquities. البيانات للمعلومات فقط وليست توصية تداول.';panel.appendChild(note);host.appendChild(panel);
+}
+
+function renderAvailableLevelPanel(title,subtitle,fields){
+ const available=(Array.isArray(fields)?fields:[]).filter(([,value])=>value!==null&&value!==undefined&&String(value).trim()!==''&&!['غير متاح','غير متاحة','—','-','NaN','undefined'].includes(String(value).trim()));
+ if(!available.length)return '';
+ return '<section class="sas-terminal-panel" id="sasTerminalLevels"><div class="sas-terminal-section-title"><span>⌖</span><div><b>'+escHtml(title)+'</b><small>'+escHtml(subtitle)+'</small></div></div><div class="level-grid">'+available.map(([label,value])=>'<div><small>'+escHtml(label)+'</small><b>'+escHtml(value)+'</b></div>').join('')+'</div></section>';
+}
+function mountSASTradingViewChart(root,symbol,exchange){
+ const host=root&&root.querySelector('#sasTradingViewChart');
+ if(!host||host.dataset.mounted==='1')return;
+ const ticker=String(symbol||'').trim().toUpperCase();
+ if(!ticker)return;
+ const venue=String(exchange||'').trim().toUpperCase();
+ let prefix='';
+ if(/NASDAQ/.test(venue))prefix='NASDAQ:';
+ else if(/NYSE AMERICAN|NYSEAMERICAN|AMEX|AMERICAN STOCK EXCHANGE/.test(venue))prefix='AMEX:';
+ else if(/NYSE|NEW YORK STOCK/.test(venue))prefix='NYSE:';
+ else if(/ARCA/.test(venue))prefix='AMEX:';
+ const tvSymbol=prefix?(ticker.includes(':')?ticker:prefix+ticker):ticker;
+ host.dataset.mounted='1';
+ const container=document.createElement('div');
+ container.className='tradingview-widget-container sas-tv-widget-container';
+ container.style.width='100%';
+ container.style.height='100%';
+ const widget=document.createElement('div');
+ widget.className='tradingview-widget-container__widget';
+ widget.style.width='100%';
+ widget.style.height='calc(100% - 24px)';
+ container.appendChild(widget);
+ const script=document.createElement('script');
+ script.type='text/javascript';
+ script.src='https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+ script.async=true;
+ script.textContent=JSON.stringify({
+  autosize:true,symbol:tvSymbol,interval:'15',timezone:'Asia/Riyadh',
+  theme:'dark',style:'1',locale:'ar',allow_symbol_change:true,
+  calendar:false,details:true,hotlist:false,hide_side_toolbar:false,
+  hide_top_toolbar:false,hide_legend:false,hide_volume:false,
+  save_image:false,withdateranges:true,show_popup_button:true,
+  popup_width:'1000',popup_height:'650',
+  studies:['STD;RSI','STD;MACD','STD;BB'],
+  support_host:'https://www.tradingview.com'
+ });
+ script.onerror=()=>{
+  host.dataset.mounted='error';
+  const fallback=document.createElement('div');
+  fallback.className='sas-tv-chart-fallback';
+  fallback.setAttribute('role','status');
+  const message=document.createElement('p');
+  message.textContent='تعذر تحميل شارت TradingView داخل التطبيق. يمكنك فتح الشارت مباشرة؛ وتبقى بيانات SAS PRO مستقلة.';
+  const link=document.createElement('a');
+  link.href='https://www.tradingview.com/chart/?symbol='+encodeURIComponent(tvSymbol);
+  link.target='_blank';link.rel='noopener noreferrer';
+  link.textContent='فتح الشارت في TradingView ↗';
+  fallback.append(message,link);
+  host.replaceChildren(fallback);
+ };
+ container.appendChild(script);
+ host.replaceChildren(container);
+}
+function renderStockTerminalQuickMetrics(classification,targets,mini){
+ const c=classification&&typeof classification==='object'?classification:{},t=targets&&typeof targets==='object'?targets:{},m=mini&&typeof mini==='object'?mini:{};
+ const nested=c.indicators&&typeof c.indicators==='object'?c.indicators:{},ind=t.indicators&&typeof t.indicators==='object'?t.indicators:{};
+ const pick=(...v)=>v.find(x=>x!==null&&x!==undefined&&x!==''&&Number.isFinite(Number(x)));
+ const fmt=(v,d=2)=>{const n=Number(v);return v===undefined||v===null||v===''||!Number.isFinite(n)?null:n.toFixed(d);};
+ const rsi=fmt(pick(c.rsi14,nested.rsi14,ind.rsi14));
+ const rvol=fmt(pick(m.rvol,c.rvol,nested.rvol,ind.rvol));
+ const atrValue=pick(c.atr14,c.atr,nested.atr14,ind.atr14,t.atr14);
+ const atr=atrValue!==undefined&&Number(atrValue)>0?'$'+money(atrValue):null;
+ const data=[
+  {label:'الزخم (RSI 14)',value:rsi,tone:'violet',note:'مؤشر القوة النسبية'},
+  {label:'السيولة (RVOL)',value:rvol===null?null:rvol+'×',tone:'green',note:'الحجم النسبي'},
+  {label:'التقلب (ATR 14)',value:atr,tone:'blue',note:'متوسط المدى الحقيقي'}
+ ].filter(x=>x.value!==null&&x.value!==undefined&&x.value!=='');
+ if(!data.length)return '';
+ return '<div class="sas-terminal-metrics" id="sasTerminalMetrics">'+data.map(x=>'<article class="sas-terminal-metric '+x.tone+'"><div class="sas-terminal-metric-icon">'+(x.tone==='violet'?'◉':x.tone==='green'?'▥':'∿')+'</div><div><small>'+x.label+'</small><strong>'+x.value+'</strong><span>'+x.note+'</span></div></article>').join('')+'</div>';
+}
+function renderStockTerminalAverages(classification,targets){
+ const c=classification&&typeof classification==='object'?classification:{},t=targets&&typeof targets==='object'?targets:{};
+ const nested=c.indicators&&typeof c.indicators==='object'?c.indicators:{},ind=t.indicators&&typeof t.indicators==='object'?t.indicators:{};
+ const pick=(...v)=>v.find(x=>x!==null&&x!==undefined&&x!==''&&Number.isFinite(Number(x))&&Number(x)>0);
+ const rows=[['MA 20',pick(c.ma20,c.sma20,nested.ma20,nested.sma20,ind.ma20,ind.sma20)],['MA 50',pick(c.ma50,c.sma50,nested.ma50,nested.sma50,ind.ma50,ind.sma50)],['MA 100',pick(c.ma100,c.sma100,nested.ma100,nested.sma100,ind.ma100,ind.sma100)],['MA 200',pick(c.ma200,c.sma200,nested.ma200,nested.sma200,ind.ma200,ind.sma200)]].filter(([,value])=>value!==undefined&&value!==null&&Number.isFinite(Number(value))&&Number(value)>0);
+ if(!rows.length)return '';
+ return '<section class="sas-terminal-panel" id="sasMovingAverages"><div class="sas-terminal-section-title"><span>▥</span><div><b>المتوسطات المتحركة</b><small>القيم الفعلية المستلمة من مصدر التحليل</small></div></div><div class="sas-terminal-averages">'+rows.map(([label,value])=>'<div><small>'+label+'</small><strong>$'+money(value)+'</strong><span>قيمة فعلية</span></div>').join('')+'</div></section>';
+}
+function toggleSasQualityDetails(id,button){const p=document.getElementById(id);if(!p)return;const opening=p.hidden;p.hidden=!opening;if(button){button.setAttribute('aria-expanded',String(opening));button.textContent=opening?'إخفاء تفاصيل التقييم':'عرض تفاصيل التقييم';}}
+function renderSasQualityPanel(classification,tech,quote,entry,stop,target1,rr){
+ const c=classification&&typeof classification==='object'?classification:{},t=tech&&typeof tech==='object'?tech:{};
+ const plan=c.conditional_plan&&typeof c.conditional_plan==='object'?c.conditional_plan:(t.conditional_plan&&typeof t.conditional_plan==='object'?t.conditional_plan:{});
+ const num=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))?Number(v):null;
+ const level=v=>{const n=num(v);return n!==null&&n>0?'$'+money(n):'غير متاح من البيانات';};
+ const price=num(quote?.price),score=num(c.quality_score)??num(c.score)??num(t.quality_score)??num(t.score);
+ const rs=num(c.stars)??num(t.stars),stars=Math.max(0,Math.min(5,Math.round(rs!==null?rs:(score!==null?score/20:0))));
+ const starText='★'.repeat(stars)+'☆'.repeat(5-stars),riskScore=num(c.risk_score)??num(t.risk_score),riskLevel=String(c.risk_level||t.risk_level||'');
+ const chase=Boolean(c.chase_risk||t.chase_risk),change=num(quote?.change_pct),dist=num(c.distance_from_ema20_pct)??num(t.distance_from_ema20_pct);
+ const trigger=num(plan.trigger_level)??num(c.breakout_level)??num(t.breakout_level),stopVal=num(plan.stop_loss)??num(stop)??num(t.stop_loss),targetOne=num(plan.target_1)??num(target1),targetTwo=num(plan.target_2)??num(t.target_2);
+ const overextended=chase||(change!==null&&change>=10)||(dist!==null&&dist>=8)||(price!==null&&trigger!==null&&trigger>0&&price>trigger*1.03);
+ let risk='moderate',riskLabel='متوسط الخطورة',riskIcon='🟠',riskCopy='راقب السيولة والتذبذب قبل اتخاذ أي قرار';
+ if(overextended||(riskScore!==null&&riskScore>=70)||/مرتفع|عالي|high|extreme/i.test(riskLevel)){risk='high';riskLabel=overextended?'خطر مطاردة السعر مرتفع':'خطورة مرتفعة';riskIcon='🔴';riskCopy=overextended?'السعر قد يكون تجاوز منطقة الدخول المناسبة؛ لا تطارد الحركة. انتظر تراجعًا أو إعادة اختبار مؤكدة.':'تذبذب أو مخاطر مرتفعة؛ راقب إبطال السيناريو وحدد المخاطرة مسبقًا.';}
+ else if(riskScore!==null&&riskScore<=35&&!chase&&!/مرتفع|عالي|high|extreme/i.test(riskLevel)){risk='low';riskLabel='خطورة أقل نسبيًا';riskIcon='🟢';riskCopy='الخطورة النسبية أقل وفق البيانات المتاحة، لكنها لا تعني أن السهم آمن.';}
+ const entryText=overextended?'تجاوز/ابتعد عن منطقة الدخول — لا تطارد السعر':trigger!==null&&price!==null&&trigger>price?'دخول مشروط بعد اختراق وإغلاق فوق '+level(trigger):trigger!==null?'انتظر تأكيد الاختراق أو إعادة الاختبار قرب '+level(trigger):'لا توجد منطقة دخول موثوقة مؤكدة';
+ const checks=c.quality_checks&&typeof c.quality_checks==='object'?c.quality_checks:{};
+ const labels={daily_candles:'كفاية الشموع اليومية',trend_ema20_50_200:'اتجاه المتوسطات EMA 20/50/200',ema_trend:'اتجاه المتوسطات',rsi_55_70:'مؤشر RSI ضمن النطاق',rsi:'مؤشر RSI',relative_volume_1_5:'حجم التداول النسبي RVOL',rvol:'حجم التداول النسبي RVOL',relative_strength_vs_qqq:'القوة النسبية مقابل QQQ',relative_strength:'القوة النسبية مقابل المؤشر',breakout_confirmed:'تأكيد الاختراق',breakout:'تأكيد الاختراق',accumulation:'علامات التجميع',liquidity_distribution_risk:'مخاطر التصريف والسيولة',distribution_risk:'مخاطر التصريف',bearish_structure:'البنية الهابطة',entry_not_chasing:'عدم مطاردة السعر',chase_risk:'خطر مطاردة السعر',risk_reward:'العائد مقابل المخاطرة',data_source:'موثوقية مصدر البيانات'};
+ const checksHtml=Object.keys(labels).filter(k=>Object.prototype.hasOwnProperty.call(checks,k)).map(k=>{const v=checks[k],passed=typeof v==='boolean'?v:(v&&typeof v==='object'&&typeof v.pass==='boolean'?v.pass:null),detail=v&&typeof v==='object'?(v.label||v.reason||v.value||''):((typeof v==='string'||typeof v==='number')?String(v):'');return '<div class="sas-quality-check '+(passed===true?'pass':passed===false?'fail':'neutral')+'"><i>'+(passed===true?'✓':passed===false?'✕':'•')+'</i><span>'+labels[k]+'</span><small>'+escHtml(detail||(passed===true?'متحقق':passed===false?'غير متحقق':'غير متاح'))+'</small></div>';}).join('');
+ const hasQualityFields=['quality_score','stars','star_rating','quality_checks','conditional_plan','trading_style'].some(k=>Object.prototype.hasOwnProperty.call(c,k));
+ const qualityError=String(c.quality_error||t.quality_error||(!hasQualityFields?'لم يصل تصنيف الجودة من واجهة التحليل المختصر (classification فارغ أو قديم). أعد المحاولة بعد تحديث البيانات.':'')).trim();
+ const safeScore=qualityError?'غير متاح — بيانات التقييم غير مستلمة':(score===null?'غير متاح':Math.round(Math.max(0,Math.min(100,score)))+'/100'),recommendation=String(c.recommendation||t.recommendation||'مراقبة فقط — انتظر تأكيد البيانات والإشارة');
+ const disclaimer=String(c.analysis_disclaimer||t.analysis_disclaimer||'تحليل تعليمي مبني على البيانات المتاحة فقط، وليس توصية شراء أو بيع. المستويات والأهداف والوقف احتمالية وغير مضمونة. قرار التداول وإدارة المخاطر مسؤولية المتداول.');
+ const detailId='sasQualityDetails'+String(quote?.symbol||'stock').replace(/[^A-Za-z0-9_-]/g,'');
+ const rawStyle=String(c.trading_style||c.type||c.stock_type||t.trading_style||t.type||t.stock_type||'');
+ const styleMap={'مضاربي سريع خطير':'مضاربي سريع خطير','مضاربي سريع':'مضاربي سريع خطير','fast_speculative':'مضاربي سريع خطير','high_risk_speculative':'مضاربي سريع خطير','مضاربي':'مضاربي','speculative':'مضاربي','swing':'سوينق','سوينق':'سوينق','استثماري':'استثماري','investment':'استثماري'};
+ const styleLabel=styleMap[rawStyle.toLowerCase()]||styleMap[rawStyle]||'غير محدد من البيانات';
+ return '<section class="sas-quality-panel risk-'+risk+'" aria-label="جودة السهم وخطورته"><div class="sas-quality-topline"><div><span class="sas-quality-eyebrow">SAS PRO · QUALITY & RISK ENGINE</span><h3>تقييم جودة السهم</h3><small>تقييم آلي من المؤشرات والشموع والشروط المتاحة</small></div><span class="sas-risk-pill">'+riskIcon+' '+riskLabel+'</span></div>'+
+ (qualityError?'<div class="sas-quality-error" role="alert"><b>⚠️ تعذر حساب التقييم الفني</b><p>لم تصل بيانات المؤشرات المطلوبة من محرك SAS PRO. أوقفنا عرض أي تقييم قديم حتى لا يظهر كأنه تحليل جديد.</p><small>تفاصيل تقنية: '+escHtml(qualityError)+'</small></div>':'')+
+ '<div class="sas-stock-style"><span>نوع السهم</span><b>'+escHtml(styleLabel)+'</b><small>'+(styleLabel==='غير محدد من البيانات'?'لم يصل تصنيف موثوق من المحرك؛ لن نخمن نوع السهم.':'تصنيف وصفي مبني على سلوك السهم والمخاطر، وليس توصية استثمارية.')+'</small></div>'+
+ '<div class="sas-quality-score-row"><div class="sas-quality-stars" aria-label="'+stars+' من 5 نجوم">'+starText+'</div><div class="sas-quality-score"><b>'+safeScore+'</b><small>درجة الجودة</small></div><div class="sas-quality-score"><b>'+stars+' / 5</b><small>النجوم</small></div></div><div class="sas-quality-glowbar"><span style="width:'+(score===null?0:Math.max(0,Math.min(100,score)))+'%"></span></div>'+
+ '<div class="sas-risk-message"><b>'+riskIcon+' قراءة المخاطر</b><p>'+escHtml(riskCopy)+'</p></div><div class="sas-entry-plan"><div class="sas-entry-plan-head"><b>🎯 منطقة الدخول المحتملة</b><span class="'+(overextended?'entry-danger':trigger!==null?'entry-wait':'entry-unknown')+'">'+(overextended?'متجاوزة':trigger!==null?'مشروطة':'غير محددة')+'</span></div><strong>'+escHtml(entryText)+'</strong><small>التفعيل يحتاج إغلاق شمعة تأكيديًا وحجم تداول مناسبًا؛ لمس المستوى لحظيًا لا يكفي.</small>'+
+ '<div class="sas-plan-levels"><div><small>سعر التحليل</small><b>'+level(price)+'</b></div><div><small>مستوى التفعيل</small><b>'+level(trigger)+'</b></div><div><small>وقف السيناريو</small><b>'+level(stopVal)+'</b></div><div><small>الهدف الأول</small><b>'+level(targetOne)+'</b></div><div><small>الهدف الثاني</small><b>'+level(targetTwo)+'</b></div><div><small>العائد/المخاطرة</small><b>'+(rr&&rr!=='—'?escHtml(rr)+'×':(num(t.risk_reward)!==null?escHtml(num(t.risk_reward).toFixed(2))+'×':'غير متاح'))+'</b></div></div></div>'+
+ '<div class="sas-quality-recommendation"><small>الخلاصة الفنية الآلية</small><b>'+escHtml(recommendation)+'</b></div><button type="button" class="sas-quality-toggle" aria-expanded="false" onclick="toggleSasQualityDetails(\''+detailId+'\',this)">عرض تفاصيل التقييم</button><div class="sas-quality-details" id="'+detailId+'" hidden><h4>مراجعة الفلاتر والشروط</h4>'+(checksHtml?'<div class="sas-quality-checks">'+checksHtml+'</div>':'<p>تفاصيل فلاتر الجودة غير متاحة في استجابة التحليل الحالية؛ لم يتم افتراض اجتياز أي شرط.</p>')+'<p class="sas-quality-method">النجوم درجة فرز داخلية وليست احتمال ربح. نقص البيانات يقلل موثوقية التقييم، ولا تعني النجوم الأعلى ضمان النجاح.</p></div>'+
+ '<div class="sas-quality-disclaimer"><b>⚠️ إخلاء مسؤولية</b><p>'+escHtml(disclaimer)+'</p><p>قد تتأخر الأسعار أو تختلف عن السعر القابل للتنفيذ. لا تدخل لمجرد ظهور النجوم أو ملامسة مستوى؛ تحقّق من الشموع والسيولة والأخبار وحدّد حجم المخاطرة مسبقًا.</p></div></section>';
+}
+async function analyzeSymbol(){
+ const actionBtn=document.getElementById('analyzeSymbolBtn');
+ // A previous analysis may still be releasing its disabled state. Abort it and
+ // let the latest user request proceed immediately instead of requiring a second click.
+ if(actionBtn?.disabled&&!activeSymbolSearchController)return;
+ if(activeSymbolSearchController)activeSymbolSearchController.abort();
+ const searchController=new AbortController();activeSymbolSearchController=searchController;
+ if(actionBtn){actionBtn.disabled=true;actionBtn.classList.add('is-working');actionBtn.setAttribute('aria-busy','true');}
+ const input=document.getElementById('symbolSearch');
+ const symbol=(input.value||'').trim().toUpperCase().replace(/[^A-Z.\-]/g,'');
+ if(!symbol){if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}return;}
+ const el=document.getElementById('symbolResult');
+ startStockAnalysisLoader(el,symbol);
+ const [qR,chartR,newsR,analysisR,miniR,shariahR,perpR,cuspR]=await Promise.allSettled([
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/quote',{signal:searchController.signal}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/chart',{signal:searchController.signal}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/news',{signal:searchController.signal}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/analyze',{method:'POST',timeoutMs:30000,signal:searchController.signal}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/mini-analysis',{timeoutMs:30000,signal:searchController.signal}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/shariah',{timeoutMs:12000}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/perpequities',{timeoutMs:10000,signal:searchController.signal}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/cusp',{timeoutMs:9000,signal:searchController.signal})
+ ]);
+ stopStockAnalysisLoader();
+ if(searchController.signal.aborted){if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}return;}
+ if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}
+ const qRaw=qR.status==='fulfilled'&&qR.value&&typeof qR.value==='object'?qR.value:{symbol,price:null,change_pct:null,source:'غير متاح'};
+ const miniPayload=miniR.status==='fulfilled'&&miniR.value&&typeof miniR.value==='object'?miniR.value:null;
+ const miniQuote=miniPayload?.quote&&typeof miniPayload.quote==='object'?miniPayload.quote:{};
+ const hasNumericValue=(v)=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v));
+ const symbolMatches=(item)=>!item?.symbol||String(item.symbol).trim().toUpperCase()===symbol;
+ const rawQuoteUsable=symbolMatches(qRaw)&&((hasNumericValue(qRaw?.price)&&Number(qRaw.price)>0)||hasNumericValue(qRaw?.change_pct));
+ const miniQuoteUsable=symbolMatches(miniQuote)&&((hasNumericValue(miniQuote?.price)&&Number(miniQuote.price)>0)||hasNumericValue(miniQuote?.change_pct));
+ const q=rawQuoteUsable?qRaw:(miniQuoteUsable?Object.assign({symbol},miniQuote,{source:miniQuote.source||'SAS PRO OHLCV'}):Object.assign({},qRaw,{symbol}));
+ const chart=chartR.status==='fulfilled'&&chartR.value&&typeof chartR.value==='object'?chartR.value:{candles:[],available:false};
+ const news=newsR.status==='fulfilled'&&Array.isArray(newsR.value)?newsR.value:[];
+ const analysis=analysisR.status==='fulfilled'?analysisR.value:null;
+ const shariah=shariahR.status==='fulfilled'?shariahR.value:(analysis?.sas_pro?.targets?.shariah||null);
+ if(!analysis){
+   const errors=[qR,chartR,newsR,analysisR].filter(x=>x.status==='rejected').map(x=>x.reason?.message).filter(Boolean);
+   el.innerHTML='<div class="fatal">⚠️ تعذر إكمال التحليل الكامل<br><small>لكن تم إبقاء البيانات التي نجح تحميلها.</small>'+(errors.length?'<br><small>'+escHtml(errors[0])+'</small>':'')+'</div>';
+   if(Number(q.price)>0||news.length||chart.candles?.length) renderPartialAnalysis(el,symbol,q,chart,news,miniR.status==='fulfilled'?miniR.value:null,cuspR.status==='fulfilled'?cuspR.value:null);
+   return;
+ }
+ const perp=perpR.status==='fulfilled'&&perpR.value&&typeof perpR.value==='object'?perpR.value:{symbol,available:false,source_url:'https://perpequities.com/ar',message_ar:'تعذر تحميل بيانات PerpEquities.'};
+ const cusp=cuspR.status==='fulfilled'&&cuspR.value&&typeof cuspR.value==='object'?cuspR.value:{symbol,available:false,source_url:'https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol),message_ar:'تعذر تحميل بيانات CUSP الآن.'};
+ const cuspMetricsHtml=renderCuspWealthMetrics(cusp);
+ const cuspFundamentalSummary=renderCuspFundamentalSummary(cusp,q.price);
+ const cuspHasData=Boolean((cusp.available&&(cusp.title||cusp.description))||cuspMetricsHtml.includes('cusp-metrics-grid'));
+ const cuspHtml=cuspHasData?'<section class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth · بيانات مالية إضافية</b>'+(me?.admin?'<a href="'+escHtml(safeNewsUrl(cusp.source_url)||('https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol)))+'" target="_blank" rel="noopener noreferrer">فتح صفحة السهم ↗</a>':'')+'</div>'+
+   (cusp.available?'<p><b>'+escHtml(cusp.title||symbol)+'</b></p>'+(cusp.description?'<p>'+escHtml(cusp.description)+'</p>':'')+cuspFundamentalSummary+cuspMetricsHtml:cuspMetricsHtml)+
+   '<small>مصدر مالي إضافي؛ السعر قد يمثل آخر سعر منشور لدى CUSP وليس بالضرورة سعرًا لحظيًا. القيم غير المتاحة لا تُقدّر.</small></section>':'';
+
+ const tech=analysis.sas_pro?.targets||{};
+ const sh=shariah||tech.shariah||{};
+ const ai=analysis.analysis||{};
+ const fcc=analysis.sas_pro?.targets?.fcc_review||ai.fcc_review||{};
+ const fccHtml=fcc.available ? '<div class="ai-box"><b>⏳ مراجعة الذكاء الاصطناعي للسهم</b><p><b>التقييم:</b> '+escHtml(fcc.review_level||'محايد')+'</p>'+((fcc.strengths||[]).length?'<p><b>💪 نقاط القوة:</b><br>'+fcc.strengths.slice(0,4).map(x=>'• '+escHtml(x)).join('<br>')+'</p>':'')+((fcc.contradictions||[]).length?'<p><b>⚠️ نقاط تحتاج انتباه:</b><br>'+fcc.contradictions.slice(0,4).map(x=>'• '+escHtml(x)).join('<br>')+'</p>':'')+(fcc.note?'<p><b>📌 الخلاصة:</b> '+escHtml(fcc.note)+'</p>':'')+'<small>مراجعة مساعدة لفهم البيانات فقط، ولا تغيّر مستويات SAS PRO.</small></div>' : '';
+ const targets=Array.isArray(tech.targets)?tech.targets:[];
+ const newsFromAnalysis=Array.isArray(analysis.news)?analysis.news:news;
+ const partial=Boolean(analysis.partial);
+ const aiAvailable=Boolean(ai.ai_available||ai.enabled);
+ const entry=Number(tech.price||q.price);
+ const stop=Number(tech.exit||tech.stop);
+ const target1=Number(targets[0]||tech.target1);
+ const computedRR=Number.isFinite(entry)&&Number.isFinite(stop)&&Number.isFinite(target1)&&entry>stop&&target1>entry?((target1-entry)/(entry-stop)):null;
+ const notice=partial
+   ? '<div class="partial-note">🟡 بيانات السعر أو المستويات غير مكتملة من المصدر. لم يتم تخمين أي قيمة.</div>'
+   : (!aiAvailable ? '<div class="partial-note">ℹ️ تحليل AI غير متاح حاليًا؛ تم عرض الخلاصة الفنية من بيانات السهم.</div>' : '');
+ const rr=computedRR!=null?computedRR.toFixed(2):(tech.risk_reward!=null?Number(tech.risk_reward).toFixed(2):'—');
+ const recommendation=(partial||!Number.isFinite(entry)||!Number.isFinite(stop)||!Number.isFinite(target1)||entry<=stop||target1<=entry) ? '⚪ الحالة: البيانات غير مكتملة؛ راقب فقط حتى تتأكد الأسعار والمستويات.' : ((Number(rr)<1||Boolean(tech.risk_reward_warning)) ? '🔴 الحالة: المخاطرة مرتفعة مقارنة بالهدف؛ لا تدخل الآن.' : (Number(q.change_pct)>10 ? '🟡 الحالة: السهم ارتفع بسرعة؛ تجنب المطاردة وانتظر إعادة اختبار.' : (Number(tech.score||0)>=70 ? '🟢 الحالة: إعداد فني جيد للمراقبة؛ انتظر تأكيد الاختراق والسيولة.' : '🟡 الحالة: مراقبة فقط؛ التأكيد الفني غير كافٍ بعد.')));
+ const summary=ai.key_takeaway||ai.headline_summary||'لا توجد خلاصة موثقة متاحة حاليًا.';
+ const mini=analysis.mini_analysis||{};
+ const classification=Object.assign({},analysis.technical_analysis||{},analysis.sas_pro?.classification||analysis.classification||{});
+ const indicatorHtml=renderVerifiedTechnicalCards(classification,tech,mini);
+ const recommendationHtml='<section class="recommendation-box"><b>📌 القراءة الفنية</b><strong>'+escHtml(recommendation)+'</strong><small>قراءة آلية وليست توصية شراء أو بيع.</small></section>';
+ const quotePriceDisplay=hasNumericValue(q.price)&&Number(q.price)>0?String.fromCharCode(36)+money(q.price):'غير متاح';
+ const quoteChangeDisplay=hasNumericValue(q.change_pct)?pct(q.change_pct):'التغير غير متاح';
+ const quoteChangeClass=hasNumericValue(q.change_pct)?(Number(q.change_pct)>=0?'up':'down'):'';
+ const shSources=Array.isArray(sh.sources)?sh.sources:[];
+ const shHtml='<section class="shariah-box '+(sh.status==='halal'||sh.status==='compliant'?'sh-ok':(sh.status==='haram'||sh.status==='non_compliant'?'sh-bad':'sh-unknown'))+'"><div><b>🕌 التحقق الشرعي</b><strong>'+escHtml(sh.status_ar||'غير واضح / يحتاج تحقق')+'</strong></div><p>'+escHtml(sh.message||'لم تتوفر نتيجة موثقة؛ لم يتم التأليف.')+'</p><div class="shariah-help"><b>كيف تقرأ النتيجة؟</b><span>يقين: نتيجة منشورة تخص السهم نفسه إذا كانت متوفرة.</span><span></span><span>إذا ما ظهرت نتيجة مباشرة من يقين، بتكون الحالة «غير واضح / يحتاج تحقق» بدون تخمين.</span></div>'+(sh.ai?.summary?'<p>🧠 '+escHtml(sh.ai.summary)+'</p>':'')+'<div class="shariah-red-disclaimer"><b>⚠️ إبراء ذمّة</b><span>هذا اجتهاد في عرض المعلومات المنشورة، وليس فتوى شرعية ولا ضمانًا لصحة الحكم. تحقّق بنفسك قبل اتخاذ قرارك.</span></div></section>';
+const miniAnalysisHtml=
+   '<section class="mini-analysis sas-pro-technical">'+
+     '<div class="mini-analysis-head"><div><span class="eyebrow">SAS PRO VERIFIED TECHNICAL</span><b>📊 التحليل الفني والمؤشرات</b><small>القيم الفعلية المتاحة من محرك التحليل</small></div></div>'+
+     '<div class="mini-analysis-grid">'+
+       '<div><small>📈 الاتجاه</small><b>'+escHtml(mini.direction||'غير واضح')+'</b></div>'+
+       '<div><small>🚀 الزخم</small><b>'+escHtml(mini.momentum||'غير متاح')+'</b></div>'+
+       '<div><small>💧 السيولة</small><b>'+escHtml(mini.liquidity||'غير متاحة')+'</b></div>'+
+       '<div><small>🔎 الإشارة</small><b>'+escHtml(mini.signal||'غير متاحة')+'</b></div>'+
+     '</div>'+
+     indicatorHtml+
+     '<div class="mini-levels">'+
+       '<span>🎯 الهدف <b>&#36;'+money(mini.target)+'</b></span>'+
+       '<span>🛑 الوقف <b>&#36;'+money(mini.stop)+'</b></span>'+
+     '</div>'+
+     '<p class="mini-takeaway">'+escHtml(mini.takeaway||summary)+'</p>'+
+   '</section>';
+ el.innerHTML=
+   '<div class="sas-stock-terminal">'+
+    '<header class="sas-terminal-stock-head"><button class="sas-terminal-back" type="button" onclick="document.getElementById(\'symbolResult\').innerHTML=\'\';document.getElementById(\'symbolSearch\').focus()" aria-label="رجوع">‹</button><div class="sas-terminal-brand"><b>SAS <span>PRO</span></b><small>تحليل الأسهم الأمريكية</small></div></header>'+
+    '<section class="sas-terminal-hero"><div class="sas-terminal-company"><div class="sas-terminal-symbol">'+escHtml(symbol.slice(0,4))+'</div><div><span class="eyebrow">SAS PRO · STOCK ANALYSIS</span><h2>'+escHtml(symbol)+'</h2><p>'+escHtml(q.name||q.company_name||q.company||'سهم أمريكي')+'</p><div class="sas-terminal-tags"><span>'+escHtml(q.exchange||q.mic||'السوق الأمريكي')+'</span><span>'+escHtml(q.currency||'USD')+'</span></div></div></div><div class="sas-terminal-price"><strong>'+quotePriceDisplay+'</strong><span class="'+quoteChangeClass+'">'+quoteChangeDisplay+'</span><small>السعر حسب البيانات المستلمة</small><span class="sas-terminal-live '+(q.is_delayed||String(q.source||'').toLowerCase().includes('cusp')?'sas-quote-delayed':'')+'"><i></i>'+escHtml((q.is_delayed||String(q.source||'').toLowerCase().includes('cusp'))?'CUSP Wealth · آخر سعر منشور':(q.source||'مصدر السعر غير متاح'))+'</span><span class=\"sas-terminal-live sas-quote-delayed sas-price-freshness\"><i></i>قد يختلف وقت تحديث السعر عن وقت التحليل، وفقًا لمصدر البيانات وتوقيت التحديث.</span></div></section>'+
+    '<nav class="sas-terminal-tabs" aria-label="أقسام تحليل السهم"><a href="#sasTerminalMetrics">المؤشرات</a><a href="#sasMovingAverages">المتوسطات</a><a href="#sasTerminalChart">الشارت</a><a href="#sasTerminalLevels">المستويات</a><a href="#sasTerminalNews">الأخبار</a><a href="#sasTerminalShariah">الشرعية</a></nav>'+
+    notice+
+    renderSasQualityPanel(classification,tech,q,entry,stop,target1,rr)+
+    renderStockTerminalQuickMetrics(classification,tech,mini)+
+    renderStockTerminalAverages(classification,tech)+
+    renderAvailableLevelPanel('مستويات السهم','القيم الفعلية المستلمة من محرك SAS PRO',[['الدخول',Number.isFinite(entry)&&entry>0?'$'+money(entry):null],['وقف الخسارة',Number.isFinite(stop)&&stop>0?'$'+money(stop):null],['الهدف الأول',Number.isFinite(target1)&&target1>0?'$'+money(target1):null],['العائد/المخاطرة',rr==='—'?null:rr]])+
+    (symbol?'<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت التفاعلي</b><small>شموع السعر وحجم التداول · SAS PRO</small></div>'+(me?.admin?'<a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a>':'')+'</div><div class="sas-tv-chart-shell"><div class="sas-tv-chart-heading"><b>TradingView · الشارت المتقدم</b><span>تفاعلي • شموع • أحجام التداول</span></div><div id="sasTradingViewChart" class="sas-tv-chart" aria-label="شارت TradingView للسهم"></div><p class="sas-tv-chart-note">الشارت من TradingView؛ السعر والقراءة الفنية أعلاه من بيانات SAS PRO وقد يختلف توقيت التحديث أو مصدر السعر.</p></div><div class="chart-box"><canvas id="stockCanvas" height="290"></canvas></div><div id="perpEquitiesAnalysis"></div></section>':'')+
+    '<section class="sas-terminal-panel" id="sasTerminalFundamentals"><div class="sas-terminal-section-title"><span>▤</span><div><b>التحليل والبيانات الإضافية</b><small>ملخص المصدر والأبحاث المتاحة</small></div></div>'+cuspHtml+'<div class="ai-box"><b>'+(aiAvailable?'ملخص التحليل المتاح':'الخلاصة الفنية')+'</b><p>'+escHtml(summary)+'</p>'+(aiAvailable&&ai.provider?'<small>المزود: '+escHtml(ai.provider)+'</small>':'')+'</div>'+fccHtml+'</section>'+
+    '<section class="sas-terminal-panel" id="sasTerminalNews"><div class="sas-terminal-section-title"><span>▣</span><div><b>آخر أخبار السهم</b><small>الأخبار المتاحة من المصادر</small></div></div><div class="news-list">'+renderNewsItems(newsFromAnalysis,5,Array.isArray(ai.news_summaries)?ai.news_summaries:[])+'</div></section>'+
+    '<section class="sas-terminal-panel" id="sasTerminalShariah">'+shHtml+'</section>'+
+    '<div class="terminal-disclaimer">البيانات للتحليل والمعلومات فقط، وليست توصية شراء أو بيع. تحقق من الأسعار والمصادر قبل اتخاذ القرار.</div>'+
+   '</div>';
+
+ pruneUnavailableAnalysis(el);
+ mountPerpEquitiesAnalysis(el,perp,symbol);
+ mountSASTradingViewChart(el,symbol,q.exchange||q.mic||q.exchange_name||'');
+ const chartCandles=Array.isArray(chart.candles)?chart.candles:[];
+ requestAnimationFrame(()=>drawChart(chartCandles));
+ if(!chartCandles.length){
+   const box=el.querySelector('.chart-box');
+   if(box)box.insertAdjacentHTML('beforeend','<div class="chart-status">لا توجد شموع تاريخية مستلمة من الخادم لهذا السهم حاليًا.</div>');
+ }
+}
+async function openPrivateAnalysis(symbol){
+ symbol=String(symbol||'').trim().toUpperCase();
+ if(!symbol)return;
+ try{
+   const d=await api('/api/stocks/'+encodeURIComponent(symbol)+'/private-link',{timeoutMs:10000});
+   const url=String(d?.url||'');
+   if(!/^https:\/\/t\.me\//i.test(url))throw new Error('رابط التحليل الخاص غير صالح.');
+   refreshTelegramWebApp();
+   if(tg?.openTelegramLink){
+     try{ tg.openTelegramLink(url); return; }catch(e){}
+   }
+   if(tg?.openLink){
+     try{ tg.openLink(url,{try_instant_view:false}); return; }catch(e){}
+   }
+   const w=window.open(url,'_blank','noopener,noreferrer');
+   if(!w)window.location.href=url;
+ }catch(e){
+   const msg=String(e?.message||'');
+   if(msg.includes('الموافقة على الشروط')){
+    openTerms('trial');
+    return;
+   }
+   alert(msg||'تعذر فتح التحليل الخاص. تحقق من صلاحية SAS PRO ثم أعد المحاولة.');
+ }
+}
+if(!window.__sasPrivateAnalysisBound){
+ window.__sasPrivateAnalysisBound=true;
+ document.addEventListener('click',function(ev){
+   const btn=ev.target&&ev.target.closest?ev.target.closest('[data-private-analysis]'):null;
+   if(!btn)return;
+   ev.preventDefault();
+   ev.stopPropagation();
+   openPrivateAnalysis(btn.getAttribute('data-private-analysis')||'');
+ });
+}
+function renderVerifiedTechnicalCards(classification,targets,mini){
+ const cls=classification&&typeof classification==='object'?classification:{};
+ const t=targets&&typeof targets==='object'?targets:{};
+ const m=mini&&typeof mini==='object'?mini:{};
+ const indicators=(t.indicators&&typeof t.indicators==='object'?t.indicators:{});
+ const nested=(cls.indicators&&typeof cls.indicators==='object'?cls.indicators:{});
+ const pick=(...values)=>values.find(v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v)));
+ const number=(value,digits=2)=>{const n=Number(value);return value!==null&&value!==undefined&&value!==''&&Number.isFinite(n)?n.toFixed(digits):null;};
+ const price=(value)=>{const n=Number(value);return value!==null&&value!==undefined&&value!==''&&Number.isFinite(n)&&n>0?'$'+money(n):null;};
+ const cards=[
+  ['RSI 14',number(pick(cls.rsi14,nested.rsi14,indicators.rsi14)), 'مؤشر القوة النسبية'],
+  ['RVOL',(()=>{const v=pick(m.rvol,cls.rvol,nested.rvol,indicators.rvol);const n=number(v);return n===null?null:n+'×';})(), 'الحجم النسبي'],
+  ['ATR 14',price(pick(cls.atr14,cls.atr,nested.atr14,indicators.atr14,t.atr14)), 'متوسط المدى الحقيقي'],
+  ['EMA 20',price(pick(cls.ema20,nested.ema20,indicators.ema20)), 'المتوسط الأسي'],
+  ['EMA 50',price(pick(cls.ema50,nested.ema50,indicators.ema50)), 'المتوسط الأسي'],
+  ['EMA 200',price(pick(cls.ema200,nested.ema200,indicators.ema200)), 'المتوسط الأسي'],
+  ['ADX 14',number(pick(cls.adx14,nested.adx14,indicators.adx14)), 'قوة الاتجاه']
+ ].filter(([,value])=>value!==null&&value!==undefined&&value!=='');
+ if(!cards.length)return '';
+ return '<div class="sas-indicator-grid">'+cards.map(([label,value,note])=>'<div class="sas-indicator-card"><small>'+escHtml(label)+'</small><b>'+escHtml(value)+'</b><span>'+escHtml(note)+'</span></div>').join('')+'</div><small class="sas-data-integrity">✓ تُعرض المؤشرات التي وصلت بقيم فعلية فقط؛ لا تُعرض القيم المفقودة أو المخمّنة.</small>';
+}
+function renderCuspFundamentalSummary(cusp,currentQuote){
+ const data=cusp&&typeof cusp==='object'?cusp:{},m=data.metrics&&typeof data.metrics==='object'?data.metrics:{};
+ const parts=[];
+ const score=Number(m.valuation_score);
+ if(m.valuation_score!==undefined&&Number.isFinite(score))parts.push('تقييم CUSP المنشور '+score+'/100'+(m.valuation_label?' ('+String(m.valuation_label)+')':'')+'.');
+ if(m.pe_ratio)parts.push('مكرر الربحية: '+String(m.pe_ratio)+'.');
+ if(m.market_cap)parts.push('القيمة السوقية المنشورة: '+String(m.market_cap)+'.');
+ if(m.analyst_consensus)parts.push('إجماع المحللين: '+String(m.analyst_consensus)+'.');
+ const target=Number(String(m.analyst_target||'').replace(/[^0-9.\-]/g,''));
+ const price=Number(currentQuote);
+ if(m.analyst_target&&Number.isFinite(target)&&target>0&&Number.isFinite(price)&&price>0){
+  const upside=(target-price)/price*100;
+  parts.push('متوسط السعر المستهدف المنشور '+String(m.analyst_target)+'؛ الفرق الحسابي عن السعر المعروض '+(upside>=0?'+':'')+upside.toFixed(2)+'%. هذا حساب مقارنة وليس توقعًا مضمونًا.');
+ }
+ if(!parts.length)return '<p class="cusp-fundamental-summary">وصلت صفحة CUSP لكن لم تتوفر حقول كافية لبناء ملخص أساسي موثوق لهذا السهم.</p>';
+ return '<div class="cusp-fundamental-summary"><b>القراءة الأساسية من CUSP</b><p>'+escHtml(parts.join(' '))+'</p><small>المعلومات المالية ليست بديلًا عن المؤشرات الفنية، ولا تُعد توصية تداول.</small></div>';
+}
+function renderCuspWealthMetrics(cusp){
+ const data=cusp&&typeof cusp==='object'?cusp:{};
+ const metrics=data.metrics&&typeof data.metrics==='object'?data.metrics:{};
+ const cards=[];
+ const add=(label,value)=>{if(value!==null&&value!==undefined&&String(value).trim()!==''&&!['-','—','N/A','غير متاح'].includes(String(value).trim()))cards.push([label,String(value)]);};
+ if(data.price!==null&&data.price!==undefined&&Number.isFinite(Number(data.price))&&Number(data.price)>0)add('السعر في CUSP',String.fromCharCode(36)+money(data.price));
+ if(data.change_pct!==null&&data.change_pct!==undefined&&Number.isFinite(Number(data.change_pct)))add('التغير المنشور',pct(data.change_pct));
+ add('نتيجة التقييم',metrics.valuation_score);
+ add('القيمة السوقية',metrics.market_cap);
+ add('حجم التداول',metrics.volume);
+ add('متوسط السعر المستهدف',metrics.analyst_target);
+ add('إجماع المحللين',metrics.analyst_consensus);
+ add('مكرر الربحية P/E',metrics.pe_ratio);
+ add('السعر إلى المبيعات',metrics.price_sales);
+ add('السعر إلى القيمة الدفترية',metrics.price_book);
+ add('الإيرادات الفصلية',metrics.quarterly_revenue);
+ add('صافي الدخل',metrics.net_income);
+ add('ربحية السهم الفعلية EPS',metrics.eps_actual);
+ add('ربحية السهم المقدرة EPS',metrics.eps_estimate);
+ add('العائد على حقوق الملكية',metrics.roe);
+ add('هامش الربح الإجمالي',metrics.gross_margin);
+ add('نطاق 52 أسبوعًا',metrics.week_52_range);
+ if(!cards.length)return '<p class="cusp-no-metrics">لم تُستخرج أرقام مالية قابلة للتحقق من صفحة CUSP لهذا السهم.</p>';
+ return '<div class="cusp-metrics-grid">'+cards.map(([label,value])=>'<div><small>'+escHtml(label)+'</small><b>'+escHtml(value)+'</b></div>').join('')+'</div><small class="cusp-data-note">المصدر: صفحة CUSP Wealth · تُعرض القيم كما نُشرت، دون تقدير القيم المفقودة.</small>';
+}
+function pruneUnavailableAnalysis(root){
+ if(!root)return;
+ const missing=/^(?:غير متاح(?:ة)?|غير واضح|لا توجد قيمة موثقة|لا توجد قيمة موثوقة|—|-|N\/A|NaN|undefined)$/i;
+ const selectors=['.sas-terminal-metric','.sas-indicator-card','.sas-terminal-averages > div','.level-grid > div','.mini-analysis-grid > div','.mini-levels > span','.cusp-metrics-grid > div'];
+ selectors.forEach(selector=>root.querySelectorAll(selector).forEach(card=>{
+  const value=card.querySelector('strong,b');
+  if(value&&missing.test(value.textContent.trim()))card.remove();
+ }));
+ [['#sasTerminalMetrics','.sas-terminal-metric'],['#sasMovingAverages','.sas-terminal-averages > div'],['#sasTerminalLevels','.level-grid > div']].forEach(([section,items])=>{
+  const panel=root.querySelector(section);
+  if(panel&&!panel.querySelector(items))panel.remove();
+ });
+ root.querySelectorAll('.news-list').forEach(list=>{
+  if(!list.querySelector('.news-entry'))list.closest('#sasTerminalNews')?.remove();
+ });
+ root.querySelectorAll('.sas-terminal-tabs').forEach(nav=>{
+  nav.querySelectorAll('a[href^="#"]').forEach(link=>{
+   const target=link.getAttribute('href');
+   if(!target||!root.querySelector(target))link.remove();
+  });
+  if(!nav.querySelector('a'))nav.remove();
+ });
+ root.querySelectorAll('.sas-terminal-panel').forEach(panel=>{
+  if(panel.id==='sasTerminalResearch'&&!panel.querySelector('.cusp-metrics-grid > div')&&!panel.querySelector('.cusp-fundamental-summary p')&&!panel.querySelector('.ai-box p'))panel.remove();
+ });
+}
+function renderPartialAnalysis(el,symbol,q,chart,news,miniData,cuspData){
+ const fallbackQuote=miniData?.quote&&typeof miniData.quote==='object'?miniData.quote:{};
+ const hasNumericValue=(v)=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v));
+ const quoteUsable=(item)=>item&&((hasNumericValue(item.price)&&Number(item.price)>0)||hasNumericValue(item.change_pct));
+ const quoteSymbolMatches=(item)=>!item?.symbol||String(item.symbol).trim().toUpperCase()===symbol;
+ const displayQuote=quoteUsable(q)&&quoteSymbolMatches(q)?q:(quoteUsable(fallbackQuote)&&quoteSymbolMatches(fallbackQuote)?fallbackQuote:{symbol,price:null,change_pct:null,source:'غير متاح'});
+ const price=hasNumericValue(displayQuote?.price)?Number(displayQuote.price):NaN;
+ const change=hasNumericValue(displayQuote?.change_pct)?Number(displayQuote.change_pct):NaN;
+ const priceText=Number.isFinite(price)&&price>0?String.fromCharCode(36)+money(price):'غير متاح';
+ const changeText=Number.isFinite(change)?pct(change):'التغير غير متاح';
+ const classification=miniData?.classification&&typeof miniData.classification==='object'?miniData.classification:{};
+ const targets=miniData?.targets&&typeof miniData.targets==='object'?miniData.targets:{};
+ const mini=miniData?.mini_analysis&&typeof miniData.mini_analysis==='object'?miniData.mini_analysis:{};
+ const candles=Array.isArray(chart?.candles)?chart.candles:[];
+ const quoteSource=displayQuote?.source||'مصدر السعر غير محدد';
+ const cuspUrl=safeNewsUrl(cuspData?.source_url)||('https://cuspwealth.com/ar/asset/'+encodeURIComponent(symbol));
+ const cuspMetricsHtml=renderCuspWealthMetrics(cuspData);
+ const cuspFundamentalSummary=renderCuspFundamentalSummary(cuspData,displayQuote?.price);
+ const cuspText=cuspData?.available?(cuspData.title||cuspData.description||'تم الوصول إلى صفحة CUSP؛ قد تكون التفاصيل محمّلة داخل الموقع.'):(cuspData?.message_ar||'بيانات CUSP غير متاحة آليًا الآن.');
+ const cuspHasData=Boolean((cuspData?.available&&(cuspData.title||cuspData.description))||cuspMetricsHtml.includes('cusp-metrics-grid'));
+ const quickMetrics=renderStockTerminalQuickMetrics(classification,targets,mini);
+ const averages=renderStockTerminalAverages(classification,targets);
+ const level=(v)=>{const n=Number(v);return Number.isFinite(n)&&n>0?'$'+money(n):'غير متاح';};
+ el.innerHTML=
+  '<div class="sas-stock-terminal sas-stock-terminal-partial">'+
+   '<header class="sas-terminal-stock-head"><button class="sas-terminal-back" type="button" onclick="document.getElementById(\'symbolResult\').innerHTML=\'\';document.getElementById(\'symbolSearch\').focus()" aria-label="رجوع">‹</button><div class="sas-terminal-brand"><b>SAS <span>PRO</span></b><small>تحليل الأسهم الأمريكية</small></div></header>'+
+   '<section class="sas-terminal-hero"><div class="sas-terminal-company"><div class="sas-terminal-symbol">'+escHtml(symbol.slice(0,4))+'</div><div><span class="eyebrow">SAS PRO · STOCK ANALYSIS</span><h2>'+escHtml(symbol)+'</h2><p>'+escHtml(displayQuote?.name||displayQuote?.company_name||displayQuote?.company||'سهم أمريكي')+'</p><div class="sas-terminal-tags"><span>'+escHtml(displayQuote?.exchange||displayQuote?.mic||'السوق الأمريكي')+'</span><span>'+escHtml(displayQuote?.currency||'USD')+'</span></div></div></div><div class="sas-terminal-price"><strong>'+priceText+'</strong><span class="'+(change>=0?'up':'down')+'">'+changeText+'</span><small>السعر حسب البيانات المستلمة</small><span class="sas-terminal-live '+(displayQuote?.is_delayed||String(quoteSource).toLowerCase().includes('cusp')?'sas-quote-delayed':'')+'"><i></i>'+escHtml((displayQuote?.is_delayed||String(quoteSource).toLowerCase().includes('cusp'))?'CUSP Wealth · آخر سعر منشور':quoteSource)+'</span><span class=\"sas-terminal-live sas-quote-delayed sas-price-freshness\"><i></i>قد يختلف وقت تحديث السعر عن وقت التحليل، وفقًا لمصدر البيانات وتوقيت التحديث.</span></div></section>'+
+   '<nav class="sas-terminal-tabs" aria-label="أقسام تحليل السهم"><a href="#sasTerminalMetrics">المؤشرات</a><a href="#sasMovingAverages">المتوسطات</a><a href="#sasTerminalChart">الشارت</a><a href="#sasTerminalLevels">المستويات</a><a href="#sasTerminalNews">الأخبار</a><a href="#sasTerminalResearch">الأبحاث</a></nav>'+
+   renderSasQualityPanel(classification,targets,displayQuote,Number(targets.entry||targets.entry_price||mini.entry),Number(targets.stop_loss||targets.stop||mini.stop),Number(targets.target_1||targets.target1||mini.target),'—')+
+   quickMetrics+averages+
+   renderAvailableLevelPanel('مستويات السهم','القيم الفعلية المستلمة من محرك التحليل',[['الهدف',level(mini.target)],['وقف الخسارة',level(mini.stop)],['الزخم',mini.momentum],['السيولة',mini.liquidity]])+(mini.takeaway?'<section class="sas-terminal-panel"><p class="mini-takeaway">'+escHtml(mini.takeaway)+'</p></section>':'')+
+   (candles.length?'<section class="sas-terminal-panel sas-terminal-chart-panel" id="sasTerminalChart"><div class="sas-terminal-section-title"><span>▥</span><div><b>الشارت</b><small>شموع السعر وحجم التداول من البيانات المستلمة</small></div><a class="gocharting-link" href="https://gocharting.com/stock/'+encodeURIComponent(symbol)+'" target="_blank" rel="noopener noreferrer">فتح الشارت الكامل ↗</a></div><div class="chart-box"><canvas id="stockCanvas" height="290"></canvas></div></section>':'')+
+   (cuspHasData?'<section class="sas-terminal-panel" id="sasTerminalResearch"><div class="sas-terminal-section-title"><span>▤</span><div><b>بحث مالي إضافي</b><small>المصدر: CUSP Wealth</small></div></div><div class="ai-box cusp-research-card"><div class="cusp-research-head"><b>🏦 CUSP Wealth</b>'+(me?.admin?'<a href="'+escHtml(cuspUrl)+'" target="_blank" rel="noopener noreferrer">فتح المصدر ↗</a>':'')+'</div><p>'+escHtml(cuspText)+'</p>'+cuspFundamentalSummary+cuspMetricsHtml+'<small>مصدر بحثي إضافي؛ السعر قد يكون آخر سعر منشور على صفحة المصدر وليس بالضرورة سعرًا لحظيًا.</small></div></section>':'')+
+   (Array.isArray(news)&&news.length?'<section class="sas-terminal-panel" id="sasTerminalNews"><div class="sas-terminal-section-title"><span>▣</span><div><b>آخر أخبار السهم</b><small>الأخبار التي تم استلامها من المصادر</small></div></div><div class="news-list">'+renderNewsItems(news,5)+'</div></section>':'')+
+   '<div class="terminal-disclaimer">البيانات المتاحة جزئية وليست توصية شراء أو بيع. لا يتم إنشاء مؤشرات أو أسعار غير مستلمة من المصادر.</div>'+
+  '</div>';
+ pruneUnavailableAnalysis(el);
+ requestAnimationFrame(()=>drawChart(candles));
+ if(!candles.length){
+  const box=el.querySelector('.chart-box');
+  if(box)box.insertAdjacentHTML('beforeend','<div class="chart-status">لم تصل بيانات شموع تاريخية من الخادم؛ لا يمكن رسم شارت موثوق حاليًا.</div>');
+ }
+}
+
+function drawChart(candles,attempt=0){
+ const canvas=document.getElementById('stockCanvas');if(!canvas)return;
+ const actualWidth=canvas.getBoundingClientRect().width;
+ if(actualWidth<2){if(attempt<10)requestAnimationFrame(()=>drawChart(candles,attempt+1));return;}
+ const dpr=Math.max(1,window.devicePixelRatio||1),w=actualWidth,h=260;
+ canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+ const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+ const bg=ctx.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#071a2a');bg.addColorStop(1,'#020b14');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+ if(!Array.isArray(candles)||!candles.length){ctx.fillStyle='#a9c1cf';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('لا توجد بيانات شموع متاحة',w/2,42);return;}
+ const rows=candles.map(x=>({o:Number(x.open),h:Number(x.high),l:Number(x.low),c:Number(x.close),v:Number(x.volume)})).filter(x=>Number.isFinite(x.c)&&x.c>0);
+ if(!rows.length){ctx.fillStyle='#a9c1cf';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('لا توجد أسعار صالحة للرسم',w/2,42);return;}
+ const hasOHLC=rows.some(x=>Number.isFinite(x.o)&&Number.isFinite(x.h)&&Number.isFinite(x.l));
+ const highs=rows.map(x=>Number.isFinite(x.h)?x.h:x.c),lows=rows.map(x=>Number.isFinite(x.l)?x.l:x.c);
+ const min=Math.min(...lows),max=Math.max(...highs),range=max-min||Math.max(max*.02,.01),pad=range*.08;
+ const top=24,bottom=hasOHLC?h-48:h-22,plotH=bottom-top,y=v=>bottom-((v-(min-pad))/(range+2*pad))*plotH;
+ ctx.strokeStyle='rgba(91,211,255,.13)';ctx.lineWidth=1;
+ for(let g=0;g<=4;g++){const yy=top+g*plotH/4;ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(w,yy);ctx.stroke();const price=max+pad-(range+2*pad)*g/4;ctx.fillStyle='#8ba8b8';ctx.font='10px sans-serif';ctx.textAlign='left';ctx.fillText('$'+money(price),5,Math.max(11,yy-3));}
+ const step=(w-24)/rows.length,bodyW=Math.max(2,Math.min(9,step*.62));
+ if(hasOHLC){rows.forEach((x,i)=>{const px=12+i*step+step/2,open=Number.isFinite(x.o)?x.o:x.c,high=Number.isFinite(x.h)?x.h:Math.max(open,x.c),low=Number.isFinite(x.l)?x.l:Math.min(open,x.c),up=x.c>=open,color=up?'#26d9a0':'#ff657a';ctx.strokeStyle=color;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(px,y(high));ctx.lineTo(px,y(low));ctx.stroke();ctx.fillStyle=color;ctx.fillRect(px-bodyW/2,Math.min(y(open),y(x.c)),bodyW,Math.max(1.5,Math.abs(y(open)-y(x.c))));});}
+ else{const points=rows.map((x,i)=>[12+i*step+step/2,y(x.c)]);ctx.strokeStyle='#36d9ff';ctx.lineWidth=2;ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();}
+ if(hasOHLC&&rows.some(x=>Number.isFinite(x.v)&&x.v>0)){const maxV=Math.max(...rows.map(x=>Number.isFinite(x.v)?x.v:0)),base=h-8,volH=23;rows.forEach((x,i)=>{if(!Number.isFinite(x.v)||x.v<=0)return;const px=12+i*step+step/2,open=Number.isFinite(x.o)?x.o:x.c;ctx.fillStyle=x.c>=open?'rgba(38,217,160,.55)':'rgba(255,101,122,.55)';ctx.fillRect(px-bodyW/2,base-(x.v/maxV)*volH,bodyW,(x.v/maxV)*volH);});}
+ ctx.fillStyle='#d9f5ff';ctx.font='bold 11px sans-serif';ctx.textAlign='right';ctx.fillText('آخر إغلاق: $'+money(rows[rows.length-1].c),w-8,14);
+}
+function formatTime(v){return v?new Date(v).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}):'—';}
+function formatDateTime(v){return v?new Date(v).toLocaleString('ar-SA',{weekday:'long',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';}
+function formatSessionDate(v){return v?new Date(v+'T12:00:00Z').toLocaleDateString('ar-SA',{weekday:'long',year:'numeric',month:'2-digit',day:'2-digit'}):'—';}
+function renderAccount(){
+ const exp=me.expires_at||me.trial_expires; document.getElementById('accountCards').innerHTML='<div><small>الحالة</small><b>🟢 فعال</b></div><div><small>الباقة</small><b>'+escHtml(me.user?.plan||'SAS PRO')+'</b></div><div><small>الانتهاء</small><b>'+escHtml(exp?fmtDate(exp):'—')+'</b></div>';
+}
+
+function renderTrialCard(days){
+ const d=Number(days||30);
+ const description=document.getElementById("trialDescription");
+ if(description)description.textContent="للمستخدمين الجدد: استمتع بـ "+d+" يومًا مجانًا. بعد موافقتك على الشروط، ستدخل إلى التطبيق مباشرة، ويمكنك الانضمام إلى القناة.";
+ const button=document.getElementById("trialBtn");
+ if(button)button.innerHTML='<span aria-hidden="true">🚀</span> قراءة الشروط والمتابعة <span aria-hidden="true">←</span>';
+}
+
+function renderStatus(x){
+ const active=!!x.pro;
+ const source=x.access?.source||null;
+ const expiry=x.expires_at||x.subscription_expires||x.trial_expires||null;
+ const start=source==='trial'?(x.trial_start||null):(x.subscription_start||x.trial_start||null);
+ const byId=id=>document.getElementById(id);
+ byId('userName').textContent=x.user?.first_name||x.user?.username||'تم التحقق من الحساب';
+ byId('userName').classList.remove('account-loading');
+ byId('accountLoadError').hidden=true;
+ byId('subscriptionStatusGrid').setAttribute('aria-busy','false');
+ byId('subStatus').textContent=active?'🟢 اشتراك فعّال':'🔒 غير مشترك';
+ byId('subStatus').className=active?'ok':'bad';
+ byId('subPlan').textContent=source==='trial'?'🎁 تجربة مجانية':(active?(x.plan||x.user?.plan||'اشتراك فعّال'):'لا توجد باقة فعّالة');
+ byId('subStart').textContent=start?fmtDate(start):(source==='trial'?'لم يبدأ التسجيل':'—');
+ byId('subEnd').textContent=expiry?fmtDate(expiry):(source==='free'?'مفتوح':'لا يوجد موعد');
+ byId('subDays').textContent=expiry?fmtDays(new Date(),expiry):(source==='free'?'مفتوح':'—');
+ if(source==='trial'&&expiry){
+  byId('trialState').textContent='🎁 فعّالة حتى '+fmtDate(expiry);
+ }else if(source==='free'){
+  byId('trialState').textContent='صلاحية مجانية مفتوحة';
+ }else{
+  byId('trialState').textContent=x.trial_available?'متاحة مرة واحدة':(x.trial_expires?'منتهية/مستخدمة':'غير متاحة');
+ }
+ byId('channelBtn').hidden=!active;
+ byId('trialBtn').disabled=!x.trial_available;
+}
+ 
+function renderPlans(p){
+ const names={monthly:'شهري','3month':'3 أشهر','6month':'6 أشهر',yearly:'سنة'};
+ const icons={monthly:'🟢','3month':'🔷','6month':'💎',yearly:'👑'};
+ document.getElementById('plans').innerHTML=Object.entries(p).filter(([k,x])=>x.visible!==false).map(([k,x])=>
+  '<article class="plan sas-plan-card"><div class="plan-icon">'+(icons[k]||'💠')+'</div><b>'+names[k]+'</b><strong>'+Number(x.sar).toLocaleString('ar-SA')+' ريال سعودي</strong><span>'+Number(x.days).toLocaleString('ar-SA')+' يوم</span>'+
+  '<small class="plan-payment-note">دفع آمن عبر Telegram Stars</small>'+
+  '<button '+(x.stars>0?'':'disabled')+' onclick="buyPlan(\''+k+'\')">اشترك الآن ←</button></article>'
+ ).join('');
+}
+
+function openTerms(action){
+ termAction=action;
+ const agree=document.getElementById('termsAgree');
+ const button=document.getElementById('termsContinue');
+ if(agree)agree.checked=false;
+ if(button){
+  button.disabled=action!=='view';
+  button.textContent=action==='view'?'إغلاق':'أوافق على الشروط وأتابع';
+ }
+ const row=document.getElementById('termsAgreeRow');
+ if(row)row.hidden=action==='view';
+ document.getElementById('termsText').textContent='جاري تحميل الشروط...';
+ document.getElementById('termsModal').hidden=false;
+ requestAnimationFrame(()=>{if(agree&&action!=='view')agree.focus();});
+ api('/api/subscription/plans').then(d=>{document.getElementById('termsText').textContent=d.terms_text||'';}).catch(e=>{document.getElementById('termsText').textContent=e.message;});
+}
+function toggleTermsButton(){
+ const agree=document.getElementById('termsAgree');
+ const button=document.getElementById('termsContinue');
+ if(!button||termAction==='view')return;
+ button.disabled=!Boolean(agree?.checked);
+ button.textContent='أوافق على الشروط وأتابع';
+}
+function closeTerms(){document.getElementById('termsModal').hidden=true;termAction=null;}
+async function continueTerms(){
+ const agree=document.getElementById('termsAgree');
+ const button=document.getElementById('termsContinue');
+ if(termAction==='view'){closeTerms();return;}
+ // لا نسجل الموافقة ولا نفعّل التجربة قبل تحديد مربع الموافقة صراحة.
+ if(!agree?.checked){
+  const row=document.getElementById('termsAgreeRow');
+  if(row){row.style.borderColor='rgba(255,83,104,.75)';row.scrollIntoView({behavior:'smooth',block:'nearest'});}
+  return;
+ }
+ const action=termAction;
+ const originalText=button.textContent;
+ button.disabled=true;
+ button.textContent='⏳ جاري التفعيل...';
+ try{
+  const accepted=await api('/api/terms/accept',{method:'POST'});
+
+  // للمستخدم العادي يجب أن تبدأ التجربة ويُعاد رابط القناة. أما المالك/المشرف
+  // فقد لا تُمنح له تجربة، لذلك لا نحول موافقة الشروط الصحيحة إلى خطأ.
+  if(action==='trial'){
+   if(accepted.trial_started){
+    closeTerms();
+    // On approval, enter the app and show welcome immediately; the channel prompt comes later.
+    localStorage.removeItem('saspro_channel_onboarding_done');
+    localStorage.setItem('saspro_onboarding_pending','1');
+    me={...me,terms_accepted:true,pro:true,trial_available:false};
+    document.getElementById('subscriptionPage').hidden=true;
+    document.getElementById('terminalPage').hidden=false;
+    showSASWelcome();
+    await initTerminal();
+    return;
+   }
+   if(accepted.ok){
+    closeTerms();
+    setTimeout(()=>{loadStarted=false;load();},300);
+    return;
+   }
+   throw new Error('تعذر تفعيل التجربة أو إنشاء رابط القناة. حاول مرة أخرى.');
+  }
+
+  if(action?.startsWith('buy:')){
+   const plan=action.slice(4);
+   const d=await api('/api/subscription/invoice/'+encodeURIComponent(plan),{method:'POST'});
+   closeTerms();
+   if(tg?.openInvoice)tg.openInvoice(d.invoice_link,(status)=>{if(status==='paid')localStorage.setItem('saspro_onboarding_pending','1');setTimeout(()=>{loadStarted=false;load();},1200);});
+   else if(tg?.openLink)tg.openLink(d.invoice_link);
+   else throw new Error('لا يمكن فتح نافذة الدفع داخل Telegram.');
+   return;
+  }
+
+  closeTerms();
+ }catch(e){
+  button.disabled=false;
+  button.textContent=originalText;
+  alert(e.message);
+ }
+}
+function showActionNotice(kind,message){
+ const id=kind==='channel'?'channelActionNotice':'radarActionNotice';
+ let box=document.getElementById(id);
+ if(!box){box=document.createElement('div');box.id=id;box.className='sas-action-notice';box.setAttribute('role','status');const anchor=kind==='channel'?document.querySelector('#tab-dashboard .sas-action-card[onclick="openChannel()"]'):document.getElementById('radarDiagnostics');(anchor?.parentElement||document.getElementById('tab-'+(kind==='channel'?'dashboard':'radar')))?.insertBefore(box,anchor?.nextSibling||null);}
+ box.textContent=message;box.hidden=false;
+}
+let sasChannelOpening=false;
+async function openChannel(){
+ if(sasChannelOpening)return;
+ sasChannelOpening=true;
+ const button=document.querySelector('#tab-dashboard .sas-action-card[onclick="openChannel()"]');
+ if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
+ try{
+  showActionNotice('channel','جاري تجهيز رابط القناة… لا تقفل التطبيق.');
+  const d=await api('/api/channel/access',{timeoutMs:12000,retries:0});
+  if(tg?.openTelegramLink)tg.openTelegramLink(d.url);
+  else if(tg?.openLink)tg.openLink(d.url);
+  else window.open(d.url,'_blank');
+  const notice=document.getElementById('channelActionNotice');if(notice)notice.hidden=true;
+ }catch(e){
+  const msg=String(e?.message||'تعذر تجهيز رابط القناة.');
+  showActionNotice('channel',msg.includes('الوقت المحدد')?'تأخر إنشاء رابط القناة. انتهت مهلة الاتصال؛ جرّب مرة ثانية.':msg);
+ }
+ finally{
+  sasChannelOpening=false;
+  if(button){button.disabled=false;button.removeAttribute('aria-busy');}
+ }
+}
+async function buyPlan(k){
+ if(!me.terms_accepted){openTerms('buy:'+k);return;}
+ try{
+  const d=await api('/api/subscription/invoice/'+encodeURIComponent(k),{method:'POST'});
+  if(tg?.openInvoice)tg.openInvoice(d.invoice_link,(status)=>{if(status==='paid')localStorage.setItem('saspro_onboarding_pending','1');setTimeout(load,1200);});
+  else if(tg?.openLink)tg.openLink(d.invoice_link);
+ }catch(e){alert(e.message);}
+}
+
+const SITE_MEDIA_MANAGED_ITEMS=[
+ {slot:'icon-radar',label:'أيقونة زر الرادار',fallback:'📡',target:'.radar-icon'},
+ {slot:'icon-channel',label:'أيقونة زر القناة',fallback:'✈️',target:'.channel-icon'},
+ {slot:'icon-home',label:'أيقونة تبويب الرئيسية',fallback:'⌂',target:'.terminal-tabs button[data-tab="dashboard"]'},
+ {slot:'icon-tab-radar',label:'أيقونة تبويب الرادار',fallback:'📡',target:'.terminal-tabs button[data-tab="radar"]'},
+ {slot:'icon-search',label:'أيقونة تبويب البحث',fallback:'🔎',target:'.terminal-tabs button[data-tab="search"]'},
+ {slot:'icon-news',label:'أيقونة أخبار السوق الأمريكي',fallback:'📰',target:'.sas-market-news-icon'},
+ {slot:'icon-account',label:'أيقونة تبويب الحساب',fallback:'👤',target:'.terminal-tabs button[data-tab="account"]'},
+ {slot:'icon-profile',label:'أيقونة ملف التعريف الشخصي',fallback:'📈',target:'.sas-profile-avatar'},
+
+
+
+
+
+ {slot:'icon-live-movers',label:'أيقونة بطاقة أعلى الأسهم حركة',fallback:'📈',target:'.sas-insight-grid .sas-insight-panel .sas-insight-title > span'},
+ {slot:'icon-perp-movers',label:'أيقونة بطاقة الأكثر تحركًا خلال 24 ساعة',fallback:'↕️',target:'.sas-perp-movers-panel .sas-insight-title > span'},
+ {slot:'icon-market-indicators',label:'أيقونة عنوان مؤشرات السوق',fallback:'📊',target:'.section-title .market-indicators-icon'},
+ {slot:'icon-shariah',label:'أيقونة الشرعية في بطاقة السهم',fallback:'🕌',target:'.stock-shariah-icon'},
+ {slot:'icon-disclaimer-alert',label:'أيقونة التنبيه القانوني أسفل الصفحة',fallback:'⛔',target:'.sas-disclaimer-bar .disclaimer-badge .disclaimer-icon'}
+];
+const SITE_MEDIA_ICON_TARGETS=Object.fromEntries(SITE_MEDIA_MANAGED_ITEMS.map(item=>[item.slot,item.target]));
+function renderMediaAdminCards(items={}){
+ const grid=document.getElementById('mediaIconsAdminGrid');
+ if(!grid)return;
+ grid.innerHTML=SITE_MEDIA_MANAGED_ITEMS.map(item=>{
+  const current=items[item.slot]?.url;
+  const slot=esc(item.slot),label=esc(item.label),fallback=esc(item.fallback);
+  return '<article class="media-admin-card" data-media-card="'+slot+'">'+
+   '<div class="media-admin-preview"><img id="mediaPreview-'+slot+'" alt="معاينة '+label+'" '+(current?'':'hidden')+(current?' src="'+esc(current)+'"':'')+'><span id="mediaEmpty-'+slot+'" '+(current?'hidden':'')+'>'+fallback+'</span></div>'+
+   '<b>'+label+'</b><small>تتغير مباشرة في الواجهة</small>'+
+   '<label class="media-upload-btn">رفع أيقونة<input type="file" accept="image/webp,image/png,image/jpeg" onchange="uploadSiteMedia(\''+slot+'\',this)"></label>'+
+   '<button type="button" class="media-delete-btn" onclick="deleteSiteMedia(\''+slot+'\')">🗑️ حذف والعودة للأصل</button>'+
+  '</article>';
+ }).join('');
+}
+async function loadSiteMedia(){
+ const data=await api('/api/site-media');
+ const items=data?.items||{};
+ terminalState.siteMedia=items;
+ const hero=document.querySelector('.terminal-hero-banner > img');
+ if(hero){
+  if(!hero.dataset.mediaOriginalSrc)hero.dataset.mediaOriginalSrc=hero.getAttribute('src')||'/assets/saspro-banner.webp';
+  hero.src=items.hero?.url||hero.dataset.mediaOriginalSrc;
+ }
+ for(const [slot,selector] of Object.entries(SITE_MEDIA_ICON_TARGETS)){
+  const el=document.querySelector(selector);
+  if(!el)continue;
+  if(!el.dataset.mediaOriginalHTML)el.dataset.mediaOriginalHTML=el.innerHTML;
+  const item=items[slot];
+  if(!item?.url){
+   el.innerHTML=el.dataset.mediaOriginalHTML;
+   el.classList.remove('has-managed-icon');
+   continue;
+  }
+  const restoreIcon=()=>{
+   el.innerHTML=el.dataset.mediaOriginalHTML||'';
+   el.classList.remove('has-managed-icon');
+   if(terminalState.siteMedia)delete terminalState.siteMedia[slot];
+  };
+  if(el.matches('.sas-profile-avatar')){
+   el.innerHTML='<img class="sas-profile-managed-avatar" src="'+esc(item.url)+'" alt="" aria-hidden="true">';
+  }else if(el.matches('button')){
+   if(!el.dataset.mediaOriginalLabel)el.dataset.mediaOriginalLabel=el.textContent.trim();
+   const label=el.dataset.mediaOriginalLabel.replace(/^[^\p{L}\p{N}]+/u,'').trim();
+   el.innerHTML='<img class="sas-managed-tab-icon" src="'+esc(item.url)+'" alt="" aria-hidden="true"><span>'+esc(label)+'</span>';
+  }else{
+   el.innerHTML='<img class="sas-managed-icon-image" src="'+esc(item.url)+'" alt="" aria-hidden="true">';
+  }
+  const managedImage=el.querySelector('img.sas-managed-icon-image,img.sas-managed-tab-icon');
+  if(managedImage){managedImage.loading='lazy';managedImage.addEventListener('error',restoreIcon,{once:true});}
+  el.classList.add('has-managed-icon');
+ }
+ return items;
+}
+let sasMediaRefreshTimer=null;
+function startSASMediaAutoRefresh(){
+ if(sasMediaRefreshTimer)clearInterval(sasMediaRefreshTimer);
+ sasMediaRefreshTimer=setInterval(()=>{if(document.visibilityState==='visible')loadSiteMedia().catch(()=>{});},60000);
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')loadSiteMedia().catch(()=>{});});
+}
+async function loadAdminMedia(){
+ const status=document.getElementById('mediaUploadStatus');
+ try{
+  const items=await loadSiteMedia();
+  const hero=items.hero?.url;
+  const heroPreview=document.getElementById('mediaPreview-hero');
+  const heroEmpty=document.getElementById('mediaEmpty-hero');
+  if(heroPreview){heroPreview.hidden=!hero;if(hero)heroPreview.src=hero;}
+  if(heroEmpty)heroEmpty.hidden=!!hero;
+  renderMediaAdminCards(items);
+  if(status)status.textContent='تم تحديث معاينات الصور والأيقونات ('+SITE_MEDIA_MANAGED_ITEMS.length+' موضعًا).';
+ }catch(e){if(status)status.textContent='تعذر تحميل الصور: '+(e.message||'خطأ غير معروف');}
+}
+async function deleteSiteMedia(slot){
+ const label=slot==='hero'?'صورة الواجهة الرئيسية':(SITE_MEDIA_MANAGED_ITEMS.find(item=>item.slot===slot)?.label||'الأيقونة');
+ if(!confirm('هل تريد حذف '+label+' والعودة إلى الشكل الافتراضي؟'))return;
+ const status=document.getElementById('mediaUploadStatus');
+ const buttons=document.querySelectorAll('#mediaPanel .media-delete-btn, #mediaPanel input[type="file"]');
+ buttons.forEach(el=>el.disabled=true);
+ if(status)status.textContent='جاري حذف '+label+'...';
+ try{
+  await api('/api/admin/site-media/'+encodeURIComponent(slot),{method:'DELETE',timeoutMs:15000});
+  if(status)status.textContent='تم حذف '+label+' والعودة إلى الرمز الافتراضي.';
+  await loadAdminMedia();
+  // Restore defaults in place; do not reload the Telegram Mini App or lose the admin session.
+ }catch(e){
+  if(status)status.textContent='تعذر حذف الصورة: '+(e.message||'خطأ غير معروف');
+  alert('تعذر حذف الصورة: '+(e.message||'حدث خطأ'));
+ }finally{
+  buttons.forEach(el=>el.disabled=false);
+ }
+}
+async function uploadSiteMedia(slot,input){
+ const file=input?.files?.[0];
+ if(!file)return;
+ const status=document.getElementById('mediaUploadStatus');
+ if(file.size>5*1024*1024){alert('الحد الأقصى لحجم الصورة 5 ميغابايت.');input.value='';return;}
+ if(!['image/webp','image/png','image/jpeg'].includes(file.type)){alert('اختر صورة بصيغة WebP أو PNG أو JPEG.');input.value='';return;}
+ if(status)status.textContent='جاري رفع '+file.name+' وحفظها...';
+ const cards=document.querySelectorAll('#mediaPanel input[type="file"]');
+ cards.forEach(el=>el.disabled=true);
+ try{
+  await api('/api/admin/site-media/'+encodeURIComponent(slot),{
+   method:'POST',
+   headers:{'Content-Type':file.type},
+   body:file,
+   timeoutMs:30000
+  });
+  await loadAdminMedia();
+  if(status)status.textContent='تم حفظ الصورة وتطبيقها بنجاح. ستبقى بعد إعادة النشر.';
+ }catch(e){
+  if(status)status.textContent='لم يتم حفظ الصورة: '+(e.message||'حدث خطأ');
+  alert('تعذر رفع الصورة: '+(e.message||'حدث خطأ'));
+ }finally{
+  cards.forEach(el=>el.disabled=false);
+  input.value='';
+ }
+}
+
+async function loadDeployStatus(){
+ try{
+  const d=await api('/api/admin/deploy-status');
+  const el=document.getElementById('deployStatus');
+  if(!el)return;
+  if(!d.ok){el.innerHTML='<div class="fatal">'+esc(d.message||'تعذر قراءة الحالة')+'</div>';return;}
+  const running=d.status==='in_progress'||d.status==='queued';
+  const ok=d.conclusion==='success';
+  const icon=running?'🟡':(ok?'🟢':'🔴');
+  const label=running?'قيد التنفيذ':(ok?'تم النشر بنجاح':(d.conclusion==='failure'?'فشل النشر':'غير معروف'));
+  el.innerHTML='<div class="deploy-state"><b>'+icon+' '+label+'</b><span>Run #'+esc(d.run_number||'—')+' • محاولة '+esc(d.attempt||'—')+'</span><span>Commit: '+esc(d.sha||'—')+'</span><small>آخر تحديث: '+(d.updated_at?new Date(d.updated_at).toLocaleString('ar-SA'):'—')+'</small></div>';
+ }catch(e){const el=document.getElementById('deployStatus');if(el)el.innerHTML='<div class="fatal">'+esc(e.message)+'</div>';}
+}
+function openDeployActions(){
+ const url='https://github.com/pq070pq/sas/actions/workflows/deploy.yml';
+ if(tg?.openLink)tg.openLink(url);else window.open(url,'_blank');
+}
+
+const ADMIN_ACCORDION_ITEMS=[
+ ['adminOverview','⌂','نظرة عامة','الحالة العامة والإحصاءات والتنبيهات'],
+ ['adminRadarPreviewPanel','📡','حالة الرادار','آخر دورة، أفضل الفرص وأسباب الاستبعاد'],
+ ['adminNewsPanel','▤','أخبار السوق','آخر أخبار السوق الأمريكي ومصادرها'],
+ ['adminUsersPanel','👥','المشتركون','البحث وإدارة المستخدمين'],
+ ['termsAdminPanel','📋','موافقات الشروط','الموافقات ونسخة الشروط'],
+ ['adminSubscriptionPanel','💎','الاشتراكات','التجربة والباقات وإعدادات الاشتراك'],
+ ['starsPanel','⭐','المدفوعات','Telegram Stars والعمليات المالية'],
+ ['staffPanel','🛡️','المشرفون','الأدوار والصلاحيات'],
+ ['deployPanel','🚀','النشر','حالة GitHub Actions والنشر إلى OVH'],
+ ['mediaPanel','🖼️','الصور والأيقونات','استبدال صورة الواجهة ورفع الأيقونات المصغرة'],
+ ['plansEditorPanel','💎','الباقات والأسعار','تعديل الأسعار وظهور الباقات'],
+ ['ownerCard','👑','حساب المالك','بيانات الحساب الرئيسي'],
+ ['monthly-report-panel','📊','التقرير الشهري','ملخص أداء المنصة الشهري']
+];
+
+function initAdminAccordion(){
+ const monthly=document.querySelector('.monthly-report-panel');
+ if(monthly && !monthly.id)monthly.id='monthly-report-panel';
+ const page=document.getElementById('adminPage');
+ const oldNav=page?.querySelector('.admin-nav');
+ if(!page||!oldNav||oldNav.dataset.accordionReady==='1')return;
+ const shell=document.createElement('div');
+ shell.className='admin-accordion';
+ shell.setAttribute('aria-label','أقسام إدارة SAS PRO');
+
+ // افصل اللوحات الموجودة داخل النظرة العامة أولاً، ثم أعد ترتيبها
+ // داخل قائمة واحدة حتى يفتح كل قسم مباشرة أسفل عنوانه.
+ const overview=document.getElementById('adminOverview');
+ const movingIds=ADMIN_ACCORDION_ITEMS.slice(1).map(x=>x[0]);
+ const movingPanels=[];
+ for(const id of movingIds){
+  const el=document.getElementById(id);
+  if(el && el.parentElement!==shell)movingPanels.push(el);
+ }
+
+ for(const [id,icon,title,subtitle] of ADMIN_ACCORDION_ITEMS){
+  const panel=document.getElementById(id);
+  if(!panel)continue;
+  const item=document.createElement('section');
+  item.className='admin-accordion-item';
+  item.dataset.adminAccordionId=id;
+
+  const header=document.createElement('button');
+  header.type='button';
+  header.className='admin-accordion-trigger';
+  header.setAttribute('aria-controls',id);
+  header.setAttribute('aria-expanded',id==='adminOverview'?'true':'false');
+  header.innerHTML='<span class="admin-accordion-icon">'+icon+'</span><span class="admin-accordion-copy"><b>'+title+'</b><small>'+subtitle+'</small></span><span class="admin-accordion-chevron">⌄</span>';
+
+  const body=document.createElement('div');
+  body.className='admin-accordion-body';
+  body.appendChild(panel);
+  if(id!=='adminOverview')panel.hidden=true;
+
+  header.addEventListener('click',()=>{
+   const isOpen=header.getAttribute('aria-expanded')==='true';
+   document.querySelectorAll('.admin-accordion-item').forEach(other=>{
+    const h=other.querySelector('.admin-accordion-trigger');
+    const b=other.querySelector('.admin-accordion-body');
+    const p=other.querySelector('.admin-panel,.admin-overview,.owner-card');
+    const same=other===item;
+    const open=same?!isOpen:false;
+    if(h)h.setAttribute('aria-expanded',String(open));
+    if(b)b.classList.toggle('open',open);
+    if(p){
+     // لا نكسر إخفاء الصلاحيات؛ الفتح اليدوي فقط يزيل حالة الإغلاق.
+     if(open)p.hidden=false;
+     else if(p.dataset.adminPermissionHidden==='1')p.hidden=true;
+     else p.hidden=true;
+    }
+   });
+   if(!isOpen){
+    body.classList.add('open');
+    item.scrollIntoView({behavior:'smooth',block:'start'});
+   }
+  });
+
+  item.appendChild(header);
+  item.appendChild(body);
+  shell.appendChild(item);
+ }
+
+ oldNav.replaceWith(shell);
+ shell.querySelector('[data-admin-accordion-id="adminOverview"] .admin-accordion-body')?.classList.add('open');
+ shell.querySelector('[data-admin-accordion-id="adminOverview"] .admin-accordion-trigger')?.classList.add('is-open');
+ syncAdminAccordionVisibility();
+}
+
+function syncAdminAccordionVisibility(){
+ const shell=document.querySelector('.admin-accordion');
+ if(!shell)return;
+ shell.querySelectorAll('.admin-accordion-item').forEach(item=>{
+  const id=item.dataset.adminAccordionId;
+  const panel=document.getElementById(id);
+  const trigger=item.querySelector('.admin-accordion-trigger');
+  if(!panel||!trigger)return;
+  const permissionHidden=panel.dataset.adminPermissionHidden==='1';
+  item.hidden=permissionHidden;
+  if(permissionHidden){
+   trigger.setAttribute('aria-expanded','false');
+   item.querySelector('.admin-accordion-body')?.classList.remove('open');
+  }
+ });
+}
+
+function openAdminAccordionFor(id){
+ initAdminAccordion();
+ const item=document.querySelector('.admin-accordion-item[data-admin-accordion-id="'+id+'"]');
+ const trigger=item?.querySelector('.admin-accordion-trigger');
+ if(!item||item.hidden||!trigger)return;
+ if(trigger.getAttribute('aria-expanded')!=='true')trigger.click();
+}
+
+function adminSection(id,btn){
+ initAdminAccordion();
+ const item=document.querySelector('.admin-accordion-item[data-admin-accordion-id="'+id+'"]');
+ const trigger=item?.querySelector('.admin-accordion-trigger');
+ if(!item||item.hidden||!trigger)return;
+ const open=trigger.getAttribute('aria-expanded')==='true';
+ trigger.click();
+ if(id==='adminRadarPreviewPanel'){void loadRadarDailyStats();void loadRadarLearning(true);}
+}
+
+let adminHealthTimer=null;
+let adminHealthBusy=false;
+let adminHealthLastSignature='';
+
+async function loadAdminNewsPreview(){
+ const box=document.getElementById('adminNewsPreview');
+ const status=document.getElementById('adminNewsStatus');
+ if(!box)return;
+ box.innerHTML='<div class="empty-state">جارٍ تحميل الأخبار الموثقة…</div>';
+ try{
+  const data=await api('/api/market/news',{timeoutMs:26000,retries:0});
+  const items=Array.isArray(data)?data:(Array.isArray(data?.items)?data.items:[]);
+  const valid=items.filter(n=>n&&safeNewsUrl(n.url)&&String(n.headline||'').trim()).sort((a,b)=>Number(b.datetime||0)-Number(a.datetime||0));
+  box.innerHTML=renderNewsItems(valid,12);
+  if(status)status.textContent=valid.length+' خبر موثق • '+new Date().toLocaleTimeString('ar-SA',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit'})+' الرياض';
+ }catch(e){
+  box.innerHTML='<div class="empty-state">تعذر تحميل الأخبار: '+escHtml(e?.message||'خطأ غير معروف')+'</div>';
+  if(status)status.textContent='تعذر التحديث';
+ }
+}
+function renderAdminHealth(items){
+ const list=document.getElementById('adminAlertsList');
+ const summary=document.getElementById('adminAlertsSummary');
+ const updated=document.getElementById('adminAlertsUpdated');
+ if(!list||!summary)return;
+ const bad=items.filter(x=>x.level==='error').length;
+ const warn=items.filter(x=>x.level==='warn').length;
+ updated.textContent='آخر فحص: '+new Date().toLocaleTimeString('ar-SA');
+ const info=items.filter(x=>x.level==='info').length;
+ if(!bad&&!warn){
+  summary.innerHTML='<div class="admin-system-ok"><b>🟢 النظام سليم</b><small>'+(
+    info ? 'لا توجد أعطال. توجد معلومات تشغيلية فقط.' : 'الرادار والخدمات الأساسية تعمل بشكل طبيعي.'
+  )+'</small></div>';
+  list.innerHTML=items.length
+    ? items.map(x=>'<div class="admin-health-row ok"><span>🟢</span><div><b>'+esc(x.title)+'</b><small>'+esc(x.message)+'</small></div></div>').join('')
+    : '<div class="admin-health-row ok"><span>✓</span><div><b>الحالة العامة سليمة</b><small>سيتم إعادة الفحص تلقائيًا كل دقيقة.</small></div></div>';
+  return;
+ }
+ summary.innerHTML='<div class="admin-system-bad '+(bad?'critical':'warning')+'"><b>'+(bad?'🔴 يوجد عطل يحتاج انتباهك':'🟠 يوجد تنبيه يحتاج المراجعة')+'</b><small>'+bad+' عطل • '+warn+' تنبيه'+(info?' • '+info+' معلومة':'')+'</small></div>';
+ list.innerHTML=items.map(x=>{
+   const cls=x.level==='error'?'error':(x.level==='warn'?'warn':'ok');
+   const icon=x.level==='error'?'🔴':(x.level==='warn'?'🟠':'🟢');
+   return '<div class="admin-health-row '+cls+'"><span>'+icon+'</span><div><b>'+esc(x.title)+'</b><small>'+esc(x.message)+'</small></div></div>';
+ }).join('');
+}
+
+async function checkAdminHealth(){
+ if(adminHealthBusy)return;
+ adminHealthBusy=true;
+ const items=[];
+ try{
+  const d=await api('/api/admin/health',{timeoutMs:12000});
+  const components=Array.isArray(d.components)?d.components:[];
+  components.forEach(x=>{
+   const level=x.status==='error'?'error':(x.status==='warn'?'warn':'info');
+   const detail=x.detail?(' — تفاصيل الخطأ: '+x.detail):'';
+   const location=x.location?(' — موقع الخلل: '+x.location+(x.function?' داخل '+x.function:'')):'';
+   const diagnosis=x.diagnosis?(' — التشخيص: '+x.diagnosis):'';
+   items.push({level,title:String(x.name||'مكوّن غير معروف'),message:String(x.message||'لا توجد تفاصيل')+detail+location+diagnosis});
+  });
+  if(!components.length){
+   items.push({level:'warn',title:'مراقبة النظام',message:'الخادم استجاب لكن لم يُرجع تفاصيل مكونات الفحص.'});
+  }
+  renderAdminHealth(items);
+ }catch(e){
+  const raw=String(e?.message||'تعذر تنفيذ فحص الحالة.');
+  let msg=raw;
+  let title='اتصال لوحة الإدارة بالخادم';
+  let level='error';
+  let context='المسار المطلوب: /api/admin/health';
+  if(/failed to fetch|networkerror|load failed|fetch failed/i.test(raw)){
+   title='تعذر الوصول إلى واجهة فحص الإدارة';
+   context+=' • أصل الصفحة: '+String(location.origin||'غير معروف');
+   context+=' • بيانات Telegram: '+(getInitData()?'متوفرة':'غير متوفرة');
+   try{
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),4000);
+    let probe;
+    try{
+     probe=await fetch('/health',{method:'GET',cache:'no-store',headers:headers(),signal:controller.signal});
+    }finally{clearTimeout(timer);}
+    if(probe.ok){
+     msg='الخادم الأساسي يستجيب عبر /health، لكن طلب /api/admin/health تعذر على المتصفح. افحص توجيه المسار في الوكيل العكسي وسجل طلبات الخادم، ثم تحقق من صلاحية جلسة Telegram.';
+     context+=' • فحص /health: استجاب HTTP '+probe.status;
+    }else{
+     msg='وصل الطلب إلى عنوان الخادم لكن فحص /health أعاد HTTP '+probe.status+'. افحص سجل الخادم والوكيل العكسي وحالة الحاوية.';
+     context+=' • فحص /health: HTTP '+probe.status;
+    }
+   }catch(probeError){
+    msg='تعذر الوصول إلى /api/admin/health وكذلك /health. الاحتمال الأقوى مشكلة اتصال بين Mini App والخادم أو الوكيل العكسي أو توقف الخدمة. لا يمكن تحديد سطر Python من خطأ الشبكة وحده.';
+    context+=' • فشل فحص /health: '+String(probeError?.message||probeError);
+   }
+  }
+  renderAdminHealth([{level,title,message:msg+' — '+context+' — موقع الفحص في الواجهة: web/assets/app-ticker-fix-20261015.js داخل checkAdminHealth().'}]);
+ }finally{
+  adminHealthBusy=false;
+ }
+}
+
+function startAdminHealthMonitor(){
+ if(adminHealthTimer)clearInterval(adminHealthTimer);
+ checkAdminHealth();
+ adminHealthTimer=setInterval(checkAdminHealth,60000);
+}
+
+async function runAdminRadarPreview(){
+ const btn=document.getElementById('adminRadarRunBtn');
+ const summary=document.getElementById('adminRadarPreviewSummary');
+ const top=document.getElementById('adminRadarPreviewTop');
+ const rejects=document.getElementById('adminRadarPreviewRejects');
+ if(!btn||!summary||!top||!rejects)return;
+ const old=btn?.textContent || '';
+ if(btn){btn.disabled=true; btn.textContent='⏳ الفحص التلقائي يعمل عبر scheduler…';}
+ summary.innerHTML='<span class="subscriber-loading">جاري تشغيل Smart Levels + ICT على المرشحين الفعليين…</span>';
+ top.innerHTML=''; rejects.innerHTML='';
+ try{
+  const d=await api('/api/admin/radar/run-preview',{method:'POST'});
+  const s=d.scanner||{};
+  summary.innerHTML='<b>✅ اكتمل الفحص</b><span>المرشحون: '+Number(s.candidates||0).toLocaleString('en-US')+' • المختصر: '+Number(s.shortlist||0).toLocaleString('en-US')+' • المؤكد: '+Number(s.confirmed||0)+' • مراقبة: '+Number(s.watch||0)+' • مرفوض: '+Number(s.filtered||0)+' • أخطاء: '+Number(s.errors||0)+'</span><small>'+esc(d.message||'')+'</small>';
+  const rows=Array.isArray(d.top5)?d.top5:[];
+  let topHtml='<div class="section-head"><b>🔥 أفضل 5</b><span>ترتيب الفحص الجديد</span></div>';
+  if(rows.length){
+   topHtml+=rows.map((x,i)=>{
+    return '<article class="subscriber-status-row"><div class="terms-admin-avatar">'+(i+1)+'</div><div class="terms-admin-main"><b>'+esc(x.symbol||'—')+'</b><small>السعر: '+esc(x.price??'—')+' • التغير: '+esc(x.change_pct??'—')+'% • RVOL: '+esc(x.rvol??'—')+'×</small><span>Smart Score: '+esc(x.smart_levels_score??'—')+' • '+esc(x.smart_levels_status||'—')+' • R:R '+esc(x.risk_reward??'—')+'</span><small>'+esc((x.gate_reasons||[]).slice(0,4).join(' • '))+'</small></div></article>';
+   }).join('');
+  }else{
+   topHtml+='<div class="empty-state">لا توجد فرصة مؤكدة حاليًا وفق البوابة الجديدة.</div>';
+  }
+  top.innerHTML=topHtml;
+  const rs=Array.isArray(d.rejections)?d.rejections:[];
+  rejects.innerHTML='<div class="section-head"><b>🧪 أبرز أسباب الاستبعاد</b><span>أول 20 حالة</span></div>'+(rs.length?rs.map(x=>'<article class="subscriber-status-row"><div class="terms-admin-avatar">🔴</div><div class="terms-admin-main"><b>'+esc(x.symbol||'—')+'</b><small>'+esc(x.reason||'غير محدد')+'</small></div></article>').join(''):'<div class="empty-state">لا توجد حالات استبعاد مسجلة في هذه الجولة.</div>');
+ }catch(e){
+  summary.innerHTML='<div class="fatal">'+esc(e.message||'فشل تشغيل الفحص.')+'</div>';
+ }finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+
+async function adminRefresh(){
+ initAdminAccordion();
+ const p=me?.admin_permissions||[];
+ const permissionRules={
+  adminRadarPreviewPanel:p.includes('radar'),
+  adminNewsPanel:p.includes('settings')||p.includes('radar'),
+  adminUsersPanel:p.includes('users'),
+  termsAdminPanel:p.includes('users'),
+  subscriberStatusPanel:p.includes('users'),
+  'monthly-report-panel':p.includes('users'),
+  adminSubscriptionPanel:p.includes('subscriptions')||p.includes('settings'),
+  giftExtendPanel:p.includes('subscriptions'),
+  starsPanel:p.includes('payments'),
+  staffPanel:p.includes('admins'),
+  deployPanel:p.includes('settings'),
+  mediaPanel:p.includes('settings'),
+  plansEditorPanel:p.includes('settings')
+ };
+ const monthlyPanel=document.getElementById('monthly-report-panel');
+ for(const [id,allowed] of Object.entries(permissionRules)){
+  const panel=document.getElementById(id);
+  if(!panel)continue;
+  panel.dataset.adminPermissionHidden=allowed?'0':'1';
+  if(!allowed)panel.hidden=true;
+ }
+ const radarPanel=document.getElementById('adminRadarPreviewPanel');
+ const radarNav=document.querySelector('[data-admin-target="adminRadarPreviewPanel"]');
+ if(radarPanel){radarPanel.hidden=!p.includes('radar');radarPanel.dataset.adminPermissionHidden=(!p.includes('radar'))?'1':'0';}
+ if(radarNav)radarNav.hidden=!p.includes('radar');
+ const tasks=[];
+ if(p.includes('users')){tasks.push(loadAdminStats(),adminSearch(),loadAdminMonthlyReport(),loadAdminTerms());}
+ if(p.includes('subscriptions'))tasks.push(loadGiftCandidates());
+ if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;document.getElementById('plansEditorPanel').hidden=false;document.getElementById('plansEditorPanel').dataset.adminPermissionHidden='0';document.getElementById('deployPanel').hidden=false;document.getElementById('deployPanel').dataset.adminPermissionHidden='0';document.getElementById('mediaPanel').hidden=false;document.getElementById('mediaPanel').dataset.adminPermissionHidden='0';tasks.push(loadAdminPlans(),loadSubscriptionConfig(),loadDeployStatus(),loadAdminMedia());}
+ else {document.getElementById('planEditor').closest('.admin-panel').hidden=true;document.getElementById('plansEditorPanel').hidden=true;document.getElementById('plansEditorPanel').dataset.adminPermissionHidden='1';document.getElementById('deployPanel').hidden=true;document.getElementById('deployPanel').dataset.adminPermissionHidden='1';document.getElementById('mediaPanel').hidden=true;document.getElementById('mediaPanel').dataset.adminPermissionHidden='1';}
+ if(p.includes('payments')){document.getElementById('starsPanel').hidden=false;document.getElementById('starsPanel').dataset.adminPermissionHidden='0';tasks.push(loadStarsWallet());}else{document.getElementById('starsPanel').hidden=true;document.getElementById('starsPanel').dataset.adminPermissionHidden='1';}
+ await Promise.all(tasks);
+ syncAdminAccordionVisibility();
+ startAdminHealthMonitor();
+}
+const STAFF_ROLE_PERMISSIONS={
+ moderator:['users','channel'],
+ radar_manager:['radar'],
+ subscription_manager:['subscriptions','payments'],
+ admin:['users','subscriptions','channel','radar','payments','admins','settings','audit'],
+ viewer:[]
+};
+const STAFF_ROLE_LABELS={
+ moderator:'مشرف عام',
+ radar_manager:'مشرف الرادار',
+ subscription_manager:'مشرف الاشتراكات',
+ admin:'مدير كامل',
+ viewer:'مشاهد فقط',
+ owner:'المالك'
+};
+const STAFF_ROLE_HINTS={
+ moderator:'المشرف العام: إدارة المستخدمين والقناة.',
+ radar_manager:'مشرف الرادار: إدارة ومتابعة الرصد.',
+ subscription_manager:'مشرف الاشتراكات: إدارة الاشتراكات والمدفوعات.',
+ admin:'المدير الكامل: جميع الصلاحيات الإدارية.',
+ viewer:'مشاهد فقط: بدون صلاحيات تعديل.'
+};
+function updateStaffRoleHint(){
+ const role=document.getElementById('staffRole')?.value;
+ const hint=document.getElementById('staffRoleHint');
+ if(hint)hint.textContent=STAFF_ROLE_HINTS[role]||'';
+}
+async function loadStaff(){
+ try{
+  const d=await api('/api/admin/staff');
+  const list=Array.isArray(d)?d:[];
+  const count=document.getElementById('staffCount');
+  if(count)count.textContent=list.filter(x=>x.role!=='owner').length+' مشرف';
+  const el=document.getElementById('staffList');
+  if(!el)return;
+  el.innerHTML=list.map(x=>{
+   const isOwner=x.role==='owner';
+   const roleLabel=STAFF_ROLE_LABELS[x.role]||x.role||'مشرف';
+   const perms=(x.permissions||[]).length;
+   const status=x.enabled?'🟢 فعال':'🔴 معطل';
+   const actions=isOwner
+    ? '<span class="staff-owner-tag">حساب المالك</span>'
+    : '<div class="staff-row-actions">'+
+      (x.enabled
+       ? '<button class="staff-disable" onclick="staffToggle('+x.telegram_id+',false)">تعطيل</button>'
+       : '<button class="staff-enable" onclick="staffToggle('+x.telegram_id+',true)">تفعيل</button>')+
+      '<button class="staff-delete" onclick="staffDelete('+x.telegram_id+')">حذف</button>'+
+      '</div>';
+   return '<article class="staff-simple-row">'+
+    '<div class="staff-avatar">'+(isOwner?'👑':'🛡️')+'</div>'+
+    '<div class="staff-row-main"><b>'+esc(roleLabel)+'</b><small>Telegram ID: '+esc(x.telegram_id)+'</small><span class="'+(x.enabled?'staff-status-on':'staff-status-off')+'">'+status+' • '+(isOwner?'كل الصلاحيات':perms+' صلاحيات')+'</span></div>'+
+    actions+
+   '</article>';
+  }).join('')||'<div class="empty-state">لا يوجد مشرفون مضافون حاليًا.</div>';
+ }catch(e){
+  const el=document.getElementById('staffList');
+  if(el)el.innerHTML='<div class="fatal">'+esc(e.message)+'</div>';
+ }
+}
+async function addStaff(){
+ const input=document.getElementById('staffId');
+ const id=Number(input?.value);
+ const role=document.getElementById('staffRole')?.value||'moderator';
+ if(!Number.isInteger(id)||id<=0){alert('أدخل Telegram ID صحيحًا.');return;}
+ const permissions=STAFF_ROLE_PERMISSIONS[role]||[];
+ const button=document.querySelector('.staff-save-btn');
+ const oldText=button?.textContent;
+ if(button){button.disabled=true;button.textContent='جاري الحفظ…';}
+ try{
+  await api('/api/admin/staff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telegram_id:id,role,permissions})});
+  if(input)input.value='';
+  await loadStaff();
+  alert('تم حفظ المشرف: '+(STAFF_ROLE_LABELS[role]||role));
+ }catch(e){alert(e.message);}
+ finally{if(button){button.disabled=false;button.textContent=oldText||'حفظ المشرف';}}
+}
+async function staffToggle(id,enabled){
+ try{await api('/api/admin/staff/'+id+'/'+(enabled?'enable':'disable'),{method:'POST'});await loadStaff();}
+ catch(e){alert(e.message);}
+}
+async function staffDelete(id){
+ if(!confirm('حذف هذا المشرف نهائيًا؟'))return;
+ try{await api('/api/admin/staff/'+id,{method:'DELETE'});await loadStaff();}
+ catch(e){alert(e.message);}
+}
+async function loadStarsWallet(){
+ try{
+  const [b,t]=await Promise.all([api('/api/admin/stars/balance'),api('/api/admin/stars/transactions')]);
+  document.getElementById('starsBalance').textContent=(Number(b.balance||0).toLocaleString('en-US'))+' ⭐';
+  document.getElementById('starsUpdated').textContent=new Date().toLocaleTimeString('ar-SA');
+  const rows=t.transactions||[];
+  document.getElementById('starsTransactions').innerHTML=rows.length?rows.map(x=>{
+   const amount=Number(x.amount||0);
+   const incoming=amount>=0;
+   const date=x.date?new Date(Number(x.date)*1000).toLocaleString('ar-SA'):'—';
+   const id=esc(x.id||'');
+   const partner=incoming?(x.source?.type||'دفع/إيراد'):(x.receiver?.type||'سحب/مصروف');
+   return '<div class="stars-row"><div><b>'+(incoming?'➕':'➖')+' '+Math.abs(amount).toLocaleString('en-US')+' ⭐</b><small>'+esc(partner)+' — '+date+'</small></div><code>'+id+'</code></div>';
+  }).join(''):'<div class="loading">لا توجد عمليات Stars ظاهرة حاليًا.</div>';
+ }catch(e){
+  document.getElementById('starsBalance').textContent='غير متاح';
+  document.getElementById('starsTransactions').innerHTML='<div class="fatal">تعذر قراءة بيانات Stars: '+esc(e.message)+'</div>';
+ }
+}
+async function openStarsWithdrawal(){
+ try{
+  const d=await api('/api/admin/stars/withdrawal');
+  if(tg?.openLink)tg.openLink(d.fragment_url);else window.open(d.fragment_url,'_blank');
+ }catch(e){alert(e.message);}
+}
+
+async function loadAdminTerms(){
+ try{
+  const d=await api('/api/admin/terms-status');
+  const rows=Array.isArray(d.users)?d.users:[];
+  const accepted=Number(d.accepted||0), pending=Number(d.pending||0), total=Number(d.total||rows.length);
+  const summary=document.getElementById('termsAdminSummary');
+  const list=document.getElementById('termsAdminList');
+  if(summary)summary.innerHTML='<b>'+accepted.toLocaleString('en-US')+'</b><span>موافقون • الإجمالي: '+total.toLocaleString('en-US')+' • النسخة الحالية: '+esc(d.terms_version||'—')+'</span>';
+  if(list)list.innerHTML=rows.length?rows.map(u=>{
+   const name=[u.first_name,u.last_name].filter(Boolean).join(' ')||'بدون اسم';
+   const date=u.accepted_at?new Date(u.accepted_at).toLocaleString('ar-SA'):'—';
+   const ver=u.terms_version||'—';
+   return '<article class="terms-admin-row"><div class="terms-admin-avatar">✅</div><div class="terms-admin-main"><b>'+esc(name)+'</b><small>'+(u.username?'@'+esc(u.username)+' • ':'')+'Telegram ID: '+esc(u.telegram_id)+'</small><span class="terms-ok">موافق على الشروط</span><small>النسخة: '+esc(ver)+' • التاريخ: '+esc(date)+'</small></div></article>';
+  }).join(''):'<div class="empty-state">لا توجد بيانات مستخدمين حتى الآن.</div>';
+ }catch(e){
+  const el=document.getElementById('termsAdminList'); if(el)el.innerHTML='<div class="fatal">تعذر تحميل موافقات الشروط: '+esc(e.message)+'</div>';
+ }
+}
+async function loadAdminMonthlyReport(){
+ try{
+  const input=document.getElementById('reportMonth');
+  if(!input)return;
+  if(!input.value){
+   const d=new Date();
+   input.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  }
+  const d=await api('/api/admin/monthly-report?month='+encodeURIComponent(input.value));
+  renderAdminMonthlyReport(d);
+ }catch(e){
+  const el=document.getElementById('monthlyReport');
+  if(el)el.innerHTML='<div class="fatal">تعذر تحميل التقرير الشهري: '+esc(e.message)+'</div>';
+ }
+}
+function renderAdminMonthlyReport(d){
+ const r=d.radar||{},s=d.subscribers||{},v=d.revenue||{},c=d.comparison||{};
+ const n=x=>x===null||x===undefined?'—':Number(x).toLocaleString('en-US');
+ const pct=x=>x===null||x===undefined?'—':Number(x).toFixed(2)+'%';
+ const ret=x=>x===null||x===undefined?'—':(Number(x)>0?'+':'')+Number(x).toFixed(2)+'%';
+ const top=(d.top_symbols||[]).map(x=>'<span class="report-chip">'+esc(x.symbol)+' <b>'+n(x.count)+'</b></span>').join('')||'<span class="muted">لا توجد نتائج</span>';
+ document.getElementById('monthlyReport').innerHTML=
+  '<div class="report-toolbar"><div><b>📅 التقرير الشهري</b><small>بيانات فعلية من قاعدة SAS PRO</small></div>'+
+  '<div class="report-month-actions"><input id="reportMonth" type="month" value="'+esc(d.month)+'"><button onclick="loadAdminMonthlyReport()">عرض</button></div></div>'+
+  '<div class="report-grid">'+
+   '<div><small>إشارات الرصد</small><strong>'+n(r.signals)+'</strong><em>مرسلة: '+n(r.sent)+'</em></div>'+
+   '<div><small>الأهداف المحققة</small><strong>'+n(r.target_hits)+'</strong><em>نسبة: '+pct(r.target_hit_rate)+'</em></div>'+
+   '<div><small>متوسط العائد المسجل</small><strong>'+ret(r.avg_return_pct)+'</strong><em>نتائج قابلة للحساب: '+n(r.tracked_returns)+'</em></div>'+
+   '<div><small>أفضل نتيجة مسجلة</small><strong>'+ret(r.best_return_pct)+'</strong><em>أسوأ: '+ret(r.worst_return_pct)+'</em></div>'+
+   '<div><small>مكتملة / موقوفة</small><strong>'+n(r.completed)+' / '+n(r.failed)+'</strong><em>نشطة: '+n(r.active)+'</em></div>'+
+   '<div><small>الإيراد</small><strong>'+n(v.sar)+' ريال</strong><em>'+n(v.stars)+' ⭐ — '+n(v.payments)+' عملية</em></div>'+
+   '<div><small>مستخدمون جدد</small><strong>'+n(s.new_users)+'</strong><em>تجارب: '+n(s.trial_users)+' — مدفوعة: '+n(s.paid_users)+'</em></div>'+
+  '</div>'+
+  '<div class="report-compare"><b>↔️ مقارنة بالشهر السابق '+esc(c.previous_month||'—')+'</b><span>الإشارات: '+n(c.signals)+' | النتائج: '+n(c.outcomes)+' | نسبة الأهداف: '+pct(c.target_hit_rate)+' | متوسط العائد: '+ret(c.avg_return_pct)+' | Stars: '+n(c.stars)+'</span></div>'+
+  '<div class="report-top"><b>🔥 أكثر الأسهم ظهورًا في نتائج الرصد</b><div>'+top+'</div></div>'+
+  '<div class="report-note">ℹ️ '+esc(d.note||'')+'</div>';
+}
+function adminStatCard(key,label,icon,value,clickable=true){
+ const action=clickable ? ' onclick='+String.fromCharCode(39)+'openSubscriberStatus("'+key+'")'+String.fromCharCode(39) : '';
+ return `<button type="button" class="admin-stat-card ${clickable?'is-clickable':''}"${action}><small>${label}</small><strong>${Number(value||0).toLocaleString('en-US')}</strong><span>${icon}${clickable?' عرض التفاصيل ↗':''}</span></button>`;
+}
+async function loadAdminStats(){
+ const d=await api('/api/admin/overview');
+ document.getElementById('adminStats').innerHTML=
+  adminStatCard('active','🟢 المفعلين','👥',d.active,true)+
+  adminStatCard('expired','🔴 المنتهية','⏳',d.expired,true)+
+  '<div class="admin-stat-card"><small>🎁 التجارب</small><strong>'+Number(d.trial_users||0).toLocaleString('en-US')+'</strong><span>المستخدمون الذين بدأوا تجربة</span></div>'+
+  '<div class="admin-stat-card"><small>👥 الجدد</small><strong>'+Number(d.new_users||0).toLocaleString('en-US')+'</strong><span>آخر 30 يومًا</span></div>'+
+  '<div class="admin-stat-card"><small>💳 المدفوعات</small><strong>'+Number(d.payments||0).toLocaleString('en-US')+'</strong><span>عمليات مسجلة</span></div>'+
+  '<div class="admin-stat-card"><small>⭐ Stars</small><strong>'+Number(d.stars||0).toLocaleString('en-US')+'</strong><span>إجمالي مسجل</span></div>';
+ const o=d.owner||{};
+ const full=[o.first_name,o.last_name].filter(Boolean).join(' ')||'مالك SAS PRO';
+ document.getElementById('ownerName').textContent=full;
+ document.getElementById('ownerUsername').textContent=o.username?'@'+o.username:'بدون Username';
+ document.getElementById('ownerId').textContent='Telegram ID: '+(o.telegram_id||'—');
+}
+async function openSubscriberStatus(state){
+ const panel=document.getElementById('subscriberStatusPanel');
+ const title=document.getElementById('subscriberStatusTitle');
+ const subtitle=document.getElementById('subscriberStatusSubtitle');
+ const summary=document.getElementById('subscriberStatusSummary');
+ const list=document.getElementById('subscriberStatusList');
+ if(!panel||!list)return;
+ const isActive=state==='active';
+ title.textContent=isActive?'👥 المشتركين المفعلين':'⏳ المشتركين المنتهية صلاحيتهم';
+ subtitle.textContent='بيانات حقيقية مباشرة من قاعدة بيانات SAS PRO';
+ summary.innerHTML='<span class="subscriber-loading">جاري قراءة البيانات…</span>';
+ list.innerHTML='<div class="loading">جاري تحميل القائمة...</div>';
+ panel.hidden=false;
+ openAdminAccordionFor('subscriberStatusPanel');
+ panel.scrollIntoView({behavior:'smooth',block:'start'});
+ try{
+  const d=await api('/api/admin/subscribers?state='+encodeURIComponent(state));
+  const rows=Array.isArray(d.users)?d.users:[];
+  summary.innerHTML='<b>'+Number(d.count||rows.length).toLocaleString('en-US')+'</b><span>'+(isActive?'مستخدم لديه وصول فعال الآن':'مستخدم غير فعال أو منتهي')+'</span>';
+  list.innerHTML=rows.length?rows.map(renderSubscriberRow).join(''):'<div class="empty-state">'+(isActive?'لا يوجد مشتركون مفعلون حاليًا.':'لا توجد اشتراكات منتهية حاليًا.')+'</div>';
+ }catch(e){
+  list.innerHTML='<div class="fatal">تعذر تحميل بيانات المشتركين: '+esc(e.message)+'</div>';
+ }
+}
+function renderSubscriberRow(u){
+ const name=[u.first_name,u.last_name].filter(Boolean).join(' ')||'بدون اسم';
+ const username=u.username?'@'+u.username:'بدون Username';
+ const expires=u.expires_at?new Date(u.expires_at).toLocaleString('ar-SA'):'بدون انتهاء';
+ const plan=u.plan||'—';
+ return '<article class="subscriber-real-row">'+
+  '<div class="subscriber-real-avatar">'+(u.source==='subscription'?'💎':u.source==='trial'?'🎁':u.source==='free'?'♾️':'⏳')+'</div>'+
+  '<div class="subscriber-real-main"><b>'+esc(name)+'</b><small>'+esc(username)+' • Telegram ID: '+esc(u.telegram_id)+'</small><span>'+esc(u.status_label)+' • الباقة: '+esc(plan)+'</span><small>الانتهاء: '+esc(expires)+'</small></div>'+
+  '<button class="subscriber-real-action" onclick="openSubscriberActions('+Number(u.telegram_id)+')">إدارة</button>'+
+ '</article>';
+}
+function closeSubscriberStatus(){
+ const panel=document.getElementById('subscriberStatusPanel');
+ if(panel)panel.hidden=true;
+}
+function openSubscriberActions(id){
+ const input=document.getElementById('adminSearch');
+ if(input){input.value=String(id);input.scrollIntoView({behavior:'smooth',block:'center'});}
+ closeSubscriberStatus();
+ setTimeout(()=>adminSearch(),250);
+}
+async function adminSearch(){try{const q=document.getElementById('adminSearch').value.trim();const rows=await api('/api/admin/users'+(q?'?q='+encodeURIComponent(q):''));document.getElementById('adminUsers').innerHTML=rows.map(u=>{
+ const status=u.free_access?'♾️ دائم':(u.subscription_expires&&new Date(u.subscription_expires)>new Date()?'🟢 فعال':'🔴 منتهي');
+ return '<div class="user-row"><div><b>'+esc(u.first_name||u.username||'بدون اسم')+'</b><br><small>ID: '+esc(u.telegram_id)+' '+(u.username?'@'+esc(u.username):'')+'</small><br><small>'+status+' — '+fmtDate(u.subscription_expires)+'</small></div>'+
+ '<div class="user-actions"><button onclick="adminGrant('+u.telegram_id+',30)">30 يوم</button><button onclick="adminGrant('+u.telegram_id+',90)">3 أشهر</button><button onclick="adminGrant('+u.telegram_id+',365)">سنة</button><button onclick="adminFreeExtend('+u.telegram_id+',3)">مجاني +3</button><button onclick="adminFreeExtend('+u.telegram_id+',7)">مجاني +7</button><button onclick="adminFreeExtend('+u.telegram_id+',30)">مجاني +30</button><button onclick="adminGrant('+u.telegram_id+',\'forever\')">دائم</button><button class="danger" onclick="adminRevoke('+u.telegram_id+')">إلغاء</button><button class="admin-test-reset" onclick="adminResetForTest('+u.telegram_id+')">↻ إعادة فتح الاشتراك للاختبار</button></div></div>';
+ }).join('')||'<p>لا توجد نتائج.</p>';}catch(e){document.getElementById('adminUsers').textContent=e.message;}}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+async function adminFreeExtend(id,d){try{await api('/api/admin/free-extend/'+id+'?days='+d,{method:'POST'});await adminRefresh();alert('تم تمديد المجاني للمستخدم.');}catch(e){alert(e.message);}}
+async function adminGrant(id,d){try{await api('/api/admin/grant/'+id+'?days='+encodeURIComponent(d),{method:'POST'});await adminRefresh();}catch(e){alert(e.message);}}
+let giftMode='single';
+async function loadGiftCandidates(){
+ const select=document.getElementById('giftExtendTelegramId');
+ if(!select)return;
+ const previous=select.value;
+ select.innerHTML='<option value="">⏳ جاري تحميل المشتركين...</option>';
+ try{
+  const rows=await api('/api/admin/gift-candidates');
+  if(!Array.isArray(rows)||!rows.length){select.innerHTML='<option value="">لا يوجد مشتركون فعّالون حاليًا</option>';return;}
+  select.innerHTML='<option value="">— اختر المشترك —</option>'+rows.map(u=>{
+   const name=esc(u.name||u.username||u.telegram_id);
+   const username=u.username?' (@'+esc(u.username)+')':'';
+   return '<option value="'+Number(u.telegram_id)+'">'+name+username+' · '+esc(u.kind)+' · ينتهي '+esc(fmtDate(u.expires_at))+' · ID '+Number(u.telegram_id)+'</option>';
+  }).join('');
+  if(previous&&rows.some(u=>String(u.telegram_id)===previous))select.value=previous;
+ }catch(e){select.innerHTML='<option value="">تعذر تحميل المشتركين — حدّث اللوحة</option>';console.error('Gift candidates load failed',e);}
+}
+function setGiftMode(mode){
+ giftMode=mode==='all'?'all':'single';
+ const single=giftMode==='single';
+ const target=document.getElementById('giftSingleTarget');
+ const singleBtn=document.getElementById('giftModeSingle');
+ const allBtn=document.getElementById('giftModeAll');
+ const action=document.getElementById('giftExtendAllBtn');
+ if(target)target.hidden=!single;
+ if(single)loadGiftCandidates();
+ if(singleBtn){singleBtn.classList.toggle('active',single);singleBtn.setAttribute('aria-pressed',String(single));}
+ if(allBtn){allBtn.classList.toggle('active',!single);allBtn.setAttribute('aria-pressed',String(!single));}
+ if(action)action.textContent=single?'🎁 إرسال الهدية وتمديد الاشتراك':'🎁 إرسال الهدية وتمديد اشتراكات الجميع';
+ const result=document.getElementById('giftExtendResult');if(result)result.hidden=true;
+}
+async function adminGiftExtendAll(){
+ const input=document.getElementById('giftExtendDays');
+ const targetInput=document.getElementById('giftExtendTelegramId');
+ const result=document.getElementById('giftExtendResult');
+ const button=document.getElementById('giftExtendAllBtn');
+ const days=Number(input?.value);
+ const telegramId=Number(targetInput?.value);
+ if(!Number.isInteger(days)||days<1||days>365){alert('أدخل مدة هدية من يوم إلى 365 يومًا.');return;}
+ if(giftMode==='single'&&(!Number.isSafeInteger(telegramId)||telegramId<1)){alert('اختر المشترك الذي تريد إهداءه.');return;}
+ const scope=giftMode==='single'?'للمستخدم '+telegramId:'لجميع المشتركين الفعّالين';
+ if(!confirm('تأكيد إرسال هدية '+days+' يومًا '+scope+'؟'))return;
+ button.disabled=true;button.textContent='⏳ جارٍ تنفيذ الهدية…';result.hidden=true;
+ try{
+  const payload={days};if(giftMode==='single')payload.telegram_id=telegramId;
+  const d=await api('/api/admin/gift-extend-all',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  result.hidden=false;
+  result.innerHTML='<b>🎉 اكتملت الهدية</b><br>الاشتراكات الممددة: '+Number(d.extended||0)+'<br>رسائل تيليجرام المرسلة: '+Number(d.notifications_sent||0)+'<br>تعذر إرسالها: '+Number(d.notifications_failed||0)+(d.skipped?'<br>تم تجاوزها: '+Number(d.skipped):'');
+  button.textContent='✅ تم تنفيذ الهدية';
+ }catch(e){alert(e.message||'تعذر تنفيذ الهدية.');button.textContent=giftMode==='single'?'🎁 إرسال الهدية وتمديد الاشتراك':'🎁 إرسال الهدية وتمديد اشتراكات الجميع';}
+ finally{button.disabled=false;}
+}
+async function adminRevoke(id){if(!confirm('إلغاء وصول هذا المستخدم؟'))return;try{await api('/api/admin/revoke/'+id,{method:'POST'});await adminRefresh();}catch(e){alert(e.message);}}
+async function adminResetForTest(id){
+ if(!confirm('سيتم إلغاء الوصول الحالي لهذا المستخدم فقط، وإعادة تهيئة حالته ليظهر له الاشتراك من جديد عند فتح SAS PRO. هل تريد المتابعة؟'))return;
+ try{
+  await api('/api/admin/users/'+id+'/reset-for-test',{method:'POST'});
+  await adminRefresh();
+  alert('تمت إعادة تهيئة المستخدم للاختبار. اطلب منه إغلاق SAS PRO وفتحه من جديد.');
+ }catch(e){alert(e.message||'تعذرت إعادة التهيئة.');}
+}
+async function loadSubscriptionConfig(){
+ const d=await api('/api/admin/subscription-config');
+ document.getElementById('paidPlansVisible').checked=!!d.paid_plans_visible;
+ document.getElementById('trialDays').value=d.trial_days||3;
+ document.getElementById('plansEditorPanel').hidden=!d.paid_plans_visible;
+}
+async function loadAdminPlans(){
+ const p=await api('/api/admin/plans');
+ const names={monthly:'شهري','3month':'3 أشهر','6month':'6 أشهر',yearly:'سنة'};
+ document.getElementById('planVisibility').innerHTML=Object.entries(p).map(([k,x])=>'<label><input class="plan-vis" data-plan="'+k+'" type="checkbox" '+(x.visible?'checked':'')+'> '+names[k]+'</label>').join('');
+ document.getElementById('planEditor').innerHTML=Object.entries(p).map(([k,x])=>
+  '<div class="plan-edit"><b>'+names[k]+'</b><label>ريال<input id="sar_'+k+'" type="number" value="'+x.sar+'"></label><label>أيام<input id="days_'+k+'" type="number" value="'+x.days+'"></label><label>Stars<input id="stars_'+k+'" type="number" value="'+x.stars+'"></label></div>'
+ ).join('');
+}
+async function savePlans(){
+ const p={};
+ for(const k of ['monthly','3month','6month','yearly']){
+  p[k]={sar:Number(document.getElementById('sar_'+k).value),days:Number(document.getElementById('days_'+k).value),stars:Number(document.getElementById('stars_'+k).value)};
+ }
+ try{
+  await api('/api/admin/plans',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
+  alert('تم حفظ الباقات');
+  await loadAdminPlans();
+ }catch(e){alert(e.message);}
+}
+
+async function saveSubscriptionConfig(){
+ const paid=!!document.getElementById('paidPlansVisible').checked;
+ const days=Number(document.getElementById('trialDays').value||30);
+ try{
+  const d=await api('/api/admin/subscription-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paid_plans_visible:paid,trial_days:days})});
+  document.getElementById('plansEditorPanel').hidden=!d.paid_plans_visible;
+  alert(d.paid_plans_visible?'تم إظهار الاشتراكات المدفوعة.':'تم إخفاء الاشتراكات المدفوعة وإبقاء المجاني فقط.');
+ for(const el of document.querySelectorAll('.plan-vis')){await api('/api/admin/plan-visibility/'+el.dataset.plan,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visible:el.checked})});}
+ }catch(e){alert(e.message);}
+}
+document.addEventListener('change',e=>{if(e.target?.id==='paidPlansVisible')document.getElementById('plansEditorPanel').hidden=!e.target.checked;});
+load();
+
+// تحميل العلامة البصرية من مساحة التخزين الدائمة؛ لا يتدخل في بيانات الرادار.
+loadSiteMedia().catch(()=>{});
+startSASMediaAutoRefresh();
+
+/* Interactive countdowns use the US exchange timezone, so DST is handled automatically. */
+(function initSasMarketCountdown(){
+ const zone='America/New_York';
+ let selected='pre';
+ const fmtParts=(date)=>{const p=new Intl.DateTimeFormat('en-US',{timeZone:zone,year:'numeric',month:'numeric',day:'numeric',weekday:'short',hour:'numeric',minute:'numeric',second:'numeric',hourCycle:'h23'}).formatToParts(date);const o={};for(const x of p)if(x.type!=='literal')o[x.type]=x.value;return o;};
+ function zonedTimeToUtc(y,m,d,h,min){
+   const wanted=Date.UTC(y,m-1,d,h,min,0);let guess=wanted;
+   for(let i=0;i<4;i++){const p=fmtParts(new Date(guess));const actual=Date.UTC(Number(p.year),Number(p.month)-1,Number(p.day),Number(p.hour),Number(p.minute),Number(p.second));const diff=wanted-actual;guess+=diff;if(Math.abs(diff)<1000)break;}
+   return guess;
+ }
+ function nextOpening(now,hour,minute){
+   const p=fmtParts(now);const base=Date.UTC(Number(p.year),Number(p.month)-1,Number(p.day));
+   for(let n=0;n<12;n++){const d=new Date(base+n*86400000);const dow=d.getUTCDay();if(dow===0||dow===6)continue;const target=zonedTimeToUtc(d.getUTCFullYear(),d.getUTCMonth()+1,d.getUTCDate(),hour,minute);if(target>now.getTime())return target;}
+   return now.getTime()+86400000;
+ }
+ function dur(ms){let s=Math.max(0,Math.floor(ms/1000));const days=Math.floor(s/86400);s%=86400;const hh=Math.floor(s/3600);s%=3600;const mm=Math.floor(s/60),ss=s%60;const pad=n=>String(n).padStart(2,'0');const clock=pad(hh)+':'+pad(mm)+':'+pad(ss);return (days?'<span class="sas-countdown-days">'+days+' '+(days===1?'يوم':'أيام')+'</span>':'')+'<span class="sas-countdown-clock" dir="ltr">'+clock+'</span>';}
+ function arDate(ms){return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(ms));}
+ function arTime(ms){return new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{timeZone:'Asia/Riyadh',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(ms));}
+ function openingDateTime(ms){return '<span class="sas-opening-date" dir="rtl">'+arDate(ms)+'</span><span class="sas-opening-time"><bdi dir="ltr">'+arTime(ms)+'</bdi> • بتوقيت الرياض</span>';}
+ function marketPhase(now){
+   const p=fmtParts(now),day=String(p.weekday||'').toLowerCase();
+   const mins=Number(p.hour)*60+Number(p.minute);
+   if(day==='sat'||day==='sun')return 'closed';
+   if(mins>=240&&mins<570)return 'pre';
+   if(mins>=570&&mins<960)return 'open';
+   if(mins>=960&&mins<1200)return 'after';
+   if(mins>=1200||mins<240)return 'night';
+   return 'closed';
+ }
+ function paint(){
+   const now=new Date(), pre=nextOpening(now,4,0), regular=nextOpening(now,9,30);
+   const pe=document.getElementById('sasPreCountdown'),re=document.getElementById('sasRegularCountdown');
+   if(!pe||!re)return;
+   pe.innerHTML=dur(pre-now.getTime());re.innerHTML=dur(regular-now.getTime());
+   const pd=document.getElementById('sasPreCountdownLabel'),rd=document.getElementById('sasRegularCountdownLabel');
+   if(pd)pd.textContent=pre-now.getTime()<1000?'بدأ وقت ما قبل الافتتاح':'متبقي على بداية ما قبل الافتتاح';
+   if(rd)rd.textContent=regular-now.getTime()<1000?'بدأت الجلسة الرسمية':'متبقي على افتتاح الجلسة الرسمية';
+   const pw=document.getElementById('sasPreCountdownWhen'),rw=document.getElementById('sasRegularCountdownWhen');
+   if(pw)pw.innerHTML=openingDateTime(pre);
+   if(rw)rw.innerHTML=openingDateTime(regular);
+   const date=document.getElementById('sasCountdownDate');if(date)date.innerHTML='<span class="sas-opening-date" dir="rtl">موعد الجلسة القادمة: '+arDate(pre)+'</span><span class="sas-opening-time">جميع الأوقات بتوقيت الرياض</span>';
+   const phase=marketPhase(now),strip=document.querySelector('.sas-market-strip'),headline=document.getElementById('sasMarketHeadline');
+   const sessionCard=document.getElementById('sasOpenCountdown');
+   const sessionTitle=document.getElementById('sasCountdownStateTitle');
+   if(sessionCard){
+     sessionCard.classList.remove('market-state-open','market-state-pre','market-state-after','market-state-night','market-state-closed');
+     sessionCard.classList.add(phase==='open'?'market-state-open':phase==='pre'?'market-state-pre':phase==='after'?'market-state-after':phase==='night'?'market-state-night':'market-state-closed');
+     sessionCard.dataset.marketState=phase;
+   }
+   if(sessionTitle)sessionTitle.textContent=phase==='open'?'السوق الأمريكي مفتوح':phase==='pre'?'السوق قبل الافتتاح':phase==='after'?'التداول بعد الإغلاق':phase==='night'?'التداول الليلي':'السوق الأمريكي مغلق';
+
+   if(strip){strip.classList.remove('is-open','is-pre','is-closed','is-after','is-night');strip.classList.add(phase==='open'?'is-open':phase==='pre'?'is-pre':phase==='after'?'is-after':phase==='night'?'is-night':'is-closed');strip.dataset.marketState=phase;}
+   if(headline)headline.textContent=phase==='open'?'السوق الأمريكي مفتوح':phase==='pre'?'السوق الأمريكي قبل الافتتاح':phase==='after'?'التداول بعد الإغلاق':'السوق الأمريكي مغلق';
+   const sub=document.getElementById('sasMarketSubline');
+   if(sub)sub.textContent=phase==='closed'?'السوق مغلق حاليًا • موعد ما قبل الافتتاح 04:00 نيويورك':phase==='pre'?'فترة ما قبل الافتتاح • بتوقيت نيويورك':phase==='night'?'التداول الليلي • خارج الجلسة الرسمية':'التوقيت حسب بورصة نيويورك • جميع المواعيد بتوقيت الرياض';
+   const session=document.getElementById('sasSessionLabel');
+   if(session)session.textContent=phase==='open'?'الجلسة الرسمية مفتوحة':phase==='pre'?'ما قبل الافتتاح':phase==='after'?'بعد الإغلاق':phase==='night'?'التداول الليلي':'مغلق — لا يوجد تداول';
+   document.querySelectorAll('[data-countdown]').forEach(b=>{const active=b.dataset.countdown===selected;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));});
+ }
+ document.querySelectorAll('[data-countdown]').forEach(b=>b.addEventListener('click',()=>{selected=b.dataset.countdown;paint();}));
+ paint();setInterval(paint,1000);
+})();
+
+
+/* Editable gift notification template managed by SAS ADMIN. */
+function renderGiftMessagePreview(){
+ const days=Number(document.getElementById('giftExtendDays')?.value||7);
+ const node=document.getElementById('giftMessagePreviewDays');
+ if(node)node.textContent=Number.isInteger(days)&&days>0?String(days):'7';
+}
+document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays')renderGiftMessagePreview();});
+
+
+/* SAS PRO Market Pulse — live translated news and real market index prices */
+(function(){
+ if(window.__sasMarketPulseReady)return;window.__sasMarketPulseReady=true;
+ const $=id=>document.getElementById(id);
+ let newsBusy=false,newsTimer=null,lastNewsKey='';
+ const NEWS_CACHE_KEY='saspro_market_news_cache_v1',NEWS_CACHE_MAX_AGE=24*60*60*1000;
+ function readCachedNews(){try{const item=JSON.parse(localStorage.getItem(NEWS_CACHE_KEY)||'null');if(!item||!Array.isArray(item.items)||!item.items.length||Date.now()-Number(item.savedAt||0)>NEWS_CACHE_MAX_AGE)return null;return item;}catch(e){return null;}}
+ function writeCachedNews(items){try{localStorage.setItem(NEWS_CACHE_KEY,JSON.stringify({savedAt:Date.now(),items:items.slice(0,16)}));}catch(e){}}
+ const indices=[
+  {label:'S&P 500',keys:['S&P 500','SPX','^GSPC','SPY'],cache:'S&P_500',icon:'<svg viewBox="0 0 48 48"><path d="M7 38V10M7 38H42" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><rect x="12" y="25" width="6" height="10" rx="1.5" fill="currentColor" opacity=".55"/><rect x="22" y="18" width="6" height="17" rx="1.5" fill="currentColor" opacity=".75"/><rect x="32" y="9" width="6" height="26" rx="1.5" fill="currentColor"/><path d="m11 21 9-6 7 2 10-10" fill="none" stroke="#62f5c5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',tone:'#35e7ff'},
+  {label:'NASDAQ',keys:['NASDAQ','IXIC','^IXIC','QQQ'],cache:'NASDAQ',icon:'<svg viewBox="0 0 48 48"><path d="M6 36H42" stroke="currentColor" stroke-width="2" opacity=".45"/><path d="m7 30 8-8 7 4 8-13 5 5 6-11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="41" cy="7" r="3" fill="#62f5c5"/></svg>',tone:'#4b9dff'},
+  {label:'DOW JONES',keys:['DOW JONES','DJI','^DJI','DIA'],cache:'DOW_JONES',icon:'<svg viewBox="0 0 48 48"><path d="M7 39H42" stroke="currentColor" stroke-width="2" opacity=".5"/><rect x="9" y="24" width="7" height="15" rx="1.5" fill="currentColor" opacity=".5"/><rect x="21" y="16" width="7" height="23" rx="1.5" fill="currentColor" opacity=".75"/><rect x="33" y="8" width="7" height="31" rx="1.5" fill="currentColor"/></svg>',tone:'#ffd447'},
+  {label:'BITCOIN',keys:['BTC','BTC/USD','BTCUSD','BTCUSDT'],cache:'BTC',icon:'<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="19" fill="currentColor" opacity=".16"/><circle cx="24" cy="24" r="17" fill="none" stroke="currentColor" stroke-width="2"/><text x="24" y="32" text-anchor="middle" font-size="25" font-weight="800" fill="currentColor">₿</text></svg>',tone:'#ffb54d'},
+  {label:'VIX',keys:['VIX','^VIX','CBOE:VIX'],cache:'VIX',icon:'<svg viewBox="0 0 48 48"><path d="M5 37H43" stroke="currentColor" stroke-width="2" opacity=".45"/><path d="M6 12 13 18 19 14 25 29 31 23 36 31 42 9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="42" cy="9" r="3" fill="#ff7185"/><path d="M7 8H41" stroke="currentColor" stroke-width="1" stroke-dasharray="3 4" opacity=".25"/></svg>',tone:'#ff7185'},
+  {label:'GOLD',keys:['GOLD','XAU/USD','XAUUSD','GCUSD','GLD'],cache:'GOLD',icon:'<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="24" cy="24" r="11" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".7"/><path d="m24 12 3.5 8.5 8.5 3.5-8.5 3.5L24 36l-3.5-8.5L12 24l8.5-3.5Z" fill="currentColor" opacity=".8"/></svg>',tone:'#ffd447'}
+ ];
+ function safeUrl(value){try{const u=new URL(String(value||''));return u.protocol==='https:'?u.href:'';}catch(e){return '';}}
+ function escapeText(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+ function fmtPrice(value){const n=Number(value);if(!Number.isFinite(n)||n<=0)return 'غير متاح';return '$'+n.toLocaleString('en-US',{minimumFractionDigits:n<10?2:2,maximumFractionDigits:n<10?4:2});}
+ function fmtChange(value){if(value===null||value===undefined||value===''||!Number.isFinite(Number(value)))return {text:'—',cls:'neutral'};const n=Number(value);return {text:(n>0?'+':'')+n.toFixed(2)+'%',cls:n>0?'up':n<0?'down':'neutral'};}
+ function ago(stamp){const n=Number(stamp||0);if(!n)return 'وقت النشر غير متاح';const d=Math.max(0,Math.floor(Date.now()/1000-n));if(d<60)return 'قبل لحظات';if(d<3600)return 'قبل '+Math.floor(d/60)+' دقيقة';if(d<86400)return 'قبل '+Math.floor(d/3600)+' ساعة';return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',day:'numeric',month:'short'}).format(new Date(n*1000));}
+ function newsCategory(item){const s=(String(item.category||'')+' '+String(item.headline||'')+' '+String(item.translated_headline||'')).toLowerCase();if(/federal|fed |fomc|powell|interest rate|الفيدرالي|الفائدة|جيروم باول|قرار الفائدة/.test(s))return {label:'الفيدرالي والفائدة',cls:'fed'};if(/inflation|cpi|ppi|jobs report|payroll|gdp|التضخم|الوظائف|الناتج المحلي/.test(s))return {label:'الاقتصاد',cls:''};if(/earnings|revenue|quarter|profit|نتائج|أرباح|إيرادات/.test(s))return {label:'الأرباح',cls:''};if(/nasdaq|s&p|dow|stock|market|shares|أسهم|السوق/.test(s))return {label:'السوق والأسهم',cls:''};return {label:'أخبار مؤثرة',cls:''};}
+ function renderNews(items,fromCache=false){
+  const track=$('sasMarketNewsTrack');if(!track)return;
+  const hasArabic=value=>/[ء-ي]/u.test(String(value||''));
+  // لا تُخفِ الأخبار الموثقة إذا تعطلت خدمة الترجمة؛ اعرض تنبيهًا عربيًا واضحًا بدل إسقاط الشريط كله.
+  const timestampOf=value=>{if(value===null||value===undefined||value==='')return 0;const numeric=Number(value);if(Number.isFinite(numeric)&&numeric>0)return numeric<1e12?numeric*1000:numeric;const parsed=Date.parse(String(value));return Number.isFinite(parsed)?parsed:0;};
+  const canonicalNewsUrl=value=>{try{const u=new URL(safeUrl(value));u.hash='';for(const key of [...u.searchParams.keys()])if(/^(utm_.+|fbclid|gclid|mc_cid|mc_eid|ref|source)$/i.test(key))u.searchParams.delete(key);u.hostname=u.hostname.toLowerCase().replace(/^www\./,'');u.pathname=u.pathname.replace(/\/+$/,'');return u.href;}catch(e){return '';}};
+  const titleKeyOf=value=>String(value||'').normalize('NFKC').toLocaleLowerCase('en-US').replace(/[\\s\\p{P}\\p{S}]+/gu,' ').trim();
+  const uniqueByUrl=new Map();
+  (Array.isArray(items)?items:[]).forEach(item=>{if(!item||!safeUrl(item.url)||!String(item.headline||'').trim())return;const urlKey=canonicalNewsUrl(item.url);if(!urlKey)return;const oldItem=uniqueByUrl.get(urlKey);if(!oldItem||timestampOf(item.datetime)>timestampOf(oldItem.datetime)||(!oldItem.translated_headline&&item.translated_headline))uniqueByUrl.set(urlKey,item);});
+  const uniqueNews=[],seenTitles=new Set();
+  [...uniqueByUrl.values()].sort((a,b)=>timestampOf(b.datetime)-timestampOf(a.datetime)).forEach(item=>{const titles=[titleKeyOf(item.translated_headline),titleKeyOf(item.headline)].filter(Boolean);if(titles.some(t=>seenTitles.has(t)))return;titles.forEach(t=>seenTitles.add(t));uniqueNews.push(item);});
+  const valid=uniqueNews.slice(0,12);
+  const key=valid.map(x=>String(x.url)+'|'+String(x.translated_headline||'')).join('|');
+  if(key===lastNewsKey&&track.querySelector('.sas-news-lane')){const status=$('sasNewsStatus');if(status&&!fromCache)status.textContent=valid.length+' خبرًا • الأخبار محدثة • آخر تحقق '+new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date())+' بتوقيت الرياض';return;}
+  lastNewsKey=key;
+  if(!valid.length){if(track.querySelector('.sas-news-lane'))return;track.innerHTML='<div class="sas-news-empty"><span>◌</span><span>لا تتوفر أخبار سوق موثقة حاليًا. ستتم إعادة المحاولة تلقائيًا.</span></div>';return;}
+  if(!fromCache)writeCachedNews(valid);
+  const animationTime=track.querySelector('.sas-news-lane')?.getAnimations?.()[0]?.currentTime;
+  const cards=valid.map(item=>{
+   const url=safeUrl(item.url),translatedHeadline=String(item.translated_headline||'').trim();
+   const translated=hasArabic(translatedHeadline),category=newsCategory(item),headline=translated?translatedHeadline:String(item.headline||'').trim();
+   const summary=hasArabic(item.translated_summary)?String(item.translated_summary).trim():'';
+   const source=String(item.source||item.provider||'مصدر الخبر');
+   const translationNote=translated?'':'<span class="sas-news-translation-warning">تعذرت الترجمة العربية لهذا الخبر مؤقتًا — العنوان الأصلي أدناه</span>';
+   const originalTitle=translated&&String(item.headline||'').trim()&&String(item.headline).trim()!==translatedHeadline?'<span class="sas-news-original-title">Original: '+escapeText(String(item.headline).trim())+'</span>':'';
+   return '<a class="sas-news-card '+(translated?'is-translated':'is-untranslated')+'" href="'+escapeText(url)+'" target="_blank" rel="noopener noreferrer" aria-label="قراءة الخبر: '+escapeText(headline)+'"><span class="sas-news-card-top"><span class="sas-news-tag '+category.cls+'">'+category.label+'</span><span class="sas-news-source">'+escapeText(source)+'</span></span><strong>'+escapeText(headline)+'</strong>'+originalTitle+translationNote+(summary?'<span class="sas-news-card-summary">'+escapeText(summary)+'</span>':'')+'<span class="sas-news-card-bottom"><span>قراءة الخبر الأصلي ↗</span><time>'+ago(item.datetime)+'</time></span></a>';
+  }).join('');
+  const duplicateGroup=valid.length>1?'<div class="sas-news-group" aria-hidden="true" inert>'+cards+'</div>':'';
+  track.innerHTML='<div class="sas-news-lane'+(valid.length===1?' is-single-news':'')+'"><div class="sas-news-group">'+cards+'</div>'+duplicateGroup+'</div>';
+  const newsAnimation=track.querySelector('.sas-news-lane')?.getAnimations?.()[0];if(newsAnimation&&Number.isFinite(animationTime))newsAnimation.currentTime=animationTime;
+  const status=$('sasNewsStatus');if(status)status.textContent=fromCache?valid.length+' خبرًا محفوظًا • جارٍ تحديث الأخبار الآن':valid.length+' خبرًا • ترجمة عربية عند توفرها • آخر تحديث '+new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date())+' بتوقيت الرياض';
+ }
+ async function refreshNews(force){
+  if(newsBusy||document.visibilityState==='hidden'||$('terminalPage')?.hidden)return;
+  newsBusy=true;const btn=$('sasNewsRefreshBtn');if(btn){btn.disabled=true;btn.classList.add('is-refreshing');}
+  try{
+   const data=await api('/api/market/news',{timeoutMs:26000,retries:0});
+   renderNews(Array.isArray(data)?data:(Array.isArray(data?.items)?data.items:[]));
+  }catch(error){
+   const track=$('sasMarketNewsTrack');
+   if(track&&!track.querySelector('.sas-news-lane'))track.innerHTML='<div class="sas-news-empty">تعذر تحديث الأخبار الآن. اضغط ↻ لإعادة المحاولة.</div>';
+   const status=$('sasNewsStatus');if(status)status.textContent='تعذر التحديث مؤقتًا • ستتم المحاولة تلقائيًا';
+  }finally{newsBusy=false;if(btn){btn.disabled=false;btn.classList.remove('is-refreshing');}}
+ }
+ function findIndexItem(ticker,item){
+  const rows=Array.isArray(ticker)?ticker:[];
+  const found=rows.find(row=>{
+   const symbol=String(row?.symbol||'').trim().toUpperCase(),label=String(row?.label||'').trim().toUpperCase();
+   return item.keys.some(k=>k.toUpperCase()===symbol||k.toUpperCase()===label);
+  });
+  if(found && Number(found.price??found.live_price??found.close)>0)return found;
+  const legacy=rows.find(row=>{
+   const label=String(row?.label||'').trim().toUpperCase();
+   return item.label.toUpperCase()===label || (item.label==='BITCOIN'&&label==='BTC');
+  });
+  if(legacy && Number(legacy.price??legacy.live_price??legacy.close)>0)return legacy;
+  try{
+   const cached=JSON.parse(localStorage.getItem('saspro_macro_'+item.cache)||'null');
+   const age=Date.now()-Number(cached?.savedAt||0);
+   if(cached && Number(cached.price)>0 && (!cached.savedAt || age<=24*60*60*1000)){
+    return {symbol:item.keys[0],label:item.label,price:Number(cached.price),change_pct:cached.change_pct,source:'آخر سعر محفوظ',stale:true};
+   }
+  }catch(e){}
+  return found||legacy||null;
+ }
+ function renderIndices(ticker){
+  const track=$('sasMarketIndicesTrack');if(!track)return;
+  const animationTime=track.querySelector('.sas-index-lane')?.getAnimations?.()[0]?.currentTime;
+  const rows=indices.map(item=>({meta:item,row:findIndexItem(ticker,item)}));
+  const cards=rows.map(({meta,row})=>{
+   const price=Number(row?.price??row?.live_price??row?.close);
+   const valid=Number.isFinite(price)&&price>0;
+   const rawChange=row?.change_pct??row?.change_percent??row?.live_change_pct??row?.day_change_pct;
+   const change=fmtChange(rawChange),label=meta.label;
+   const source=String(row?.source||'');
+   if(valid && !row?.stale){
+    try{localStorage.setItem('saspro_macro_'+meta.cache,JSON.stringify({price,change_pct:rawChange??null,source:source||'مزود البيانات',savedAt:Date.now()}));}catch(e){}
+   }
+   const priceText=valid?fmtPrice(price):(row?.source==='unavailable'?'غير متاح':'بانتظار السعر');
+   return '<button type="button" class="sas-index-card '+(!valid?'is-stale':'')+(row?.stale?' is-cached':'')+'" style="--index-tone:'+meta.tone+'" data-sas-index="'+escapeText(label)+'" aria-label="تفاصيل '+label+'"><span class="sas-index-watermark" aria-hidden="true">'+meta.icon+'</span><span class="sas-index-card-top"><span class="sas-index-symbol">'+label+'</span><span class="sas-index-icon market-style-index-icon" aria-hidden="true">'+meta.icon+'</span></span><span class="sas-index-name">'+label+'</span><b class="sas-index-price">'+priceText+'</b><span class="sas-index-change '+change.cls+'">'+(valid?change.text:'لا يتوفر سعر موثّق')+'</span><small>'+escapeText(row?.stale?'آخر سعر موثق محفوظ':(source||'مزود البيانات'))+'</small></button>';
+  }).join('');
+  track.innerHTML='<div class="sas-index-lane"><div class="sas-index-group">'+cards+'</div><div class="sas-index-group" aria-hidden="true" inert>'+cards+'</div></div>';
+  const indexAnimation=track.querySelector('.sas-index-lane')?.getAnimations?.()[0];if(indexAnimation&&Number.isFinite(animationTime))indexAnimation.currentTime=animationTime;
+  const updated=$('sasIndicesUpdated');if(updated)updated.textContent='تحديث '+new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:true}).format(new Date());
+ }
+ function startTimers(){
+  startSASAutomaticRadar();
+  if($('terminalPage')?.hidden)return;
+  const track=$('sasMarketNewsTrack');
+  if(track&&!track.querySelector('.sas-news-lane')){const cached=readCachedNews();if(cached)renderNews(cached.items,true);}
+  void refreshNews(false);
+  renderIndices(Array.isArray(window.__sasLastTicker)?window.__sasLastTicker:[]);
+  if(!newsTimer)newsTimer=window.setInterval(()=>refreshNews(false),45000);
+ }
+ // The legacy dashboard ticker is the single source of truth for every index card.
+ window.addEventListener('saspro:ticker-updated',event=>{
+  const ticker=event.detail?.ticker;
+  if(Array.isArray(ticker))renderIndices(ticker);
+ });
+ const refreshButton=$('sasNewsRefreshBtn');if(refreshButton)refreshButton.addEventListener('click',()=>{lastNewsKey='';void refreshNews(true);});
+ document.addEventListener('click',event=>{
+  const card=event.target.closest('.sas-index-card[data-sas-index]');if(!card)return;
+  const label=card.dataset.sasIndex;
+  document.querySelectorAll('.sas-index-card.is-selected').forEach(x=>x.classList.remove('is-selected'));card.classList.add('is-selected');
+  const lower=label.toLowerCase();
+  const target=Array.from(document.querySelectorAll('.macro-card[data-macro-label]')).find(el=>el.dataset.macroLabel===lower);
+  if(target){target.scrollIntoView({behavior:'smooth',block:'center'});target.classList.add('is-selected');window.setTimeout(()=>target.classList.remove('is-selected'),1800);}
+ });
+ const terminal=$('terminalPage');
+ if(terminal)new MutationObserver(()=>{if(!terminal.hidden)startTimers();else{if(newsTimer){clearInterval(newsTimer);newsTimer=null;}}}).observe(terminal,{attributes:true,attributeFilter:['hidden']});
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')startTimers();});
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startTimers);else startTimers();
+ if(Array.isArray(window.__sasLastTicker))renderIndices(window.__sasLastTicker);
+})();+money(price)+'</strong></div>'+\n '<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
  '<div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div>'+
  '<div class="stock-gates">'+gate(gates.sas_core!==false,'SAS Core')+gate(gates.liquidity!==false,'السيولة')+gate(gates.target!==false,'الهدف')+gate(gates.live_levels!==false,'المستويات')+'</div>'+
  ' <button type="button" title="اضغط للتحقق من شرعية السهم" aria-label="تحقق من شرعية '+s+'" class="stock-shariah stock-shariah-action '+shClass+'" style="min-height:30px;padding:5px 8px;gap:6px" onclick="event.stopPropagation();openShariah(\''+raw+'\')"><span class="stock-shariah-icon-label"><span class="stock-shariah-icon" aria-hidden="true">🕌</span><b>تحقق الشرعية</b></span><strong style="font-size:10px">'+(shClass==='sh-unknown'?'تحقق':escHtml(shLabel))+'</strong></button>'+
