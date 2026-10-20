@@ -5365,3 +5365,26 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @keyframes sasAutoRadarGauge{0%{stroke-dashoffset:113.1}100%{stroke-dashoffset:0}}
 @media(max-width:520px){.sas-radar-auto-panel{width:100%;max-width:210px;gap:7px;margin-top:9px;padding:7px 8px}.sas-radar-auto-gauge{flex-basis:40px;width:40px;height:40px;font-size:9px}.sas-radar-auto-copy b{font-size:10px}.sas-radar-auto-copy small{font-size:8px}}
 @media(prefers-reduced-motion:reduce){.sas-radar-auto-panel[data-state="scanning"] .sas-radar-gauge-progress,.sas-radar-auto-panel[data-state="scanning"] .sas-radar-auto-gauge{animation:none!important}}
+
+
+/* SAS PRO interactive per-session radar diagnostics dropdown */
+#radarDiagnostics .sas-radar-session-dropdown{display:block;overflow:hidden;width:100%;margin:10px 0 14px;border:1px solid rgba(77,202,216,.28);border-radius:16px;background:linear-gradient(145deg,rgba(8,25,39,.98),rgba(5,15,27,.98));color:#e9f8fb;box-shadow:0 8px 24px rgba(0,0,0,.16)}
+#radarDiagnostics .sas-radar-session-summary{display:flex;align-items:center;gap:10px;list-style:none;cursor:pointer;padding:14px 15px;min-height:54px}
+#radarDiagnostics .sas-radar-session-summary::-webkit-details-marker{display:none}
+#radarDiagnostics .sas-radar-session-title{font-weight:800;flex:1;min-width:0;line-height:1.6}
+#radarDiagnostics .sas-radar-session-count{font-size:12px;white-space:nowrap;border:1px solid rgba(77,202,216,.28);border-radius:999px;padding:5px 9px;color:#a8edf3;background:rgba(40,155,170,.12)}
+#radarDiagnostics .sas-radar-session-chevron{color:#7ce5ef;font-size:20px;transition:transform .2s ease}
+#radarDiagnostics .sas-radar-session-dropdown[open] .sas-radar-session-chevron{transform:rotate(180deg)}
+#radarDiagnostics .sas-radar-session-body{padding:0 13px 13px;border-top:1px solid rgba(130,185,200,.13)}
+#radarDiagnostics .sas-radar-session-meta{padding:12px 2px;color:#a6c2cc;font-size:12px;line-height:1.7}
+#radarDiagnostics .sas-radar-session-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+#radarDiagnostics .sas-radar-metric{display:flex;flex-direction:column;gap:5px;align-items:center;justify-content:center;min-width:0;padding:11px 4px;border-radius:12px;border:1px solid rgba(140,180,195,.14);background:rgba(255,255,255,.025)}
+#radarDiagnostics .sas-radar-metric b{font-size:clamp(17px,3.5vw,23px);line-height:1.2;font-variant-numeric:tabular-nums}
+#radarDiagnostics .sas-radar-metric span{font-size:11px;color:#b7cbd2;text-align:center}
+#radarDiagnostics .sas-radar-metric-total b{color:#8be9f0}
+#radarDiagnostics .sas-radar-metric-passed b{color:#78e6a5}
+#radarDiagnostics .sas-radar-metric-filtered b{color:#ffbd83}
+#radarDiagnostics .sas-radar-metric-errors b{color:#ff8e9a}
+#radarDiagnostics .sas-radar-session-footer{margin-top:10px;color:#8daab5;font-size:11px;line-height:1.7}
+@media(max-width:480px){#radarDiagnostics .sas-radar-session-summary{padding:12px 10px;gap:7px}#radarDiagnostics .sas-radar-session-title{font-size:12px}#radarDiagnostics .sas-radar-session-count{font-size:10px;padding:4px 6px}#radarDiagnostics .sas-radar-session-metrics{gap:5px}#radarDiagnostics .sas-radar-metric{padding:10px 2px}#radarDiagnostics .sas-radar-metric span{font-size:10px}}
+@media(prefers-reduced-motion:reduce){#radarDiagnostics .sas-radar-session-chevron{transition:none}}
