@@ -932,13 +932,25 @@ async function runRadar(show=true){
   const diagnosticsEl=document.getElementById('radarDiagnostics');
   if(diagnosticsEl)diagnosticsEl.innerHTML='<b class="radar-mode">'+mode+'</b><span>🕒 وقت الرصد: '+escHtml(scanLabel)+'</span><span>مرشحون '+Number(diag.candidates||0)+'</span><span>اجتازوا '+Number(diag.passed||0)+'</span><span>مستبعدون '+Number(diag.filtered||0)+'</span><span>أخطاء '+Number(diag.errors||0)+'</span>';
   const candidateEl=document.getElementById('radarCandidates');
+  const preliminary=Array.isArray(d.preliminary_stocks)?d.preliminary_stocks:[];
   const candidates=Array.isArray(diag.filtered_examples)?diag.filtered_examples:[];
-  if(candidateEl && candidates.length){
+  if(candidateEl && preliminary.length){
     candidateEl.hidden=false;
-    candidateEl.innerHTML='<div class="candidate-title"><b>🔎 تحليل المرشحين</b><small>هذه الأسهم اجتازت مرحلة البحث الأولي ولم تدخل الإشارة النهائية. سبب الاستبعاد ظاهر لكل سهم.</small></div>'+
+    candidateEl.innerHTML='<div class="candidate-title"><b>🔎 الرصد الأولي — '+preliminary.length.toLocaleString('ar-SA')+' مرشح</b><small>هذه نتائج أولية قيد التحقق وليست فرصًا مؤكدة أو توصيات. إذا اجتازت بوابة التأكيد والنشر ستظهر ضمن بطاقات الفرص وتُرسل للقناة حسب الإعدادات.</small></div>'+
+      '<div class="candidate-grid">'+preliminary.slice(0,12).map(x=>{
+        const sym=String(x.symbol||'—');
+        const price=Number(x.live_price??x.price);
+        const change=Number(x.live_change_pct??x.change_pct);
+        const priceText=Number.isFinite(price)&&price>0?'$'+price.toLocaleString('en-US',{maximumFractionDigits:4}):'السعر غير متاح';
+        const changeText=Number.isFinite(change)?(change>=0?'+':'')+change.toFixed(2)+'%':'التغير غير متاح';
+        return '<article class="candidate-card"><div><b>'+escHtml(sym)+'</b><small>مرشح أولي • '+escHtml(String(x.source||x.data_source||'مصدر الرصد'))+'</small></div><p>'+escHtml(priceText)+' · '+escHtml(changeText)+'</p><button type="button" data-symbol="'+escHtml(sym)+'" onclick="openSymbol(this.dataset.symbol)">عرض التحليل</button></article>';
+      }).join('')+'</div>';
+  }else if(candidateEl && candidates.length){
+    candidateEl.hidden=false;
+    candidateEl.innerHTML='<div class="candidate-title"><b>🔎 تحليل المرشحين المستبعدين</b><small>هذه الأسهم لم تجتز شروط الإشارة النهائية؛ سبب الاستبعاد ظاهر لكل سهم.</small></div>'+
       '<div class="candidate-grid">'+candidates.slice(0,12).map(x=>{
         const sym=String(x.symbol||'—');
-        return '<article class="candidate-card"><div><b>'+escHtml(sym)+'</b><small>'+escHtml(x.data_source||'مصدر الرصد')+'</small></div><p>'+escHtml(x.reason||'تم استبعاده في مرحلة لاحقة')+'</p><button type="button" data-symbol="'+escHtml(sym)+'" onclick="openSymbol(this.dataset.symbol)">⏳ تحليل</button></article>';
+        return '<article class="candidate-card"><div><b>'+escHtml(sym)+'</b><small>'+escHtml(x.data_source||'مصدر الرصد')+'</small></div><p>'+escHtml(x.reason||'تم استبعاده في مرحلة لاحقة')+'</p><button type="button" data-symbol="'+escHtml(sym)+'" onclick="openSymbol(this.dataset.symbol)">عرض التحليل</button></article>';
       }).join('')+'</div>';
   }else if(candidateEl){
     candidateEl.hidden=true;
