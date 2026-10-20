@@ -147,34 +147,41 @@ async def _fmp_index_quote(symbol: str):
 
 
 async def _fmp_quote(symbol: str):
-    """Reliable macro fallback that does not consume Twelve Data credits."""
-    keys = [
-        item.strip()
-        for item in str(getattr(settings, "fmp_api_keys", "") or "").split(",")
-        if item.strip()
-    ]
-    if getattr(settings, "fmp_api_key", ""):
-        keys.insert(0, settings.fmp_api_key.strip())
-    # Preserve order while removing duplicate keys.
-    keys = list(dict.fromkeys(keys))
+    """FMP quote with per-key cooldown and automatic failover."""
+    from .key_pool import KeyPool, parse_keys
+    keys = parse_keys(getattr(settings, "fmp_api_keys", ""), getattr(settings, "fmp_api_key", ""))
     if not keys:
         return None
+    pool = getattr(_fmp_quote, "_pool", None)
+    if pool is None or getattr(_fmp_quote, "_pool_keys", None) != tuple(keys):
+        pool = KeyPool(keys, settings.api_key_cooldown_seconds)
+        setattr(_fmp_quote, "_pool", pool)
+        setattr(_fmp_quote, "_pool_keys", tuple(keys))
 
-    # Use dedicated benchmark aliases where needed; for ordinary US equities
-    # query the exact ticker (e.g. NOK) as an independent quote fallback.
     mapped_symbols = FMP_SYMBOLS.get(symbol, [symbol])
     if isinstance(mapped_symbols, str):
         mapped_symbols = [mapped_symbols]
-    async with httpx.AsyncClient(timeout=10) as c:
-        for key in keys:
+    async with httpx.AsyncClient(timeout=8) as c:
+        for _ in range(max(1, pool.size)):
+            key = await pool.acquire()
+            if not key:
+                break
+            key_failed = False
             for mapped in mapped_symbols:
                 try:
                     r = await c.get(
                         "https://financialmodelingprep.com/stable/quote",
                         params={"symbol": mapped, "apikey": key},
                     )
-                    if r.status_code >= 400:
-                        continue
+                    if r.status_code in (401, 403, 429):
+                        retry = r.headers.get("Retry-After")
+                        await pool.mark_failure(key, retry_after=int(retry) if retry and retry.isdigit() else None)
+                        key_failed = True
+                        break
+                    if r.status_code >= 500:
+                        key_failed = True
+                        break
+                    r.raise_for_status()
                     data = r.json()
                     row = data[0] if isinstance(data, list) and data else None
                     if not isinstance(row, dict):
@@ -186,6 +193,7 @@ async def _fmp_quote(symbol: str):
                     if change_pct is None and _valid_price(row.get("previousClose")):
                         prev = float(row["previousClose"])
                         change_pct = ((float(price) - prev) / prev) * 100 if prev else None
+                    await pool.mark_success(key)
                     return {
                         "symbol": symbol,
                         "price": float(price),
@@ -194,8 +202,15 @@ async def _fmp_quote(symbol: str):
                         "is_extended_hours": False,
                         "datetime": row.get("timestamp"),
                     }
-                except Exception:
+                except Exception as exc:
+                    logger.info("FMP_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+                    key_failed = True
+                    break
+            if key_failed:
+                # Cool down only this credential; next key is attempted.
+                if not await pool.snapshot():
                     continue
+                continue
     return None
 
 
