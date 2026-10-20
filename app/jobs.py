@@ -398,7 +398,7 @@ async def evaluate_radar_outcomes():
                         if next_target is not None else "\n🏆 اكتملت جميع الأهداف المسجلة."
                     )
                     quote_source = str(q.get("source") or "").strip()
-                    source_text = f"\n🔎 مصدر السعر: <b>{html.escape(quote_source)}</b>" if quote_source else ""
+                    source_text = ""  # Provider names are internal diagnostics, not user-facing report content.
                     checked_at = utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
                     await send_message(
                         settings.telegram_channel_id,
@@ -406,7 +406,7 @@ async def evaluate_radar_outcomes():
                         f"💵 السعر الحالي: <b>{_money(price)}</b>"
                         f"{profit_text}\n"
                         f"🎯 الهدف المحقق: <b>{_money(target)}</b>"
-                        f"{stop_text}{next_text}{source_text}\n"
+                        f"{stop_text}{next_text}\n"
                         "━━━━━━━━━━━━━━━━━━\n"
                         f"📌 حالة الرصد: <b>{'مستمر إذا استمر الزخم' if next_target is not None else 'اكتملت الأهداف المسجلة'}</b>\n"
                         f"⏱ تم التحقق: <b>{checked_at}</b>\n\n"
