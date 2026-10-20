@@ -1169,7 +1169,25 @@ function startSASAutomaticRadar(){
  if(sasRadarTerminalReady())window.setTimeout(startIfReady,1800);
 }
 
-function renderRadar(){renderCards(document.getElementById('radarGrid'),terminalState.radar);}
+function renderRadar(){
+ const rows=(Array.isArray(terminalState.radar)?terminalState.radar:[]).map(x=>({...x}));
+ const indexBySymbol=new Map();
+ rows.forEach((x,i)=>{const symbol=String(x?.symbol||x?.ticker||'').trim().toUpperCase();if(symbol&&!indexBySymbol.has(symbol))indexBySymbol.set(symbol,i);});
+ (Array.isArray(terminalState.preliminaryRadar)?terminalState.preliminaryRadar:[]).forEach(candidate=>{
+  const symbol=String(candidate?.symbol||candidate?.ticker||'').trim().toUpperCase();
+  if(!symbol)return;
+  const existingIndex=indexBySymbol.get(symbol);
+  if(existingIndex!==undefined){
+   const existing=rows[existingIndex];
+   const confirmed=(existing.opportunity_status||existing.classification?.opportunity_status)==='confirmed'||existing.radar_tier==='confirmed';
+   if(!confirmed)rows[existingIndex]={...existing,...candidate,_radar_preliminary_candidate:true};
+   return;
+  }
+  indexBySymbol.set(symbol,rows.length);
+  rows.push({...candidate,_radar_preliminary_candidate:true});
+ });
+ renderCards(document.getElementById('radarGrid'),rows);
+}
 function renderCards(el,rows){
  if(!el)return;
  const all=Array.isArray(rows)?rows:[];
