@@ -1357,13 +1357,11 @@ function sasLoadCardCandles(root=document){
   if(!/^[A-Z0-9.-]{1,12}$/.test(symbol))return;
   node.setAttribute('data-sas-loading','1');
   try{
-   const response=await fetch('/api/stocks/'+encodeURIComponent(symbol)+'/chart',{headers:headers(),credentials:'same-origin'});
-   if(!response.ok)throw new Error('chart request failed');
-   const payload=await response.json();
-   const candles=Array.isArray(payload.candles)?payload.candles:(Array.isArray(payload.ohlcv)?payload.ohlcv:[]);
-   if(candles.length>=4){const holder=document.createElement('div');holder.innerHTML=sasCandlestickMiniChart({symbol,candles});const replacement=holder.firstElementChild;if(replacement)node.replaceWith(replacement);}
-   else node.removeAttribute('data-sas-loading');
-  }catch(_){node.removeAttribute('data-sas-loading');}
+   const payload=await api('/api/stocks/'+encodeURIComponent(symbol)+'/chart',{timeoutMs:10000,retries:1});
+   const candles=Array.isArray(payload)?payload:(Array.isArray(payload.candles)?payload.candles:(Array.isArray(payload.ohlcv)?payload.ohlcv:(Array.isArray(payload.data?.candles)?payload.data.candles:[])));
+   if(candles.length>=4){const holder=document.createElement('div');holder.innerHTML=sasCandlestickMiniChart({symbol,candles});const replacement=holder.firstElementChild;if(replacement&&!replacement.classList.contains('sas-chart-no-data'))node.replaceWith(replacement);else node.removeAttribute('data-sas-loading');}
+   else{node.setAttribute('data-sas-chart-status','insufficient-data');node.removeAttribute('data-sas-loading');}
+  }catch(error){node.setAttribute('data-sas-chart-status',error?.status?'http-'+error.status:'request-failed');node.removeAttribute('data-sas-loading');}
  });
 }
 if(!window.__sasCardCandleObserver){
