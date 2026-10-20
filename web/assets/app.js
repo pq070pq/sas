@@ -527,6 +527,14 @@ function renderDashboard(d){
      : (historical ? '🟣 مراقبة SAS PRO مستمرة؛ المعروض آخر بيانات رصد محفوظة من الجلسة السابقة، وسيُستأنف فحص الأسهم حسب الجلسة وتوفر البيانات.'
        : '🟣 مراقبة SAS PRO مستمرة على مدار الساعة؛ فحص الأسهم وإرسال الفرص يتبعان الجلسة المتاحة وشروط تأكيد السعر والسيولة والزخم.');
  const statusText=document.getElementById('radarStatusText')?.textContent||'';
+ const radarStatusNode=document.getElementById('radarStatusText');
+ if(radarStatusNode && !document.getElementById('radarPreliminaryNotice')){
+  const radarNotice=document.createElement('div');
+  radarNotice.id='radarPreliminaryNotice';
+  radarNotice.textContent='ℹ️ الرصد الأولي قيد المتابعة؛ إذا حقق السهم شروط التأكيد والتحقق، ستُرسل الفرصة إلى القناة وتظهر في بطاقات الفرص.';
+  radarNotice.style.cssText='position:relative;z-index:1;margin-top:8px;padding:9px 12px;border:1px solid rgba(70,190,210,.28);border-radius:10px;background:rgba(10,70,85,.18);color:#b8dce5;font-size:12px;line-height:1.7;text-align:right;';
+  radarStatusNode.insertAdjacentElement('afterend',radarNotice);
+ }
  const sasAmbienceStyleId='sas-session-ambience-style';
  if(!document.getElementById(sasAmbienceStyleId)){
   const style=document.createElement('style');
