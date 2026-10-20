@@ -1474,7 +1474,13 @@ function mountPerpEquitiesAnalysis(root,data,symbol){
  const venues=document.createElement('div');venues.className='perp-analysis-venues';const names=Array.isArray(data.venues)?data.venues.slice(0,5).map(v=>v.venue).filter(Boolean).join(' · '):'';const venueLine=document.createElement('small');venueLine.textContent='المنصات: '+(names||'غير متاحة');venues.appendChild(venueLine);const updateLine=document.createElement('small');const time=data.market_data_at?new Date(data.market_data_at):null;updateLine.textContent='آخر بيانات المصدر: '+(time&&Number.isFinite(time.getTime())?new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',hour12:true}).format(time)+' بتوقيت الرياض':'غير متاح');venues.appendChild(updateLine);panel.appendChild(venues);
  const chartUrl=safeNewsUrl(data?.chart_url||data?.source_url)||'https://perpequities.com/ar';
  const embedTitle=document.createElement('div');embedTitle.className='perp-embed-title';embedTitle.innerHTML='<b>الشارت التفاعلي الأصلي</b><span>1D · 7D · 30D · 90D · All</span>';panel.appendChild(embedTitle);
- const frame=document.createElement('div');frame.className='perp-embed-frame';const iframe=document.createElement('iframe');iframe.title='شارت وتحليل '+symbol+' من PerpEquities';iframe.src=chartUrl;iframe.loading='lazy';iframe.referrerPolicy='strict-origin-when-cross-origin';iframe.allow='fullscreen';frame.appendChild(iframe);panel.appendChild(frame);
+ // PerpEquities may block embedding with X-Frame-Options/CSP (ERR_BLOCKED_BY_RESPONSE).
+ // Avoid a broken black iframe; open the provider directly while keeping SAS metrics visible.
+ const externalCard=document.createElement('div');externalCard.className='perp-external-card';
+ const externalMessage=document.createElement('p');externalMessage.className='perp-analysis-empty';
+ externalMessage.textContent='المصدر يمنع عرض الشارت داخل التطبيق. بيانات العقود أعلاه متاحة هنا، ويمكن فتح الشارت الأصلي مباشرة.';
+ externalCard.appendChild(externalMessage);
+ const externalLink=document.createElement('a');externalLink.className='perp-analysis-open';externalLink.href=chartUrl;externalLink.target='_blank';externalLink.rel='noopener noreferrer';externalLink.textContent='فتح الشارت الأصلي في صفحة مستقلة ↗';externalCard.appendChild(externalLink);panel.appendChild(externalCard);
  const note=document.createElement('p');note.className='perp-analysis-disclaimer';note.textContent='بيانات العقود الدائمة قد تختلف عن سعر السهم الفوري. مصدر البيانات: PerpEquities. البيانات للمعلومات فقط وليست توصية تداول.';panel.appendChild(note);host.appendChild(panel);
 }
 
@@ -1598,10 +1604,12 @@ function renderSasQualityPanel(classification,tech,quote,entry,stop,target1,rr){
  '<div class="sas-quality-disclaimer"><b>⚠️ إخلاء مسؤولية</b><p>'+escHtml(disclaimer)+'</p><p>قد تتأخر الأسعار أو تختلف عن السعر القابل للتنفيذ. لا تدخل لمجرد ظهور النجوم أو ملامسة مستوى؛ تحقّق من الشموع والسيولة والأخبار وحدّد حجم المخاطرة مسبقًا.</p></div></section>';
 }
 async function analyzeSymbol(){
+ const actionBtn=document.getElementById('analyzeSymbolBtn');
+ // A previous analysis may still be releasing its disabled state. Abort it and
+ // let the latest user request proceed immediately instead of requiring a second click.
+ if(actionBtn?.disabled&&!activeSymbolSearchController)return;
  if(activeSymbolSearchController)activeSymbolSearchController.abort();
  const searchController=new AbortController();activeSymbolSearchController=searchController;
- const actionBtn=document.getElementById('analyzeSymbolBtn');
- if(actionBtn?.disabled)return;
  if(actionBtn){actionBtn.disabled=true;actionBtn.classList.add('is-working');actionBtn.setAttribute('aria-busy','true');}
  const input=document.getElementById('symbolSearch');
  const symbol=(input.value||'').trim().toUpperCase().replace(/[^A-Z.\-]/g,'');
