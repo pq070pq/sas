@@ -1344,7 +1344,7 @@ function stockCard(x){
  const perpVolume=Number(perp?.qualityFilteredVolume24hUsd??perp?.volume24hUsd);
  const perpOi=Number(perp?.openInterestUsd);
  const perpContext=perp&&Number.isFinite(perpPrice)&&perpPrice>0?[
-  '<div class="sas-perp-context"><div class="sas-perp-context-head"><b>↗ PerpEquities</b><span>سعر عقد دائم • ليس سعر السهم الفوري</span></div><div class="sas-perp-context-metrics">',
+  '<div class="sas-perp-context"><div class="sas-perp-context-head"><b>بيانات العقود الدائمة</b><span>سعر عقد دائم • ليس سعر السهم الفوري</span></div><div class="sas-perp-context-metrics">',
   '<span>العقد <b dir="ltr">$'+money(perpPrice)+'</b></span>',
   '<span>24 ساعة <b class="'+(perpChange===null?'':(perpChange>=0?'up':'down'))+'" dir="ltr">'+(perpChange===null?'—':pct(perpChange*100))+'</b></span>',
   '<span>حجم العقود <b>$'+(Number.isFinite(perpVolume)&&perpVolume>0?escHtml(perpVolume.toLocaleString('en-US',{notation:'compact',maximumFractionDigits:1})):'—')+'</b></span>',
