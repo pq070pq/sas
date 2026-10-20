@@ -1071,10 +1071,17 @@ async function runRadar(show=true){
   const candidates=Array.isArray(diag.filtered_examples)?diag.filtered_examples:[];
   if(candidateEl && candidates.length){
     candidateEl.hidden=false;
-    candidateEl.innerHTML='<div class="candidate-title"><b>🔎 تحليل المرشحين</b><small>هذه الأسهم اجتازت مرحلة البحث الأولي ولم تدخل الإشارة النهائية. سبب الاستبعاد ظاهر لكل سهم.</small></div>'+
+    candidateEl.innerHTML='<div class="candidate-title"><b>🔎 أمثلة من تحليل الفلترة</b><small>هذه أمثلة تشخيصية لأسهم استُبعدت أثناء الفحص، وليست قائمة الترشيحات. الترشيحات الفعلية تظهر في بطاقات الرادار عند توفر بياناتها.</small></div>'+
       '<div class="candidate-grid">'+candidates.slice(0,12).map(x=>{
         const sym=String(x.symbol||'—');
-        return '<article class="candidate-card"><div><b>'+escHtml(sym)+'</b><small>'+escHtml(x.data_source||'مصدر الرصد')+'</small></div><p>'+escHtml(x.reason||'تم استبعاده في مرحلة لاحقة')+'</p><button type="button" data-symbol="'+escHtml(sym)+'" onclick="openSymbol(this.dataset.symbol)">⏳ تحليل</button></article>';
+        const checks=x.radar_checks||{};
+        const cls=x.classification||{};
+        const rawLabel=checks.momentum_label||cls.momentum_label||x.momentum_label||x.momentum_section||x.section||'';
+        const labelMap={accumulation:'تجميع',movement:'حركة',breakout:'اختراق قريب',early_breakout:'اختراق قريب'};
+        const key=String(rawLabel).trim().toLowerCase();
+        const momentumLabel=labelMap[key]||String(rawLabel).trim();
+        const labelHtml='<div class="candidate-classification" style="margin:8px 0;padding:7px 9px;border:1px solid rgba(37,203,231,.25);border-radius:8px;background:rgba(5,65,83,.2);font-size:12px"><span style="color:#8fbac6">تصنيف الزخم: </span><b style="color:#52dff5">'+escHtml(momentumLabel||'غير متاح في بيانات التشخيص')+'</b></div>';
+        return '<article class="candidate-card"><div><b>'+escHtml(sym)+'</b><small>'+escHtml(x.data_source||'مصدر الرصد')+'</small></div>'+labelHtml+'<p>'+escHtml(x.reason||'تم استبعاده في مرحلة لاحقة')+'</p><button type="button" data-symbol="'+escHtml(sym)+'" onclick="openSymbol(this.dataset.symbol)">تحليل السهم</button></article>';
       }).join('')+'</div>';
   }else if(candidateEl){
     candidateEl.hidden=true;
