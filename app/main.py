@@ -2748,16 +2748,25 @@ async def market_news_endpoint(_: dict = Depends(require_pro)):
         logger.info("Market news Arabic translation unavailable: %s", type(exc).__name__)
         translated = []
     by_url = {
-        str(item.get("url") or ""): item
+        str(item.get("url") or "").strip(): item
         for item in translated if isinstance(item, dict) and item.get("url")
     }
+    by_headline = {
+        str(item.get("headline") or "").strip().casefold(): item
+        for item in translated if isinstance(item, dict) and item.get("headline")
+    }
     result = []
+    translated_count = 0
     for row in rows:
-        url = str(row.get("url") or "")
-        translation = by_url.get(url, {})
+        url = str(row.get("url") or "").strip()
+        headline = str(row.get("headline") or row.get("title") or "").strip()
+        translation = by_url.get(url) or by_headline.get(headline.casefold()) or {}
+        translated_headline = str(translation.get("translated_headline") or "").strip()
+        if translated_headline:
+            translated_count += 1
         result.append({
             **row,
-            "translated_headline": str(translation.get("translated_headline") or ""),
+            "translated_headline": translated_headline,
             "translated_summary": str(translation.get("summary") or ""),
             "translation_basis": str(translation.get("basis") or ""),
             "translation_provider": str(translation.get("translation_provider") or ""),
@@ -2766,7 +2775,7 @@ async def market_news_endpoint(_: dict = Depends(require_pro)):
         "items": result,
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "available": True,
-        "translated_count": len(by_url),
+        "translated_count": translated_count,
     }
     _MARKET_NEWS_RESPONSE_CACHE.update({"at": time.monotonic(), "session_key": session_key, "payload": payload})
     return payload
