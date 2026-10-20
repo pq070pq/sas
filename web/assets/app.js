@@ -527,6 +527,24 @@ function renderDashboard(d){
      : (historical ? '🟣 مراقبة SAS PRO مستمرة؛ المعروض آخر بيانات رصد محفوظة من الجلسة السابقة، وسيُستأنف فحص الأسهم حسب الجلسة وتوفر البيانات.'
        : '🟣 مراقبة SAS PRO مستمرة على مدار الساعة؛ فحص الأسهم وإرسال الفرص يتبعان الجلسة المتاحة وشروط تأكيد السعر والسيولة والزخم.');
  const statusText=document.getElementById('radarStatusText')?.textContent||'';
+ const sasAmbienceStyleId='sas-session-ambience-style';
+ if(!document.getElementById(sasAmbienceStyleId)){
+  const style=document.createElement('style');
+  style.id=sasAmbienceStyleId;
+  style.textContent=`
+   .sas-market-strip{position:relative;isolation:isolate;overflow:hidden;transition:background .6s ease,border-color .6s ease,box-shadow .6s ease}
+   .sas-market-strip::after{content:"";position:absolute;inset:-45%;z-index:0;pointer-events:none;opacity:.34;filter:blur(22px);transform:translate3d(-12%,0,0);background:radial-gradient(ellipse at 25% 45%,rgba(65,210,165,.26),transparent 48%),radial-gradient(ellipse at 78% 55%,rgba(54,156,255,.19),transparent 44%);animation:sasRadarAmbientFlow 16s ease-in-out infinite alternate}
+   .sas-market-strip>*{position:relative;z-index:1}
+   .sas-market-strip.sas-session-regular::after{opacity:.48;background:radial-gradient(ellipse at 25% 45%,rgba(44,230,142,.30),transparent 48%),radial-gradient(ellipse at 78% 55%,rgba(42,160,255,.22),transparent 44%);animation-duration:9s}
+   .sas-market-strip.sas-session-pre::after{opacity:.40;background:radial-gradient(ellipse at 25% 45%,rgba(255,184,72,.28),transparent 48%),radial-gradient(ellipse at 78% 55%,rgba(65,173,255,.18),transparent 44%);animation-duration:12s}
+   .sas-market-strip.sas-session-after::after{opacity:.40;background:radial-gradient(ellipse at 25% 45%,rgba(255,145,67,.25),transparent 48%),radial-gradient(ellipse at 78% 55%,rgba(145,93,255,.18),transparent 44%);animation-duration:13s}
+   .sas-market-strip.sas-session-night::after{opacity:.34;background:radial-gradient(ellipse at 25% 45%,rgba(155,114,255,.25),transparent 48%),radial-gradient(ellipse at 78% 55%,rgba(56,149,255,.18),transparent 44%);animation-duration:18s}
+   .sas-market-strip.sas-session-closed::after{opacity:.18;background:radial-gradient(ellipse at 25% 45%,rgba(111,142,168,.20),transparent 48%),radial-gradient(ellipse at 78% 55%,rgba(75,93,126,.13),transparent 44%);animation-duration:22s}
+   @keyframes sasRadarAmbientFlow{0%{transform:translate3d(-12%,-4%,0) scale(.96)}100%{transform:translate3d(12%,5%,0) scale(1.08)}}
+   @media(prefers-reduced-motion:reduce){.sas-market-strip::after{animation:none!important;transform:none!important}}
+  `;
+  document.head.appendChild(style);
+ }
  const strip=document.querySelector('.sas-market-strip');
  const headline=document.getElementById('sasMarketHeadline');
  const subline=document.getElementById('sasMarketSubline');
@@ -542,7 +560,7 @@ function renderDashboard(d){
  if(preEl)preEl.textContent=nextPremarket;
  if(regularEl)regularEl.textContent=regularOpen+' – '+regularClose;
  if(afterEl)afterEl.textContent='حتى '+afterClose;
- if(strip){strip.classList.remove('is-open','is-pre','is-closed');strip.classList.add(session==='regular'||session==='afterhours'||session==='night'?'is-open':premarket?'is-pre':'is-closed');}
+ if(strip){strip.classList.remove('is-open','is-pre','is-closed','sas-session-regular','sas-session-pre','sas-session-after','sas-session-night','sas-session-closed');strip.classList.add(session==='regular'||session==='afterhours'||session==='night'?'is-open':premarket?'is-pre':'is-closed');strip.classList.add(session==='regular'?'sas-session-regular':premarket?'sas-session-pre':session==='afterhours'?'sas-session-after':session==='night'?'sas-session-night':'sas-session-closed');strip.dataset.marketState=session==='regular'?'regular':premarket?'premarket':session==='afterhours'?'afterhours':session==='night'?'night':'closed';}
  const dock=document.querySelector('.sas-mobile-dock');
  if(dock){dock.querySelectorAll('button').forEach(b=>b.classList.remove('is-active'));const active=dock.querySelector('button[onclick*="'+(terminalState.tab||'dashboard')+'"]');if(active)active.classList.add('is-active');}
  const metricDate=r.last_signal_at?new Date(r.last_signal_at):null;
