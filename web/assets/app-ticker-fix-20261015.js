@@ -1205,15 +1205,23 @@ function renderRadar(){
 function radarClassificationLabel(x){
  const cls=x?.classification||{};
  const gates=x?.radar_checks||{};
- const raw=gates.momentum_label||cls.momentum_label||x?.momentum_label||x?.momentum_section||x?.section||'';
- const key=String(raw).toLowerCase().trim().replace(/[ -]+/g,'_');
+ // Prefer machine-readable category codes over backend display labels:
+ // older backend labels "غير محدد" for valid codes such as early_mover.
+ const candidates=[x?.momentum_section,x?.section,x?.momentum_label,cls.momentum_section,cls.momentum_label,gates.momentum_section,gates.momentum_label];
  const labels={
   accumulation:'تجميع',movement:'حركة',breakout:'اختراق قريب',
   breakout_setup:'اختراق قريب',early_breakout:'اختراق قريب',
   early_mover:'حركة مبكرة',small:'زخم سهم صغير',large:'زخم سهم كبير',
-  watch:'تحت المراقبة'
+  watch:'تحت المراقبة','غير محدد':'قيد التحديد','unknown':'قيد التحديد'
  };
- return labels[key]||String(raw||'').trim()||'قيد التحديد';
+ for(const candidate of candidates){
+  const raw=String(candidate||'').trim();
+  if(!raw)continue;
+  const key=raw.toLowerCase().replace(/[ -]+/g,'_');
+  if(labels[key])return labels[key];
+  if(!['غير محدد','unknown','unclassified','none','null'].includes(key))return raw;
+ }
+ return 'قيد التحديد';
 }
 function radarDisplayStatus(x){
  const cls=x?.classification||{};
