@@ -559,6 +559,17 @@ function renderDashboard(d){
    #app.sas-page-night::before{opacity:.28;background:radial-gradient(ellipse at 15% 20%,rgba(150,105,255,.20),transparent 43%),radial-gradient(ellipse at 82% 72%,rgba(45,140,255,.17),transparent 46%)}
    #app.sas-page-closed::before{opacity:.18;background:radial-gradient(ellipse at 15% 20%,rgba(95,130,160,.17),transparent 43%),radial-gradient(ellipse at 82% 72%,rgba(75,90,135,.13),transparent 46%)}
    @keyframes sasPageAtmosphere{0%{background-position:0% 0%;transform:scale(1)}100%{background-position:100% 100%;transform:scale(1.035)}}
+   .sas-radar-control{margin-top:14px;padding:13px;border:1px solid rgba(67,196,222,.25);border-radius:16px;background:linear-gradient(145deg,rgba(7,42,58,.72),rgba(3,19,31,.9));box-shadow:inset 0 1px rgba(255,255,255,.035)}
+   .sas-radar-control-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}
+   .sas-radar-control-head b{color:#d8f8ff;font-size:13px}.sas-radar-control-head small{color:#7faab9;font-size:10px}
+   .sas-radar-control-row{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#a8c9d3;font-size:12px}
+   .sas-radar-control-row select{max-width:145px;background:#061b28;color:#d8f8ff;border:1px solid rgba(77,194,220,.35);border-radius:9px;padding:8px;font:inherit}
+   .sas-radar-countdown{display:grid;grid-template-columns:8px 1fr;gap:3px 8px;align-items:center;margin-top:10px;padding:10px;border-radius:11px;background:rgba(5,23,35,.72)}
+   .sas-radar-countdown-dot{grid-row:span 2;width:8px;height:8px;border-radius:50%;background:#49d8b3;box-shadow:0 0 12px rgba(73,216,179,.65)}
+   .sas-radar-countdown b{font-size:12px;color:#d6f7ff}.sas-radar-countdown small{font-size:10px;color:#7fa8b6}
+   .sas-radar-control .sas-radar-actions{margin-top:10px}
+   #dashboardRadar .dashboard-saved-empty{display:none!important}
+   @media(max-width:520px){.sas-radar-control-head{align-items:flex-start;flex-direction:column;gap:3px}.sas-radar-control-row{font-size:11px}}
    @media(prefers-reduced-motion:reduce){.sas-market-strip::after,#app::before{animation:none!important;transform:none!important}}
   `;
   document.head.appendChild(style);
@@ -803,6 +814,38 @@ function renderMacro(){
  }
 
 }
+let sasRadarStartTimer=null;
+function startRadarWithCountdown(show=false){
+ if(terminalState.radarScanning||sasRadarStartTimer)return;
+ const select=document.getElementById('sasRadarStartDelay');
+ const countdown=document.getElementById('sasRadarCountdownValue');
+ const liveStatus=document.getElementById('sasRadarLiveStatus');
+ const startButtons=[...document.querySelectorAll('.sas-radar-scan-btn')];
+ let remaining=Math.max(0,Number(select?.value)||0);
+ startButtons.forEach(b=>{b.disabled=true;});
+ if(select)select.disabled=true;
+ const paint=()=>{
+  if(countdown)countdown.textContent=remaining>0?'يبدأ الفحص خلال '+remaining+' ث':'جارٍ بدء الفحص…';
+  if(liveStatus)liveStatus.textContent=remaining>0?'العد التنازلي قبل الفحص':'بدء الفحص';
+ };
+ paint();
+ if(remaining===0){
+  if(select)select.disabled=false;
+  startButtons.forEach(b=>{b.disabled=false;});
+  void runRadar(show);
+  return;
+ }
+ sasRadarStartTimer=window.setInterval(()=>{
+  remaining--;
+  paint();
+  if(remaining<=0){
+   window.clearInterval(sasRadarStartTimer);sasRadarStartTimer=null;
+   if(select)select.disabled=false;
+   startButtons.forEach(b=>{b.disabled=false;});
+   void runRadar(show);
+  }
+ },1000);
+}
 async function runRadar(show=true){
  if(terminalState.radarScanning)return;
  terminalState.radarScanning=true;
@@ -855,7 +898,7 @@ async function runRadar(show=true){
   elapsedTimer=setInterval(()=>{
    const elapsed=Math.floor((Date.now()-startedAt)/1000);
    const label=progress?.querySelector('.radar-scan-elapsed');
-   if(label)label.textContent='⏱️ '+elapsed+' ث · يستمر الرصد في الخلفية';
+   if(label)label.textContent='⏱️ '+elapsed+' ث · يستمر الرصد في الخلفية';const elapsedNode=document.getElementById('sasRadarElapsed');if(elapsedNode)elapsedNode.textContent='المدة المنقضية: '+elapsed+' ثانية';const countdownNode=document.getElementById('sasRadarCountdownValue');if(countdownNode)countdownNode.textContent='المسح جارٍ الآن';
   },1000);
   // Start or join one shared background scan; polling short status calls avoids the old 180s request timeout.
   const started=await api('/api/radar/scan/start',{method:'POST',timeoutMs:12000,retries:0});
