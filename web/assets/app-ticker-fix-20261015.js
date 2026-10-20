@@ -3255,4 +3255,4 @@ document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays'
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')startTimers();});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startTimers);else startTimers();
  if(Array.isArray(window.__sasLastTicker))renderIndices(window.__sasLastTicker);
-})()
+})();
