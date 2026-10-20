@@ -858,8 +858,9 @@ async function runRadar(show=true){
    if(label)label.textContent='⏱️ '+elapsed+' ث · يستمر الرصد في الخلفية';
   },1000);
   // Start or join one shared background scan; polling short status calls avoids the old 180s request timeout.
-  const started=await api('/api/radar/scan/start',{method:'POST',timeoutMs:12000,retries:0});
-  const jobId=String(started.job_id||'');
+  const started=await api('/api/radar/scan/start',{method:'POST',timeoutMs:20000,retries:1});
+  let jobId=String(started.job_id||'');
+  let autoRecoveries=0;
   let d=started.status==='completed'?(started.result||{}):null;
   if(!d){
    if(!jobId)throw new Error('لم يُرجع الخادم معرّف مهمة الرصد.');
@@ -890,7 +891,19 @@ async function runRadar(show=true){
     if(job.status==='success'){d=job.result||{};break;}
     if(job.status==='failed')throw new Error(job.error?.message||'تعذر إكمال مسح الأسهم.');
     if(job.status==='not_found'){
-     throw new Error('فقد الخادم حالة مهمة الرصد (قد يكون أعيد تشغيله). النتائج السابقة محفوظة؛ ابدأ مسحًا جديدًا.');
+     // Recover once automatically if a worker restart lost the in-memory job state.
+     // The backend start endpoint joins an active scan, avoiding a second manual search.
+     if(autoRecoveries<1){
+      autoRecoveries++;
+      if(stage)stage.textContent='نعيد ربط مهمة الرصد تلقائيًا…';
+      const recovered=await api('/api/radar/scan/start',{method:'POST',timeoutMs:20000,retries:1});
+      if(recovered.status==='completed'){d=recovered.result||{};break;}
+      jobId=String(recovered.job_id||'');
+      if(!jobId)throw new Error('تعذر استعادة حالة الرصد تلقائيًا. احتفظنا بالنتائج السابقة؛ حاول لاحقًا.');
+      consecutivePollErrors=0;
+      continue;
+     }
+     throw new Error('تعذر استعادة حالة مهمة الرصد تلقائيًا. احتفظنا بالنتائج السابقة؛ حاول لاحقًا.');
     }
     throw new Error('حالة مهمة الرصد غير معروفة. النتائج السابقة محفوظة؛ أعد المحاولة.');
    }
