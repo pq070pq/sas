@@ -2273,10 +2273,12 @@ async def market_status_api(_: dict = Depends(require_pro)):
 async def admin_radar_daily_summary(session_date: str | None = None, user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     """Read-only end-of-day radar summary. It never starts a scan or contacts market-data providers."""
     await require_admin_permission(user, "radar")
-    import re
     from .db import RadarOutcome
-    if session_date and not re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", session_date):
-        raise HTTPException(400, "صيغة التاريخ يجب أن تكون YYYY-MM-DD")
+    if session_date:
+        try:
+            datetime.strptime(session_date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(400, "صيغة التاريخ يجب أن تكون YYYY-MM-DD")
 
     dates = (await db.execute(
         select(RadarRun.session_date).where(RadarRun.status != "running")
