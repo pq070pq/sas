@@ -1008,9 +1008,17 @@ function renderRadar(){renderCards(document.getElementById('radarGrid'),terminal
 function renderCards(el,rows){
  if(!el)return;
  const all=Array.isArray(rows)?rows:[];
- const confirmed=all.filter(x=>(x.opportunity_status||x.classification?.opportunity_status)==='confirmed'||x.radar_tier==='confirmed');
- const confirmedSymbols=new Set(confirmed.map(x=>String(x.symbol||'').toUpperCase()));
- const watch=all.filter(x=>!confirmedSymbols.has(String(x.symbol||'').toUpperCase()));
+ const isConfirmed=x=>(x.opportunity_status||x.classification?.opportunity_status)==='confirmed'||x.radar_tier==='confirmed';
+ const isPreliminary=x=>{
+  if(isConfirmed(x))return false;
+  const gate=x.channel_gate||x.technical?.channel_gate||{};
+  const status=String(x.radar_candidate_status||x.candidate_status||'');
+  return gate.passed===true||status.includes('اجتاز بوابة النشر الفنية');
+ };
+ const confirmed=all.filter(isConfirmed);
+ const preliminary=all.filter(isPreliminary);
+ const reserved=new Set([...confirmed,...preliminary].map(x=>String(x.symbol||'').toUpperCase()));
+ const watch=all.filter(x=>!reserved.has(String(x.symbol||'').toUpperCase()));
  const empty='<div class="radar-empty-card">'+
    '<div class="radar-empty-orbit" aria-hidden="true"><span></span><i></i><b></b></div>'+
    '<div class="radar-empty-content">'+
@@ -1024,9 +1032,10 @@ function renderCards(el,rows){
  if(!all.length){el.innerHTML=empty;return;}
  const heading=(title,count,description)=>'<div class="radar-list-heading" style="grid-column:1/-1;width:100%;box-sizing:border-box"><b>'+title+'</b><span>'+count.toLocaleString('ar-SA')+' سهم</span><small>'+description+'</small></div>';
  const group=(title,count,description,items,status)=>items.length?'<section class="radar-category" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:10px;margin:0 0 18px;width:100%;min-width:0;box-sizing:border-box">'+heading(title,count,description)+items.map(x=>stockCard({...x,_radarDisplayStatus:status})).join('')+'</section>':'';
- const confirmedHtml=group('✅ الفرص المؤكدة',confirmed.length,'اجتازت شروط الرادار؛ راجع السعر والمستويات قبل اتخاذ القرار.',confirmed,'confirmed');
- const watchHtml=group('👀 أسهم تحت المراقبة',watch.length,'مرشحة للتحليل والمتابعة، لكنها لم تستكمل شروط الفرصة المؤكدة.',watch,'watch');
- el.innerHTML=confirmedHtml+watchHtml+(confirmed.length?'':(!watch.length?empty:''));
+ const confirmedHtml=group('🟢 الفرص المؤكدة',confirmed.length,'اجتازت شروط الرادار الكاملة؛ راجع السعر والمستويات قبل اتخاذ القرار.',confirmed,'confirmed');
+ const preliminaryHtml=group('🟡 الفرص المجتازة مبدئيًا',preliminary.length,'اجتازت بوابة الفحص الأولي فقط؛ لا تعد فرصة مؤكدة حتى تكتمل الشروط.',preliminary,'preliminary');
+ const watchHtml=group('🔵 أسهم تحت المراقبة',watch.length,'مرشحة للتحليل والمتابعة ولم يثبت اجتيازها للبوابة الأولية.',watch,'watch');
+ el.innerHTML=confirmedHtml+preliminaryHtml+watchHtml+(confirmed.length||preliminary.length||watch.length?'':empty);
 
 }
 function toggleRadarEmptyHelp(button){
@@ -1084,8 +1093,10 @@ function stockCard(x){
   '</div>'+(me?.admin ? '<a href="'+escHtml(safeNewsUrl(perp.url)||'https://perpequities.com/ar')+'" target="_blank" rel="noopener noreferrer">تفاصيل العقود والمنصات ↗</a>' : '')+'</div>'
  ].join(''):'';
  const displayStatus=x._radarDisplayStatus||((x.opportunity_status||cls.opportunity_status)==='confirmed'||x.radar_tier==='confirmed'?'confirmed':'watch');
- const statusBadge=displayStatus==='confirmed'?'<i class="radar-stock-status is-confirmed">فرصة مؤكدة</i>':'<i class="radar-stock-status is-watch">تحت المراقبة</i>';
- return '<article class="stock-card '+(displayStatus==='watch'?'radar-watch-card':'radar-confirmed-card')+'"><div class="stock-head"><div><b>'+s+'</b><small>'+statusBadge+' '+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • '+formatTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+
+ const statusBadge=displayStatus==='confirmed'?'<i class="radar-stock-status is-confirmed">فرصة مؤكدة</i>':displayStatus==='preliminary'?'<i class="radar-stock-status is-preliminary">اجتياز مبدئي</i>':'<i class="radar-stock-status is-watch">تحت المراقبة</i>';
+ const preliminaryReason=String(x.channel_gate?.reason||x.radar_candidate_status||x.candidate_status||x.preliminary_reason||'اجتاز الفحص الأولي؛ بانتظار اكتمال شروط التأكيد').slice(0,220);
+ const preliminaryPanel=displayStatus==='preliminary'?'<div class="sas-preliminary-reason"><b>سبب التصنيف الأولي</b><span>'+escHtml(preliminaryReason)+'</span><small>تصنيف أولي فقط — ليس توصية دخول ولا فرصة مؤكدة.</small></div>':'';
+ return '<article class="stock-card '+(displayStatus==='watch'?'radar-watch-card':displayStatus==='preliminary'?'radar-preliminary-card':'radar-confirmed-card')+'"><div class="stock-head"><div><b>'+s+'</b><small>'+statusBadge+' '+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • '+formatTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+preliminaryPanel+
   '<div class="sas-card-price-trend"><svg class="sas-card-uptrend" viewBox="0 0 180 48" role="img" aria-label="مؤشر بصري صاعد وليس بيانات شارت فعلية"><path d="M4 40 C18 39 20 25 34 28 S52 39 66 23 S88 27 103 18 S126 28 140 12 S161 14 176 3" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg><strong>$'+money(price)+'</strong></div>'+
  '<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
  '<div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div>'+
