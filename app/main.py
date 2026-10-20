@@ -2864,13 +2864,19 @@ async def _execute_radar_app_scan(job_id: str):
                 force_refresh=True,
                 progress_callback=progress_callback,
             )
-            # Keep the discovery engine and its filters unchanged. Apply the same
-            # lifecycle/publish gate used by saved results before labeling these
-            # manual-scan results as current confirmed opportunities.
+            # A fresh scanner result is not yet a published opportunity: it may
+            # not have the saved-signal lifecycle fields (radar_active/channel_gate).
+            # Keep confirmed opportunities separate from preliminary candidates so
+            # the UI can honestly show scan activity without weakening publish rules.
             scanned_stocks = scanned.get("stocks") or []
             active_stocks = [
                 stock for stock in scanned_stocks
                 if is_current_active_opportunity(stock)
+            ]
+            preliminary_stocks = [
+                stock for stock in scanned_stocks
+                if isinstance(stock, dict)
+                and str(stock.get("symbol") or "").strip()
             ]
             result = {
                 "enabled": True,
@@ -2881,9 +2887,12 @@ async def _execute_radar_app_scan(job_id: str):
                 "method": "SAS PRO Radar",
                 "session": status.get("session", "unknown"),
                 "stocks": active_stocks[:app_limit],
+                "preliminary_stocks": preliminary_stocks[:app_limit],
                 "diagnostics": {
                     **(scanned.get("diagnostics") or {}),
                     "daily_limit": app_limit,
+                    "preliminary_count": len(preliminary_stocks),
+                    "confirmed_count": len(active_stocks),
                     "lifecycle_rejected": len(scanned_stocks) - len(active_stocks),
                 },
             }
