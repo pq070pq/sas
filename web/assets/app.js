@@ -973,7 +973,6 @@ async function runRadar(show=true){
   const candidateEl=document.getElementById('radarCandidates');
   const preliminary=Array.isArray(d.preliminary_stocks)?d.preliminary_stocks:[];
   terminalState.preliminaryRadar=preliminary.filter(x=>x&&String(x.symbol||'').trim()).slice(0,12);
-  if(!terminalState.preliminaryRadar.length)terminalState.preliminaryRadar=[];
   const candidates=Array.isArray(diag.filtered_examples)?diag.filtered_examples:[];
   if(candidateEl && preliminary.length){
     candidateEl.hidden=false;
