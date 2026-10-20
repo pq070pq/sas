@@ -287,7 +287,8 @@ function readLocalJson(key,fallback){
 }
 const savedRadarSnapshot=readLocalJson('saspro_radar_snapshot',[]);
 const savedPreliminarySnapshot=readLocalJson('saspro_preliminary_radar_snapshot',null);
-const savedPreliminaryRows=Array.isArray(savedPreliminarySnapshot?.stocks)&&Number(savedPreliminarySnapshot?.saved_at)>0&&(Date.now()-Number(savedPreliminarySnapshot.saved_at))<24*60*60*1000?savedPreliminarySnapshot.stocks:[];
+const currentUsSessionDate=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const savedPreliminaryRows=Array.isArray(savedPreliminarySnapshot?.stocks)&&String(savedPreliminarySnapshot?.session_date||'')===currentUsSessionDate?savedPreliminarySnapshot.stocks:[];
 const terminalState={ticker:[],radar:Array.isArray(savedRadarSnapshot)?savedRadarSnapshot:[],preliminaryRadar:savedPreliminaryRows.filter(x=>x&&String(x.symbol||'').trim()).slice(0,12).map(x=>({...x,_radar_preliminary_candidate:true})),perpAssets:{},watch:readLocalJson('saspro_watchlist',[]),timer:null,moversTimer:null,newsTimer:null,newsItems:[],newsFilter:'all',moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
 let radarSnapshotLastChecked=0;
 let radarSnapshotLoadPromise=null;
@@ -1004,7 +1005,7 @@ async function runRadar(show=true){
   const detectedAt=d.scan_at||new Date().toISOString();
   terminalState.radar=(Array.isArray(d.stocks)?d.stocks:[]).map(stock=>({...stock,created_at:stock.created_at||stock.detected_at||detectedAt}));
   terminalState.preliminaryRadar=(Array.isArray(d.preliminary_stocks)?d.preliminary_stocks:[]).filter(stock=>stock&&String(stock.symbol||'').trim()).slice(0,12).map(stock=>({...stock,_radar_preliminary_candidate:true}));
-  try{localStorage.setItem('saspro_radar_snapshot',JSON.stringify(terminalState.radar));localStorage.setItem('saspro_preliminary_radar_snapshot',JSON.stringify({saved_at:Date.now(),stocks:terminalState.preliminaryRadar}));}catch(e){console.warn('SAS PRO radar snapshot not cached:',e?.message||e);}
+  try{localStorage.setItem('saspro_radar_snapshot',JSON.stringify(terminalState.radar));localStorage.setItem('saspro_preliminary_radar_snapshot',JSON.stringify({session_date:d.session_date||currentUsSessionDate,saved_at:Date.now(),stocks:terminalState.preliminaryRadar}));}catch(e){console.warn('SAS PRO radar snapshot not cached:',e?.message||e);}
   const diag=d.diagnostics||{};
   const nextPremarket=d.next_premarket_riyadh||'11:00';
   const mode=d.historical
