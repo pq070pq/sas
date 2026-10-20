@@ -1336,7 +1336,7 @@ function sasCandlestickMiniChart(x){
  const gridId='sasChartGrid-'+safeId;
  const grid='<defs><pattern id="'+gridId+'" width="24" height="17.6" patternUnits="userSpaceOnUse"><path d="M24 0H0V17.6" fill="none" stroke="rgba(133,190,207,.13)" stroke-width=".7"/></pattern></defs><rect width="'+W+'" height="'+H+'" fill="url(#'+gridId+')"/>';
  if(!actual){
-  return '<div class="sas-card-chart-wrap sas-chart-no-data"><svg class="sas-card-uptrend sas-candlestick-chart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="لا تتوفر بيانات شموع تاريخية لهذا السهم">'+grid+'<line x1="8" y1="44" x2="232" y2="44" stroke="rgba(126,177,195,.35)" stroke-dasharray="4 4"/><circle cx="120" cy="44" r="3" fill="#86a9b7"/><text x="120" y="32" text-anchor="middle" fill="#8fbac6" font-size="9">بانتظار بيانات OHLC</text></svg><span class="sas-chart-caption">لا توجد شموع تاريخية كافية — لا نعرض مسارًا تخيليًا</span></div>';
+  return '<div class="sas-card-chart-wrap sas-chart-no-data" data-sas-chart-symbol="'+escHtml(safeId.toUpperCase())+'"><svg class="sas-card-uptrend sas-candlestick-chart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="لا تتوفر بيانات شموع تاريخية لهذا السهم">'+grid+'<line x1="8" y1="44" x2="232" y2="44" stroke="rgba(126,177,195,.35)" stroke-dasharray="4 4"/><circle cx="120" cy="44" r="3" fill="#86a9b7"/><text x="120" y="32" text-anchor="middle" fill="#8fbac6" font-size="9">بانتظار بيانات OHLC</text></svg><span class="sas-chart-caption">لا توجد شموع تاريخية كافية — لا نعرض مسارًا تخيليًا</span></div>';
  }
  const lo=Math.min(...points.map(p=>p.l)),hi=Math.max(...points.map(p=>p.h)),span=Math.max(hi-lo,Math.abs(hi)*.0001,.00001),step=(W-pad*2)/points.length,bw=Math.max(3,Math.min(7,step*.56));
  const y=v=>H-7-((v-lo)/span)*(H-16);
@@ -1349,6 +1349,28 @@ function sasCandlestickMiniChart(x){
  const last=points[points.length-1],lastY=y(last.c);
  return '<div class="sas-card-chart-wrap"><svg class="sas-card-uptrend sas-candlestick-chart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="شموع يابانية من بيانات OHLC الحقيقية" tabindex="0">'+grid+candles+'<line x1="8" y1="'+lastY.toFixed(2)+'" x2="232" y2="'+lastY.toFixed(2)+'" stroke="#53d9ee" stroke-dasharray="3 3" stroke-opacity=".7"/><circle cx="'+(pad+step*(points.length-.5)).toFixed(2)+'" cy="'+lastY.toFixed(2)+'" r="2.5" fill="#53d9ee"/></svg><span class="sas-chart-caption">شموع يابانية • بيانات OHLC • آخر إغلاق: $'+money(last.c)+'</span></div>';
 }
+/* Fetch genuine OHLC candles for radar cards that arrive without embedded history. */
+function sasLoadCardCandles(root=document){
+ const nodes=root.querySelectorAll?.('.sas-chart-no-data[data-sas-chart-symbol]:not([data-sas-loading])')||[];
+ nodes.forEach(async node=>{
+  const symbol=String(node.getAttribute('data-sas-chart-symbol')||'').trim().toUpperCase();
+  if(!/^[A-Z0-9.-]{1,12}$/.test(symbol))return;
+  node.setAttribute('data-sas-loading','1');
+  try{
+   const response=await fetch('/api/stocks/'+encodeURIComponent(symbol)+'/chart',{headers:headers(),credentials:'same-origin'});
+   if(!response.ok)throw new Error('chart request failed');
+   const payload=await response.json();
+   const candles=Array.isArray(payload.candles)?payload.candles:(Array.isArray(payload.ohlcv)?payload.ohlcv:[]);
+   if(candles.length>=4){const holder=document.createElement('div');holder.innerHTML=sasCandlestickMiniChart({symbol,candles});const replacement=holder.firstElementChild;if(replacement)node.replaceWith(replacement);}
+   else node.removeAttribute('data-sas-loading');
+  }catch(_){node.removeAttribute('data-sas-loading');}
+ });
+}
+if(!window.__sasCardCandleObserver){
+ window.__sasCardCandleObserver=new MutationObserver(records=>records.forEach(record=>record.addedNodes.forEach(node=>{if(node.nodeType===1){sasLoadCardCandles(node);sasLoadCardCandles(node.parentElement||document);}})));
+ window.__sasCardCandleObserver.observe(document.documentElement,{childList:true,subtree:true});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>sasLoadCardCandles(),{once:true});else sasLoadCardCandles();
 function stockCard(x){
  const raw=String(x.symbol||'—'), s=escHtml(raw);
  const cls=x.classification||{};
