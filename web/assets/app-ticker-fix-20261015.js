@@ -1329,18 +1329,25 @@ function installSasMobileChartPolish(){
 installSasMobileChartPolish();
 function sasCandlestickMiniChart(x){
  const raw=Array.isArray(x?.candles)?x.candles:Array.isArray(x?.ohlcv)?x.ohlcv:Array.isArray(x?.price_history)?x.price_history:Array.isArray(x?.chart_data)?x.chart_data:[];
- const points=raw.map(p=>({o:Number(p.open??p.o),h:Number(p.high??p.h),l:Number(p.low??p.l),c:Number(p.close??p.c)})).filter(p=>[p.o,p.h,p.l,p.c].every(Number.isFinite)&&p.h>0&&p.l>0&&p.h>=Math.max(p.o,p.c)&&p.l<=Math.min(p.o,p.c)).slice(-24);
+ const points=raw.map(p=>({o:Number(p.open??p.o),h:Number(p.high??p.h),l:Number(p.low??p.l),c:Number(p.close??p.c),t:p.time??p.timestamp??p.date??''})).filter(p=>[p.o,p.h,p.l,p.c].every(Number.isFinite)&&p.h>0&&p.l>0&&p.h>=Math.max(p.o,p.c)&&p.l<=Math.min(p.o,p.c)).slice(-24);
  const actual=points.length>=4;
  const W=240,H=88,pad=7;
- const grid='<defs><pattern id="sasChartGrid" width="24" height="17.6" patternUnits="userSpaceOnUse"><path d="M24 0H0V17.6" fill="none" stroke="rgba(133,190,207,.13)" stroke-width=".7"/></pattern></defs><rect width="'+W+'" height="'+H+'" fill="url(#sasChartGrid)"/>';
+ const safeId=String(x?.symbol||'stock').toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,24)||'stock';
+ const gridId='sasChartGrid-'+safeId;
+ const grid='<defs><pattern id="'+gridId+'" width="24" height="17.6" patternUnits="userSpaceOnUse"><path d="M24 0H0V17.6" fill="none" stroke="rgba(133,190,207,.13)" stroke-width=".7"/></pattern></defs><rect width="'+W+'" height="'+H+'" fill="url(#'+gridId+')"/>';
  if(!actual){
   return '<div class="sas-card-chart-wrap sas-chart-no-data"><svg class="sas-card-uptrend sas-candlestick-chart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="لا تتوفر بيانات شموع تاريخية لهذا السهم">'+grid+'<line x1="8" y1="44" x2="232" y2="44" stroke="rgba(126,177,195,.35)" stroke-dasharray="4 4"/><circle cx="120" cy="44" r="3" fill="#86a9b7"/><text x="120" y="32" text-anchor="middle" fill="#8fbac6" font-size="9">بانتظار بيانات OHLC</text></svg><span class="sas-chart-caption">لا توجد شموع تاريخية كافية — لا نعرض مسارًا تخيليًا</span></div>';
  }
- const lo=Math.min(...points.map(p=>p.l)),hi=Math.max(...points.map(p=>p.h)),span=Math.max(hi-lo,.00001),step=(W-pad*2)/points.length,bw=Math.max(3,Math.min(7,step*.56));
+ const lo=Math.min(...points.map(p=>p.l)),hi=Math.max(...points.map(p=>p.h)),span=Math.max(hi-lo,Math.abs(hi)*.0001,.00001),step=(W-pad*2)/points.length,bw=Math.max(3,Math.min(7,step*.56));
  const y=v=>H-7-((v-lo)/span)*(H-16);
- const candles=points.map((p,i)=>{const cx=pad+step*i+step/2,up=p.c>=p.o,color=up?'#32e6a0':'#ff7185';return '<g class="sas-candle '+(up?'is-up':'is-down')+'" style="animation-delay:'+(i*18)+'ms"><line x1="'+cx.toFixed(2)+'" y1="'+y(p.h).toFixed(2)+'" x2="'+cx.toFixed(2)+'" y2="'+y(p.l).toFixed(2)+'" stroke="'+color+'" stroke-width="1.25"/><rect x="'+(cx-bw/2).toFixed(2)+'" y="'+Math.min(y(p.o),y(p.c)).toFixed(2)+'" width="'+bw.toFixed(2)+'" height="'+Math.max(2,Math.abs(y(p.o)-y(p.c))).toFixed(2)+'" rx=".5" fill="'+color+'"/></g>';}).join('');
+ const candles=points.map((p,i)=>{
+  const cx=pad+step*i+step/2,up=p.c>=p.o,color=up?'#32e6a0':'#ff7185';
+  const top=Math.min(y(p.o),y(p.c)),body=Math.max(1.5,Math.abs(y(p.o)-y(p.c)));
+  const title='O '+money(p.o)+' · H '+money(p.h)+' · L '+money(p.l)+' · C '+money(p.c)+(p.t?' · '+String(p.t):'');
+  return '<g class="sas-candle '+(up?'is-up':'is-down')+'" tabindex="0" role="img" aria-label="'+escHtml(title)+'" style="animation-delay:'+(i*16)+'ms"><title>'+escHtml(title)+'</title><line x1="'+cx.toFixed(2)+'" y1="'+y(p.h).toFixed(2)+'" x2="'+cx.toFixed(2)+'" y2="'+y(p.l).toFixed(2)+'" stroke="'+color+'" stroke-width="1.25" stroke-linecap="round"/><rect x="'+(cx-bw/2).toFixed(2)+'" y="'+top.toFixed(2)+'" width="'+bw.toFixed(2)+'" height="'+body.toFixed(2)+'" rx=".55" fill="'+color+'" stroke="'+color+'" stroke-width=".35"/></g>';
+ }).join('');
  const last=points[points.length-1],lastY=y(last.c);
- return '<div class="sas-card-chart-wrap"><svg class="sas-card-uptrend sas-candlestick-chart" viewBox="0 '+0+' '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="شموع يابانية من بيانات OHLC الحقيقية" tabindex="0">'+grid+ candles+'<line x1="8" y1="'+lastY.toFixed(2)+'" x2="232" y2="'+lastY.toFixed(2)+'" stroke="#53d9ee" stroke-dasharray="3 3" stroke-opacity=".7"/><circle cx="'+(pad+step*(points.length-.5)).toFixed(2)+'" cy="'+lastY.toFixed(2)+'" r="2.5" fill="#53d9ee"/></svg><span class="sas-chart-caption">شموع يابانية • بيانات OHLC • آخر إغلاق: $'+money(last.c)+'</span></div>';
+ return '<div class="sas-card-chart-wrap"><svg class="sas-card-uptrend sas-candlestick-chart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="شموع يابانية من بيانات OHLC الحقيقية" tabindex="0">'+grid+candles+'<line x1="8" y1="'+lastY.toFixed(2)+'" x2="232" y2="'+lastY.toFixed(2)+'" stroke="#53d9ee" stroke-dasharray="3 3" stroke-opacity=".7"/><circle cx="'+(pad+step*(points.length-.5)).toFixed(2)+'" cy="'+lastY.toFixed(2)+'" r="2.5" fill="#53d9ee"/></svg><span class="sas-chart-caption">شموع يابانية • بيانات OHLC • آخر إغلاق: $'+money(last.c)+'</span></div>';
 }
 function stockCard(x){
  const raw=String(x.symbol||'—'), s=escHtml(raw);
