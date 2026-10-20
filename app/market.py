@@ -208,8 +208,9 @@ async def _fmp_quote(symbol: str):
                     break
             if key_failed:
                 # Cool down only this credential; next key is attempted.
-                if not await pool.snapshot():
-                    continue
+                # mark_failure may already have been called for HTTP auth/rate errors;
+                # repeating it is harmless and ensures network/5xx failures cool down too.
+                await pool.mark_failure(key)
                 continue
     return None
 
