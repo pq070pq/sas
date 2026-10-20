@@ -18,11 +18,17 @@ class MarketNewsRelevanceTests(unittest.TestCase):
         }
         self.assertFalse(_is_relevant_stock_market_news(row))
 
-    def test_financial_headline_with_whitespace_is_normalized(self):
+    def test_us_equity_financial_headline_with_whitespace_is_normalized(self):
         row = {
-            "headline": "Company reports\nquarterly earnings",
+            "headline": "U.S. stock market company reports\nquarterly earnings",
         }
         self.assertTrue(_is_relevant_stock_market_news(row))
+
+    def test_generic_global_finance_without_us_equity_context_is_rejected(self):
+        row = {
+            "headline": "Global investors react to inflation data",
+        }
+        self.assertFalse(_is_relevant_stock_market_news(row))
 
 
 if __name__ == "__main__":
