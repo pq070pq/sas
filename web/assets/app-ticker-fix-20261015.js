@@ -1252,12 +1252,18 @@ function stockCard(x){
  const rr=x.risk_reward??tgt.risk_reward;
  const warning=Boolean(x.risk_reward_warning??tgt.risk_reward_warning);
  const section=x.momentum_section||x.section;
+ const gates=x.radar_checks||{};
+ const rawMomentumLabel=gates.momentum_label||cls.momentum_label||x.momentum_label||section||'';
+ const momentumLabel=({
+  accumulation:'تجميع', movement:'حركة', breakout:'اختراق قريب',
+  early_breakout:'اختراق قريب', watch:'تحت المراقبة'
+ })[String(rawMomentumLabel).toLowerCase()]||String(rawMomentumLabel||'').trim();
+ const displayStatus=x._radarDisplayStatus||((x.opportunity_status||cls.opportunity_status)==='confirmed'||x.radar_tier==='confirmed'?'confirmed':'watch');
  const score=Number(cls.score);
  const ai=x.ai_analysis||x.ai||{};
  const sh=x.shariah||{};
  const shLabel=sh.status_ar||'غير واضح / يحتاج تحقق';
  const shClass=sh.status==='halal'||sh.status==='compliant'?'sh-ok':(sh.status==='haram'||sh.status==='non_compliant'?'sh-bad':'sh-unknown');
- const gates=x.radar_checks||{};
  const catalyst=Number(x.catalyst_score||0);
  const catalystLabel=catalyst>=75?'🔥 محفز قوي':catalyst>=55?'⚡ محفز متوسط':catalyst>0?'📰 محفز ضعيف':'📰 دون محفز حديث';
  const gate=(ok,label)=>'<i class="'+(ok?'gate-ok':'gate-warn')+'">'+(ok?'✓ ':'⚠️ ')+label+'</i>';
@@ -1283,9 +1289,9 @@ function stockCard(x){
   '<span>الفائدة المفتوحة <b>$'+(Number.isFinite(perpOi)&&perpOi>0?escHtml(perpOi.toLocaleString('en-US',{notation:'compact',maximumFractionDigits:1})):'—')+'</b></span>',
   '</div>'+(me?.admin ? '<a href="'+escHtml(safeNewsUrl(perp.url)||'https://perpequities.com/ar')+'" target="_blank" rel="noopener noreferrer">تفاصيل العقود والمنصات ↗</a>' : '')+'</div>'
  ].join(''):'';
- const displayStatus=x._radarDisplayStatus||((x.opportunity_status||cls.opportunity_status)==='confirmed'||x.radar_tier==='confirmed'?'confirmed':'watch');
- const statusBadge=displayStatus==='confirmed'?'<i class="radar-stock-status is-confirmed">فرصة مؤكدة</i>':'<i class="radar-stock-status is-watch">تحت المراقبة</i>';
- return '<article class="stock-card '+(displayStatus==='watch'?'radar-watch-card':'radar-confirmed-card')+'"><div class="stock-head"><div><b>'+s+'</b><small>'+statusBadge+' '+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • رُصد: '+formatDateTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+
+ const statusBadge=displayStatus==='confirmed'?'<i class="radar-stock-status is-confirmed">فرصة مؤكدة</i>':(displayStatus==='preliminary'?'<i class="radar-stock-status is-watch">مرشح مبدئي</i>':'<i class="radar-stock-status is-watch">تحت المراقبة</i>');
+ const classificationRow='<div class="sas-radar-classification" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0;padding:8px 10px;border:1px solid rgba(37,203,231,.22);border-radius:10px;background:rgba(5,65,83,.22);font-size:12px"><span style="color:#8fbac6">تصنيف الرصد:</span><b style="color:#52dff5">'+(momentumLabel?escHtml(momentumLabel):'قيد التحديد')+'</b><span style="margin-inline-start:auto;color:#b8dce4">'+(displayStatus==='confirmed'?'اجتاز شروط التأكيد':displayStatus==='preliminary'?'قيد التحقق الفني':'تحت المراقبة')+'</span></div>';
+ return '<article class="stock-card '+(displayStatus==='watch'?'radar-watch-card':'radar-confirmed-card')+'"><div class="stock-head"><div><b>'+s+'</b><small>'+statusBadge+' '+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • رُصد: '+formatDateTime(x.created_at):'')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+classificationRow+
   '<div class="sas-card-price-trend"><svg class="sas-card-uptrend" viewBox="0 0 180 48" role="img" aria-label="مؤشر بصري صاعد وليس بيانات شارت فعلية"><path d="M4 40 C18 39 20 25 34 28 S52 39 66 23 S88 27 103 18 S126 28 140 12 S161 14 176 3" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg><strong>$'+money(price)+'</strong></div>'+
  '<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
  '<div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div>'+
