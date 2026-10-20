@@ -45,17 +45,47 @@ async def learn_radar_profile() -> dict:
         )).all()
 
         completed = []
+        session_stats = {}
         for outcome, signal in rows:
-            if outcome.status == "failed":
-                completed.append((outcome, signal, False))
-            elif int(outcome.achieved_target or 0) >= 1:
-                completed.append((outcome, signal, True))
+            status = str(outcome.status or "").strip().lower()
+            achieved = int(outcome.achieved_target or 0)
+            # Only terminal outcomes are allowed to update the learner.
+            # An active/unresolved signal is never silently counted as a loss.
+            if status in {"failed", "stopped", "stop_loss", "expired_loss"}:
+                is_win = False
+            elif achieved >= 1 or status in {"target_hit", "completed_win", "won"}:
+                is_win = True
+            else:
+                continue
+
+            try:
+                payload = json.loads(signal.payload or "{}")
+            except (TypeError, ValueError):
+                payload = {}
+            session = str(payload.get("session") or payload.get("market_session") or "unknown").lower()
+            completed.append((outcome, signal, is_win, session))
+            bucket = session_stats.setdefault(session, {"samples": 0, "wins": 0, "losses": 0})
+            bucket["samples"] += 1
+            bucket["wins" if is_win else "losses"] += 1
 
         profile = dict(DEFAULT_PROFILE)
         profile["samples"] = len(completed)
+        profile["wins"] = sum(1 for _, _, is_win, _ in completed if is_win)
+        profile["losses"] = len(completed) - profile["wins"]
+        profile["unresolved_excluded"] = max(0, len(rows) - len(completed))
+        profile["session_stats"] = {
+            name: {
+                **values,
+                "win_rate": round(values["wins"] / values["samples"], 4) if values["samples"] else 0.0,
+            }
+            for name, values in session_stats.items()
+        }
+        profile["confidence"] = "low" if len(completed) < 20 else ("medium" if len(completed) < 50 else "higher")
+        profile["window_days"] = 30
+        profile["max_rows_reviewed"] = 250
 
         if completed:
-            wins = sum(1 for _, _, win in completed if win)
+            wins = profile["wins"]
             profile["win_rate"] = round(wins / len(completed), 4)
 
         # Start conservative. Adapt only after enough completed observations.
