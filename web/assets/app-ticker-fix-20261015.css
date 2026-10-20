@@ -5425,3 +5425,45 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .radar-stock-status.is-preliminary{display:inline-flex;align-items:center;padding:3px 7px;border:1px solid rgba(255,193,70,.58);border-radius:999px;background:rgba(255,193,70,.12);color:#ffd16a;font-size:10px;font-style:normal;font-weight:700}
 .sas-preliminary-reason{display:grid;gap:4px;margin:8px 0;padding:9px 10px;border:1px solid rgba(255,193,70,.32);border-radius:10px;background:rgba(255,193,70,.055);font-size:11px;line-height:1.7}
 .sas-preliminary-reason b{color:#ffd16a}.sas-preliminary-reason span{color:#e5edf1;overflow-wrap:anywhere}.sas-preliminary-reason small{color:#b9a879}
+
+/* SAS PRO: compact Japanese candlesticks and consistent mobile opportunity cards */
+.sas-card-chart-wrap{min-width:0;width:100%;display:flex;flex-direction:column;gap:3px;overflow:hidden;border:1px solid rgba(70,177,203,.13);border-radius:10px;background:linear-gradient(180deg,rgba(4,23,34,.72),rgba(2,12,20,.35));padding:4px 5px;box-sizing:border-box}
+.sas-card-chart-wrap .sas-card-uptrend{width:100%;height:62px;min-width:0;flex:1 1 auto;filter:none;overflow:hidden;touch-action:pan-y}
+.sas-candlestick-chart .sas-candle{transform-box:fill-box;transform-origin:center bottom;animation:sasCandleIn .42s cubic-bezier(.2,.8,.2,1) both}
+.sas-candlestick-chart .sas-candle:hover{opacity:.72}
+.sas-chart-caption{display:block;color:#7198a6;font-size:9px;line-height:1.25;text-align:start;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@keyframes sasCandleIn{from{opacity:.25;transform:scaleY(.35)}to{opacity:1;transform:scaleY(1)}}
+.sas-radar-swipe-card{min-width:0!important;box-sizing:border-box}
+.sas-radar-swipe-card .stock-card{width:100%;height:100%;box-sizing:border-box}
+.sas-radar-swipe-track{align-items:stretch}
+.sas-card-price-trend{grid-template-columns:minmax(0,1fr) minmax(68px,auto);gap:8px;align-items:center}
+.sas-card-price-trend>strong{font-size:clamp(20px,5vw,28px);max-width:100%;overflow-wrap:anywhere}
+@media(max-width:600px){
+ .sas-radar-swipe-card{flex:0 0 min(88%,340px)!important;max-width:340px}
+ .sas-radar-swipe-track{gap:10px!important;padding-inline:2px 8px!important;scroll-snap-type:x mandatory!important}
+ .radar-category{gap:8px!important;margin-bottom:14px!important}
+ .radar-list-heading{padding-inline:2px!important}
+ .radar-list-heading b{font-size:14px}
+ .stock-card{border-radius:15px!important;padding:12px!important}
+ .stock-head{gap:8px;align-items:flex-start}
+ .stock-head>div{min-width:0}
+ .stock-head b{overflow-wrap:anywhere}
+ .sas-card-price-trend{grid-template-columns:minmax(0,1fr) auto;column-gap:7px;margin:8px 0 10px}
+ .sas-card-chart-wrap .sas-card-uptrend{height:58px}
+ .sas-card-price-trend>strong{font-size:clamp(19px,6vw,25px)}
+ .stock-levels{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px!important}
+ .stock-levels>span{min-width:0;padding:8px 4px!important;text-align:center;overflow-wrap:anywhere}
+ .stock-levels b{display:block;white-space:nowrap;font-size:11px}
+ .stock-meta,.stock-gates,.stock-summary{gap:6px!important;flex-wrap:wrap}
+ .stock-gates>*{font-size:9px!important}
+ .sas-radar-classification{font-size:11px!important;gap:5px!important}
+ .sas-radar-classification>span:last-child{margin-inline-start:0!important}
+}
+@media(max-width:360px){
+ .sas-radar-swipe-card{flex-basis:92%!important}
+ .stock-card{padding:10px!important}
+ .stock-levels{gap:4px!important}
+ .stock-levels>span{padding:7px 2px!important}
+ .stock-levels b{font-size:10px}
+ .sas-chart-caption{font-size:8px}
+}
