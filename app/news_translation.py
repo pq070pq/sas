@@ -11,6 +11,21 @@ _translation_cache: dict[str, tuple[float, str]] = {}
 _TRANSLATION_CACHE_TTL = 24 * 60 * 60
 
 
+def _has_arabic(text: str) -> bool:
+    """Return True only when text contains Arabic script."""
+    return any(0x0600 <= ord(char) <= 0x06FF for char in str(text or ""))
+
+def _normalize_news_url(value: str) -> str:
+    """Normalize URLs for matching translated stories, without changing source URLs."""
+    from urllib.parse import urlsplit, urlunsplit
+    try:
+        parts = urlsplit(str(value or "").strip())
+        if not parts.scheme or not parts.netloc:
+            return str(value or "").strip().rstrip("/")
+        return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path.rstrip("/"), "", ""))
+    except Exception:
+        return str(value or "").strip().rstrip("/")
+
 async def _mymemory_translate(text: str) -> str:
     """No-key English-to-Arabic fallback; keep requests small and cache results."""
     source = " ".join(str(text or "").split()).strip()[:380]
@@ -31,7 +46,7 @@ async def _mymemory_translate(text: str) -> str:
             response.raise_for_status()
             payload = response.json()
         translated = str((payload.get("responseData") or {}).get("translatedText") or "").strip()
-        if translated and str(payload.get("responseStatus", "200")) == "200":
+        if translated and _has_arabic(translated) and str(payload.get("responseStatus", "200")) == "200":
             _translation_cache[source] = (now, translated[:1200])
             return translated[:1200]
     except Exception as exc:
@@ -46,7 +61,7 @@ async def _fallback_translate_items(items: list[dict]) -> list[dict]:
         if not headline or not url:
             return None
         translated_headline = await _mymemory_translate(headline)
-        if not translated_headline:
+        if not translated_headline or not _has_arabic(translated_headline):
             return None
         summary_text = str(item.get("ai_summary") or item.get("summary") or "").strip()
         translated_summary = await _mymemory_translate(summary_text[:360]) if summary_text else ""
@@ -110,7 +125,7 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
                 response.raise_for_status()
                 parsed = json.loads(response.json()["choices"][0]["message"]["content"])
             translations = parsed.get("items", []) if isinstance(parsed, dict) else []
-            by_url = {str(item.get("url") or "").strip(): item for item in translations
+            by_url = {_normalize_news_url(str(item.get("url") or "")): item for item in translations
                       if isinstance(item, dict) and item.get("url")}
             by_id = {str(item.get("id")): item for item in translations
                      if isinstance(item, dict) and item.get("id") is not None}
@@ -120,16 +135,16 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
             for index, item in enumerate(selected):
                 original_url = str(item.get("url") or "").strip()
                 original_headline = str(item.get("headline") or "").strip()
-                translated = (by_url.get(original_url) or by_id.get(str(index))
+                translated = (by_url.get(_normalize_news_url(original_url)) or by_id.get(str(index))
                               or by_headline.get(original_headline.casefold()))
                 translated_headline = str((translated or {}).get("translated_headline") or "").strip()
-                if not translated_headline:
+                if not translated_headline or not _has_arabic(translated_headline):
                     continue
                 result.append({
                     "url": str(item.get("url") or ""),
                     "headline": str(item.get("headline") or ""),
                     "translated_headline": translated_headline[:500],
-                    "summary": str(translated.get("summary") or "")[:1200],
+                    "summary": (str(translated.get("summary") or "")[:1200] if _has_arabic(str(translated.get("summary") or "")) else ""),
                     "basis": "headline_only" if translated.get("basis") == "headline_only" else "article_or_headline",
                     "source": str(item.get("source") or ""),
                     "translation_provider": provider_name,
