@@ -3237,7 +3237,55 @@ async def stock_cusp_analysis(symbol: str, _: dict = Depends(require_pro)):
 
 @app.get("/api/stocks/{symbol}/news")
 async def stock_news(symbol: str, _: dict = Depends(require_pro)):
-    return await company_news(symbol.upper(), include_marketaux=True)
+    """Return original company-news evidence plus best-effort Arabic translation fields."""
+    key = symbol.upper().strip()
+    try:
+        rows = await asyncio.wait_for(
+            company_news(key, include_marketaux=True),
+            timeout=12.0,
+        )
+    except Exception as exc:
+        logger.warning("Company news fetch failed for %s: %s", key, type(exc).__name__)
+        rows = []
+
+    if not isinstance(rows, list) or not rows:
+        return []
+
+    # Translation must never replace the original headline, source, or URL.
+    try:
+        translated = await asyncio.wait_for(
+            translate_stock_news(key, rows[:16]),
+            timeout=22.0,
+        )
+    except Exception as exc:
+        logger.info("Company news Arabic translation unavailable for %s: %s", key, type(exc).__name__)
+        translated = []
+
+    by_url = {
+        str(item.get("url") or "").strip(): item
+        for item in translated if isinstance(item, dict) and item.get("url")
+    }
+    by_headline = {
+        str(item.get("headline") or "").strip().casefold(): item
+        for item in translated if isinstance(item, dict) and item.get("headline")
+    }
+
+    result = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        url = str(row.get("url") or "").strip()
+        headline = str(row.get("headline") or row.get("title") or "").strip()
+        translation = by_url.get(url) or by_headline.get(headline.casefold()) or {}
+        result.append({
+            **row,
+            "headline": headline,
+            "translated_headline": str(translation.get("translated_headline") or ""),
+            "translated_summary": str(translation.get("summary") or ""),
+            "translation_basis": str(translation.get("basis") or ""),
+            "translation_provider": str(translation.get("translation_provider") or ""),
+        })
+    return result
 
 @app.get("/api/stocks/{symbol}/events")
 async def stock_events(symbol: str, _: dict = Depends(require_pro)):
