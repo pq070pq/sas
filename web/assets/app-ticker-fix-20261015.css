@@ -5388,3 +5388,12 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 #radarDiagnostics .sas-radar-session-footer{margin-top:10px;color:#8daab5;font-size:11px;line-height:1.7}
 @media(max-width:480px){#radarDiagnostics .sas-radar-session-summary{padding:12px 10px;gap:7px}#radarDiagnostics .sas-radar-session-title{font-size:12px}#radarDiagnostics .sas-radar-session-count{font-size:10px;padding:4px 6px}#radarDiagnostics .sas-radar-session-metrics{gap:5px}#radarDiagnostics .sas-radar-metric{padding:10px 2px}#radarDiagnostics .sas-radar-metric span{font-size:10px}}
 @media(prefers-reduced-motion:reduce){#radarDiagnostics .sas-radar-session-chevron{transition:none}}
+
+
+/* Keep the latest real radar-cycle diagnostics visible while scrolling the radar tab.
+   This is presentation-only: it does not start extra scans or provider requests. */
+#tab-radar #radarDiagnostics{position:sticky;top:env(safe-area-inset-top,0px);z-index:24;padding-top:2px;padding-bottom:2px;margin-top:8px;background:linear-gradient(180deg,rgba(2,8,13,.98) 0%,rgba(2,8,13,.94) 88%,rgba(2,8,13,0) 100%);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+#tab-radar #radarDiagnostics .sas-radar-session-dropdown{margin:4px 0 10px;box-shadow:0 8px 24px rgba(0,0,0,.28)}
+#tab-radar #radarDiagnostics .sas-radar-session-summary{min-height:48px}
+#tab-radar #radarDiagnostics .sas-radar-session-dropdown:not([open]) .sas-radar-session-summary{padding-top:10px;padding-bottom:10px}
+@media(prefers-reduced-motion:reduce){#tab-radar #radarDiagnostics{scroll-behavior:auto}}
