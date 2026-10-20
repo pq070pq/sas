@@ -259,7 +259,9 @@ function readLocalJson(key,fallback){
  catch(error){console.warn('SAS PRO local cache ignored:',key,error?.message||error);return fallback;}
 }
 const savedRadarSnapshot=readLocalJson('saspro_radar_snapshot',[]);
-const terminalState={ticker:[],radar:Array.isArray(savedRadarSnapshot)?savedRadarSnapshot:[],preliminaryRadar:[],radarAutoScanAttempted:false,perpAssets:{},watch:readLocalJson('saspro_watchlist',[]),timer:null,moversTimer:null,newsTimer:null,newsItems:[],newsFilter:'all',moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
+const savedPreliminarySnapshot=readLocalJson('saspro_preliminary_radar_snapshot',null);
+const savedPreliminaryRows=Array.isArray(savedPreliminarySnapshot?.stocks)&&Number(savedPreliminarySnapshot?.saved_at)>0&&(Date.now()-Number(savedPreliminarySnapshot.saved_at))<24*60*60*1000?savedPreliminarySnapshot.stocks:[];
+const terminalState={ticker:[],radar:Array.isArray(savedRadarSnapshot)?savedRadarSnapshot:[],preliminaryRadar:savedPreliminaryRows.filter(x=>x&&String(x.symbol||'').trim()).slice(0,12).map(x=>({...x,_radar_preliminary_candidate:true})),radarAutoScanAttempted:false,perpAssets:{},watch:readLocalJson('saspro_watchlist',[]),timer:null,moversTimer:null,newsTimer:null,newsItems:[],newsFilter:'all',moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
 let radarSnapshotLastChecked=0;
 let radarSnapshotLoadPromise=null;
 function escHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
@@ -981,6 +983,7 @@ async function runRadar(show=true){
   const candidateEl=document.getElementById('radarCandidates');
   const preliminary=Array.isArray(d.preliminary_stocks)?d.preliminary_stocks:[];
   terminalState.preliminaryRadar=preliminary.filter(x=>x&&String(x.symbol||'').trim()).slice(0,12).map(x=>({...x,_radar_preliminary_candidate:true}));
+   try{localStorage.setItem('saspro_preliminary_radar_snapshot',JSON.stringify({saved_at:Date.now(),stocks:terminalState.preliminaryRadar}));}catch(e){console.warn('SAS PRO preliminary radar snapshot not cached:',e?.message||e);}
   const candidates=Array.isArray(diag.filtered_examples)?diag.filtered_examples:[];
   if(candidateEl && preliminary.length){
     candidateEl.hidden=false;
