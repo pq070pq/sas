@@ -76,11 +76,12 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
         ("Groq", settings.groq_api_key, settings.groq_base_url, settings.groq_model),
         ("OpenRouter", settings.openrouter_api_key, settings.openrouter_base_url, settings.openrouter_model),
     ]
+    # Stable ids and original headlines recover matches if a provider rewrites URLs.
     payload = [
-        {"url": str(item.get("url") or ""), "headline": str(item.get("headline") or "")[:500],
+        {"id": str(index), "url": str(item.get("url") or ""), "headline": str(item.get("headline") or "")[:500],
          "summary": str(item.get("ai_summary") or item.get("summary") or "")[:1800],
          "source": str(item.get("source") or "")[:100]}
-        for item in selected
+        for index, item in enumerate(selected)
     ]
     prompt = (
         "أنت مترجم أخبار مالية. أعد JSON فقط بالشكل "
@@ -109,11 +110,18 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
                 response.raise_for_status()
                 parsed = json.loads(response.json()["choices"][0]["message"]["content"])
             translations = parsed.get("items", []) if isinstance(parsed, dict) else []
-            by_url = {str(item.get("url") or ""): item for item in translations
+            by_url = {str(item.get("url") or "").strip(): item for item in translations
                       if isinstance(item, dict) and item.get("url")}
+            by_id = {str(item.get("id")): item for item in translations
+                     if isinstance(item, dict) and item.get("id") is not None}
+            by_headline = {str(item.get("headline") or "").strip().casefold(): item
+                           for item in translations if isinstance(item, dict) and item.get("headline")}
             result = []
-            for item in selected:
-                translated = by_url.get(str(item.get("url") or ""))
+            for index, item in enumerate(selected):
+                original_url = str(item.get("url") or "").strip()
+                original_headline = str(item.get("headline") or "").strip()
+                translated = (by_url.get(original_url) or by_id.get(str(index))
+                              or by_headline.get(original_headline.casefold()))
                 translated_headline = str((translated or {}).get("translated_headline") or "").strip()
                 if not translated_headline:
                     continue
