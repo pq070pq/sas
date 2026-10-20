@@ -5467,3 +5467,36 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
  .stock-levels b{font-size:10px}
  .sas-chart-caption{font-size:8px}
 }
+
+
+/* SAS PRO — consistent real-candlestick opportunity cards, desktop and mobile */
+.stock-card,.radar-confirmed-card,.radar-watch-card,.radar-inactive-card{
+  min-width:0; width:100%; border-radius:16px; overflow:hidden;
+  display:flex; flex-direction:column; gap:0;
+  border-color:rgba(67,204,226,.22);
+  box-shadow:0 10px 28px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.035);
+}
+.stock-card .stock-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-width:0}
+.stock-card .stock-head>div{min-width:0;flex:1}
+.stock-card .stock-head small{display:block;line-height:1.65;overflow-wrap:anywhere}
+.sas-card-price-trend{grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;min-width:0}
+.sas-card-chart-wrap{min-width:0;width:100%;display:flex;flex-direction:column;gap:4px;grid-column:1;grid-row:1/3}
+.sas-candlestick-chart{width:100%;height:clamp(54px,12vw,88px);min-height:54px;display:block;overflow:visible;touch-action:pan-y}
+.sas-candlestick-chart .sas-candle{outline:none;transform-box:fill-box;transform-origin:center bottom;animation:sasCandleIn .28s ease-out both}
+.sas-candlestick-chart .sas-candle:focus-visible rect,.sas-candlestick-chart .sas-candle:hover rect{stroke:#fff;stroke-width:1}
+.sas-chart-caption{display:block;color:#87a9b9;font-size:9px;line-height:1.45;overflow-wrap:anywhere}
+.sas-chart-no-data .sas-candlestick-chart{opacity:.78}
+.stock-card .stock-levels,.stock-card .stock-meta,.stock-card .stock-gates{min-width:0;display:flex;flex-wrap:wrap;gap:6px}
+.stock-card .stock-levels>span,.stock-card .stock-meta>span{min-width:0;flex:1 1 auto}
+@keyframes sasCandleIn{from{opacity:.25}to{opacity:1}}
+@media(max-width:600px){
+ .stock-card,.radar-confirmed-card,.radar-watch-card,.radar-inactive-card{border-radius:14px;padding:clamp(10px,3vw,14px)}
+ .sas-card-price-trend{column-gap:6px;margin:7px 0 9px}
+ .sas-candlestick-chart{height:64px;min-height:54px}
+ .sas-chart-caption{font-size:8px}
+ .stock-card .stock-head b{font-size:clamp(14px,4vw,17px)}
+ .stock-card .stock-levels{gap:5px}
+ .stock-card .stock-levels>span{font-size:10px;padding:5px 6px}
+ .stock-card .stock-meta>span{font-size:9px}
+}
+@media(prefers-reduced-motion:reduce){.sas-candlestick-chart .sas-candle{animation:none}}
