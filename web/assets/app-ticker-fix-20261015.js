@@ -286,7 +286,9 @@ function readLocalJson(key,fallback){
  catch(error){console.warn('SAS PRO local cache ignored:',key,error?.message||error);return fallback;}
 }
 const savedRadarSnapshot=readLocalJson('saspro_radar_snapshot',[]);
-const terminalState={ticker:[],radar:Array.isArray(savedRadarSnapshot)?savedRadarSnapshot:[],perpAssets:{},watch:readLocalJson('saspro_watchlist',[]),timer:null,moversTimer:null,newsTimer:null,newsItems:[],newsFilter:'all',moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
+const savedPreliminarySnapshot=readLocalJson('saspro_preliminary_radar_snapshot',null);
+const savedPreliminaryRows=Array.isArray(savedPreliminarySnapshot?.stocks)&&Number(savedPreliminarySnapshot?.saved_at)>0&&(Date.now()-Number(savedPreliminarySnapshot.saved_at))<24*60*60*1000?savedPreliminarySnapshot.stocks:[];
+const terminalState={ticker:[],radar:Array.isArray(savedRadarSnapshot)?savedRadarSnapshot:[],preliminaryRadar:savedPreliminaryRows.filter(x=>x&&String(x.symbol||'').trim()).slice(0,12).map(x=>({...x,_radar_preliminary_candidate:true})),perpAssets:{},watch:readLocalJson('saspro_watchlist',[]),timer:null,moversTimer:null,newsTimer:null,newsItems:[],newsFilter:'all',moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
 let radarSnapshotLastChecked=0;
 let radarSnapshotLoadPromise=null;
 function escHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
