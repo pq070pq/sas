@@ -397,7 +397,7 @@ function switchTerminalTab(tab){
  document.querySelectorAll('.terminal-tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
  document.querySelectorAll('.sas-mobile-dock button').forEach(x=>x.classList.toggle('is-active',x.getAttribute('onclick')?.includes("'"+tab+"'")));
  updateTerminalPreviousButton();
- if(tab==='radar'){renderRadar();void loadRadarSnapshot();void loadRadarLearning();}
+ if(tab==='radar'){renderRadar();void loadRadarSnapshot();}
 }
 function goPreviousTerminalTab(){
  if(terminalState.tab==='dashboard')return;
@@ -2320,6 +2320,7 @@ function adminSection(id,btn){
  if(!item||item.hidden||!trigger)return;
  const open=trigger.getAttribute('aria-expanded')==='true';
  trigger.click();
+ if(id==='adminRadarPreviewPanel')void loadRadarLearning(true);
 }
 
 let adminHealthTimer=null;
