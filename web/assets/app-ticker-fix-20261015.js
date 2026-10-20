@@ -1093,7 +1093,7 @@ async function runRadar(show=true){
     candidateEl.innerHTML='<div class="candidate-title"><b>🔎 تحليل المرشحين</b><small>هذه الأسهم اجتازت مرحلة البحث الأولي ولم تدخل الإشارة النهائية. سبب الاستبعاد ظاهر لكل سهم.</small></div>'+
       '<div class="candidate-grid">'+candidates.slice(0,12).map(x=>{
         const sym=String(x.symbol||'—');
-        return '<article class="candidate-card"><div><b>'+escHtml(sym)+'</b><small>'+escHtml(x.data_source||'مصدر الرصد')+'</small></div><p>'+escHtml(x.reason||'تم استبعاده في مرحلة لاحقة')+'</p><button type="button" data-symbol="'+escHtml(sym)+'" onclick="openSymbol(this.dataset.symbol)">⏳ تحليل</button></article>';
+        return '<article class="candidate-card"><div><b>'+escHtml(sym)+'</b></div><p>'+escHtml(x.reason||'تم استبعاده في مرحلة لاحقة')+'</p><button type="button" data-symbol="'+escHtml(sym)+'" onclick="openSymbol(this.dataset.symbol)">⏳ تحليل</button></article>';
       }).join('')+'</div>';
   }else if(candidateEl){
     candidateEl.hidden=true;
