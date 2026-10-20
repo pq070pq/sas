@@ -684,7 +684,9 @@ function renderDashboard(d){
  const count=document.getElementById('sasRadarCount');if(count)count.textContent=Number(terminalState.radar.length||0).toLocaleString('ar-SA')+' فرصة';
 
  const el=document.getElementById('dashboardRadar');
- if(terminalState.radar.length) renderCards(el,terminalState.radar.slice(0,6));
+ const dashboardRows=[];const dashboardSymbols=new Set();
+ [...(Array.isArray(terminalState.radar)?terminalState.radar:[]),...(Array.isArray(terminalState.preliminaryRadar)?terminalState.preliminaryRadar:[])].forEach(stock=>{if(!stock||!String(stock.symbol||'').trim())return;const symbol=String(stock.symbol).trim().toUpperCase();if(dashboardSymbols.has(symbol))return;dashboardSymbols.add(symbol);dashboardRows.push(stock);});
+ if(dashboardRows.length) renderCards(el,dashboardRows.slice(0,12));
  else el.innerHTML='<div class="radar-empty-card dashboard-saved-empty">'+
   '<div class="radar-empty-orbit" aria-hidden="true"><span></span><i></i><b></b></div>'+
   '<div class="radar-empty-content">'+
@@ -999,7 +1001,8 @@ async function runRadar(show=true){
   }
   const detectedAt=d.scan_at||new Date().toISOString();
   terminalState.radar=(Array.isArray(d.stocks)?d.stocks:[]).map(stock=>({...stock,created_at:stock.created_at||stock.detected_at||detectedAt}));
-  try{localStorage.setItem('saspro_radar_snapshot',JSON.stringify(terminalState.radar));}catch(e){console.warn('SAS PRO radar snapshot not cached:',e?.message||e);}
+  terminalState.preliminaryRadar=(Array.isArray(d.preliminary_stocks)?d.preliminary_stocks:[]).filter(stock=>stock&&String(stock.symbol||'').trim()).slice(0,12).map(stock=>({...stock,_radar_preliminary_candidate:true}));
+  try{localStorage.setItem('saspro_radar_snapshot',JSON.stringify(terminalState.radar));localStorage.setItem('saspro_preliminary_radar_snapshot',JSON.stringify({saved_at:Date.now(),stocks:terminalState.preliminaryRadar}));}catch(e){console.warn('SAS PRO radar snapshot not cached:',e?.message||e);}
   const diag=d.diagnostics||{};
   const nextPremarket=d.next_premarket_riyadh||'11:00';
   const mode=d.historical
@@ -1167,9 +1170,11 @@ function renderRadar(){renderCards(document.getElementById('radarGrid'),terminal
 function renderCards(el,rows){
  if(!el)return;
  const all=Array.isArray(rows)?rows:[];
- const confirmed=all.filter(x=>(x.opportunity_status||x.classification?.opportunity_status)==='confirmed'||x.radar_tier==='confirmed');
- const confirmedSymbols=new Set(confirmed.map(x=>String(x.symbol||'').toUpperCase()));
- const watch=all.filter(x=>!confirmedSymbols.has(String(x.symbol||'').toUpperCase()));
+ const isConfirmed=x=>(x.opportunity_status||x.classification?.opportunity_status)==='confirmed'||x.radar_tier==='confirmed';
+ const confirmed=all.filter(isConfirmed);
+ const preliminary=all.filter(x=>!isConfirmed(x)&&x._radar_preliminary_candidate===true);
+ const reserved=new Set([...confirmed,...preliminary].map(x=>String(x.symbol||'').toUpperCase()));
+ const watch=all.filter(x=>!reserved.has(String(x.symbol||'').toUpperCase()));
  const empty='<div class="radar-empty-card">'+
    '<div class="radar-empty-orbit" aria-hidden="true"><span></span><i></i><b></b></div>'+
    '<div class="radar-empty-content">'+
@@ -1183,9 +1188,10 @@ function renderCards(el,rows){
  if(!all.length){el.innerHTML=empty;return;}
  const heading=(title,count,description)=>'<div class="radar-list-heading" style="width:100%;box-sizing:border-box;flex:0 0 100%"><b>'+title+'</b><span>'+count.toLocaleString('ar-SA')+' سهم</span><small>'+description+'</small></div>';
  const group=(title,count,description,items,status)=>items.length?'<section class="radar-category sas-radar-carousel" aria-label="'+escHtml(title)+'" style="grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin:0 0 18px;width:100%;min-width:0;box-sizing:border-box">'+heading(title,count,description)+'<div class="sas-radar-swipe-track" role="region" aria-label="بطاقات '+escHtml(title)+'" tabindex="0" style="display:flex;flex:0 0 100%;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:thin;padding:4px 2px 14px;box-sizing:border-box">'+items.map(x=>'<div class="sas-radar-swipe-card" style="flex:0 0 min(82%,300px);min-width:0;scroll-snap-align:start">'+stockCard({...x,_radarDisplayStatus:status})+'</div>').join('')+'</div><div class="sas-radar-swipe-hint" style="flex:0 0 100%;font-size:11px;color:#8ebfc9;text-align:center">اسحب أفقيًا لاستعراض بقية الأسهم ←</div></section>':'';
- const confirmedHtml=group('✅ الفرص المؤكدة',confirmed.length,'اجتازت شروط الرادار؛ راجع السعر والمستويات قبل اتخاذ القرار.',confirmed,'confirmed');
- const watchHtml=group('👀 أسهم تحت المراقبة',watch.length,'مرشحة للتحليل والمتابعة، لكنها لم تستكمل شروط الفرصة المؤكدة.',watch,'watch');
- el.innerHTML=confirmedHtml+watchHtml+(confirmed.length?'':(!watch.length?empty:''));
+ const confirmedHtml=group('🟢 الفرص المؤكدة',confirmed.length,'اجتازت شروط الرادار النهائية.',confirmed,'confirmed');
+ const preliminaryHtml=group('🟡 الأسهم المرشحة مبدئيًا',preliminary.length,'مرشحات من دورة الفحص؛ ليست فرصًا مؤكدة ولا تُرسل للقناة قبل اجتياز شروط النشر.',preliminary,'preliminary');
+ const watchHtml=group('🔵 أسهم تحت المراقبة',watch.length,'لم تثبت بعد اجتياز البوابة الأولية.',watch,'watch');
+ el.innerHTML=confirmedHtml+preliminaryHtml+watchHtml+(confirmed.length||preliminary.length||watch.length?'':empty);
 
 }
 function toggleRadarEmptyHelp(button){
