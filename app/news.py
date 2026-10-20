@@ -898,7 +898,24 @@ def _is_relevant_stock_market_news(row):
     has_symbol = bool(related and re.search(r"\b[A-Z]{1,5}(?:\.[A-Z])?\b", related))
     if has_symbol and any(term in text for term in business_context):
         return True
-    return any(term in text for term in finance_context)
+    # Generic finance keywords alone are not enough: they can match foreign
+    # exchanges, crypto-only stories, or broad global business news. For macro
+    # headlines, require an explicit US-equities anchor; company-specific items
+    # with a related ticker and a business catalyst are handled above.
+    us_equities_context = (
+        "u.s. stocks", "us stocks", "u.s. stock market", "us stock market",
+        "american stocks", "u.s. equities", "us equities", "u.s.-listed",
+        "us-listed", "nyse", "nasdaq", "s&p 500", "s&p500", "dow jones",
+        "wall street", "russell 2000", "nyse composite", "nasdaq composite",
+        "federal reserve", "fomc", "u.s. treasury", "us treasury",
+        "u.s. inflation", "us inflation", "u.s. jobs", "us jobs report",
+        "u.s. economy", "us economy", "u.s. gdp", "us gdp",
+        "u.s. tariffs", "us tariffs", "u.s. market", "us market",
+    )
+    return (
+        any(term in text for term in finance_context)
+        and any(term in text for term in us_equities_context)
+    )
 
 
 async def market_news(limit: int = 24):
