@@ -51,7 +51,7 @@ async def learn_radar_profile() -> dict:
             achieved = int(outcome.achieved_target or 0)
             # Only terminal outcomes are allowed to update the learner.
             # An active/unresolved signal is never silently counted as a loss.
-            if status in {"failed", "stopped", "stop_loss", "expired_loss"}:
+            if status == "failed":
                 is_win = False
             elif achieved >= 1 or status in {"target_hit", "completed_win", "won"}:
                 is_win = True
