@@ -898,7 +898,7 @@ async function runRadar(show=true){
   elapsedTimer=setInterval(()=>{
    const elapsed=Math.floor((Date.now()-startedAt)/1000);
    const label=progress?.querySelector('.radar-scan-elapsed');
-   if(label)label.textContent='⏱️ '+elapsed+' ث · يستمر الرصد في الخلفية';
+   if(label)label.textContent='⏱️ '+elapsed+' ث · يستمر الرصد في الخلفية';const elapsedNode=document.getElementById('sasRadarElapsed');if(elapsedNode)elapsedNode.textContent='المدة المنقضية: '+elapsed+' ثانية';const countdownNode=document.getElementById('sasRadarCountdownValue');if(countdownNode)countdownNode.textContent='المسح جارٍ الآن';
   },1000);
   // Start or join one shared background scan; polling short status calls avoids the old 180s request timeout.
   const started=await api('/api/radar/scan/start',{method:'POST',timeoutMs:12000,retries:0});
