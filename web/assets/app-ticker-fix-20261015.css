@@ -5417,3 +5417,5 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 .sas-radar-daily-opportunity{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:9px 0;border-bottom:1px solid rgba(100,191,215,.1);font-size:11px;color:#a8c5d1}.sas-radar-daily-opportunity:last-child{border-bottom:0}.sas-radar-daily-opportunity b{color:#f0fdff}.sas-radar-daily-opportunities-wrap p{font-size:11px;color:#91aebc}.sas-radar-daily-foot{margin:10px 0 0}
 @media(max-width:520px){.sas-radar-daily-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.sas-radar-daily-head{align-items:flex-start;flex-direction:column}.sas-radar-daily-controls{width:100%}.sas-radar-daily-controls input{flex:1}.sas-radar-daily-detail-grid{grid-template-columns:1fr}.sas-radar-daily-opportunity{grid-template-columns:1fr 1fr}.sas-radar-daily-opportunity span:last-child{grid-column:1/-1}}
 @media(prefers-reduced-motion:reduce){.sas-radar-daily-metric{transition:none}}
+
+.sas-radar-daily-waiting{padding:18px 12px;border:1px dashed rgba(92,201,224,.24);border-radius:12px;text-align:center;font-size:12px;line-height:1.9;color:#b8d9e4;background:rgba(255,255,255,.02)}
