@@ -1053,6 +1053,20 @@ async def stock_radar_cycle():
                         q = live_quotes.get(symbol) or {"symbol": symbol, "price": None, "source": "unavailable"}
                         classification = row.get("classification") or {}
                         channel_ok, channel_reason = _radar_channel_gate(status, row, q, learning_profile)
+                        # Count duplicate candidates in the funnel too. They are
+                        # intentionally not re-sent, but omitting them here made a
+                        # healthy duplicate-suppressed cycle look like zero detections.
+                        if is_confirmed_opportunity(row):
+                            confirmation_stats["confirmed"] += 1
+                        else:
+                            confirmation_stats["watch"] += 1
+                        if q.get("price") is None:
+                            confirmation_stats["live_quote_unavailable"] += 1
+                        if channel_ok:
+                            confirmation_stats["gate_passed"] += 1
+                        else:
+                            confirmation_stats["gate_rejected"] += 1
+                            gate_rejections[channel_reason] = int(gate_rejections.get(channel_reason, 0)) + 1
                         confirmed_now = bool(
                             classification.get("opportunity_status") == "confirmed"
                             and classification.get("confirmation_ready")
