@@ -822,7 +822,7 @@ function toggleSasMetric(id){
 }
 function renderPerpEquitiesMovers(data){
  const sourceLink=document.querySelector('.sas-movers-source');
- if(sourceLink){sourceLink.hidden=false;sourceLink.removeAttribute('aria-hidden');sourceLink.href='https://finviz.com/screener?v=111&f=exch_nasd%2Csh_curvol_o100%2Csh_float_u50%2Csh_relvol_o0.5%2Cta_perf_1wup&ft=4';sourceLink.textContent='فلاتر Finviz ↗';}
+ if(sourceLink){sourceLink.hidden=true;sourceLink.setAttribute('aria-hidden','true');sourceLink.removeAttribute('href');}
 
  const quickLinks=[
   ['أعلى الرابحين اليوم','https://finviz.com/screener?v=111&f=exch_nasd,sh_price_o0.3,sh_price_u15&s=ta_topgainers'],
@@ -832,7 +832,7 @@ function renderPerpEquitiesMovers(data){
  ];
  const title=document.querySelector('.sas-perp-movers-panel .sas-insight-title');
  if(title&&!document.getElementById('sasFinvizQuickLinks')){
-  const links=document.createElement('nav');links.id='sasFinvizQuickLinks';links.className='sas-finviz-quick-links';links.setAttribute('aria-label','فلاتر Finviz');
+  const links=document.createElement('nav');links.id='sasFinvizQuickLinks';links.className='sas-finviz-quick-links';links.hidden=true;links.setAttribute('aria-hidden','true');links.setAttribute('aria-label','فلاتر Finviz');
   quickLinks.forEach(([label,url])=>{const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=label+' ↗';links.appendChild(a);});
   title.insertAdjacentElement('afterend',links);
  }
@@ -1284,7 +1284,7 @@ function renderCards(el,rows){
   const items=grouped.get(label)||[];
   const meta=categoryMeta[label]||{icon:'🔎',description:'أسهم مصنفة حسب بيانات الرادار المتاحة.'};
   const cards=items.map(x=>'<div class="sas-radar-swipe-card" style="flex:0 0 min(82%,300px);min-width:0;scroll-snap-align:start">'+stockCard({...x,_radarDisplayStatus:radarDisplayStatus(x)})+'</div>').join('');
-  return '<section class="radar-category sas-radar-carousel" aria-label="'+escHtml(label)+'" style="grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin:0 0 18px;width:100%;min-width:0;box-sizing:border-box">'+heading(meta.icon+' '+escHtml(label),items.length,meta.description)+'<div class="sas-radar-swipe-track" role="region" aria-label="بطاقات تصنيف '+escHtml(label)+'" tabindex="0" style="display:flex;flex:0 0 100%;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:thin;padding:4px 2px 14px;box-sizing:border-box">'+cards+'</div><div class="sas-radar-swipe-hint" style="flex:0 0 100%;font-size:11px;color:#8ebfc9;text-align:center">اسحب أفقيًا لاستعراض بقية الأسهم ←</div></section>';
+  return '<section class="radar-category sas-radar-carousel" aria-label="'+escHtml(label)+'" style="grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin:0 0 18px;width:100%;min-width:0;box-sizing:border-box">'+heading(meta.icon+' '+escHtml(label),items.length,meta.description)+'<div class="sas-radar-swipe-track" role="region" aria-label="بطاقات تصنيف '+escHtml(label)+'" tabindex="0" style="display:flex;flex:0 0 100%;gap:12px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;overscroll-behavior-x:contain;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding:4px 2px 14px;box-sizing:border-box">'+cards+'</div><div class="sas-radar-swipe-hint" style="flex:0 0 100%;font-size:11px;color:#8ebfc9;text-align:center">اسحب أفقيًا لاستعراض بقية الأسهم ←</div></section>';
  }).join('');
  el.innerHTML=sections||empty;
 }
@@ -1344,7 +1344,7 @@ function stockCard(x){
  const perpVolume=Number(perp?.qualityFilteredVolume24hUsd??perp?.volume24hUsd);
  const perpOi=Number(perp?.openInterestUsd);
  const perpContext=perp&&Number.isFinite(perpPrice)&&perpPrice>0?[
-  '<div class="sas-perp-context"><div class="sas-perp-context-head"><b>↗ PerpEquities</b><span>سعر عقد دائم • ليس سعر السهم الفوري</span></div><div class="sas-perp-context-metrics">',
+  '<div class="sas-perp-context"><div class="sas-perp-context-head"><b>بيانات العقود الدائمة</b><span>سعر عقد دائم • ليس سعر السهم الفوري</span></div><div class="sas-perp-context-metrics">',
   '<span>العقد <b dir="ltr">$'+money(perpPrice)+'</b></span>',
   '<span>24 ساعة <b class="'+(perpChange===null?'':(perpChange>=0?'up':'down'))+'" dir="ltr">'+(perpChange===null?'—':pct(perpChange*100))+'</b></span>',
   '<span>حجم العقود <b>$'+(Number.isFinite(perpVolume)&&perpVolume>0?escHtml(perpVolume.toLocaleString('en-US',{notation:'compact',maximumFractionDigits:1})):'—')+'</b></span>',
@@ -1360,7 +1360,7 @@ function stockCard(x){
  '<div class="stock-gates">'+gate(gates.sas_core!==false,'SAS Core')+gate(gates.liquidity!==false,'السيولة')+gate(gates.target!==false,'الهدف')+gate(gates.live_levels!==false,'المستويات')+'</div>'+
  ' <button type="button" title="اضغط للتحقق من شرعية السهم" aria-label="تحقق من شرعية '+s+'" class="stock-shariah stock-shariah-action '+shClass+'" style="min-height:30px;padding:5px 8px;gap:6px" onclick="event.stopPropagation();openShariah(\''+raw+'\')"><span class="stock-shariah-icon-label"><span class="stock-shariah-icon" aria-hidden="true">🕌</span><b>تحقق الشرعية</b></span><strong style="font-size:10px">'+(shClass==='sh-unknown'?'تحقق':escHtml(shLabel))+'</strong></button>'+
 
- '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+'<span>'+catalystLabel+(catalyst>0?' '+catalyst+'/100':'')+'</span>'+(x.live_price_source?'<span>📡 '+escHtml(x.live_price_source)+'</span>':'')+'</div>'+
+ '<div class="stock-summary">'+(Number.isFinite(score)?'<span>⭐ قوة '+score.toFixed(0)+'/100</span>':'')+'<span>'+catalystLabel+(catalyst>0?' '+catalyst+'/100':'')+'</span>'+'</div>'+
  perpContext+
  '<div class="stock-ai">'+escHtml(ai.key_takeaway||ai.headline_summary||cls.reason||'تحليل AI يظهر عند فتح التحليل الكامل.')+'</div>'+
  '<div class="stock-actions stock-card-actions"><button class="stock-chart-action" onclick="event.stopPropagation();openSymbol(\''+raw+'\',true)">🔍 تحليل السهم</button></div><footer class="sas-card-copyright">SAS PRO RADAR · © جميع الحقوق محفوظة · معلومات تعليمية وليست توصية استثمارية</footer></article>';
