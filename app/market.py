@@ -167,6 +167,7 @@ async def _fmp_quote(symbol: str):
             if not key:
                 break
             key_failed = False
+            failure_marked = False
             for mapped in mapped_symbols:
                 try:
                     r = await c.get(
@@ -176,6 +177,7 @@ async def _fmp_quote(symbol: str):
                     if r.status_code in (401, 403, 429):
                         retry = r.headers.get("Retry-After")
                         await pool.mark_failure(key, retry_after=int(retry) if retry and retry.isdigit() else None)
+                        failure_marked = True
                         key_failed = True
                         break
                     if r.status_code >= 500:
@@ -207,10 +209,9 @@ async def _fmp_quote(symbol: str):
                     key_failed = True
                     break
             if key_failed:
-                # Cool down only this credential; next key is attempted.
-                # mark_failure may already have been called for HTTP auth/rate errors;
-                # repeating it is harmless and ensures network/5xx failures cool down too.
-                await pool.mark_failure(key)
+                # Cool down only this credential; preserve Retry-After when supplied.
+                if not failure_marked:
+                    await pool.mark_failure(key)
                 continue
     return None
 
