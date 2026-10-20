@@ -600,8 +600,16 @@ function renderDashboard(d){
  const count=document.getElementById('sasRadarCount');if(count)count.textContent=Number(terminalState.radar.length||0).toLocaleString('ar-SA')+' فرصة';
 
  const el=document.getElementById('dashboardRadar');
- if(terminalState.radar.length) renderCards(el,terminalState.radar.slice(0,6));
- else if(Array.isArray(terminalState.preliminaryRadar)&&terminalState.preliminaryRadar.length) renderPreliminaryDashboardCards(el,terminalState.preliminaryRadar);
+ const dashboardRows=[];
+ const dashboardSymbols=new Set();
+ [...(Array.isArray(terminalState.radar)?terminalState.radar:[]),...(Array.isArray(terminalState.preliminaryRadar)?terminalState.preliminaryRadar:[])].forEach(stock=>{
+  if(!stock||!String(stock.symbol||'').trim())return;
+  const symbol=String(stock.symbol).trim().toUpperCase();
+  if(dashboardSymbols.has(symbol))return;
+  dashboardSymbols.add(symbol);
+  dashboardRows.push(stock);
+ });
+ if(dashboardRows.length) renderCards(el,dashboardRows.slice(0,12));
  else el.innerHTML='<div class="radar-empty-card dashboard-saved-empty">'+
   '<div class="radar-empty-orbit" aria-hidden="true"><span></span><i></i><b></b></div>'+
   '<div class="radar-empty-content">'+
