@@ -163,9 +163,16 @@ async def publish_market_brief():
         except Exception:
             pass
 
-        lines = [INTRO, "", "━━━━━━━━━━━━━━━━━━", "", "📊 <b>مؤشرات السوق قبل الافتتاح</b>"]
-        for label, q in quotes:
-            lines.append(f"• <b>{html.escape(label)}</b>: {_fmt_price(q.get('price'))} ({_fmt_pct(q.get('change_pct'))})")
+        # اعرض فقط البيانات الحقيقية المتاحة، ولا تطبع حقولًا فارغة أو "غير متوفر".
+        available_quotes = [(label, q) for label, q in quotes if q and q.get("price") is not None]
+        lines = [INTRO, "", "━━━━━━━━━━━━━━━━━━"]
+        if available_quotes:
+            lines += ["", "📊 <b>مؤشرات السوق قبل الافتتاح</b>"]
+            for label, q in available_quotes:
+                price_text = _fmt_price(q.get("price"))
+                change = q.get("change_pct")
+                change_text = f" ({_fmt_pct(change)})" if change is not None else ""
+                lines.append(f"• <b>{html.escape(label)}</b>: {price_text}{change_text}")
 
         lines += ["", "📰 <b>زبدة الأخبار المؤثرة</b>"]
         if ai.get("enabled") and ai.get("status") == "ok":
@@ -201,14 +208,13 @@ async def publish_market_brief():
         else:
             lines.append("• لا يوجد خبر موثوق متاح حاليًا.")
 
-        lines += ["", "📅 <b>أحداث اليوم المؤثرة</b>"]
         if events:
+            lines += ["", "📅 <b>أحداث اليوم المؤثرة</b>"]
             for item in events[:5]:
                 event = html.escape(str(item.get("event") or item.get("indicator") or "حدث اقتصادي"))
                 actual_time = item.get("time") or item.get("date") or ""
-                lines.append(f"• {event} — {actual_time} ET")
-        else:
-            lines.append("• لا تتوفر بيانات اقتصادية عالية التأثير من المصدر الحالي.")
+                time_text = f" — {actual_time} ET" if actual_time else ""
+                lines.append(f"• {event}{time_text}")
 
         lines += [
             "",
