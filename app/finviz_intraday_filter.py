@@ -21,8 +21,8 @@ def evaluate_intraday_candidate(
 
     if price is None or price <= 0:
         reasons.append("السعر غير متوفر أو غير صالح")
-    elif not 0.50 <= price <= 6.00:
-        reasons.append("السعر خارج نطاق 0.50–6.00 دولار")
+    elif not 1.00 <= price <= 10.00:
+        reasons.append("السعر خارج نطاق 1.00–10.00 دولار")
 
     if float_shares is None or float_shares <= 0:
         reasons.append("عدد الأسهم الحرة غير متوفر؛ يلزم التحقق")

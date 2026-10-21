@@ -14,11 +14,11 @@ class SpeculativeRadarTests(unittest.TestCase):
             "session_open": 5.0,
         })
         self.assertTrue(result["eligible"])
-        self.assertIn("SAS PRO | رصد الأسهم المضاربية", report)
+        self.assertIn("SAS PRO | أسهم المضاربي اللحظي", report)
         self.assertIn("+10.00%", report)
 
-    def test_price_range_includes_50_cents_and_6_dollars(self):
-        for price, session_open in ((0.50, 0.45), (6.00, 5.40)):
+    def test_price_range_includes_1_and_10_dollars(self):
+        for price, session_open in ((1.00, 0.90), (10.00, 9.00)):
             with self.subTest(price=price):
                 result = evaluate_intraday_candidate(
                     price=price,
@@ -29,7 +29,7 @@ class SpeculativeRadarTests(unittest.TestCase):
                 self.assertTrue(result["eligible"], result["reasons"])
 
     def test_price_outside_range_is_rejected(self):
-        for price in (0.49, 6.01):
+        for price in (0.99, 10.01):
             with self.subTest(price=price):
                 result = evaluate_intraday_candidate(
                     price=price,
