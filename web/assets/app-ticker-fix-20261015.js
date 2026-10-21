@@ -1364,7 +1364,7 @@ function sasLoadCardCandles(root=document){
   if(window.__sasCandleRequests[symbol])return;
   node.setAttribute('data-sas-loading','1');window.__sasCandleRequests[symbol]=true;
   try{
-   const payload=await api('/api/stocks/'+encodeURIComponent(symbol)+'/chart',{timeoutMs:10000,retries:1});
+   const payload=await api('/api/stocks/'+encodeURIComponent(symbol)+'/chart',{timeoutMs:45000,retries:0});
    const candles=Array.isArray(payload)?payload:(Array.isArray(payload.candles)?payload.candles:(Array.isArray(payload.ohlcv)?payload.ohlcv:(Array.isArray(payload.data?.candles)?payload.data.candles:[])));
    if(candles.length>=4){window.__sasCandleCache[symbol]=candles;const holder=document.createElement('div');holder.innerHTML=sasCandlestickMiniChart({symbol,candles});const replacement=holder.firstElementChild;if(replacement&&!replacement.classList.contains('sas-chart-no-data'))node.replaceWith(replacement);else node.removeAttribute('data-sas-loading');}
    else{node.setAttribute('data-sas-chart-status','insufficient-data');node.removeAttribute('data-sas-loading');}
@@ -1807,9 +1807,9 @@ async function analyzeSymbol(){
  startStockAnalysisLoader(el,symbol);
  const [qR,chartR,newsR,analysisR,miniR,shariahR,perpR,cuspR]=await Promise.allSettled([
    api('/api/stocks/'+encodeURIComponent(symbol)+'/quote',{signal:searchController.signal}),
-   api('/api/stocks/'+encodeURIComponent(symbol)+'/chart',{signal:searchController.signal}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/chart',{timeoutMs:45000,retries:0,signal:searchController.signal}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/news',{signal:searchController.signal}),
-   api('/api/stocks/'+encodeURIComponent(symbol)+'/analyze',{method:'POST',timeoutMs:30000,signal:searchController.signal}),
+   api('/api/stocks/'+encodeURIComponent(symbol)+'/analyze',{method:'POST',timeoutMs:60000,signal:searchController.signal}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/mini-analysis',{timeoutMs:30000,signal:searchController.signal}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/shariah',{timeoutMs:12000}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/perpequities',{timeoutMs:10000,signal:searchController.signal}),
