@@ -614,13 +614,14 @@ async def _discover_licensed_market_data(client, price_min=MIN_PRICE, price_max=
     return out
 
 async def _discover_us_exchanges(client, price_min=MIN_PRICE, price_max=MAX_PRICE):
-    """Public exchange screener used as the broad, keyless radar universe."""
-    out = []
+    """Public exchange screener; query exchanges concurrently with bounded timeouts."""
     excluded_words = (
         "WARRANT", "RIGHT", "UNIT", "PREFERRED", "ETF",
         "NOTE", "DEPOSITARY", "TRUST", "FUND",
     )
-    for exchange in ("NASDAQ", "NYSE", "AMEX"):
+
+    async def fetch_exchange(exchange):
+        out = []
         try:
             r = await client.get(
                 "https://api.nasdaq.com/api/screener/stocks",
@@ -637,14 +638,14 @@ async def _discover_us_exchanges(client, price_min=MIN_PRICE, price_max=MAX_PRIC
                     "Origin": "https://www.nasdaq.com",
                     "Referer": "https://www.nasdaq.com/market-activity/stocks/screener",
                 },
-                timeout=15,
+                timeout=8.0,
             )
             r.raise_for_status()
             payload = r.json()
             rows = ((payload.get("data") or {}).get("rows") or [])
         except Exception as exc:
             logger.warning("PUBLIC_SCREENER_FAILED exchange=%s error=%s", exchange, type(exc).__name__)
-            continue
+            return out
 
         for row in rows:
             symbol = str(row.get("symbol") or "").upper().strip()
@@ -671,7 +672,14 @@ async def _discover_us_exchanges(client, price_min=MIN_PRICE, price_max=MAX_PRIC
                 "exchange": exchange,
                 "source": "Public US Exchange Screener",
             })
-    return out
+        return out
+
+    # One slow exchange must not block the other two for 15 seconds each.
+    groups = await asyncio.gather(
+        *(fetch_exchange(exchange) for exchange in ("NASDAQ", "NYSE", "AMEX")),
+        return_exceptions=True,
+    )
+    return [row for group in groups if isinstance(group, list) for row in group]
 
 async def _discover_openterminal(client, price_min=MIN_PRICE, price_max=MAX_PRICE):
     """Secondary live screener source from the bundled OpenTerminal service."""
@@ -2349,7 +2357,7 @@ async def _get_intraday_liquidity(symbols):
 async def discover_market_movers():
     """Return real NASDAQ-listed equity movers for the Mini App, independent of strategy signals."""
     source_names = ("nasdaq", "openterminal", "twelvedata", "panwatch", "licensed")
-    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
+    async with httpx.AsyncClient(timeout=min(float(settings.panwatch_timeout_seconds), 10.0)) as client:
         results = await asyncio.gather(
             _discover_us_exchanges(client),
             _discover_openterminal(client),
