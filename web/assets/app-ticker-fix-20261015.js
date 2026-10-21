@@ -1330,7 +1330,7 @@ function sasCandlestickMiniChart(x){
  const symbolKey=String(x?.symbol||'').trim().toUpperCase();
  const cached=window.__sasCandleCache?.[symbolKey];
  const raw=Array.isArray(x?.candles)?x.candles:Array.isArray(x?.ohlcv)?x.ohlcv:Array.isArray(x?.price_history)?x.price_history:Array.isArray(x?.chart_data)?x.chart_data:(Array.isArray(cached)?cached:[]);
- const points=raw.map(p=>({o:Number(p.open??p.o),h:Number(p.high??p.h),l:Number(p.low??p.l),c:Number(p.close??p.c),t:p.time??p.timestamp??p.date??''})).filter(p=>[p.o,p.h,p.l,p.c].every(Number.isFinite)&&p.h>0&&p.l>0&&p.h>=Math.max(p.o,p.c)&&p.l<=Math.min(p.o,p.c)).slice(-24);
+ const points=raw.map(p=>{const o=Number(p.open??p.o),h=Number(p.high??p.h),l=Number(p.low??p.l),c=Number(p.close??p.c);if(![o,h,l,c].every(Number.isFinite)||Math.min(o,h,l,c)<=0)return null;const tolerance=Math.max(Math.abs(o),Math.abs(h),Math.abs(l),Math.abs(c),1)*1e-5;if(h+ tolerance<Math.max(o,c)||l-tolerance>Math.min(o,c))return null;return {o,h:Math.max(h,o,c),l:Math.min(l,o,c),c,t:p.time??p.timestamp??p.date??''};}).filter(Boolean).slice(-24);
  const actual=points.length>=4;
  const W=240,H=88,pad=7;
  const safeId=String(x?.symbol||'stock').toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,24)||'stock';
@@ -1367,8 +1367,8 @@ function sasLoadCardCandles(root=document){
    const payload=await api('/api/stocks/'+encodeURIComponent(symbol)+'/chart',{timeoutMs:45000,retries:0});
    const candles=Array.isArray(payload)?payload:(Array.isArray(payload.candles)?payload.candles:(Array.isArray(payload.ohlcv)?payload.ohlcv:(Array.isArray(payload.data?.candles)?payload.data.candles:[])));
    if(candles.length>=4){window.__sasCandleCache[symbol]=candles;const holder=document.createElement('div');holder.innerHTML=sasCandlestickMiniChart({symbol,candles});const replacement=holder.firstElementChild;if(replacement&&!replacement.classList.contains('sas-chart-no-data'))node.replaceWith(replacement);else node.removeAttribute('data-sas-loading');}
-   else{node.setAttribute('data-sas-chart-status','insufficient-data');node.removeAttribute('data-sas-loading');}
-  }catch(error){node.setAttribute('data-sas-chart-status',error?.status?'http-'+error.status:'request-failed');node.removeAttribute('data-sas-loading');}
+   else{node.setAttribute('data-sas-chart-status','insufficient-data');const detail=String(payload?.diagnostic||'').trim();const source=String(payload?.source||'مصدر غير محدد');let caption=node.querySelector('.sas-chart-caption');if(caption)caption.textContent='تعذر تحميل شموع كافية • المصدر: '+source+(detail?' • '+detail:'');node.removeAttribute('data-sas-loading');}
+  }catch(error){const status=error?.status?'HTTP '+error.status:'فشل الاتصال';node.setAttribute('data-sas-chart-status',error?.status?'http-'+error.status:'request-failed');const caption=node.querySelector('.sas-chart-caption');if(caption)caption.textContent='تعذر تحميل بيانات الشموع • '+status;node.removeAttribute('data-sas-loading');}
   finally{delete window.__sasCandleRequests[symbol];}
  });
 }
