@@ -1,4 +1,5 @@
 import csv
+import math
 import io
 import httpx
 from .config import settings
@@ -53,6 +54,47 @@ async def analyze(symbol: str):
         return r.json()
 
 
+def _normalize_ohlcv_rows(rows):
+    """Normalize provider-specific OHLCV records to the shape consumed by the chart."""
+    if not isinstance(rows, (list, tuple)):
+        return []
+    normalized = []
+    for item in rows:
+        try:
+            if isinstance(item, dict):
+                lower = {str(k).strip().lower(): v for k, v in item.items()}
+                def pick(*keys):
+                    for key in keys:
+                        value = lower.get(key)
+                        if value not in (None, ""):
+                            return value
+                    return None
+                stamp = pick("datetime", "date", "time", "timestamp", "t")
+                op, hi, lo, cl = pick("open", "o"), pick("high", "h"), pick("low", "l"), pick("close", "c")
+                vol = pick("volume", "vol", "v")
+            elif isinstance(item, (list, tuple)) and len(item) >= 5:
+                # Common exchange kline layout: [time, open, high, low, close, volume].
+                stamp, op, hi, lo, cl = item[:5]
+                vol = item[5] if len(item) > 5 else 0
+            else:
+                continue
+            op, hi, lo, cl = float(op), float(hi), float(lo), float(cl)
+            if not all(math.isfinite(v) and v > 0 for v in (op, hi, lo, cl)):
+                continue
+            tolerance = max(abs(op), abs(hi), abs(lo), abs(cl), 1.0) * 1e-5
+            if hi + tolerance < max(op, cl) or lo - tolerance > min(op, cl):
+                continue
+            normalized.append({
+                "datetime": str(stamp or ""),
+                "open": op, "high": max(hi, op, cl), "low": min(lo, op, cl),
+                "close": cl, "volume": float(vol or 0),
+            })
+        except (TypeError, ValueError, OverflowError):
+            continue
+    normalized.sort(key=lambda row: row["datetime"])
+    return normalized
+
+
 async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: int = 20, allow_twelve_data: bool = True):
     """Return observed OHLCV candles with explicit source diagnostics.
     
@@ -78,7 +120,8 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
             r.raise_for_status()
             payload = r.json()
             data = payload.get("data") or payload
-            candidate_rows = data.get("klines", []) if isinstance(data, dict) else []
+            candidate_rows = data.get("klines", data.get("candles", data.get("values", []))) if isinstance(data, dict) else data
+            candidate_rows = _normalize_ohlcv_rows(candidate_rows)
             if len(candidate_rows) >= minimum:
                 rows, source = candidate_rows, "PanWatch"
             elif candidate_rows:
@@ -101,7 +144,7 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                     },
                 )
                 r.raise_for_status()
-                candidate_rows = list(reversed((r.json()).get("values") or []))
+                candidate_rows = _normalize_ohlcv_rows(list(reversed((r.json()).get("values") or [])))
                 if len(candidate_rows) > len(rows):
                     rows, source = candidate_rows, "Twelve Data (partial)" if len(candidate_rows) < minimum else "Twelve Data"
             except Exception as exc:
@@ -208,12 +251,10 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
     candles = []
     for row in rows:
         try:
-            candles.append({
-                "time": row.get("date") or row.get("datetime"),
-                "open": float(row["open"]), "high": float(row["high"]),
-                "low": float(row["low"]), "close": float(row["close"]),
-                "volume": float(row.get("volume") or 0),
-            })
+            normalized = _normalize_ohlcv_rows([row])
+            if normalized:
+                candle = normalized[0]
+                candles.append({**candle, "time": candle.get("datetime")})
         except (TypeError, ValueError, KeyError):
             continue
     return {"candles": candles, "source": source, "available": len(candles) >= minimum, "diagnostic": " | ".join(attempts) if attempts else None}
