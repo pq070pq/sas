@@ -1219,12 +1219,31 @@ async def admin_health(user=Depends(telegram_user), db: AsyncSession = Depends(g
             and float(cache[symbol].get("price") or 0) > 0
         ]
         missing = len(symbols) - len(valid_cached)
-        if valid_cached and not missing:
+        # A partial cache is normal while the provider refresh is still running.
+        # Report "updating" instead of a warning until that refresh has completed.
+        if not refresh_task.done():
+            add(
+                "أسعار السوق",
+                "ok" if valid_cached else "info",
+                f"تحديث أسعار السوق جارٍ بالخلفية؛ الأسعار المتاحة حاليًا {len(valid_cached)} من {len(symbols)} مؤشرات."
+            )
+        elif valid_cached and not missing:
             add("أسعار السوق", "ok", "تتوفر أسعار محفوظة صالحة؛ يجري تحديثها بالخلفية.")
         elif valid_cached:
-            add("أسعار السوق", "warn", f"تتوفر أسعار صالحة لـ {len(valid_cached)} من {len(symbols)} مؤشرات؛ يجري استكمال البقية بالخلفية.")
+            missing_symbols = [symbol for symbol in symbols if symbol not in valid_cached]
+            add(
+                "أسعار السوق",
+                "warn",
+                f"اكتمل التحديث مع نقص أسعار {missing} من {len(symbols)} مؤشرات.",
+                "المؤشرات غير المتاحة: " + ", ".join(missing_symbols)
+            )
         else:
-            add("أسعار السوق", "warn", "مصادر الأسعار قيد التحديث بالخلفية؛ لن يتوقف فحص الإدارة بسببها.")
+            add(
+                "أسعار السوق",
+                "warn",
+                "اكتمل التحديث دون أسعار صالحة؛ افحص سجلات مزودي البيانات.",
+                "لا توجد أسعار صالحة لأي من المؤشرات: " + ", ".join(symbols)
+            )
     except Exception as exc:
         add("أسعار السوق", "warn", "تعذر فحص حالة أسعار السوق؛ لا يمنع ذلك تشغيل الرادار.", exc)
 
