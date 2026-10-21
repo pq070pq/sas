@@ -10,7 +10,7 @@ from .twelve_guard import call as twelve_call
 async def _stooq_ohlcv(symbol: str, days: int = 90):
     """Keyless daily OHLCV fallback."""
     try:
-        async with httpx.AsyncClient(timeout=12, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0 SAS-PRO/2.1"}) as client:
+        async with httpx.AsyncClient(timeout=5, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0 SAS-PRO/2.1"}) as client:
             stooq_symbol = symbol.lower() + ".us"
             r = await client.get("https://stooq.com/q/d/l/", params={"s": stooq_symbol, "i": "d"})
             if r.status_code >= 400:
@@ -95,7 +95,7 @@ def _normalize_ohlcv_rows(rows):
     return normalized
 
 
-async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: int = 20, allow_twelve_data: bool = True):
+async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: int = 20, allow_twelve_data: bool = True, timeout_seconds: float | None = None):
     """Return observed OHLCV candles with explicit source diagnostics.
     
     Yahoo is intentionally excluded. Historical fallback order is PanWatch,
@@ -108,7 +108,8 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
     # Keep the default 20-bar requirement for indicators/scanners, but allow chart-only callers to request a smaller real OHLC history.
     minimum = max(4, min(int(min_candles), 260))
     base = settings.panwatch_base_url.rstrip("/")
-    async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
+    request_timeout = settings.panwatch_timeout_seconds if timeout_seconds is None else httpx.Timeout(max(2.0, min(float(timeout_seconds), 15.0)), connect=min(3.0, max(1.5, float(timeout_seconds) / 2)))
+    async with httpx.AsyncClient(timeout=request_timeout) as client:
         rows = []
         source = "unavailable"
         attempts = []
