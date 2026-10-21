@@ -336,7 +336,7 @@ def _momentum_rvol_10d(candles):
     return today_volume / baseline if baseline > 0 else None
 
 
-async def _discover_yahoo_top_gainers(client):
+async def _discover_yahoo_top_gainers(client, price_min=MIN_PRICE, price_max=MAX_PRICE):
     """Yahoo custom screener: exact daily momentum rules for both sections."""
     threshold, now = _momentum_time_filter()
     if threshold is None:
@@ -361,7 +361,7 @@ async def _discover_yahoo_top_gainers(client):
             "small",
             equity_query([
                 {"operator": "gt", "operands": ["percentchange", MOMENTUM_SMALL_MIN_GAIN]},
-                {"operator": "btwn", "operands": ["intradayprice", MIN_PRICE, MAX_PRICE]},
+                {"operator": "btwn", "operands": ["intradayprice", price_min, price_max]},
                 {"operator": "gt", "operands": ["dayvolume", MOMENTUM_SMALL_MIN_VOLUME]},
             ]),
         ),
@@ -435,7 +435,7 @@ async def _discover_yahoo_top_gainers(client):
 
             # Re-check exact user rules after Yahoo returns the live row.
             if section == "small":
-                if not (MIN_PRICE <= price <= MAX_PRICE and
+                if not (price_min <= price <= price_max and
                         change_pct > MOMENTUM_SMALL_MIN_GAIN and
                         volume > MOMENTUM_SMALL_MIN_VOLUME):
                     continue
@@ -596,7 +596,7 @@ async def _discover_licensed_market_data(client, price_min=MIN_PRICE, price_max=
         symbol = str(row.get("symbol") or row.get("ticker") or "").upper().strip()
         price = _f(row.get("price") if row.get("price") is not None else row.get("last"), 0)
         volume = _f(row.get("volume") if row.get("volume") is not None else row.get("day_volume"), 0)
-        if not symbol or price <= 0 or volume <= 0 or not (MIN_PRICE <= price <= MAX_PRICE):
+        if not symbol or price <= 0 or volume <= 0 or not (price_min <= price <= price_max):
             continue
         exchange = _normalize_exchange(row.get("exchange") or row.get("mic_code"))
         if exchange not in ALLOWED_EXCHANGES:
@@ -799,7 +799,7 @@ async def discover_low_price_stocks(price_min=MIN_PRICE, price_max=MAX_PRICE):
     async with httpx.AsyncClient(timeout=min(float(settings.panwatch_timeout_seconds), 12.0)) as client:
         sources = await asyncio.gather(
             _discover_us_exchanges(client, price_min, price_max),
-            _discover_yahoo_top_gainers(client),
+            _discover_yahoo_top_gainers(client, price_min, price_max),
             _discover_openterminal(client, price_min, price_max),
             _discover_twelvedata(client, price_min, price_max),
             _discover_panwatch(client, price_min, price_max),
