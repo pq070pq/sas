@@ -3212,7 +3212,7 @@ async def stock_chart(symbol: str, _: dict = Depends(require_pro)):
             return {"symbol": pair, "candles": data[-90:], "available": len(data) >= 20, "source": "Binance Spot", "interval": "1h"}
         except Exception as exc:
             return {"symbol": normalize_crypto_symbol(raw_symbol), "candles": [], "available": False, "source": "Binance Spot", "error": f"{type(exc).__name__}: {str(exc)[:180]}"}
-    data = await ohlcv(raw_symbol, days=90, interval="1d")
+    data = await ohlcv(raw_symbol, days=90, interval="1d", min_candles=4)
     if isinstance(data, list):
         return {"symbol": raw_symbol, "candles": data, "available": len(data) > 0, "enough_data": len(data) >= 20, "source": "legacy"}
     candles = data.get("candles") or []
