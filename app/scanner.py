@@ -1163,8 +1163,14 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
                 )
             r.raise_for_status()
             payload = r.json()
-            data = payload.get("data") or payload
-            candles = _parse_candles(data.get("klines", []))
+            data = payload.get("data") if isinstance(payload, dict) else payload
+            if isinstance(data, list):
+                rows = data
+            elif isinstance(data, dict):
+                rows = data.get("klines") or data.get("candles") or data.get("values") or []
+            else:
+                rows = []
+            candles = _parse_candles(rows)
             if len(candles) >= min_candles:
                 _candle_cache.put(key, {"candles": candles, "source": "PanWatch"})
                 return candles, "PanWatch"
