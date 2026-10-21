@@ -46,6 +46,7 @@ from .config import settings
 from .key_pool import KeyPool, parse_keys
 
 _finnhub_pool = KeyPool(parse_keys(settings.finnhub_api_keys, settings.finnhub_api_key), settings.api_key_cooldown_seconds)
+_marketaux_pool = KeyPool(parse_keys(getattr(settings, "marketaux_api_keys", ""), settings.marketaux_api_key), settings.api_key_cooldown_seconds)
 _fmp_pool = KeyPool(parse_keys(settings.fmp_api_keys, settings.fmp_api_key), settings.api_key_cooldown_seconds)
 _news_cache = {}
 
@@ -269,28 +270,43 @@ def _normalise_fmp_news(rows):
 
 async def _marketaux_company_news(symbol: str, days: int = 2, limit: int = 3):
     """Fetch a small, recent, symbol-specific Marketaux batch for on-demand analysis."""
-    api_key = str(getattr(settings, "marketaux_api_key", "") or "").strip()
     key = str(symbol or "").upper().strip()
-    if not api_key or not key:
+    if _marketaux_pool.size == 0 or not key:
         return []
     cutoff_dt = datetime.now(timezone.utc) - timedelta(days=max(1, int(days)))
-    try:
-        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
-            response = await client.get(
-                "https://api.marketaux.com/v1/news/all",
-                params={
-                    "api_token": api_key,
+    response = None
+    for _ in range(_marketaux_pool.size):
+        api_key = await _marketaux_pool.acquire()
+        if not api_key:
+            break
+        try:
+            async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+                response = await client.get(
+                    "https://api.marketaux.com/v1/news/all",
+                    params={
+                        "api_token": api_key,
                     "symbols": key,
                     "language": "en",
                     "filter_entities": "true",
                     "published_after": cutoff_dt.isoformat(),
-                    "limit": max(1, min(3, int(limit))),
-                },
-            )
+                        "limit": max(1, min(3, int(limit))),
+                    },
+                )
+            if response.status_code in (401, 403, 429):
+                retry = response.headers.get("Retry-After")
+                await _marketaux_pool.mark_failure(api_key, retry_after=int(retry) if retry and retry.isdigit() else None)
+                continue
             response.raise_for_status()
+            await _marketaux_pool.mark_success(api_key)
             payload = response.json()
-    except Exception as exc:
-        logger.info("Marketaux company-news request failed for %s: %s", key, type(exc).__name__)
+            break
+        except Exception as exc:
+            await _marketaux_pool.mark_failure(api_key)
+            logger.info("Marketaux company-news request failed for %s: %s", key, type(exc).__name__)
+            continue
+    else:
+        return []
+    if response is None or response.status_code in (401, 403, 429):
         return []
 
     now_epoch = int(time.time())
@@ -685,20 +701,32 @@ async def _rss_market_news(limit: int = 24):
 
 async def _marketaux_market_news(limit: int = 24):
     """Fetch recent US financial news from Marketaux; keep API token server-side."""
-    api_key = str(getattr(settings, "marketaux_api_key", "") or "").strip()
-    if not api_key:
+    if _marketaux_pool.size == 0:
         return []
-    try:
-        async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
-            response = await client.get(
-                "https://api.marketaux.com/v1/news/all",
-                params={"api_token": api_key, "countries": "us", "language": "en",
-                        "filter_entities": "true", "limit": max(1, min(50, int(limit) * 2))},
-            )
+    payload = None
+    for _ in range(_marketaux_pool.size):
+        api_key = await _marketaux_pool.acquire()
+        if not api_key:
+            break
+        try:
+            async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
+                response = await client.get(
+                    "https://api.marketaux.com/v1/news/all",
+                    params={"api_token": api_key, "countries": "us", "language": "en",
+                            "filter_entities": "true", "limit": max(1, min(50, int(limit) * 2))},
+                )
+            if response.status_code in (401, 403, 429):
+                retry = response.headers.get("Retry-After")
+                await _marketaux_pool.mark_failure(api_key, retry_after=int(retry) if retry and retry.isdigit() else None)
+                continue
             response.raise_for_status()
+            await _marketaux_pool.mark_success(api_key)
             payload = response.json()
-    except Exception as exc:
-        logger.warning("Marketaux market-news request failed: %s", type(exc).__name__)
+            break
+        except Exception as exc:
+            await _marketaux_pool.mark_failure(api_key)
+            logger.warning("Marketaux market-news request failed: %s", type(exc).__name__)
+    if payload is None:
         return []
     articles = payload.get("data", []) if isinstance(payload, dict) else []
     now_epoch = int(time.time())
