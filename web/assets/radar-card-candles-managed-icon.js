@@ -44,7 +44,12 @@
       icon.replaceChildren(img);icon.classList.add('has-managed-icon');
     }
   }
-  function applyManagedIcons(root=document){\n    const managed=(typeof terminalState !== 'undefined' ? terminalState.siteMedia?.['icon-shariah']?.url : null);\n    if(!managed)return;\n    root.querySelectorAll?.('.stock-card .stock-shariah-icon').forEach(icon=>{if(icon.querySelector('img'))return;const img=document.createElement('img');img.src=managed;img.alt='';img.setAttribute('aria-hidden','true');img.className='sas-managed-icon-image';icon.replaceChildren(img);icon.classList.add('has-managed-icon');});\n  }\n  function scan(root=document){root.querySelectorAll?.('.stock-card').forEach(card=>hydrate(card));applyManagedIcons(root);}
+  function applyManagedIcons(root=document){
+    const managed=(typeof terminalState !== 'undefined' ? terminalState.siteMedia?.['icon-shariah']?.url : null);
+    if(!managed)return;
+    root.querySelectorAll?.('.stock-card .stock-shariah-icon').forEach(icon=>{if(icon.querySelector('img'))return;const img=document.createElement('img');img.src=managed;img.alt='';img.setAttribute('aria-hidden','true');img.className='sas-managed-icon-image';icon.replaceChildren(img);icon.classList.add('has-managed-icon');});
+  }
+  function scan(root=document){root.querySelectorAll?.('.stock-card').forEach(card=>hydrate(card));applyManagedIcons(root);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>scan(),{once:true});else scan();
   const observer=new MutationObserver(records=>records.forEach(r=>r.addedNodes.forEach(n=>{if(n.nodeType===1){if(n.matches?.('.stock-card'))hydrate(n);scan(n);}})));
   observer.observe(document.documentElement,{childList:true,subtree:true});
