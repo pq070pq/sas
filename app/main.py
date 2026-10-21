@@ -3213,7 +3213,7 @@ async def stock_chart(symbol: str, _: dict = Depends(require_pro)):
         except Exception as exc:
             return {"symbol": normalize_crypto_symbol(raw_symbol), "candles": [], "available": False, "source": "Binance Spot", "error": f"{type(exc).__name__}: {str(exc)[:180]}"}
     # A chart can render a short run of genuine OHLC candles; do not require the 20 bars used by indicators.
-    data = await ohlcv(raw_symbol, days=90, interval="1d", min_candles=4)
+    data = await ohlcv(raw_symbol, days=90, interval="1d", min_candles=4, timeout_seconds=4.5)
     if isinstance(data, list):
         return {"symbol": raw_symbol, "candles": data, "available": len(data) > 0, "enough_data": len(data) >= 20, "source": "legacy"}
     candles = data.get("candles") or []
