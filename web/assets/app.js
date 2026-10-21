@@ -3580,7 +3580,6 @@ async function buyPlan(k){
  }catch(e){alert(e.message);}
 }
 
-const SAS_SITE_MEDIA_MANAGED_ITEMS_V2=[
  {slot:'icon-profile',label:'أيقونة ملف المستخدم الشخصي',fallback:'👤',target:'.sas-profile-avatar'},
  {slot:'icon-radar',label:'أيقونة زر الرادار',fallback:'📡',target:'.radar-icon'},
  {slot:'icon-channel',label:'أيقونة زر القناة',fallback:'✈️',target:'.channel-icon'},
@@ -5221,7 +5220,6 @@ async function buyPlan(k){
  }catch(e){alert(e.message);}
 }
 
-const SAS_SITE_MEDIA_MANAGED_ITEMS_V2=[
  {slot:'icon-profile',label:'أيقونة ملف المستخدم الشخصي',fallback:'👤',target:'.sas-profile-avatar'},
  {slot:'icon-radar',label:'أيقونة زر الرادار',fallback:'📡',target:'.radar-icon'},
  {slot:'icon-channel',label:'أيقونة زر القناة',fallback:'✈️',target:'.channel-icon'},
@@ -6862,7 +6860,6 @@ async function buyPlan(k){
  }catch(e){alert(e.message);}
 }
 
-const SAS_SITE_MEDIA_MANAGED_ITEMS_V2=[
  {slot:'icon-profile',label:'أيقونة ملف المستخدم الشخصي',fallback:'👤',target:'.sas-profile-avatar'},
  {slot:'icon-radar',label:'أيقونة زر الرادار',fallback:'📡',target:'.radar-icon'},
  {slot:'icon-channel',label:'أيقونة زر القناة',fallback:'✈️',target:'.channel-icon'},
