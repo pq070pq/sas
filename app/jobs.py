@@ -1425,19 +1425,29 @@ async def stock_radar_cycle():
 
                     message_id = None
                     delivery_error = None
-                    for delivery_attempt in range(1, 3):
-                        try:
-                            result = await send_message(settings.telegram_channel_id, report)
-                            message_id = result.get("message_id") if isinstance(result, dict) else None
-                            if message_id:
-                                break
-                            delivery_error = "Telegram لم يُرجع message_id"
-                        except Exception as exc:
-                            delivery_error = f"{type(exc).__name__}: {str(exc)[:300]}"
-                            logger.exception("Radar Telegram delivery failed: symbol=%s attempt=%d/2", symbol, delivery_attempt)
-                            if delivery_attempt < 2:
-                                await asyncio.sleep(1.0)
-                    if not message_id:
+                    duplicate_speculative = False
+                    # Cross-radar dedupe: speculative report already delivered this symbol today.
+                    speculative_key = f"spec:{session_date}:{symbol}"[:64]
+                    if (await db.execute(
+                        select(ScheduledReport).where(ScheduledReport.report_key == speculative_key)
+                    )).scalars().first():
+                        duplicate_speculative = True
+                        cycle_stats["skipped"] += 1
+                        logger.info("Radar channel duplicate suppressed by speculative radar: %s", symbol)
+                    else:
+                        for delivery_attempt in range(1, 3):
+                            try:
+                                result = await send_message(settings.telegram_channel_id, report)
+                                message_id = result.get("message_id") if isinstance(result, dict) else None
+                                if message_id:
+                                    break
+                                delivery_error = "Telegram لم يُرجع message_id"
+                            except Exception as exc:
+                                delivery_error = f"{type(exc).__name__}: {str(exc)[:300]}"
+                                logger.exception("Radar Telegram delivery failed: symbol=%s attempt=%d/2", symbol, delivery_attempt)
+                                if delivery_attempt < 2:
+                                    await asyncio.sleep(1.0)
+                    if not message_id and not duplicate_speculative:
                         cycle_stats["failed"] += 1
                         delivery_errors[symbol] = delivery_error or "سبب إرسال غير معروف"
                         logger.error("RADAR_CHANNEL_DELIVERY_FAILED symbol=%s error=%s", symbol, delivery_errors[symbol])
