@@ -139,6 +139,35 @@ async def scheduler():
             else:
                 logger.info("Scheduler mode: stock radar.")
                 await stock_radar_cycle()
+
+                # A radar cycle can fail internally without raising to this scheduler.
+                # Inspect its persisted status and retry a bounded number of times so
+                # transient provider/network failures do not stall the radar until the
+                # next full scheduler interval.
+                for retry_number in range(1, 3):
+                    try:
+                        async with SessionLocal() as db:
+                            latest_run = (await db.execute(
+                                select(RadarRun).order_by(RadarRun.started_at.desc()).limit(1)
+                            )).scalars().first()
+                            latest_status = latest_run.status if latest_run else None
+                            latest_id = latest_run.id if latest_run else None
+                        if latest_status != "failed":
+                            break
+                        logger.warning(
+                            "RADAR_AUTO_RETRY scheduled attempt=%d/2 after failed run id=%s.",
+                            retry_number, latest_id,
+                        )
+                        await asyncio.sleep(15 * retry_number)
+                        await stock_radar_cycle()
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        logger.exception(
+                            "RADAR_AUTO_RETRY attempt=%d/2 failed; scheduler will continue.",
+                            retry_number,
+                        )
+
                 try:
                     from .speculative_radar import speculative_radar_cycle
                     await speculative_radar_cycle()
