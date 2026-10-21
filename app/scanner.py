@@ -1685,7 +1685,9 @@ def _smart_levels_ict_confirmation(
         hard_blocks.append("رأس وكتفين هابط")
     if divergence.get("bearish") and not breakout_confirmed:
         hard_blocks.append("انحراف RSI سلبي")
-    if rvol < 1.0:
+    # لا نرفض تلقائياً الاختراق المؤكد أو الارتداد البنيوي لمجرد أن RVOL
+    # أقل من 1.0x؛ نُبقي شرط الحجم الصارم للحالات التي لا تملك تأكيداً مستقلاً.
+    if rvol < 1.0 and not (breakout_confirmed or bounce_setup):
         hard_blocks.append("حجم غير كافٍ")
     if not (breakout_confirmed or bounce_setup or (price > control and ema_bull and structure_bull)):
         hard_blocks.append("لا توجد بنية دخول واضحة")
