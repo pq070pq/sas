@@ -1224,7 +1224,7 @@ async def admin_health(user=Depends(telegram_user), db: AsyncSession = Depends(g
         if not refresh_task.done():
             add(
                 "أسعار السوق",
-                "ok" if valid_cached else "info",
+                "ok",
                 f"تحديث أسعار السوق جارٍ بالخلفية؛ الأسعار المتاحة حاليًا {len(valid_cached)} من {len(symbols)} مؤشرات."
             )
         elif valid_cached and not missing:
