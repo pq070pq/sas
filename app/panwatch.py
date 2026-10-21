@@ -63,7 +63,7 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
     a short response as a successful source. allow_twelve_data protects the
     scanner quota while preserving Twelve Data for explicitly permitted calls.
     """
-    minimum = max(20, min(int(min_candles), 260))
+    minimum = max(4, min(int(min_candles), 260))
     base = settings.panwatch_base_url.rstrip("/")
     async with httpx.AsyncClient(timeout=settings.panwatch_timeout_seconds) as client:
         rows = []
