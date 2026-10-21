@@ -1300,51 +1300,6 @@ async function searchShariah(){
  }
 }
 
-let stockAnalysisLoaderTimer=null;
-let stockAnalysisStartedAt=0;
-function stopStockAnalysisLoader(){
- if(stockAnalysisLoaderTimer){clearInterval(stockAnalysisLoaderTimer);stockAnalysisLoaderTimer=null;}
-}
-function startStockAnalysisLoader(el,symbol){
- stopStockAnalysisLoader();
- stockAnalysisStartedAt=Date.now();
- const stages=[
-  {title:'نجهّز بيانات السعر والسيولة',detail:'نجمع أحدث البيانات المتاحة للسهم.'},
-  {title:'نفحص الرسم والحركة الفنية',detail:'نراجع الشموع والاتجاه والمستويات.'},
-  {title:'نرتّب الأخبار ذات الصلة',detail:'نجهّز الأخبار والملخصات المتاحة.'},
-  {title:'نراجع النتائج قبل العرض',detail:'نتأكد من وضوح البيانات وعدم تخمين القيم.'}
- ];
- el.innerHTML='<section class="stock-analysis-loader" role="status" aria-live="polite" aria-label="جاري تحليل السهم">'+
-  '<div class="sal-loader-top"><div class="sal-orbit" aria-hidden="true"><span>📡</span></div><div class="sal-loader-title"><span class="eyebrow">SAS PRO • SMART ANALYSIS</span><b>يجري تحليل <strong>'+escHtml(symbol)+'</strong></b><small>لحظات ونرتّب لك الصورة بشكل واضح</small></div></div>'+
-  '<div class="sal-progress-head"><span id="salStageTitle">'+stages[0].title+'</span><b id="salProgressPct">08%</b></div>'+
-  '<div class="sal-progress-track"><span id="salProgressFill"></span></div>'+
-  '<div class="sal-loader-meta"><span id="salStageDetail">'+stages[0].detail+'</span><span class="sal-timer">⏱ <b id="salElapsed">00:00</b></span></div>'+
-  '<div class="sal-steps"><span class="sal-step active"><i>1</i> السعر</span><span class="sal-step"><i>2</i> الفني</span><span class="sal-step"><i>3</i> الأخبار</span><span class="sal-step"><i>4</i> النتيجة</span></div>'+
-  '<div class="sal-loader-tip"><span>💡</span><span id="salTip">نستخدم البيانات المتاحة فقط؛ لن نخمن سعرًا أو هدفًا غير موثّق.</span></div>'+
-  '</section>';
- let tick=0;
- stockAnalysisLoaderTimer=setInterval(()=>{
-  tick++;
-  const elapsed=Math.floor((Date.now()-stockAnalysisStartedAt)/1000);
-  const pct=Math.min(92,8+Math.floor(84*(1-Math.exp(-tick/10))));
-  const stageIndex=Math.min(stages.length-1,Math.floor(tick/4));
-  const elapsedNode=el.querySelector('#salElapsed');
-  const pctNode=el.querySelector('#salProgressPct');
-  const fill=el.querySelector('#salProgressFill');
-  const title=el.querySelector('#salStageTitle');
-  const detail=el.querySelector('#salStageDetail');
-  if(!elapsedNode||!pctNode||!fill||!title||!detail){stopStockAnalysisLoader();return;}
-  elapsedNode.textContent=String(Math.floor(elapsed/60)).padStart(2,'0')+':'+String(elapsed%60).padStart(2,'0');
-  pctNode.textContent=String(pct).padStart(2,'0')+'%';
-  fill.style.width=pct+'%';
-  title.textContent=stages[stageIndex].title;
-  detail.textContent=elapsed>=18?'ما زلنا ننتظر اكتمال البيانات من المصادر…':stages[stageIndex].detail;
-  el.querySelectorAll('.sal-step').forEach((node,index)=>node.classList.toggle('active',index<=stageIndex));
-  const tip=el.querySelector('#salTip');
-  if(tip&&elapsed>=12)tip.textContent='قد يختلف وقت التحليل حسب استجابة مصادر البيانات، ولا يعني الانتظار وجود فرصة تداول.';
- },1000);
-}
-
 function mountPerpEquitiesAnalysis(root,data,symbol){
  const host=root?.querySelector('#perpEquitiesAnalysis');if(!host)return;
  const panel=document.createElement('section');panel.className='perp-analysis-panel';
@@ -1432,7 +1387,7 @@ async function analyzeSymbol(){
  const symbol=(input.value||'').trim().toUpperCase().replace(/[^A-Z.\-]/g,'');
  if(!symbol){if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}return;}
  const el=document.getElementById('symbolResult');
- startStockAnalysisLoader(el,symbol);
+
  const [qR,chartR,newsR,analysisR,miniR,shariahR,perpR,cuspR]=await Promise.allSettled([
    api('/api/stocks/'+encodeURIComponent(symbol)+'/quote',{signal:searchController.signal}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/chart',{signal:searchController.signal}),
@@ -1443,7 +1398,7 @@ async function analyzeSymbol(){
    api('/api/stocks/'+encodeURIComponent(symbol)+'/perpequities',{timeoutMs:10000,signal:searchController.signal}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/cusp',{timeoutMs:9000,signal:searchController.signal})
  ]);
- stopStockAnalysisLoader();
+
  if(searchController.signal.aborted){if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}return;}
  if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}
  const qRaw=qR.status==='fulfilled'&&qR.value&&typeof qR.value==='object'?qR.value:{symbol,price:null,change_pct:null,source:'غير متاح'};
@@ -2934,51 +2889,6 @@ async function searchShariah(){
  }
 }
 
-let stockAnalysisLoaderTimer=null;
-let stockAnalysisStartedAt=0;
-function stopStockAnalysisLoader(){
- if(stockAnalysisLoaderTimer){clearInterval(stockAnalysisLoaderTimer);stockAnalysisLoaderTimer=null;}
-}
-function startStockAnalysisLoader(el,symbol){
- stopStockAnalysisLoader();
- stockAnalysisStartedAt=Date.now();
- const stages=[
-  {title:'نجهّز بيانات السعر والسيولة',detail:'نجمع أحدث البيانات المتاحة للسهم.'},
-  {title:'نفحص الرسم والحركة الفنية',detail:'نراجع الشموع والاتجاه والمستويات.'},
-  {title:'نرتّب الأخبار ذات الصلة',detail:'نجهّز الأخبار والملخصات المتاحة.'},
-  {title:'نراجع النتائج قبل العرض',detail:'نتأكد من وضوح البيانات وعدم تخمين القيم.'}
- ];
- el.innerHTML='<section class="stock-analysis-loader" role="status" aria-live="polite" aria-label="جاري تحليل السهم">'+
-  '<div class="sal-loader-top"><div class="sal-orbit" aria-hidden="true"><span>📡</span></div><div class="sal-loader-title"><span class="eyebrow">SAS PRO • SMART ANALYSIS</span><b>يجري تحليل <strong>'+escHtml(symbol)+'</strong></b><small>لحظات ونرتّب لك الصورة بشكل واضح</small></div></div>'+
-  '<div class="sal-progress-head"><span id="salStageTitle">'+stages[0].title+'</span><b id="salProgressPct">08%</b></div>'+
-  '<div class="sal-progress-track"><span id="salProgressFill"></span></div>'+
-  '<div class="sal-loader-meta"><span id="salStageDetail">'+stages[0].detail+'</span><span class="sal-timer">⏱ <b id="salElapsed">00:00</b></span></div>'+
-  '<div class="sal-steps"><span class="sal-step active"><i>1</i> السعر</span><span class="sal-step"><i>2</i> الفني</span><span class="sal-step"><i>3</i> الأخبار</span><span class="sal-step"><i>4</i> النتيجة</span></div>'+
-  '<div class="sal-loader-tip"><span>💡</span><span id="salTip">نستخدم البيانات المتاحة فقط؛ لن نخمن سعرًا أو هدفًا غير موثّق.</span></div>'+
-  '</section>';
- let tick=0;
- stockAnalysisLoaderTimer=setInterval(()=>{
-  tick++;
-  const elapsed=Math.floor((Date.now()-stockAnalysisStartedAt)/1000);
-  const pct=Math.min(92,8+Math.floor(84*(1-Math.exp(-tick/10))));
-  const stageIndex=Math.min(stages.length-1,Math.floor(tick/4));
-  const elapsedNode=el.querySelector('#salElapsed');
-  const pctNode=el.querySelector('#salProgressPct');
-  const fill=el.querySelector('#salProgressFill');
-  const title=el.querySelector('#salStageTitle');
-  const detail=el.querySelector('#salStageDetail');
-  if(!elapsedNode||!pctNode||!fill||!title||!detail){stopStockAnalysisLoader();return;}
-  elapsedNode.textContent=String(Math.floor(elapsed/60)).padStart(2,'0')+':'+String(elapsed%60).padStart(2,'0');
-  pctNode.textContent=String(pct).padStart(2,'0')+'%';
-  fill.style.width=pct+'%';
-  title.textContent=stages[stageIndex].title;
-  detail.textContent=elapsed>=18?'ما زلنا ننتظر اكتمال البيانات من المصادر…':stages[stageIndex].detail;
-  el.querySelectorAll('.sal-step').forEach((node,index)=>node.classList.toggle('active',index<=stageIndex));
-  const tip=el.querySelector('#salTip');
-  if(tip&&elapsed>=12)tip.textContent='قد يختلف وقت التحليل حسب استجابة مصادر البيانات، ولا يعني الانتظار وجود فرصة تداول.';
- },1000);
-}
-
 function mountPerpEquitiesAnalysis(root,data,symbol){
  const host=root?.querySelector('#perpEquitiesAnalysis');if(!host)return;
  const panel=document.createElement('section');panel.className='perp-analysis-panel';
@@ -3066,7 +2976,7 @@ async function analyzeSymbol(){
  const symbol=(input.value||'').trim().toUpperCase().replace(/[^A-Z.\-]/g,'');
  if(!symbol){if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}return;}
  const el=document.getElementById('symbolResult');
- startStockAnalysisLoader(el,symbol);
+
  const [qR,chartR,newsR,analysisR,miniR,shariahR,perpR,cuspR]=await Promise.allSettled([
    api('/api/stocks/'+encodeURIComponent(symbol)+'/quote',{signal:searchController.signal}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/chart',{signal:searchController.signal}),
@@ -3077,7 +2987,7 @@ async function analyzeSymbol(){
    api('/api/stocks/'+encodeURIComponent(symbol)+'/perpequities',{timeoutMs:10000,signal:searchController.signal}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/cusp',{timeoutMs:9000,signal:searchController.signal})
  ]);
- stopStockAnalysisLoader();
+
  if(searchController.signal.aborted){if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}return;}
  if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}
  const qRaw=qR.status==='fulfilled'&&qR.value&&typeof qR.value==='object'?qR.value:{symbol,price:null,change_pct:null,source:'غير متاح'};
@@ -4578,51 +4488,6 @@ async function searchShariah(){
  }
 }
 
-let stockAnalysisLoaderTimer=null;
-let stockAnalysisStartedAt=0;
-function stopStockAnalysisLoader(){
- if(stockAnalysisLoaderTimer){clearInterval(stockAnalysisLoaderTimer);stockAnalysisLoaderTimer=null;}
-}
-function startStockAnalysisLoader(el,symbol){
- stopStockAnalysisLoader();
- stockAnalysisStartedAt=Date.now();
- const stages=[
-  {title:'نجهّز بيانات السعر والسيولة',detail:'نجمع أحدث البيانات المتاحة للسهم.'},
-  {title:'نفحص الرسم والحركة الفنية',detail:'نراجع الشموع والاتجاه والمستويات.'},
-  {title:'نرتّب الأخبار ذات الصلة',detail:'نجهّز الأخبار والملخصات المتاحة.'},
-  {title:'نراجع النتائج قبل العرض',detail:'نتأكد من وضوح البيانات وعدم تخمين القيم.'}
- ];
- el.innerHTML='<section class="stock-analysis-loader" role="status" aria-live="polite" aria-label="جاري تحليل السهم">'+
-  '<div class="sal-loader-top"><div class="sal-orbit" aria-hidden="true"><span>📡</span></div><div class="sal-loader-title"><span class="eyebrow">SAS PRO • SMART ANALYSIS</span><b>يجري تحليل <strong>'+escHtml(symbol)+'</strong></b><small>لحظات ونرتّب لك الصورة بشكل واضح</small></div></div>'+
-  '<div class="sal-progress-head"><span id="salStageTitle">'+stages[0].title+'</span><b id="salProgressPct">08%</b></div>'+
-  '<div class="sal-progress-track"><span id="salProgressFill"></span></div>'+
-  '<div class="sal-loader-meta"><span id="salStageDetail">'+stages[0].detail+'</span><span class="sal-timer">⏱ <b id="salElapsed">00:00</b></span></div>'+
-  '<div class="sal-steps"><span class="sal-step active"><i>1</i> السعر</span><span class="sal-step"><i>2</i> الفني</span><span class="sal-step"><i>3</i> الأخبار</span><span class="sal-step"><i>4</i> النتيجة</span></div>'+
-  '<div class="sal-loader-tip"><span>💡</span><span id="salTip">نستخدم البيانات المتاحة فقط؛ لن نخمن سعرًا أو هدفًا غير موثّق.</span></div>'+
-  '</section>';
- let tick=0;
- stockAnalysisLoaderTimer=setInterval(()=>{
-  tick++;
-  const elapsed=Math.floor((Date.now()-stockAnalysisStartedAt)/1000);
-  const pct=Math.min(92,8+Math.floor(84*(1-Math.exp(-tick/10))));
-  const stageIndex=Math.min(stages.length-1,Math.floor(tick/4));
-  const elapsedNode=el.querySelector('#salElapsed');
-  const pctNode=el.querySelector('#salProgressPct');
-  const fill=el.querySelector('#salProgressFill');
-  const title=el.querySelector('#salStageTitle');
-  const detail=el.querySelector('#salStageDetail');
-  if(!elapsedNode||!pctNode||!fill||!title||!detail){stopStockAnalysisLoader();return;}
-  elapsedNode.textContent=String(Math.floor(elapsed/60)).padStart(2,'0')+':'+String(elapsed%60).padStart(2,'0');
-  pctNode.textContent=String(pct).padStart(2,'0')+'%';
-  fill.style.width=pct+'%';
-  title.textContent=stages[stageIndex].title;
-  detail.textContent=elapsed>=18?'ما زلنا ننتظر اكتمال البيانات من المصادر…':stages[stageIndex].detail;
-  el.querySelectorAll('.sal-step').forEach((node,index)=>node.classList.toggle('active',index<=stageIndex));
-  const tip=el.querySelector('#salTip');
-  if(tip&&elapsed>=12)tip.textContent='قد يختلف وقت التحليل حسب استجابة مصادر البيانات، ولا يعني الانتظار وجود فرصة تداول.';
- },1000);
-}
-
 function mountPerpEquitiesAnalysis(root,data,symbol){
  const host=root?.querySelector('#perpEquitiesAnalysis');if(!host)return;
  const panel=document.createElement('section');panel.className='perp-analysis-panel';
@@ -4710,7 +4575,7 @@ async function analyzeSymbol(){
  const symbol=(input.value||'').trim().toUpperCase().replace(/[^A-Z.\-]/g,'');
  if(!symbol){if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}return;}
  const el=document.getElementById('symbolResult');
- startStockAnalysisLoader(el,symbol);
+
  const [qR,chartR,newsR,analysisR,miniR,shariahR,perpR,cuspR]=await Promise.allSettled([
    api('/api/stocks/'+encodeURIComponent(symbol)+'/quote',{signal:searchController.signal}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/chart',{signal:searchController.signal}),
@@ -4721,7 +4586,7 @@ async function analyzeSymbol(){
    api('/api/stocks/'+encodeURIComponent(symbol)+'/perpequities',{timeoutMs:10000,signal:searchController.signal}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/cusp',{timeoutMs:9000,signal:searchController.signal})
  ]);
- stopStockAnalysisLoader();
+
  if(searchController.signal.aborted){if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}return;}
  if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}
  const qRaw=qR.status==='fulfilled'&&qR.value&&typeof qR.value==='object'?qR.value:{symbol,price:null,change_pct:null,source:'غير متاح'};
@@ -6222,51 +6087,6 @@ async function searchShariah(){
  }
 }
 
-let stockAnalysisLoaderTimer=null;
-let stockAnalysisStartedAt=0;
-function stopStockAnalysisLoader(){
- if(stockAnalysisLoaderTimer){clearInterval(stockAnalysisLoaderTimer);stockAnalysisLoaderTimer=null;}
-}
-function startStockAnalysisLoader(el,symbol){
- stopStockAnalysisLoader();
- stockAnalysisStartedAt=Date.now();
- const stages=[
-  {title:'نجهّز بيانات السعر والسيولة',detail:'نجمع أحدث البيانات المتاحة للسهم.'},
-  {title:'نفحص الرسم والحركة الفنية',detail:'نراجع الشموع والاتجاه والمستويات.'},
-  {title:'نرتّب الأخبار ذات الصلة',detail:'نجهّز الأخبار والملخصات المتاحة.'},
-  {title:'نراجع النتائج قبل العرض',detail:'نتأكد من وضوح البيانات وعدم تخمين القيم.'}
- ];
- el.innerHTML='<section class="stock-analysis-loader" role="status" aria-live="polite" aria-label="جاري تحليل السهم">'+
-  '<div class="sal-loader-top"><div class="sal-orbit" aria-hidden="true"><span>📡</span></div><div class="sal-loader-title"><span class="eyebrow">SAS PRO • SMART ANALYSIS</span><b>يجري تحليل <strong>'+escHtml(symbol)+'</strong></b><small>لحظات ونرتّب لك الصورة بشكل واضح</small></div></div>'+
-  '<div class="sal-progress-head"><span id="salStageTitle">'+stages[0].title+'</span><b id="salProgressPct">08%</b></div>'+
-  '<div class="sal-progress-track"><span id="salProgressFill"></span></div>'+
-  '<div class="sal-loader-meta"><span id="salStageDetail">'+stages[0].detail+'</span><span class="sal-timer">⏱ <b id="salElapsed">00:00</b></span></div>'+
-  '<div class="sal-steps"><span class="sal-step active"><i>1</i> السعر</span><span class="sal-step"><i>2</i> الفني</span><span class="sal-step"><i>3</i> الأخبار</span><span class="sal-step"><i>4</i> النتيجة</span></div>'+
-  '<div class="sal-loader-tip"><span>💡</span><span id="salTip">نستخدم البيانات المتاحة فقط؛ لن نخمن سعرًا أو هدفًا غير موثّق.</span></div>'+
-  '</section>';
- let tick=0;
- stockAnalysisLoaderTimer=setInterval(()=>{
-  tick++;
-  const elapsed=Math.floor((Date.now()-stockAnalysisStartedAt)/1000);
-  const pct=Math.min(92,8+Math.floor(84*(1-Math.exp(-tick/10))));
-  const stageIndex=Math.min(stages.length-1,Math.floor(tick/4));
-  const elapsedNode=el.querySelector('#salElapsed');
-  const pctNode=el.querySelector('#salProgressPct');
-  const fill=el.querySelector('#salProgressFill');
-  const title=el.querySelector('#salStageTitle');
-  const detail=el.querySelector('#salStageDetail');
-  if(!elapsedNode||!pctNode||!fill||!title||!detail){stopStockAnalysisLoader();return;}
-  elapsedNode.textContent=String(Math.floor(elapsed/60)).padStart(2,'0')+':'+String(elapsed%60).padStart(2,'0');
-  pctNode.textContent=String(pct).padStart(2,'0')+'%';
-  fill.style.width=pct+'%';
-  title.textContent=stages[stageIndex].title;
-  detail.textContent=elapsed>=18?'ما زلنا ننتظر اكتمال البيانات من المصادر…':stages[stageIndex].detail;
-  el.querySelectorAll('.sal-step').forEach((node,index)=>node.classList.toggle('active',index<=stageIndex));
-  const tip=el.querySelector('#salTip');
-  if(tip&&elapsed>=12)tip.textContent='قد يختلف وقت التحليل حسب استجابة مصادر البيانات، ولا يعني الانتظار وجود فرصة تداول.';
- },1000);
-}
-
 function mountPerpEquitiesAnalysis(root,data,symbol){
  const host=root?.querySelector('#perpEquitiesAnalysis');if(!host)return;
  const panel=document.createElement('section');panel.className='perp-analysis-panel';
@@ -6354,7 +6174,7 @@ async function analyzeSymbol(){
  const symbol=(input.value||'').trim().toUpperCase().replace(/[^A-Z.\-]/g,'');
  if(!symbol){if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}return;}
  const el=document.getElementById('symbolResult');
- startStockAnalysisLoader(el,symbol);
+
  const [qR,chartR,newsR,analysisR,miniR,shariahR,perpR,cuspR]=await Promise.allSettled([
    api('/api/stocks/'+encodeURIComponent(symbol)+'/quote',{signal:searchController.signal}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/chart',{signal:searchController.signal}),
@@ -6365,7 +6185,7 @@ async function analyzeSymbol(){
    api('/api/stocks/'+encodeURIComponent(symbol)+'/perpequities',{timeoutMs:10000,signal:searchController.signal}),
    api('/api/stocks/'+encodeURIComponent(symbol)+'/cusp',{timeoutMs:9000,signal:searchController.signal})
  ]);
- stopStockAnalysisLoader();
+
  if(searchController.signal.aborted){if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}return;}
  if(actionBtn){actionBtn.disabled=false;actionBtn.classList.remove('is-working');actionBtn.removeAttribute('aria-busy');}
  const qRaw=qR.status==='fulfilled'&&qR.value&&typeof qR.value==='object'?qR.value:{symbol,price:null,change_pct:null,source:'غير متاح'};
