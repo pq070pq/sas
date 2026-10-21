@@ -760,7 +760,7 @@ async def require_pro(user=Depends(telegram_user), db: AsyncSession = Depends(ge
 @app.middleware("http")
 async def miniapp_no_cache(request: Request, call_next):
     response = await call_next(request)
-    if request.url.path == "/" or request.url.path in {"/assets/app.js", "/assets/app.css"}:
+    if request.url.path == "/" or request.url.path.startswith("/assets/"):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
