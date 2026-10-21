@@ -2934,8 +2934,6 @@ async function searchShariah(){
  }
 }
 
-let stockAnalysisLoaderTimer=null;
-let stockAnalysisStartedAt=0;
 function stopStockAnalysisLoader(){
  if(stockAnalysisLoaderTimer){clearInterval(stockAnalysisLoaderTimer);stockAnalysisLoaderTimer=null;}
 }
@@ -4578,8 +4576,6 @@ async function searchShariah(){
  }
 }
 
-let stockAnalysisLoaderTimer=null;
-let stockAnalysisStartedAt=0;
 function stopStockAnalysisLoader(){
  if(stockAnalysisLoaderTimer){clearInterval(stockAnalysisLoaderTimer);stockAnalysisLoaderTimer=null;}
 }
@@ -6222,8 +6218,6 @@ async function searchShariah(){
  }
 }
 
-let stockAnalysisLoaderTimer=null;
-let stockAnalysisStartedAt=0;
 function stopStockAnalysisLoader(){
  if(stockAnalysisLoaderTimer){clearInterval(stockAnalysisLoaderTimer);stockAnalysisLoaderTimer=null;}
 }
