@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from .config import settings
-from .db import ScheduledReport, SessionLocal
+from .db import RadarSignal, ScheduledReport, SessionLocal
 from .finviz_intraday_filter import evaluate_intraday_candidate
 from .telegram import send_message
 
@@ -47,7 +47,7 @@ def build_speculative_report(candidate: dict) -> tuple[str | None, dict]:
         return None, result
 
     report = (
-        "🔥 <b>SAS PRO | رصد الأسهم المضاربية</b>\n"
+        "🔥 <b>SAS PRO | أسهم المضاربي اللحظي</b>\n"
         "━━━━━━━━━━━━━━━━━━\n"
         f"📌 السهم: <b>${symbol}</b>\n"
         f"💵 السعر الحالي: <b>${float(candidate['price']):,.4f}</b>\n"
@@ -84,6 +84,10 @@ async def publish_speculative_candidate(candidate: dict) -> dict:
     session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
     key = speculative_report_key(symbol, session_date)
     async with SessionLocal() as db:
+        # Cross-radar dedupe: do not publish a symbol already sent by the main radar during this session.
+        main_signal = (await db.execute(select(RadarSignal).where(RadarSignal.symbol == symbol, RadarSignal.session_date == session_date, RadarSignal.telegram_message_id.is_not(None)))).scalars().first()
+        if main_signal is not None:
+            return {"status": "duplicate_main_radar_skipped", "symbol": symbol, "session_date": session_date}
         if (await db.execute(select(ScheduledReport).where(ScheduledReport.report_key == key))).scalars().first():
             return {"status": "duplicate_skipped", "symbol": symbol, "session_date": session_date}
         db.add(ScheduledReport(report_key=key))
@@ -189,7 +193,7 @@ async def _fmp_float_shares(client: httpx.AsyncClient, symbol: str) -> float | N
 
 
 async def speculative_radar_cycle() -> dict:
-    """Discover $0.50-$6 US stocks through existing providers and publish verified matches.
+    """Discover $1-$10 US stocks through existing providers and publish verified matches.
 
     Existing discovery feeds provide session-volume candidates; Finnhub supplies
     current price/session open, and FMP supplies actual float shares. Missing or
@@ -204,7 +208,7 @@ async def speculative_radar_cycle() -> dict:
         return {"status": "outside_regular_session", "sent": 0}
 
     try:
-        discovered = await discover_low_price_stocks(price_min=0.50, price_max=6.00)
+        discovered = await discover_low_price_stocks(price_min=1.00, price_max=10.00)
     except Exception:
         logger.exception("SPECULATIVE_RADAR_DISCOVERY_FAILED")
         return {"status": "discovery_failed", "sent": 0}
@@ -214,7 +218,7 @@ async def speculative_radar_cycle() -> dict:
     shortlist = [
         row for row in discovered
         if isinstance(row, dict)
-        and 0.50 <= (_number(row.get("price")) or 0) <= 6.00
+        and 1.00 <= (_number(row.get("price")) or 0) <= 10.00
         and (_number(row.get("volume")) or 0) > 500_000
         and str(row.get("symbol") or "").strip()
     ]
@@ -235,7 +239,7 @@ async def speculative_radar_cycle() -> dict:
                 price = quote["price"]
                 session_open = quote["session_open"]
                 change = ((price - session_open) / session_open) * 100
-                if not (0.50 <= price <= 6.00) or change < 10.0:
+                if not (1.00 <= price <= 10.00) or change < 10.0:
                     return {"status": "price_or_momentum_filtered", "symbol": symbol}
                 float_shares = await _fmp_float_shares(client, symbol)
                 if float_shares is None:
