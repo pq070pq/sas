@@ -6,9 +6,13 @@ reuse daily percentage change as a substitute.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
+import httpx
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -102,3 +106,166 @@ async def publish_speculative_candidate(candidate: dict) -> dict:
 
     logger.info("Speculative radar report sent symbol=%s session=%s", symbol, session_date)
     return {"status": "sent", "symbol": symbol, "session_date": session_date, "evaluation": evaluation}
+
+
+# Float is slow-moving, so cache verified FMP values across scan cycles.
+_FLOAT_CACHE: dict[str, tuple[float, float]] = {}
+_FLOAT_CACHE_TTL_SECONDS = 6 * 60 * 60
+_SPECULATIVE_SCAN_LIMIT = 35
+
+
+def _configured_keys(primary: str, plural: str) -> list[str]:
+    values = str(getattr(settings, plural, "") or "").replace("\\n", ",").replace(";", ",").split(",")
+    keys = [item.strip() for item in values if item.strip()]
+    first = str(getattr(settings, primary, "") or "").strip()
+    if first:
+        keys.insert(0, first)
+    return list(dict.fromkeys(keys))
+
+
+async def _finnhub_session_quote(client: httpx.AsyncClient, symbol: str) -> dict | None:
+    """Use Finnhub's current quote, including today's regular-session open."""
+    keys = _configured_keys("finnhub_api_key", "finnhub_api_keys")
+    for key in keys:
+        try:
+            response = await client.get(
+                "https://finnhub.io/api/v1/quote",
+                params={"symbol": symbol, "token": key},
+                timeout=8,
+            )
+            if response.status_code in (401, 403, 429):
+                continue
+            response.raise_for_status()
+            payload = response.json()
+            price = _number(payload.get("c"))
+            session_open = _number(payload.get("o"))
+            if price and session_open:
+                return {"price": price, "session_open": session_open, "source": "Finnhub"}
+        except Exception as exc:
+            logger.debug("SPECULATIVE_FINNHUB_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+    return None
+
+
+async def _fmp_float_shares(client: httpx.AsyncClient, symbol: str) -> float | None:
+    """Fetch actual float shares from FMP; never substitute shares outstanding."""
+    cached = _FLOAT_CACHE.get(symbol)
+    now = time.monotonic()
+    if cached and now - cached[0] < _FLOAT_CACHE_TTL_SECONDS:
+        return cached[1]
+
+    keys = _configured_keys("fmp_api_key", "fmp_api_keys")
+    for key in keys:
+        try:
+            response = await client.get(
+                "https://financialmodelingprep.com/stable/shares-float",
+                params={"symbol": symbol, "apikey": key},
+                timeout=8,
+            )
+            if response.status_code in (401, 403, 404, 429):
+                continue
+            response.raise_for_status()
+            payload = response.json()
+            rows = payload if isinstance(payload, list) else (payload.get("data") or [])
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                row_symbol = str(row.get("symbol") or symbol).upper()
+                if row_symbol != symbol:
+                    continue
+                value = _number(
+                    row.get("floatShares")
+                    or row.get("float_shares")
+                    or row.get("freeFloat")
+                    or row.get("float")
+                )
+                if value:
+                    _FLOAT_CACHE[symbol] = (now, value)
+                    return value
+        except Exception as exc:
+            logger.debug("SPECULATIVE_FMP_FLOAT_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+    return None
+
+
+async def speculative_radar_cycle() -> dict:
+    """Discover $0.50-$6 US stocks through existing providers and publish verified matches.
+
+    Existing discovery feeds provide session-volume candidates; Finnhub supplies
+    current price/session open, and FMP supplies actual float shares. Missing or
+    unavailable observations fail closed. The main radar's thresholds are untouched.
+    """
+    from .market_calendar import market_status
+    from .scanner import discover_low_price_stocks
+
+    status = market_status()
+    if status.get("session") != "regular":
+        logger.info("SPECULATIVE_RADAR_SKIPPED session=%s", status.get("session"))
+        return {"status": "outside_regular_session", "sent": 0}
+
+    try:
+        discovered = await discover_low_price_stocks(price_min=0.50, price_max=6.00)
+    except Exception:
+        logger.exception("SPECULATIVE_RADAR_DISCOVERY_FAILED")
+        return {"status": "discovery_failed", "sent": 0}
+
+    # Volume is a cheap first-stage screen. Keep the request budget below Finnhub's
+    # free-tier per-minute limit; stronger volume candidates are checked first.
+    shortlist = [
+        row for row in discovered
+        if isinstance(row, dict)
+        and 0.50 <= (_number(row.get("price")) or 0) <= 6.00
+        and (_number(row.get("volume")) or 0) > 500_000
+        and str(row.get("symbol") or "").strip()
+    ]
+    shortlist.sort(key=lambda row: _number(row.get("volume")) or 0, reverse=True)
+    shortlist = shortlist[:_SPECULATIVE_SCAN_LIMIT]
+    if not shortlist:
+        logger.info("SPECULATIVE_RADAR_EMPTY_DISCOVERY")
+        return {"status": "no_candidates", "sent": 0, "discovered": len(discovered)}
+
+    semaphore = asyncio.Semaphore(8)
+    async with httpx.AsyncClient(timeout=9, follow_redirects=True) as client:
+        async def check(row: dict):
+            symbol = str(row.get("symbol") or "").upper().strip()
+            async with semaphore:
+                quote = await _finnhub_session_quote(client, symbol)
+                if not quote:
+                    return {"status": "quote_unavailable", "symbol": symbol}
+                price = quote["price"]
+                session_open = quote["session_open"]
+                change = ((price - session_open) / session_open) * 100
+                if not (0.50 <= price <= 6.00) or change < 10.0:
+                    return {"status": "price_or_momentum_filtered", "symbol": symbol}
+                float_shares = await _fmp_float_shares(client, symbol)
+                if float_shares is None:
+                    return {"status": "float_unavailable", "symbol": symbol}
+                return await publish_speculative_candidate({
+                    "symbol": symbol,
+                    "price": price,
+                    "float_shares": float_shares,
+                    "volume": _number(row.get("volume")),
+                    "session_open": session_open,
+                })
+
+        results = await asyncio.gather(*(check(row) for row in shortlist), return_exceptions=True)
+
+    sent = 0
+    counts: dict[str, int] = {}
+    for result in results:
+        if isinstance(result, Exception):
+            counts["error"] = counts.get("error", 0) + 1
+            logger.warning("SPECULATIVE_RADAR_CANDIDATE_FAILED error=%s", type(result).__name__)
+            continue
+        state = str(result.get("status") or "unknown")
+        counts[state] = counts.get(state, 0) + 1
+        if state == "sent":
+            sent += 1
+
+    summary = {
+        "status": "completed",
+        "discovered": len(discovered),
+        "shortlist": len(shortlist),
+        "sent": sent,
+        "results": counts,
+    }
+    logger.info("SPECULATIVE_RADAR_SUMMARY %s", summary)
+    return summary
