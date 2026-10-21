@@ -104,15 +104,20 @@ async def call(getter: Callable[..., Awaitable[Any]], *args, **kwargs):
         last_response = response
         await record_response(response)
         code = getattr(response, "status_code", None)
-        if code in (401, 403, 429):
-            retry = response.headers.get("Retry-After")
-            await _pool.mark_failure(key, retry_after=int(retry) if retry and retry.isdigit() else None)
-            # 401/403 are credential-specific; 429 can be key-rate limiting.
-            # Try another configured credential, but never exceed local daily
-            # cap or a provider-reported shared-account credit reserve.
+        if code in (401, 403):
+            # Invalid/unauthorized credentials are key-specific: cool this key
+            # down and try another independently provisioned credential.
+            await _pool.mark_failure(key)
             if not await allowed():
                 break
             continue
+        if code == 429:
+            # Treat rate limiting as a provider/account-level limit. Do not
+            # rotate keys to evade it; pause Twelve Data until the UTC day resets.
+            async with _lock:
+                _blocked = True
+                _block_reason = "Twelve Data HTTP429 rate limit"
+            return response
 
         await _pool.mark_success(key)
         return response
