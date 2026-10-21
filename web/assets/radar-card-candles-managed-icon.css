@@ -1,0 +1,8 @@
+/* Responsive real OHLC candles in radar cards */
+.stock-card .sas-card-price-trend{display:grid;grid-template-columns:minmax(0,1fr) minmax(82px,auto);align-items:center;gap:9px;min-width:0}
+.stock-card .sas-card-price-trend .sas-card-candles{display:block;width:100%;height:132px;min-width:0;border:1px solid rgba(83,169,197,.16);border-radius:10px;background:#061522}
+.stock-card .sas-card-candle-status{grid-column:1/-1;text-align:center;color:#9eb6c5;font-size:12px;padding:8px 4px;line-height:1.4}
+.stock-card .sas-card-price-trend .sas-card-uptrend{display:none}
+.stock-card .stock-shariah-icon.has-managed-icon{display:inline-flex;align-items:center;justify-content:center}
+.stock-card .stock-shariah-icon .sas-managed-icon-image{width:1.35em;height:1.35em;object-fit:contain;display:block}
+@media(max-width:380px){.stock-card .sas-card-price-trend{grid-template-columns:minmax(0,1fr) minmax(76px,auto);gap:6px}.stock-card .sas-card-price-trend .sas-card-candles{height:112px}.stock-card .sas-card-candle-status{font-size:11px}}
