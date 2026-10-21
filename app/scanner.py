@@ -1,4 +1,6 @@
 import asyncio
+
+# RADAR DIAGNOSTIC: deployment workflow runs a one-time live scan for this commit.
 import httpx
 import time
 import logging
