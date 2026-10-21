@@ -77,9 +77,12 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
             r.raise_for_status()
             payload = r.json()
             data = payload.get("data") or payload
-            rows = data.get("klines", []) if isinstance(data, dict) else []
-            if len(rows) >= minimum: source = "PanWatch"
-            else: attempts.append("PanWatch:insufficient")
+            candidate_rows = data.get("klines", []) if isinstance(data, dict) else []
+            if len(candidate_rows) >= minimum:
+                rows, source = candidate_rows, "PanWatch"
+            elif candidate_rows:
+                rows, source = candidate_rows, "PanWatch (partial)"
+                attempts.append("PanWatch:insufficient")
         except Exception as exc:
             attempts.append(f"PanWatch:{type(exc).__name__}")
 
@@ -97,7 +100,9 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                     },
                 )
                 r.raise_for_status()
-                rows = list(reversed((r.json()).get("values") or []))
+                candidate_rows = list(reversed((r.json()).get("values") or []))
+                if len(candidate_rows) > len(rows):
+                    rows, source = candidate_rows, "Twelve Data (partial)" if len(candidate_rows) < minimum else "Twelve Data"
             except Exception as exc:
                 attempts.append(f"TwelveData:{type(exc).__name__}")
             if len(rows) >= minimum: source = "Twelve Data"
@@ -118,15 +123,16 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                     r.raise_for_status()
                     payload = r.json()
                     if payload.get("s") == "ok" and payload.get("c"):
-                        rows = [{
+                        candidate_rows = [{
                             "datetime": datetime.fromtimestamp(payload["t"][i], timezone.utc).strftime("%Y-%m-%d"),
                             "open": payload["o"][i], "high": payload["h"][i],
                             "low": payload["l"][i], "close": payload["c"][i],
                             "volume": payload["v"][i],
                         } for i in range(len(payload["c"]))]
-                        if len(rows) >= minimum:
-                            source = "Finnhub Candles"
-                        else:
+                        if len(candidate_rows) > len(rows):
+                            rows = candidate_rows
+                            source = "Finnhub Candles" if len(candidate_rows) >= minimum else "Finnhub Candles (partial)"
+                        if len(candidate_rows) < minimum:
                             attempts.append("Finnhub:insufficient")
                     else:
                         attempts.append(f"Finnhub:{payload.get('s', 'no_data')}")
@@ -179,16 +185,21 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                         except (KeyError, TypeError, ValueError):
                             continue
                     normalized.sort(key=lambda item: item["datetime"])
+                    if len(normalized) > len(rows):
+                        rows = normalized[-max(20, min(int(days), 365)):]
+                        source = "Financial Modeling Prep" if len(normalized) >= minimum else "Financial Modeling Prep (partial)"
                     if len(normalized) >= minimum:
-                        rows, source = normalized[-max(20, min(int(days), 365)):], "Financial Modeling Prep"
                         break
                     attempts.append("FMP:insufficient")
                 except Exception as exc:
                     attempts.append(f"FMP:{type(exc).__name__}")
         if len(rows) < minimum:
-            rows = await _stooq_ohlcv(symbol, days)
-            if len(rows) >= minimum: source = "Stooq"
-            else: attempts.append("Stooq:insufficient")
+            stooq_rows = await _stooq_ohlcv(symbol, days)
+            if len(stooq_rows) > len(rows):
+                rows = stooq_rows
+                source = "Stooq" if len(stooq_rows) >= minimum else "Stooq (partial)"
+            if len(stooq_rows) < minimum:
+                attempts.append("Stooq:insufficient")
     candles = []
     for row in rows:
         try:
