@@ -4585,71 +4585,71 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 
 /* Compact mobile radar cards; keep signal time visible and legible. */
 @media (max-width: 600px) {
-  #radarGrid .stock-card {
+  :is(#radarGrid, #dashboardRadar) .stock-card {
     padding: 10px !important;
     border-radius: 15px !important;
     gap: 8px !important;
   }
-  #radarGrid .stock-head {
+  :is(#radarGrid, #dashboardRadar) .stock-head {
     gap: 7px !important;
     margin-bottom: 5px !important;
   }
-  #radarGrid .stock-head > div {
+  :is(#radarGrid, #dashboardRadar) .stock-head > div {
     min-width: 0 !important;
   }
-  #radarGrid .stock-head small {
+  :is(#radarGrid, #dashboardRadar) .stock-head small {
     display: block !important;
     font-size: 10px !important;
     line-height: 1.55 !important;
     margin-top: 4px !important;
     overflow-wrap: anywhere !important;
   }
-  #radarGrid .sas-card-price-trend {
+  :is(#radarGrid, #dashboardRadar) .sas-card-price-trend {
     min-height: 38px !important;
     margin: 4px 0 !important;
   }
-  #radarGrid .sas-card-price-trend svg {
+  :is(#radarGrid, #dashboardRadar) .sas-card-price-trend svg {
     height: 32px !important;
   }
-  #radarGrid .sas-card-price-trend strong {
+  :is(#radarGrid, #dashboardRadar) .sas-card-price-trend strong {
     font-size: 26px !important;
   }
-  #radarGrid .stock-levels {
+  :is(#radarGrid, #dashboardRadar) .stock-levels {
     gap: 6px !important;
     margin: 7px 0 !important;
   }
-  #radarGrid .stock-levels > span {
+  :is(#radarGrid, #dashboardRadar) .stock-levels > span {
     padding: 8px 6px !important;
     min-width: 0 !important;
     font-size: 11px !important;
   }
-  #radarGrid .stock-meta,
-  #radarGrid .stock-gates,
-  #radarGrid .stock-summary {
+  :is(#radarGrid, #dashboardRadar) .stock-meta,
+  :is(#radarGrid, #dashboardRadar) .stock-gates,
+  :is(#radarGrid, #dashboardRadar) .stock-summary {
     gap: 5px !important;
     margin-top: 6px !important;
   }
-  #radarGrid .stock-meta > span,
-  #radarGrid .stock-gates > *,
-  #radarGrid .stock-summary > span {
+  :is(#radarGrid, #dashboardRadar) .stock-meta > span,
+  :is(#radarGrid, #dashboardRadar) .stock-gates > *,
+  :is(#radarGrid, #dashboardRadar) .stock-summary > span {
     font-size: 10px !important;
     padding: 5px 7px !important;
   }
-  #radarGrid .stock-shariah {
+  :is(#radarGrid, #dashboardRadar) .stock-shariah {
     min-height: 34px !important;
     margin-top: 7px !important;
   }
-  #radarGrid .stock-ai {
+  :is(#radarGrid, #dashboardRadar) .stock-ai {
     padding: 9px !important;
     font-size: 11px !important;
     line-height: 1.65 !important;
     margin-top: 7px !important;
   }
-  #radarGrid .stock-chart-action {
+  :is(#radarGrid, #dashboardRadar) .stock-chart-action {
     min-height: 42px !important;
     padding: 9px 12px !important;
   }
-  #radarGrid .sas-card-copyright {
+  :is(#radarGrid, #dashboardRadar) .sas-card-copyright {
     font-size: 9px !important;
     margin-top: 8px !important;
   }
