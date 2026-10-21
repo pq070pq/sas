@@ -136,7 +136,7 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
             status_code = getattr(getattr(exc, "response", None), "status_code", None)
             attempts.append(f"PanWatch:HTTP{status_code}" if status_code else f"PanWatch:{type(exc).__name__}")
 
-        if len(rows) < minimum and allow_twelve_data and settings.twelve_data_api_key:
+        if len(rows) < minimum and allow_twelve_data and (settings.twelve_data_api_key or settings.twelve_data_api_keys):
             try:
                 r = await twelve_call(
                     client.get,
@@ -164,8 +164,15 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
         if len(rows) < minimum:
             # Finnhub candle endpoint is an additional historical-data fallback
             # for cases where PanWatch/Twelve Data do not return enough bars.
-            finnhub_key = str(getattr(settings, "finnhub_api_key", "") or "").strip()
-            if finnhub_key:
+            finnhub_keys = [
+                item.strip()
+                for item in str(getattr(settings, "finnhub_api_keys", "") or "").replace("\\n", ",").replace(";", ",").split(",")
+                if item.strip()
+            ]
+            if getattr(settings, "finnhub_api_key", ""):
+                finnhub_keys.insert(0, str(settings.finnhub_api_key).strip())
+            finnhub_keys = list(dict.fromkeys(key for key in finnhub_keys if key))
+            for finnhub_key in finnhub_keys:
                 try:
                     from datetime import datetime, timedelta, timezone
                     end_ts = int(datetime.now(timezone.utc).timestamp())
@@ -174,6 +181,12 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                         "https://finnhub.io/api/v1/stock/candle",
                         params={"symbol": symbol.upper(), "resolution": "D", "from": start_ts, "to": end_ts, "token": finnhub_key},
                     )
+                    if r.status_code in (401, 403):
+                        attempts.append(f"Finnhub:HTTP{r.status_code}")
+                        continue
+                    if r.status_code == 429:
+                        attempts.append("Finnhub:HTTP429 rate-limited; key rotation stopped")
+                        break
                     r.raise_for_status()
                     payload = r.json()
                     if payload.get("s") == "ok" and payload.get("c"):
@@ -190,9 +203,12 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                             attempts.append("Finnhub:insufficient")
                     else:
                         attempts.append(f"Finnhub:{payload.get('s', 'no_data')}")
+                    break
                 except Exception as exc:
                     status_code = getattr(getattr(exc, "response", None), "status_code", None)
                     attempts.append(f"Finnhub:HTTP{status_code}" if status_code else f"Finnhub:{type(exc).__name__}")
+                    if status_code not in (401, 403):
+                        break
         if len(rows) < minimum:
             # Financial Modeling Prep provides an independent daily OHLCV source.
             # It is optional and only queried when a key is configured.
@@ -218,9 +234,12 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                             "apikey": fmp_key,
                         },
                     )
-                    if r.status_code in (401, 403, 429):
+                    if r.status_code in (401, 403):
                         attempts.append(f"FMP:HTTP{r.status_code}")
                         continue
+                    if r.status_code == 429:
+                        attempts.append("FMP:HTTP429 rate-limited; key rotation stopped")
+                        break
                     r.raise_for_status()
                     payload = r.json()
                     fmp_rows = payload if isinstance(payload, list) else (payload.get("historical") or [])
