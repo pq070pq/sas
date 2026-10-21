@@ -304,10 +304,9 @@ async def publish_market_update(reason: str = "تحديث السوق عبر مص
     for label, q in rows:
         if not _valid_price(q.get("price")):
             continue
-        lines.append(
-            f"{label}: <b>{_fmt_price(q.get('price'))}</b> "
-            f"({_fmt_pct(q.get('change_pct'))})"
-        )
+        change = q.get("change_pct")
+        change_text = f" ({_fmt_pct(change)})" if change is not None else ""
+        lines.append(f"{label}: <b>{_fmt_price(q.get('price'))}</b>{change_text}")
 
     lines += ["", "📰 <b>آخر مستجدات السوق</b>"]
     if news:
@@ -356,7 +355,7 @@ async def publish_btc_holiday_update():
             "₿ <b>SAS PRO | رصد بيتكوين</b>",
             "",
             f"💵 <b>السعر الحالي:</b> ${_fmt_price(price)}",
-            f"📈 <b>التغير خلال 6 ساعات:</b> {_fmt_pct(change_6h)}",
+            *([f"📈 <b>التغير خلال 6 ساعات:</b> {_fmt_pct(change_6h)}"] if change_6h is not None else []),
             _btc_move_line(price, _btc_previous_snapshot_price),
             "",
             f"🕐 {datetime.now(RIYADH).strftime('%Y-%m-%d %H:%M')} بتوقيت السعودية",
@@ -440,7 +439,8 @@ async def publish_holiday_radar():
                     display_label = label
                     price_text = price
 
-                lines.append(f"{display_label}: {price_text} ({change})")
+                change_text = f" ({change})" if q.get("change_pct") is not None else ""
+                lines.append(f"{display_label}: {price_text}{change_text}")
 
         btc_change_6h = await _btc_6h_change()
         if btc_change_6h is None and btc_price is not None and _btc_previous_snapshot_price not in (None, 0):
@@ -457,7 +457,7 @@ async def publish_holiday_radar():
                 "🔷 ₿ <b>بيتكوين - BTC</b>",
                 "",
                 f"💵 <b>السعر الحالي:</b> $" + _fmt_price(btc_price),
-                f"📈 <b>التغير خلال 6 ساعات:</b> {_fmt_pct(btc_change_6h)}",
+                *([f"📈 <b>التغير خلال 6 ساعات:</b> {_fmt_pct(btc_change_6h)}"] if btc_change_6h is not None else []),
                 "⚡ <b>حركة قوية:</b> تعني أن تغير بيتكوين خلال 6 ساعات بلغ 3% أو أكثر.",
             ]
 
