@@ -11,6 +11,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 
 <link rel="stylesheet" href="/assets/radar-cycle-20261020.css?v=1">
+<link rel="stylesheet" href="/assets/speculative-radar-card.css?v=20261021-1">
 <link rel="stylesheet" href="/assets/radar-card-layout.css?v=20261021-1">
 <link rel="stylesheet" href="/assets/radar-card-candles-managed-icon.css?v=20261021-1">
 <script src="/assets/radar-card-candles-managed-icon.js?v=20261021-1" defer></script>
@@ -159,7 +160,33 @@
         </section>
         </section>
         <div class="metric-grid" id="dashboardMetrics"></div>
-        <section class="sas-radar-showcase" aria-label="رادار الفرص">
+        <section class="spec-radar-card" aria-labelledby="specRadarTitle">
+  <div class="spec-radar-head">
+    <div class="spec-radar-brand">
+      <span class="spec-radar-emblem" aria-hidden="true">🐬</span>
+      <div>
+        <span class="spec-radar-kicker">SAS PRO • INTRADAY RADAR</span>
+        <h2 class="spec-radar-title" id="specRadarTitle">أسهم المضاربي اللحظي</h2>
+        <span class="spec-radar-subtitle">رادار مستقل لالتقاط الأسهم ذات الزخم اللحظي — دون تغيير شروط الرادار الأساسي.</span>
+      </div>
+    </div>
+    <span class="spec-radar-badge"><i aria-hidden="true"></i> فلتر مستقل</span>
+  </div>
+  <div class="spec-radar-ruleline" aria-hidden="true"></div>
+  <div class="spec-radar-metrics" aria-label="شروط رادار المضاربي اللحظي">
+    <div class="spec-radar-metric"><small>💵 نطاق السعر</small><strong><em>$1</em> – <em>$10</em></strong></div>
+    <div class="spec-radar-metric"><small>📊 حجم التداول</small><strong><em>+500K</em> سهم</strong></div>
+    <div class="spec-radar-metric"><small>🪙 الأسهم الحرة</small><strong><em>أقل من 20M</em></strong></div>
+    <div class="spec-radar-metric"><small>📈 من افتتاح الجلسة</small><strong><em>+10%</em> أو أكثر</strong></div>
+  </div>
+  <div class="spec-radar-footer">
+    <p class="spec-radar-note"><b>آلية الفرز:</b> لا يُعرض المرشح على أنه فرصة مجتازة إلا بعد توفر بيانات السعر والحجم والأسهم الحرة وافتتاح الجلسة اللازمة للتحقق.</p>
+    <button type="button" class="spec-radar-action" onclick="switchTerminalTab('radar')" aria-label="فتح مساحة الرادار">عرض مساحة الرادار <span aria-hidden="true">←</span></button>
+  </div>
+  <p class="spec-radar-disclaimer">الرادار في مرحلة الفرز الأولي؛ ظهور السهم هنا لا يعني توصية شراء أو ضمان استمرار الصعود.</p>
+</section>
+
+<section class="sas-radar-showcase" aria-label="رادار الفرص">
  <div class="sas-radar-visual-wrap">
   <button type="button" class="sas-radar-visual" onclick="runRadar(false)" aria-label="بدء مسح تفاعلي للفرص" title="اضغط لبدء مسح جديد">
    <span class="sas-radar-ring ring-one"></span><span class="sas-radar-ring ring-two"></span><span class="sas-radar-ring ring-three"></span>
