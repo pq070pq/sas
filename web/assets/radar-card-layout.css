@@ -103,3 +103,11 @@
   line-height: 1.4;
   text-align: center;
 }
+
+.stock-card .sas-card-candles > svg {
+  display: block;
+  width: 100%;
+  height: 58px;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
