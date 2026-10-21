@@ -2856,10 +2856,11 @@ async def scan_us_low_price_stocks(force_refresh: bool = False, progress_callbac
                     and str(live_source).lower() not in {"unavailable", "scan data"}
                 )
                 final_strategy_ok = bool(classification.get("strategy_pass"))
-                final_rr_ok = bool(final_rr >= 1.5)
+                # R:R تحذير توضيحي وليس شرط رفض مستقلًا؛ الهدف الفني والسعر الحي
+                # والاستراتيجية تبقى شروطًا إلزامية للتأكيد.
 
                 # شروط أساسية: إذا فشلت الاستراتيجية أو السعر الحي، لا تعتبر
-                # مراقبة قابلة للتحول؛ أما نقص الهدف/R:R فيبقي السهم تحت المراقبة.
+                # مراقبة قابلة للتحول؛ أما نقص الهدف الفني فيبقي السهم تحت المراقبة.
                 hard_failures = []
                 if not final_strategy_ok:
                     hard_failures.append("لم تجتز استراتيجية SAS")
@@ -2876,8 +2877,8 @@ async def scan_us_low_price_stocks(force_refresh: bool = False, progress_callbac
                         "data_source": live_source or classification.get("data_source"),
                     }
 
-                # المرشح المبكر يبقى محفوظًا للمراقبة، لكنه لا يصبح فرصة مؤكدة.
-                confirmation_ready = bool(final_target_ok and final_rr_ok)
+                # المرشح المبكر يبقى محفوظًا للمراقبة، ونسبة R:R المنخفضة تظهر كتحذير.
+                confirmation_ready = bool(final_target_ok)
                 classification["confirmation_ready"] = confirmation_ready
                 classification["opportunity_status"] = (
                     "confirmed" if confirmation_ready else "watch"
