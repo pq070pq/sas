@@ -336,7 +336,7 @@ def _momentum_rvol_10d(candles):
     return today_volume / baseline if baseline > 0 else None
 
 
-async def _discover_yahoo_top_gainers(client):
+async def _discover_yahoo_top_gainers(client, price_min=MIN_PRICE, price_max=MAX_PRICE):
     """Yahoo custom screener: exact daily momentum rules for both sections."""
     threshold, now = _momentum_time_filter()
     if threshold is None:
@@ -361,7 +361,7 @@ async def _discover_yahoo_top_gainers(client):
             "small",
             equity_query([
                 {"operator": "gt", "operands": ["percentchange", MOMENTUM_SMALL_MIN_GAIN]},
-                {"operator": "btwn", "operands": ["intradayprice", MIN_PRICE, MAX_PRICE]},
+                {"operator": "btwn", "operands": ["intradayprice", price_min, price_max]},
                 {"operator": "gt", "operands": ["dayvolume", MOMENTUM_SMALL_MIN_VOLUME]},
             ]),
         ),
@@ -435,7 +435,7 @@ async def _discover_yahoo_top_gainers(client):
 
             # Re-check exact user rules after Yahoo returns the live row.
             if section == "small":
-                if not (MIN_PRICE <= price <= MAX_PRICE and
+                if not (price_min <= price <= price_max and
                         change_pct > MOMENTUM_SMALL_MIN_GAIN and
                         volume > MOMENTUM_SMALL_MIN_VOLUME):
                     continue
@@ -560,7 +560,7 @@ async def _apply_daily_momentum_filter(candidates):
     }
 
 
-async def _discover_licensed_market_data(client):
+async def _discover_licensed_market_data(client, price_min=MIN_PRICE, price_max=MAX_PRICE):
     """Optional adapter for a licensed market-data feed.
 
     The provider must be explicitly configured through LICENSED_MARKET_DATA_URL
@@ -596,7 +596,7 @@ async def _discover_licensed_market_data(client):
         symbol = str(row.get("symbol") or row.get("ticker") or "").upper().strip()
         price = _f(row.get("price") if row.get("price") is not None else row.get("last"), 0)
         volume = _f(row.get("volume") if row.get("volume") is not None else row.get("day_volume"), 0)
-        if not symbol or price <= 0 or volume <= 0 or not (MIN_PRICE <= price <= MAX_PRICE):
+        if not symbol or price <= 0 or volume <= 0 or not (price_min <= price <= price_max):
             continue
         exchange = _normalize_exchange(row.get("exchange") or row.get("mic_code"))
         if exchange not in ALLOWED_EXCHANGES:
@@ -613,7 +613,7 @@ async def _discover_licensed_market_data(client):
         })
     return out
 
-async def _discover_us_exchanges(client):
+async def _discover_us_exchanges(client, price_min=MIN_PRICE, price_max=MAX_PRICE):
     """Public exchange screener used as the broad, keyless radar universe."""
     out = []
     excluded_words = (
@@ -657,7 +657,7 @@ async def _discover_us_exchanges(client):
                 continue
             if any(word in name.upper() for word in excluded_words):
                 continue
-            if not (MIN_PRICE <= price <= MAX_PRICE):
+            if not (price_min <= price <= price_max):
                 continue
             if volume <= 0:
                 continue
@@ -673,7 +673,7 @@ async def _discover_us_exchanges(client):
             })
     return out
 
-async def _discover_openterminal(client):
+async def _discover_openterminal(client, price_min=MIN_PRICE, price_max=MAX_PRICE):
     """Secondary live screener source from the bundled OpenTerminal service."""
     base = settings.openterminal_api_url.rstrip("/")
     if not base:
@@ -698,7 +698,7 @@ async def _discover_openterminal(client):
         exchange = _normalize_exchange(row.get("exchange"))
         symbol = str(row.get("symbol") or "").upper().strip()
         price = _f(row.get("price"), -1)
-        if exchange not in ALLOWED_EXCHANGES or not symbol or not (MIN_PRICE <= price <= MAX_PRICE):
+        if exchange not in ALLOWED_EXCHANGES or not symbol or not (price_min <= price <= price_max):
             continue
         out.append({
             "symbol": symbol,
@@ -712,7 +712,7 @@ async def _discover_openterminal(client):
         })
     return out
 
-async def _discover_twelvedata(client):
+async def _discover_twelvedata(client, price_min=MIN_PRICE, price_max=MAX_PRICE):
     # Optional fallback only. /market_movers may require a higher plan.
     if not (settings.twelve_data_api_key or settings.twelve_data_api_keys):
         return []
@@ -739,7 +739,7 @@ async def _discover_twelvedata(client):
             exchange = "US"
         symbol = str(row.get("symbol") or "").upper().strip()
         price = _f(row.get("last"), -1)
-        if symbol and MIN_PRICE <= price <= MAX_PRICE:
+        if symbol and price_min <= price <= price_max:
             out.append({
                 "symbol": symbol,
                 "name": row.get("name") or symbol,
@@ -752,7 +752,7 @@ async def _discover_twelvedata(client):
     return out
 
 
-async def _discover_panwatch(client):
+async def _discover_panwatch(client, price_min=MIN_PRICE, price_max=MAX_PRICE):
     base = settings.panwatch_base_url.rstrip("/")
     try:
         r = await client.get(
@@ -768,7 +768,7 @@ async def _discover_panwatch(client):
     for row in rows or []:
         symbol = str(row.get("symbol") or "").upper().strip()
         price = _f(row.get("price"), -1)
-        if not symbol or not (MIN_PRICE <= price <= MAX_PRICE):
+        if not symbol or not (price_min <= price <= price_max):
             continue
         exchange = _normalize_exchange(row.get("exchange") or row.get("mic_code"))
         # PanWatch US discovery is explicitly scoped to the US market and its
@@ -780,7 +780,7 @@ async def _discover_panwatch(client):
     return out
 
 
-async def discover_low_price_stocks():
+async def discover_low_price_stocks(price_min=MIN_PRICE, price_max=MAX_PRICE):
     """Build a broad, keyless US universe and stage candidates by evidence.
 
     The staging layer deliberately does not require a large price increase.
@@ -798,12 +798,12 @@ async def discover_low_price_stocks():
     # Discovery providers are independent; cap this stage so one slow feed cannot leave the UI spinning for a long time.
     async with httpx.AsyncClient(timeout=min(float(settings.panwatch_timeout_seconds), 12.0)) as client:
         sources = await asyncio.gather(
-            _discover_us_exchanges(client),
-            _discover_yahoo_top_gainers(client),
-            _discover_openterminal(client),
-            _discover_twelvedata(client),
-            _discover_panwatch(client),
-            _discover_licensed_market_data(client),
+            _discover_us_exchanges(client, price_min, price_max),
+            _discover_yahoo_top_gainers(client, price_min, price_max),
+            _discover_openterminal(client, price_min, price_max),
+            _discover_twelvedata(client, price_min, price_max),
+            _discover_panwatch(client, price_min, price_max),
+            _discover_licensed_market_data(client, price_min, price_max),
             return_exceptions=True,
         )
 
@@ -836,7 +836,7 @@ async def discover_low_price_stocks():
             volume = _f(row.get("volume"), 0)
             if not symbol or _is_excluded_security(row):
                 continue
-            if not (MIN_PRICE <= price <= MAX_PRICE) or volume <= 0:
+            if not (price_min <= price <= price_max) or volume <= 0:
                 continue
             current = merged.get(symbol)
             # Prefer the row carrying the strongest volume/liquidity evidence.

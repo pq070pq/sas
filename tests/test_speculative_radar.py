@@ -1,6 +1,7 @@
 import unittest
 
 from app.speculative_radar import build_speculative_report, speculative_report_key
+from app.finviz_intraday_filter import evaluate_intraday_candidate
 
 
 class SpeculativeRadarTests(unittest.TestCase):
@@ -15,6 +16,28 @@ class SpeculativeRadarTests(unittest.TestCase):
         self.assertTrue(result["eligible"])
         self.assertIn("SAS PRO | رصد الأسهم المضاربية", report)
         self.assertIn("+10.00%", report)
+
+    def test_price_range_includes_50_cents_and_6_dollars(self):
+        for price, session_open in ((0.50, 0.45), (6.00, 5.40)):
+            with self.subTest(price=price):
+                result = evaluate_intraday_candidate(
+                    price=price,
+                    float_shares=10_000_000,
+                    volume=600_000,
+                    session_open=session_open,
+                )
+                self.assertTrue(result["eligible"], result["reasons"])
+
+    def test_price_outside_range_is_rejected(self):
+        for price in (0.49, 6.01):
+            with self.subTest(price=price):
+                result = evaluate_intraday_candidate(
+                    price=price,
+                    float_shares=10_000_000,
+                    volume=600_000,
+                    session_open=price / 1.10,
+                )
+                self.assertFalse(result["eligible"])
 
     def test_missing_float_never_builds_eligible_report(self):
         report, result = build_speculative_report({
