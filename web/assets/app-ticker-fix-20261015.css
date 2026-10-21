@@ -5522,3 +5522,19 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 @keyframes sasPreliminaryCardPulse{0%,100%{border-color:rgba(255,139,24,.72);box-shadow:0 0 0 1px rgba(255,123,0,.16),0 0 9px rgba(255,111,0,.18),inset 0 0 12px rgba(255,112,0,.04)}50%{border-color:rgba(255,166,48,1);box-shadow:0 0 0 1px rgba(255,123,0,.38),0 0 22px rgba(255,111,0,.42),inset 0 0 22px rgba(255,112,0,.1)}}
 @keyframes sasConfirmedCardPulse{0%,100%{border-color:rgba(40,255,158,.58);box-shadow:0 0 0 1px rgba(40,255,158,.12),0 0 8px rgba(0,255,145,.13),inset 0 0 10px rgba(0,255,145,.025)}50%{border-color:rgba(40,255,158,1);box-shadow:0 0 0 1px rgba(40,255,158,.34),0 0 22px rgba(0,255,145,.38),inset 0 0 20px rgba(0,255,145,.09)}}
 @media(prefers-reduced-motion:reduce){.stock-card.radar-preliminary-card,.stock-card.radar-confirmed-card,.radar-preliminary-card,.radar-confirmed-card{animation:none!important}}
+
+
+/* SAS PRO Android/mobile stability fix: prevent fixed-background repaint jitter. */
+html{min-height:100%;background-color:var(--bg)}
+body{background-attachment:scroll;background-repeat:no-repeat;}
+@media (min-width: 900px) and (prefers-reduced-motion: no-preference){
+  body{background-attachment:fixed;}
+}
+@media (max-width: 899px){
+  html,body{background-attachment:scroll!important;}
+  body{background-position:center top;background-size:100% auto,100% auto,100% 520px,100% 100%;}
+  .app{transform:none!important;}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}
+}
