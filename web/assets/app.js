@@ -1075,6 +1075,7 @@ function renderCards(el,rows){
  const preliminaryHtml=group('🟡 الأسهم المرشحة مبدئيًا',preliminary.length,'مرشحون فعليون من دورة الرصد ويحتاجون مراجعة الشروط المتبقية؛ لا تعد فرصة مؤكدة حتى يكتمل التأكيد.',preliminary,'preliminary');
  const watchHtml=group('🔵 أسهم تحت المراقبة',watch.length,'مرشحة للتحليل والمتابعة ولم يثبت اجتيازها للبوابة الأولية.',watch,'watch');
  el.innerHTML=confirmedHtml+preliminaryHtml+watchHtml+(confirmed.length||preliminary.length||watch.length?'':empty);
+ loadRadarCardCandles(el);
 
 }
 function toggleRadarEmptyHelp(button){
@@ -1086,6 +1087,33 @@ function toggleRadarEmptyHelp(button){
  const label=button.querySelector('span');
  if(label)label.textContent=open?'⌃':'⌄';
 }
+async function loadRadarCardCandles(root){
+ if(!root||root.dataset.sasCandlesLoaded==='1')return;
+ root.dataset.sasCandlesLoaded='1';
+ const nodes=[...root.querySelectorAll('.sas-card-candles[data-symbol]')];
+ if(!nodes.length)return;
+ const jobs=nodes.map(async node=>{
+  const symbol=String(node.dataset.symbol||'').trim().toUpperCase();
+  if(!/^[A-Z.\\-]{1,12}$/.test(symbol))return;
+  try{
+   const data=await api('/api/stocks/'+encodeURIComponent(symbol)+'/chart',{timeoutMs:9000,retries:0});
+   const candles=Array.isArray(data?.candles)?data.candles:[];
+   const rows=candles.map(c=>({o:Number(c.open),h:Number(c.high),l:Number(c.low),c:Number(c.close)}))
+    .filter(c=>Number.isFinite(c.o)&&Number.isFinite(c.h)&&Number.isFinite(c.l)&&Number.isFinite(c.c)&&c.h>=c.l&&c.o>0&&c.c>0);
+   if(!rows.length){node.innerHTML='<span class="sas-card-candle-note">لا توجد بيانات OHLC كافية لهذا السهم</span>';return;}
+   const dataRows=rows.slice(-24), min=Math.min(...dataRows.map(c=>c.l)), max=Math.max(...dataRows.map(c=>c.h));
+   const range=max-min||Math.max(max*.01,.01), pad=range*.08, lo=min-pad, span=range+pad*2;
+   const W=280,H=58,top=4,bottom=48,step=(W-8)/dataRows.length,body=Math.max(2,Math.min(7,step*.56));
+   const y=v=>bottom-((v-lo)/span)*(bottom-top);
+   const shapes=dataRows.map((c,i)=>{const x=4+i*step+step/2,up=c.c>=c.o,color=up?'#26d9a0':'#ff657a',yo=y(c.o),yc=y(c.c),yh=y(c.h),yl=y(c.l);
+    return '<line x1="'+x.toFixed(2)+'" y1="'+yh.toFixed(2)+'" x2="'+x.toFixed(2)+'" y2="'+yl.toFixed(2)+'" stroke="'+color+'" stroke-width="1.4"/><rect x="'+(x-body/2).toFixed(2)+'" y="'+Math.min(yo,yc).toFixed(2)+'" width="'+body.toFixed(2)+'" height="'+Math.max(1.5,Math.abs(yo-yc)).toFixed(2)+'" rx=".5" fill="'+color+'"/>';}).join('');
+   node.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" aria-hidden="true"><path d="M0 16H280 M0 30H280 M0 44H280" stroke="rgba(120,170,195,.13)" stroke-width="1"/>'+shapes+'</svg>';
+   node.setAttribute('aria-label','شموع يابانية فعلية لآخر '+dataRows.length+' فترات من بيانات OHLC');
+  }catch(e){node.innerHTML='<span class="sas-card-candle-note">تعذر تحميل الشموع — افتح تحليل السهم</span>';}
+ });
+ await Promise.allSettled(jobs);
+}
+
 function stockCard(x){
  const raw=String(x.symbol||'—'), s=escHtml(raw);
  const cls=x.classification||{};
@@ -1136,7 +1164,7 @@ function stockCard(x){
  const preliminaryReason=String(x.channel_gate?.reason||x.radar_candidate_status||x.candidate_status||x.preliminary_reason||'اجتاز الفحص الأولي؛ بانتظار اكتمال شروط التأكيد').slice(0,220);
  const preliminaryPanel=displayStatus==='preliminary'?'<div class="sas-preliminary-reason"><b>سبب التصنيف الأولي</b><span>'+escHtml(preliminaryReason)+'</span><small>تصنيف أولي فقط — ليس توصية دخول ولا فرصة مؤكدة.</small></div>':'';
  return '<article class="stock-card '+(displayStatus==='watch'?'radar-watch-card':displayStatus==='preliminary'?'radar-preliminary-card':'radar-confirmed-card')+'"><div class="stock-head"><div><b>'+s+'</b><small>'+statusBadge+' '+(section==='large'?'سهم كبير / متوسط':'سهم صغير')+(x.created_at?' • 🕒 رُصد: '+formatTime(x.created_at):' • 🕒 وقت الرصد غير متاح')+'</small></div><span class="'+(Number(change)>=0?'up':'down')+'">'+pct(change)+'</span></div>'+preliminaryPanel+
-  '<div class="sas-card-price-trend"><div class="sas-card-candles" role="img" aria-label="حالة بيانات الشموع"><span class="sas-card-candle-note">افتح تحليل السهم لعرض شموع OHLC الفعلية</span></div><strong>
+  '<div class="sas-card-price-trend"><div class="sas-card-candles" data-symbol="'+raw+'" role="img" aria-label="شموع يابانية من بيانات OHLC"><span class="sas-card-candle-note">جارٍ تحميل بيانات الشموع…</span></div><strong>
  '<div class="stock-levels"><span>دخول <b>$'+money(price)+'</b></span><span>وقف <b>$'+money(stop)+'</b></span><span>هدف 1 <b>$'+money(target)+'</b></span></div>'+
  '<div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div>'+
  '<div class="stock-gates">'+gate(gates.sas_core!==false,'SAS Core')+gate(gates.liquidity!==false,'السيولة')+gate(gates.target!==false,'الهدف')+gate(gates.live_levels!==false,'المستويات')+'</div>'+
