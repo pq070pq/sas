@@ -801,6 +801,8 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
 async def stock_radar_cycle():
     global _radar_open_announced, _radar_no_opportunity_announced, _radar_no_opportunity_last_sent
     cycle_started = utcnow()
+    # Initialize at cycle entry so exception/early paths cannot reference it before assignment.
+    daily_app_symbols = set()
     status = market_status()
     session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
     run = RadarRun(
