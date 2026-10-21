@@ -285,10 +285,10 @@ async def _marketaux_company_news(symbol: str, days: int = 2, limit: int = 3):
                     "https://api.marketaux.com/v1/news/all",
                     params={
                         "api_token": api_key,
-                    "symbols": key,
-                    "language": "en",
-                    "filter_entities": "true",
-                    "published_after": cutoff_dt.isoformat(),
+                        "symbols": key,
+                        "language": "en",
+                        "filter_entities": "true",
+                        "published_after": cutoff_dt.isoformat(),
                         "limit": max(1, min(3, int(limit))),
                     },
                 )
