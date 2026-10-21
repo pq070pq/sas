@@ -99,7 +99,7 @@ jobs:
             set -e
             # Build provider pools from existing GitHub Secrets. Empty values are ignored by parse_keys.
             export TWELVE_DATA_API_KEY="${{ secrets.TWELVE_DATA_API_KEY }}"
-            export TWELVE_DATA_API_KEYS="$(printf '%s\n' "$TWELVE_DATA_API_KEYS" "$TWELVE_DATA_API_KEY_2" "$TWELVE_DATA_API_KEY_3" | awk 'NF' | paste -sd, -)"
+            export TWELVE_DATA_API_KEYS="$(printf '%s\n' "$TWELVE_DATA_API_KEY" "$TWELVE_DATA_API_KEY_2" "$TWELVE_DATA_API_KEY_3" | awk 'NF' | paste -sd, -)"
             export FINNHUB_API_KEY="$FINNHUB_API_KEY"
             export FINNHUB_API_KEYS="$(printf '%s\n' "$FINNHUB_API_KEY" "$FINNHUB_API_KEY_2" "$FINNHUB_API_KEY_3" | awk 'NF' | paste -sd, -)"
             export MARKETAUX_API_KEY="$MARKETAUX_API_KEY"
