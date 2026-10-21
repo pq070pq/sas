@@ -195,12 +195,16 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                 except Exception as exc:
                     attempts.append(f"FMP:{type(exc).__name__}")
         if len(rows) < minimum:
-            stooq_rows = await _stooq_ohlcv(symbol, days)
-            if len(stooq_rows) > len(rows):
-                rows = stooq_rows
-                source = "Stooq" if len(stooq_rows) >= minimum else "Stooq (partial)"
-            if len(stooq_rows) < minimum:
-                attempts.append("Stooq:insufficient")
+            try:
+                stooq_rows = await _stooq_ohlcv(symbol, days)
+                if len(stooq_rows) > len(rows):
+                    rows = stooq_rows
+                    source = "Stooq" if len(stooq_rows) >= minimum else "Stooq (partial)"
+                if len(stooq_rows) < minimum:
+                    attempts.append("Stooq:insufficient")
+            except Exception as exc:
+                # A historical-data provider failure must not turn the chart endpoint into HTTP 500.
+                attempts.append(f"Stooq:{type(exc).__name__}")
     candles = []
     for row in rows:
         try:
