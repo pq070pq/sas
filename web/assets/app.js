@@ -2782,7 +2782,6 @@ function renderGiftMessagePreview(){
  if(node)node.textContent=Number.isInteger(days)&&days>0?String(days):'7';
 }
 document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays')renderGiftMessagePreview();});
-+money(price)+'</b></span><span>وقف <b>
  '<div class="stock-meta"><span>RVOL '+(Number.isFinite(rvol)&&rvol>0?rvol.toFixed(2):'—')+'×</span><span>حجم '+(Number.isFinite(volume)&&volume>0?volume.toLocaleString('en-US'):'—')+'</span><span>R:R '+(rr!=null?Number(rr).toFixed(2):'—')+(warning?' ⚠️':'')+'</span></div>'+
  '<div class="stock-gates">'+gate(gates.sas_core!==false,'SAS Core')+gate(gates.liquidity!==false,'السيولة')+gate(gates.target!==false,'الهدف')+gate(gates.live_levels!==false,'المستويات')+'</div>'+
  ' <button type="button" title="اضغط للتحقق من شرعية السهم" aria-label="تحقق من شرعية '+s+'" class="stock-shariah stock-shariah-action '+shClass+'" style="min-height:30px;padding:5px 8px;gap:6px" onclick="event.stopPropagation();openShariah(\''+raw+'\')"><span class="stock-shariah-icon-label"><span class="stock-shariah-icon" aria-hidden="true">🕌</span><b>تحقق الشرعية</b></span><strong style="font-size:10px">'+(shClass==='sh-unknown'?'تحقق':escHtml(shLabel))+'</strong></button>'+
