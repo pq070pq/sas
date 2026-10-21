@@ -38,7 +38,7 @@
       }catch(_){canvas.hidden=true;status.textContent='تعذر تحميل بيانات الشموع حاليًا';}
     }
     const icon=card.querySelector('.stock-shariah-icon');
-    const managed=window.terminalState?.siteMedia?.['icon-shariah']?.url;
+    const managed=(typeof terminalState !== 'undefined' ? terminalState.siteMedia?.['icon-shariah']?.url : null);
     if(icon && managed && !icon.querySelector('img')){
       const img=document.createElement('img');img.src=managed;img.alt='';img.setAttribute('aria-hidden','true');img.className='sas-managed-icon-image';
       icon.replaceChildren(img);icon.classList.add('has-managed-icon');
