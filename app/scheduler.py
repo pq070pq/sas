@@ -139,6 +139,11 @@ async def scheduler():
             else:
                 logger.info("Scheduler mode: stock radar.")
                 await stock_radar_cycle()
+                try:
+                    from .speculative_radar import speculative_radar_cycle
+                    await speculative_radar_cycle()
+                except Exception:
+                    logger.exception("Speculative radar cycle failed; main radar remains unaffected.")
 
             await weekly_radar_report()
             logger.info(
