@@ -14,7 +14,11 @@ async def _stooq_ohlcv(symbol: str, days: int = 90):
             stooq_symbol = symbol.lower() + ".us"
             r = await client.get("https://stooq.com/q/d/l/", params={"s": stooq_symbol, "i": "d"})
             if r.status_code >= 400:
-                return []
+                raise httpx.HTTPStatusError(
+                    f"Stooq returned HTTP {r.status_code}",
+                    request=r.request,
+                    response=r,
+                )
             # Stooq CSV headers are capitalized (Date, Open, High, Low, Close, Volume),
             # while the analysis pipeline consumes lowercase keys. Normalize here so
             # valid fallback candles are not silently discarded by OHLCV parsing.
@@ -32,7 +36,7 @@ async def _stooq_ohlcv(symbol: str, days: int = 90):
                 rows.append(row)
             return rows[-max(20, min(int(days), 365)):]
     except Exception:
-        return []
+        raise
 
 async def analyze(symbol: str):
     base = settings.panwatch_base_url.rstrip("/")
@@ -129,7 +133,8 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                 rows, source = candidate_rows, "PanWatch (partial)"
                 attempts.append("PanWatch:insufficient")
         except Exception as exc:
-            attempts.append(f"PanWatch:{type(exc).__name__}")
+            status_code = getattr(getattr(exc, "response", None), "status_code", None)
+            attempts.append(f"PanWatch:HTTP{status_code}" if status_code else f"PanWatch:{type(exc).__name__}")
 
         if len(rows) < minimum and allow_twelve_data and settings.twelve_data_api_key:
             try:
@@ -149,7 +154,11 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                 if len(candidate_rows) > len(rows):
                     rows, source = candidate_rows, "Twelve Data (partial)" if len(candidate_rows) < minimum else "Twelve Data"
             except Exception as exc:
-                attempts.append(f"TwelveData:{type(exc).__name__}")
+                status_code = getattr(getattr(exc, "response", None), "status_code", None)
+                message = f"TwelveData:HTTP{status_code}" if status_code else f"TwelveData:{type(exc).__name__}"
+                if isinstance(exc, RuntimeError) and "Twelve Data" in str(exc):
+                    message = "TwelveData:" + str(exc)[:120]
+                attempts.append(message)
             if len(rows) >= minimum: source = "Twelve Data"
             elif len(rows): attempts.append("TwelveData:insufficient")
         if len(rows) < minimum:
@@ -182,7 +191,8 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                     else:
                         attempts.append(f"Finnhub:{payload.get('s', 'no_data')}")
                 except Exception as exc:
-                    attempts.append(f"Finnhub:{type(exc).__name__}")
+                    status_code = getattr(getattr(exc, "response", None), "status_code", None)
+                    attempts.append(f"Finnhub:HTTP{status_code}" if status_code else f"Finnhub:{type(exc).__name__}")
         if len(rows) < minimum:
             # Financial Modeling Prep provides an independent daily OHLCV source.
             # It is optional and only queried when a key is configured.
@@ -247,8 +257,9 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                 if len(stooq_rows) < minimum:
                     attempts.append("Stooq:insufficient")
             except Exception as exc:
-                # A historical-data provider failure must not turn the chart endpoint into HTTP 500.
-                attempts.append(f"Stooq:{type(exc).__name__}")
+                # Preserve provider failure detail for the chart diagnostic without turning it into HTTP 500.
+                status_code = getattr(getattr(exc, "response", None), "status_code", None)
+                attempts.append(f"Stooq:HTTP{status_code}" if status_code else f"Stooq:{type(exc).__name__}")
     candles = []
     for row in rows:
         try:
