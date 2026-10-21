@@ -80,9 +80,16 @@ jobs:
         uses: appleboy/ssh-action@v1.2.2
         env:
           MARKETAUX_API_KEY: ${{ secrets.MARKETAUX_API_KEY }}
+          MARKETAUX_API_KEY_2: ${{ secrets.MARKETAUX_API_KEY_2 }}
+          MARKETAUX_API_KEY_3: ${{ secrets.MARKETAUX_API_KEY_3 }}
+          TWELVE_DATA_API_KEY_2: ${{ secrets.TWELVE_DATA_API_KEY_2 }}
+          TWELVE_DATA_API_KEY_3: ${{ secrets.TWELVE_DATA_API_KEY_3 }}
           TWELVE_DATA_API_KEYS: ${{ secrets.TWELVE_DATA_API_KEYS }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          FINNHUB_API_KEY_2: ${{ secrets.FINNHUB_API_KEY_2 }}
+          FINNHUB_API_KEY_3: ${{ secrets.FINNHUB_API_KEY_3 }}
         with:
-          envs: MARKETAUX_API_KEY,TWELVE_DATA_API_KEYS
+          envs: MARKETAUX_API_KEY,MARKETAUX_API_KEY_2,MARKETAUX_API_KEY_3,TWELVE_DATA_API_KEY_2,TWELVE_DATA_API_KEY_3,TWELVE_DATA_API_KEYS,FINNHUB_API_KEY,FINNHUB_API_KEY_2,FINNHUB_API_KEY_3
           host: ${{ secrets.OVH_HOST }}
           username: ${{ secrets.OVH_USER || 'root' }}
           key_path: ${{ runner.temp }}/ovh_key
@@ -90,8 +97,13 @@ jobs:
           command_timeout: 30m
           script: |
             set -e
+            # Build provider pools from existing GitHub Secrets. Empty values are ignored by parse_keys.
             export TWELVE_DATA_API_KEY="${{ secrets.TWELVE_DATA_API_KEY }}"
-            export TWELVE_DATA_API_KEYS="$TWELVE_DATA_API_KEYS"
+            export TWELVE_DATA_API_KEYS="$(printf '%s\n' "$TWELVE_DATA_API_KEYS" "$TWELVE_DATA_API_KEY_2" "$TWELVE_DATA_API_KEY_3" | awk 'NF' | paste -sd, -)"
+            export FINNHUB_API_KEY="$FINNHUB_API_KEY"
+            export FINNHUB_API_KEYS="$(printf '%s\n' "$FINNHUB_API_KEY" "$FINNHUB_API_KEY_2" "$FINNHUB_API_KEY_3" | awk 'NF' | paste -sd, -)"
+            export MARKETAUX_API_KEY="$MARKETAUX_API_KEY"
+            export MARKETAUX_API_KEYS="$(printf '%s\n' "$MARKETAUX_API_KEY" "$MARKETAUX_API_KEY_2" "$MARKETAUX_API_KEY_3" | awk 'NF' | paste -sd, -)"
             cd /opt/saspro
             # إزالة قفل Git عالق من نشر سابق؛ النشر نفسه محمي بـ concurrency ولا توجد عملية Git متزامنة مقصودة.
             if [ -f .git/index.lock ]; then
