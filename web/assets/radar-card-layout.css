@@ -68,3 +68,38 @@
   .stock-card .stock-levels > span { min-height: 60px; padding: 7px 2px; border-radius: 10px; }
   .stock-card .stock-levels > span b { font-size: 13px; }
 }
+
+
+/* Follow-up: managed Shariah icon sizing and honest chart-data state */
+.stock-card .stock-shariah-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+}
+.stock-card .stock-shariah-icon img.sas-managed-icon-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.stock-card .sas-card-candles {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 48px;
+  padding: 4px 8px;
+  border: 1px solid rgba(91, 190, 205, .13);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(7, 26, 42, .9), rgba(2, 11, 20, .96));
+  overflow: hidden;
+}
+.stock-card .sas-card-candle-note {
+  color: #8faab9;
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: center;
+}
