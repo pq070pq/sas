@@ -514,9 +514,9 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
     ]
     report = [line for line in report if line != ""]
 
-    report += ["", "━━━━━━━━━━━━━━━━━━", "", "📰 <b>لماذا يتحرك السهم؟</b>"]
     if catalysts:
         published, headline, source, url = catalysts[0]
+        report += ["", "━━━━━━━━━━━━━━━━━━", "", "📰 <b>لماذا يتحرك السهم؟</b>"]
         report.append(f"🔎 <a href=\"{esc(url)}\">{esc(headline)}</a>")
         report.append(f"📚 المصدر: {esc(source)} | {published.strftime('%Y-%m-%d %H:%M UTC')}")
         report.append("📌 محفز محتمل وفق الخبر المنشور؛ لا يمكن الجزم بأنه سبب الحركة وحده.")
@@ -531,11 +531,9 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
                 if event:
                     break
         if event:
+            report += ["", "━━━━━━━━━━━━━━━━━━", "", "📰 <b>حدث مرتبط بالسهم</b>"]
             report.append(f"🔎 {esc(event)}")
             report.append("📌 حدث وارد في بيانات الرادار؛ تحقق من المصدر والتوقيت قبل ربطه بحركة السعر.")
-        else:
-            report.append("⚪ لا يوجد خبر حديث موثق في بيانات الرادار يفسّر الحركة.")
-            report.append("لن ننسب الارتفاع إلى أرباح أو خبر من دون مصدر وتاريخ قابلين للتحقق.")
 
     # Show reverse-split classification only when source data actually confirms an event.
     # Missing data is not a reason to print an uncertainty warning in every radar report.
