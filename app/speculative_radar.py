@@ -174,7 +174,9 @@ async def _fmp_float_shares(client: httpx.AsyncClient, symbol: str) -> float | N
                     continue
                 value = _number(
                     row.get("floatShares")
+                    or row.get("sharesFloat")
                     or row.get("float_shares")
+                    or row.get("floatSharesOutstanding")
                     or row.get("freeFloat")
                     or row.get("float")
                 )
