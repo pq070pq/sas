@@ -324,11 +324,45 @@ jobs:
 
             set -e
 
-            # تشخيص حي اختياري: يُفعّل فقط عندما يحتوي Commit على RADAR DIAGNOSTIC.
-            # لا يفشل النشر إذا تعذر الفحص؛ الهدف قراءة عدد المرشحين والفرص الفعلية.
+            # تشخيص حي اختياري: فحص مصادر الشموع ثم تشغيل دورة الرادار.
+            # لا نطبع أي مفاتيح أو ترويسات اعتماد؛ نسجل المصدر وعدد الشموع ورموز الأخطاء فقط.
             if git log -1 --pretty=%s | grep -q "RADAR DIAGNOSTIC"; then
-              echo "===== SAS PRO LIVE RADAR DIAGNOSTIC ====="
+              echo "===== SAS PRO LIVE OHLCV SOURCE DIAGNOSTIC ====="
               set +e
+              timeout 180s docker compose exec -T saspro python - <<'PY'
+            import asyncio, json
+            from app.panwatch import ohlcv
+            from app.twelve_guard import status as twelve_status
+            from app.config import settings
+
+            async def main():
+                print(json.dumps({
+                    "configured_twelve_data_keys": len([
+                        x.strip() for x in str(settings.twelve_data_api_keys or settings.twelve_data_api_key or "").replace(";", ",").split(",") if x.strip()
+                    ]),
+                    "configured_finnhub_keys": len([
+                        x.strip() for x in str(settings.finnhub_api_keys or settings.finnhub_api_key or "").replace(";", ",").split(",") if x.strip()
+                    ]),
+                    "twelve_data_guard": await twelve_status(),
+                }, ensure_ascii=False, default=str))
+                for symbol in ("BDTX", "BRBS", "AAPL"):
+                    try:
+                        result = await asyncio.wait_for(ohlcv(symbol, days=90, interval="1d", min_candles=20), timeout=45)
+                        print(json.dumps({
+                            "symbol": symbol,
+                            "source": result.get("source"),
+                            "candles": len(result.get("candles") or []),
+                            "available": result.get("available"),
+                            "diagnostic": result.get("diagnostic"),
+                        }, ensure_ascii=False, default=str))
+                    except Exception as exc:
+                        print(json.dumps({"symbol": symbol, "error": type(exc).__name__}, ensure_ascii=False))
+            asyncio.run(main())
+            PY
+              candle_rc=$?
+              echo "OHLCV_DIAGNOSTIC_RC=$candle_rc"
+              echo "===== END SAS PRO LIVE OHLCV SOURCE DIAGNOSTIC ====="
+              echo "===== SAS PRO LIVE RADAR DIAGNOSTIC ====="
               timeout 600s docker compose exec -T saspro python -c 'import asyncio,json; from app.scanner import scan_us_low_price_stocks; r=asyncio.run(scan_us_low_price_stocks(force_refresh=True)); print(json.dumps({"stocks":[x.get("symbol") for x in r.get("stocks",[])],"diagnostics":r.get("diagnostics",{})},ensure_ascii=False))'
               radar_rc=$?
               echo "RADAR_DIAGNOSTIC_RC=$radar_rc"
