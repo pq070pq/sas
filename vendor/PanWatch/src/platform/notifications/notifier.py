@@ -1,6 +1,11 @@
 import logging
 import os
 import re
+from html import escape
+from copy import deepcopy
+from dataclasses import replace
+import hashlib
+import json
 
 import apprise
 import asyncio
@@ -204,12 +209,14 @@ class NotifierManager:
         self._ap = apprise.Apprise()
         self._custom_channels: list[tuple[str, dict]] = []
         self._channel_count = 0
+        self._channel_specs: list[tuple[str, dict]] = []
         # 钉钉关键字（可选）：若群机器人启用“关键字”安全校验，则自动附加
         self._dingtalk_keywords: set[str] = set()
         self.policy = policy
 
     def add_channel(self, channel_type: str, config: dict):
         """添加通知渠道"""
+        previous_count = self._channel_count
         try:
             if channel_type in _APPRISE_TYPES:
                 url = build_apprise_url(channel_type, config)
@@ -233,6 +240,19 @@ class NotifierManager:
                 logger.info(f"注册自定义通知渠道: {channel_type}")
         except ValueError as e:
             logger.error(f"注册通知渠道失败: {e}")
+        if self._channel_count > previous_count:
+            self._channel_specs.append((channel_type, deepcopy(config)))
+
+    def delivery_targets(self):
+        """Single-channel senders without hidden retries; secrets stay in memory."""
+        targets = []
+        for kind, config in self._channel_specs:
+            key = hashlib.sha256(json.dumps([kind, config], sort_keys=True).encode()).hexdigest()
+            sender = NotifierManager(replace(self.policy, retry_attempts=0) if self.policy else None)
+            sender.add_channel(kind, config)
+            if key not in {target[0] for target in targets}:
+                targets.append((key, sender))
+        return targets
 
     async def notify(self, title: str, content: str, images: list[str] | None = None):
         """向所有已注册渠道发送通知（忽略错误）"""
@@ -364,11 +384,8 @@ class NotifierManager:
     async def _send_telegram(self, config: dict, title: str, content: str):
         """Telegram Bot API（支持代理）
 
-        Telegram 老 Markdown 解析很脆弱:
-        - 不认 `**粗体**`(只认 `*粗体*`),GitHub 风格会导致 Can't find end of entity
-        - 不认 `### 标题`(把 # 当普通字符,但 ### 后面可能被截断)
-        - 单条上限 4096 字符,超过会被截断破坏实体
-        发送前做兼容性预处理 + 截断。
+        先将正文转为纯文本并截断，再转义为 HTML，仅保留标题加粗。
+        正文中的下划线等符号不会参与 Markdown 解析，截断也不会切开 HTML 实体。
         """
         bot_token = config.get("bot_token", "")
         chat_id = config.get("chat_id", "")
@@ -379,12 +396,9 @@ class NotifierManager:
             raise ValueError("Telegram 需要 bot_token 和 chat_id")
 
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-        # 用现成的 sanitize_for_telegram 把 markdown 完全剥成纯文本,
-        # 避免 `**粗体**` / `## 标题` / 未闭合实体导致 Telegram parse 失败。
-        # 标题外层手动加 `*...*` 让其加粗(Telegram 老 Markdown 只认单星号)。
         safe_title = sanitize_for_telegram(title) if title else ""
         safe_content = sanitize_for_telegram(content)
-        text = f"*{safe_title}*\n\n{safe_content}" if safe_title else safe_content
+        text = f"{safe_title}\n\n{safe_content}" if safe_title else safe_content
         # Telegram 单条上限 4096,留点 buffer 给末尾提示
         if len(text) > 3900:
             # 正文末尾若带详情链接(经 sanitize 后已是裸 URL),直接截断会把它砍掉 →
@@ -395,10 +409,15 @@ class NotifierManager:
             else:
                 notice = "\n\n…内容过长已截断,完整报告请在 PanWatch 查看"
             text = text[: 3900 - len(notice)].rstrip() + notice
+        if safe_title:
+            heading, separator, body = text.partition("\n\n")
+            text = f"<b>{escape(heading)}</b>{separator}{escape(body)}"
+        else:
+            text = escape(text)
         payload = {
             "chat_id": chat_id,
             "text": text,
-            "parse_mode": "Markdown",
+            "parse_mode": "HTML",
         }
 
         # 配置代理

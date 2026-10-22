@@ -44,11 +44,15 @@ def normalize_suggestion(suggestion: dict, *, agent_name: str = "") -> dict:
             raw = "reduce"
 
     action = ACTION_ALIASES.get(raw, raw)
-    if action == "alert" or review:
+    separated = result.get("outlook") in {"bullish", "neutral", "bearish"} and result.get("execution_status") in {"conditional", "blocked", "not_applicable"}
+    if action == "alert" or (review and not separated):
         action = "watch"
     if action not in ACTION_LABELS:
         action = "watch"
         review = True  # An unrecognized answer is not an actionable recommendation.
+
+    if separated and action in {"watch", "hold", "avoid"}:
+        result.update(execution_status="not_applicable", quantity=None)
 
     result.update(
         action=action,
@@ -64,4 +68,5 @@ def normalize_suggestion(suggestion: dict, *, agent_name: str = "") -> dict:
 def suggestion_state(suggestion: dict) -> dict:
     return {key: suggestion[key] for key in (
         "status", "review_required", "attention_required", "should_alert", "rating_raw",
+        "outlook", "confidence", "execution_status", "execution_constraints",
     ) if key in suggestion}

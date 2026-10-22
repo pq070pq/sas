@@ -19,6 +19,8 @@ from src.modules.automation.agent_catalog import (
     infer_agent_kind,
 )
 from src.web.errors import api_error
+from src.modules.research.orchestration.models import ResearchRun
+from src.modules.research.orchestration.reporting import build_report
 
 
 def _format_datetime(dt) -> str:
@@ -54,6 +56,7 @@ class HistoryResponse(BaseModel):
     analysis_date: str
     title: str
     content: str
+    research_report: dict | None = None
     suggestions: dict | None = (
         None  # 个股建议 {symbol: {action, action_label, reason, should_alert}}
     )
@@ -69,6 +72,32 @@ class HistoryResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+def _research_reports(records, db):
+    """Project earlier graph runs at read time; never rewrite historical records."""
+    ids = [(r.raw_data or {}).get("research_run_id") for r in records
+           if (r.raw_data or {}).get("engine") == "langgraph" and ((r.raw_data or {}).get("research_report") or {}).get("version") != 3]
+    runs = {r.id: r for r in db.query(ResearchRun).filter(ResearchRun.id.in_(ids)).all()} if ids else {}
+    reports = {}
+    for record in records:
+        raw = record.raw_data or {}
+        report = raw.get("research_report")
+        if isinstance(report, dict) and report.get("version") == 3:
+            reports[record.id] = report
+        elif (run := runs.get(raw.get("research_run_id"))) and run.agent_name == record.agent_name and isinstance(run.payload, dict) and "completion" in run.payload:
+            try:
+                reports[record.id] = build_report(record.agent_name, run.payload, scope=raw.get("scope", []), as_of=run.as_of,
+                    language="en-US" if any(h in record.content for h in ("## Research conclusions", "## Market overview", "## Overnight markets")) else "zh-CN",
+                    timezone=Settings().app_timezone, elapsed_seconds=max(0, (run.finished_at - run.created_at).total_seconds()) if run.finished_at and run.created_at else None)
+                if isinstance(report, dict) and report.get("version") == 1:
+                    reports[record.id]["body"] = report["content"]
+                    reports[record.id]["content"] = reports[record.id]["action_summary"] + "\n\n" + report["content"]
+            except (KeyError, ValueError, TypeError):
+                logger.warning("Unable to project research report for history %s", record.id)
+        if record.id not in reports and isinstance(report, dict) and report.get("version") in {1, 2}:
+            reports[record.id] = report
+    return reports
 
 
 @router.get("")
@@ -124,6 +153,7 @@ def list_history(
         .all()
     )
 
+    reports = _research_reports(records, db)
     return [
         HistoryResponse(
             id=r.id,
@@ -132,7 +162,8 @@ def list_history(
             stock_symbol=r.stock_symbol,
             analysis_date=r.analysis_date,
             title=r.title or "",
-            content=r.content,
+            content=reports.get(r.id, {}).get("content", r.content),
+            research_report=reports.get(r.id),
             suggestions=r.raw_data.get("suggestions") if r.raw_data else None,
             news=r.raw_data.get("news") if r.raw_data else None,
             quality_overview=r.raw_data.get("quality_overview") if r.raw_data else None,
@@ -157,6 +188,7 @@ def get_history_detail(
     if not record:
         raise api_error(404, "analysis_record_not_found", "记录不存在")
 
+    report = _research_reports([record], db).get(record.id)
     return HistoryResponse(
         id=record.id,
         agent_name=record.agent_name,
@@ -164,7 +196,8 @@ def get_history_detail(
         stock_symbol=record.stock_symbol,
         analysis_date=record.analysis_date,
         title=record.title or "",
-        content=record.content,
+        content=report["content"] if report else record.content,
+        research_report=report,
         suggestions=record.raw_data.get("suggestions") if record.raw_data else None,
         news=record.raw_data.get("news") if record.raw_data else None,
         quality_overview=record.raw_data.get("quality_overview")
