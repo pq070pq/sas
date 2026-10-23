@@ -15,6 +15,7 @@ from .market import quote
 from .perpequities_provider import get_equity_perpetuals
 from .twelve_guard import call as twelve_call
 from .smart_memory import SmartMemory
+from .tradingview_mcp import discover_tradingview_mcp
 
 # رادار SAS PRO:
 # - السوق: NASDAQ + NYSE + AMEX
@@ -801,7 +802,7 @@ async def discover_low_price_stocks(price_min=MIN_PRICE, price_max=MAX_PRICE):
       4) high-dollar-volume names.
     Detailed OHLCV confirmation happens after staging.
     """
-    source_names = ("nasdaq", "yahoo_gainers", "openterminal", "twelvedata", "panwatch", "licensed")
+    source_names = ("nasdaq", "yahoo_gainers", "openterminal", "twelvedata", "panwatch", "licensed", "tradingview_mcp")
     source_counts = {name: 0 for name in source_names}
     source_errors = {}
 
@@ -814,6 +815,7 @@ async def discover_low_price_stocks(price_min=MIN_PRICE, price_max=MAX_PRICE):
             _discover_twelvedata(client, price_min, price_max),
             _discover_panwatch(client, price_min, price_max),
             _discover_licensed_market_data(client, price_min, price_max),
+            discover_tradingview_mcp(price_min, price_max),
             return_exceptions=True,
         )
 
