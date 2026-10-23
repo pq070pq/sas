@@ -77,3 +77,6 @@
 @keyframes institutionalNewsIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:680px){.institutional-news-feed{grid-template-columns:1fr;gap:9px}.institutional-news-card{padding:13px}.institutional-news-title{font-size:13px}.institutional-news-card p{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.institutional-news-card{animation:none;transition:none}}
+
+/* Keep source providers internal to the feed; hide outbound source cards from users. */
+.institutional-source-heading,.institutional-interactive-grid{display:none!important}
