@@ -1,7 +1,6 @@
-"""Experimental, isolated Finviz-style intraday candidate filter.
+"""Finviz-style intraday speculative filter with strict analyst-target validation.
 
-This module is intentionally not wired into the production scanner. It evaluates
-only supplied observations and fails closed when float/open-price data is missing.
+Missing float, session-open, or analyst-target evidence fails closed.
 """
 from __future__ import annotations
 
