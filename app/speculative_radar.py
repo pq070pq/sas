@@ -42,6 +42,8 @@ def build_speculative_report(candidate: dict) -> tuple[str | None, dict]:
         float_shares=_number(candidate.get("float_shares")),
         volume=_number(candidate.get("volume")),
         session_open=_number(candidate.get("session_open")),
+        analyst_target=_number(candidate.get("analyst_target")),
+        analyst_count=int(candidate.get("analyst_count")) if str(candidate.get("analyst_count") or "").isdigit() else None,
     )
     if not result["eligible"]:
         return None, result
@@ -150,6 +152,31 @@ async def _finnhub_session_quote(client: httpx.AsyncClient, symbol: str) -> dict
     return None
 
 
+async def _fmp_analyst_target(client: httpx.AsyncClient, symbol: str) -> dict | None:
+    """Read the most recent FMP price-target summary; missing evidence fails closed."""
+    for key in _configured_keys("fmp_api_key", "fmp_api_keys"):
+        try:
+            response = await client.get("https://financialmodelingprep.com/stable/price-target-summary", params={"symbol": symbol, "apikey": key}, timeout=8)
+            if response.status_code in (401, 403, 404, 429):
+                continue
+            response.raise_for_status()
+            payload = response.json()
+            rows = payload if isinstance(payload, list) else (payload.get("data") or [])
+            for row in rows:
+                if not isinstance(row, dict) or str(row.get("symbol") or symbol).upper() != symbol:
+                    continue
+                for tk, ck, period in (("lastMonthAvgPriceTarget", "lastMonthCount", "شهر"), ("lastQuarterAvgPriceTarget", "lastQuarterCount", "ربع سنة")):
+                    target = _number(row.get(tk))
+                    try:
+                        count = int(row.get(ck) or 0)
+                    except (TypeError, ValueError):
+                        count = 0
+                    if target and count >= 3:
+                        return {"target": target, "count": count, "period": period}
+        except Exception as exc:
+            logger.debug("SPECULATIVE_FMP_TARGET_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+    return None
+
 async def _fmp_float_shares(client: httpx.AsyncClient, symbol: str) -> float | None:
     """Fetch actual float shares from FMP; never substitute shares outstanding."""
     cached = _FLOAT_CACHE.get(symbol)
@@ -208,7 +235,7 @@ async def speculative_radar_cycle() -> dict:
         return {"status": "outside_regular_session", "sent": 0}
 
     try:
-        discovered = await discover_low_price_stocks(price_min=1.00, price_max=10.00)
+        discovered = await discover_low_price_stocks(price_min=0.30, price_max=6.00)
     except Exception:
         logger.exception("SPECULATIVE_RADAR_DISCOVERY_FAILED")
         return {"status": "discovery_failed", "sent": 0}
@@ -218,7 +245,7 @@ async def speculative_radar_cycle() -> dict:
     shortlist = [
         row for row in discovered
         if isinstance(row, dict)
-        and 1.00 <= (_number(row.get("price")) or 0) <= 10.00
+        and 0.30 <= (_number(row.get("price")) or 0) <= 6.00
         and (_number(row.get("volume")) or 0) > 500_000
         and str(row.get("symbol") or "").strip()
     ]
@@ -239,17 +266,21 @@ async def speculative_radar_cycle() -> dict:
                 price = quote["price"]
                 session_open = quote["session_open"]
                 change = ((price - session_open) / session_open) * 100
-                if not (1.00 <= price <= 10.00) or change < 10.0:
+                if not (0.30 <= price <= 6.00) or change < 10.0:
                     return {"status": "price_or_momentum_filtered", "symbol": symbol}
-                float_shares = await _fmp_float_shares(client, symbol)
+                float_shares, analyst_target = await asyncio.gather(_fmp_float_shares(client, symbol), _fmp_analyst_target(client, symbol))
                 if float_shares is None:
                     return {"status": "float_unavailable", "symbol": symbol}
+                if analyst_target is None:
+                    return {"status": "analyst_target_unavailable", "symbol": symbol}
                 return await publish_speculative_candidate({
                     "symbol": symbol,
                     "price": price,
                     "float_shares": float_shares,
                     "volume": _number(row.get("volume")),
                     "session_open": session_open,
+                    "analyst_target": analyst_target["target"],
+                    "analyst_count": analyst_target["count"],
                 })
 
         results = await asyncio.gather(*(check(row) for row in shortlist), return_exceptions=True)
