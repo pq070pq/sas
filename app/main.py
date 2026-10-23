@@ -504,7 +504,18 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
             catalysts.append((published, headline, source, url))
     catalysts.sort(key=lambda row: row[0], reverse=True)
 
-    report = ["🚀 <b>SAS PRO RADAR | تنبيه زخم</b>", ""]
+    radar_type = str(
+        tech.get("radar_type")
+        or classification.get("radar_type")
+        or "intraday_speculative"
+    ).strip().lower()
+    radar_type_labels = {
+        "intraday_speculative": "مضاربي لحظي",
+        "analyst_target": "أهداف المحللين",
+        "technical_breakout": "اختراق فني",
+        "accumulation": "تجميع مبكر",
+    }
+    report = [f"🚀 <b>SAS PRO RADAR | {esc(radar_type_labels.get(radar_type, 'تقرير الرادار'))}</b>", ""]
     report += [
         f"💎 <b>السهم:</b> {esc(symbol.upper())}",
         f"💵 <b>السعر:</b> {_money(price) if price is not None else 'غير متاح'}"
@@ -588,9 +599,32 @@ def build_report(symbol: str, q: dict, tech: dict, classification: dict | None =
                   if entry is not None or price is not None else "🔵 السعر المرجعي: غير متاح")
     report.append(f"🛑 الوقف الفني: {_money(stop)}" if stop is not None else "🛑 الوقف الفني: غير متوفر")
     if targets:
-        report.append("🎯 الأهداف: " + " | ".join(_money(x) for x in targets[:3]))
+        report.append("🎯 <b>الأهداف الفنية:</b> " + " | ".join(_money(x) for x in targets[:3]))
     else:
-        report.append("🎯 الأهداف: غير مؤكدة — لا يوجد هدف فني معتمد")
+        report.append("🎯 <b>الأهداف الفنية:</b> غير مؤكدة — لا يوجد هدف فني معتمد")
+
+    # Analyst consensus is separate from technical levels. Show only explicit
+    # source-backed fields supplied by the caller; never infer or fabricate them.
+    analyst_target = num(first(
+        tech.get("analyst_target_price"),
+        tech.get("mean_analyst_target"),
+        tech.get("price_target_mean"),
+    ))
+    analyst_count = num(first(tech.get("analyst_count"), tech.get("number_of_analysts")))
+    analyst_asof = first(tech.get("analyst_target_asof"), tech.get("analyst_updated_at"))
+    analyst_source = first(tech.get("analyst_target_source"), tech.get("analyst_source"))
+    if analyst_target is not None and analyst_target > 0:
+        upside = ((analyst_target / price) - 1) * 100 if price else None
+        report.append("🧑‍💼 <b>هدف المحللين (منفصل عن الهدف الفني):</b> " + _money(analyst_target))
+        if upside is not None:
+            report.append(f"📈 الارتفاع النظري إلى متوسط الهدف: {upside:+.1f}%")
+        if analyst_count is not None:
+            report.append(f"👥 عدد المحللين: {int(analyst_count)}")
+        if analyst_asof:
+            report.append("🕒 تاريخ بيانات الهدف: " + esc(analyst_asof))
+        if analyst_source:
+            report.append("📚 مصدر هدف المحللين: " + esc(analyst_source))
+        report.append("⚠️ هدف المحللين تقدير بعيد/متوسط المدى، وليس إشارة دخول لحظية.")
     if rr is not None:
         report.append(f"⚖️ العائد/المخاطرة إلى الهدف الأول: {rr:.2f} : 1")
     report.append("⚠️ لا تطارد السعر؛ انتظر اكتمال التأكيد الفني والسيولة.")
