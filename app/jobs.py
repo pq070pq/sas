@@ -549,6 +549,7 @@ def _compact_radar_report(symbol, quote_data, tech, classification, row):
     lines = [
         "⚡ <b>SAS PRO | رصد 📡</b>",
         f"🔹 <b>الرمز:</b> {html.escape(str(symbol))} 🇺🇸",
+        "🏷️ <b>نوع الرصد:</b> رادار SAS الفني — فرصة مؤكدة اجتازت بوابة القناة",
         f"📈 <b>نوع الحركة:</b> {html.escape(move_type)}",
     ]
     if price is not None:
