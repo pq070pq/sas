@@ -14,7 +14,6 @@
 <link rel="stylesheet" href="/assets/speculative-radar-card.css?v=cache-bypass-20261022-9">
 <link rel="stylesheet" href="/assets/radar-card-layout.css?v=cache-bypass-20261022-9">
 <link rel="stylesheet" href="/assets/radar-card-candles-managed-icon.css?v=cache-bypass-20261022-9">
-<link rel="stylesheet" href="/assets/institutional-radar-cards.css?v=20261023-1">
 <script src="/assets/radar-card-candles-managed-icon.js?v=cache-bypass-20261022-9" defer></script>
 <script src="/assets/radar-cycle-20261020.js?v=cache-bypass-20261022-9" defer></script>
 </head>
@@ -92,7 +91,6 @@
       <button class="active" data-tab="dashboard" onclick="switchTerminalTab('dashboard')" aria-label="الرئيسية"><span class="terminal-tab-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M4 14.5 16 4l12 10.5v13H19v-8h-6v8H4z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M11 10.5h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".7"/></svg></span><span class="terminal-tab-label">الرئيسية</span></button>
       <button data-tab="radar" onclick="switchTerminalTab('radar')" aria-label="الرادار"><span class="terminal-tab-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="12" stroke="currentColor" stroke-width="1.8" opacity=".7"/><circle cx="16" cy="16" r="7.5" stroke="currentColor" stroke-width="1.5" opacity=".55"/><circle cx="16" cy="16" r="2" fill="currentColor"/><path d="M16 16 25 7M16 4v3M28 16h-3M16 28v-3M4 16h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16 16 24 8a11 11 0 0 1 1 8z" fill="currentColor" opacity=".2"/></svg></span><span class="terminal-tab-label">الرادار</span></button>
       <button data-tab="search" onclick="switchTerminalTab('search')" aria-label="بحث"><span class="terminal-tab-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><circle cx="13.5" cy="13.5" r="8.5" stroke="currentColor" stroke-width="2.5"/><path d="m20 20 7 7" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M9 13.5h9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".5"/></svg></span><span class="terminal-tab-label">بحث</span></button>
-      <button data-tab="institutional" onclick="switchTerminalTab('institutional')" aria-label="توصيات المؤسسات"><span class="terminal-tab-icon" aria-hidden="true">🏦</span><span class="terminal-tab-label">توصيات المؤسسات</span></button>
       <button data-tab="account" onclick="switchTerminalTab('account')" aria-label="الحساب"><span class="terminal-tab-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="10" r="5" stroke="currentColor" stroke-width="2.2"/><path d="M5 27c.7-6.1 4.5-9.2 11-9.2S26.3 20.9 27 27" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1" opacity=".25"/></svg></span><span class="terminal-tab-label">الحساب</span></button>
     </nav>
     <section id="sasMarketPulse" class="sas-market-pulse" aria-label="أخبار ومؤشرات السوق الأمريكي">
@@ -220,45 +218,6 @@
       <section id="tab-radar" class="terminal-tab"><div class="terminal-panel-head"><div><span class="eyebrow">SAS PRO RADAR</span><h2>بيانات الأسهم المرصودة</h2><small>🕒 يوضح لك وقت تنفيذ آخر رصد فعلي بتوقيت الرياض</small><small>السعر • الحركة • الحجم • RVOL • الدخول • الوقف • الهدف • R:R</small></div><button id="radarScanBtn" type="button" class="radar-scan-action" onclick="runRadar()" aria-label="مسح الأسهم"><span class="radar-scan-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><circle cx="14" cy="14" r="9.5" stroke="currentColor" stroke-width="1.8"/><circle cx="14" cy="14" r="4.5" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/><path d="M14 4.5v4M23.5 14h-4M14 23.5v-4M4.5 14h4M21 21l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 14 20.5 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span class="radar-scan-copy"><b>مسح الأسهم</b><small>ابدأ فحص الفرص الآن</small></span><span class="radar-scan-arrow" aria-hidden="true">‹</span></button></div><div id="radarDiagnostics" class="diagnostics"></div><div id="radarCandidates" class="radar-candidates" hidden></div><div id="radarGrid" class="stock-grid"></div></section>
       <section id="tab-search" class="terminal-tab"><div class="search-terminal"><input id="symbolSearch" maxlength="12" autocomplete="off" placeholder="ابحث عن رمز السهم مثل NVDA أو AAPL"><button id="analyzeSymbolBtn" type="button" class="primary-btn symbol-action-btn analyze-action-btn" onclick="analyzeSymbol()" aria-label="تحليل السهم"><span class="symbol-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 9 12l3.5 3.5L20 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7H20v5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="symbol-action-copy"><b>تحليل السهم</b><small>السعر • الرسم • المؤشرات</small></span><span class="symbol-action-arrow" aria-hidden="true">‹</span></button><button id="shariahSearchBtn" type="button" class="secondary-btn shariah-search-btn shariah-search-btn-pro" onclick="searchShariah()" aria-label="بحث الشرعية"><span class="shariah-search-btn-orbit" aria-hidden="true"><span class="shariah-search-btn-icon"><svg viewBox="0 0 24 24" fill="none"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.5 4.5M10.8 7.2v7.2M7.2 10.8h7.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span></span><span class="shariah-search-btn-copy"><b>بحث الشرعية</b><small>تحقق من حالة السهم والمصادر المنشورة</small></span><span class="shariah-search-btn-arrow" aria-hidden="true">⌕</span></button></div><div id="shariahSearchResult" class="shariah-search-result" hidden></div><div id="symbolResult" class="symbol-result"><div class="empty-state">اكتب رمز السهم لعرض السعر، الرسم، المستويات، الأخبار وتحليل SAS PRO، أو استخدم «بحث الشرعية» للتحقق المستقل.</div></div></section>
 
-      <section id="tab-institutional" class="terminal-tab">
-        <div class="institutional-radar-shell">
-          <div class="institutional-radar-topline"><span class="institutional-live-orb"></span><span>SAS PRO • INSTITUTIONAL RADAR</span><span class="institutional-topline-chip">مركز المصادر</span></div>
-          <header class="institutional-hero">
-            <div class="institutional-hero-art" aria-hidden="true"><span class="institutional-orbit orbit-a"></span><span class="institutional-orbit orbit-b"></span><span class="institutional-bank-emoji">🏦</span><span class="institutional-hero-spark spark-a">✦</span><span class="institutional-hero-spark spark-b">✧</span></div>
-            <div class="institutional-hero-copy"><span class="institutional-kicker">ANALYST ACTIONS • PRICE TARGETS</span><h2>رادار توصيات المؤسسات</h2><p>تابع ترقيات المحللين وتخفيضاتهم والأسعار المستهدفة من مصادر متخصصة — كل مصدر في بطاقة تفاعلية مستقلة.</p></div>
-          </header>
-          <div class="institutional-quick-stats" aria-label="معلومات القسم">
-            <div><span class="institutional-stat-icon">↗</span><small>نوع البيانات</small><b>تقييمات المحللين</b></div>
-            <div><span class="institutional-stat-icon">◎</span><small>متابعة</small><b>الأسعار المستهدفة</b></div>
-            <div><span class="institutional-stat-icon">⏱</span><small>حالة التحديث</small><b>مصادر خارجية</b></div>
-          </div>
-          <div class="institutional-section-heading"><div><span class="institutional-heading-kicker">ANALYST RATINGS & PRICE TARGETS</span><h3>توصيات المحللين والأهداف السعرية</h3></div><button type="button" class="institutional-refresh-button" onclick="loadInstitutionalRecommendations(true)">↻ تحديث</button></div>
-          <div id="institutionalRecommendationsFeed" class="institutional-news-feed" aria-live="polite"><div class="institutional-feed-loading"><span class="institutional-live-orb"></span> جارٍ جلب توصيات المحللين والأهداف السعرية…</div></div>
-          <div class="institutional-section-heading institutional-source-heading"><div><span class="institutional-heading-kicker">SOURCE EXPLORER</span><h3>مصادر إضافية</h3></div><span class="institutional-heading-pulse">للاطلاع فقط</span></div>
-          <div class="institutional-interactive-grid">
-            <a class="institutional-feature-card institutional-card-investing" href="https://www.investing.com/equities/analyst-ratings" target="_blank" rel="noopener noreferrer">
-              <span class="institutional-card-glow"></span><span class="institutional-card-top"><span class="institutional-card-symbol">📊</span><span class="institutional-card-open">↗</span></span>
-              <span class="institutional-card-index">SOURCE 01</span><b class="institutional-card-title">Investing.com</b><span class="institutional-card-desc">تصنيفات المحللين والأسعار المستهدفة للأسهم.</span>
-              <span class="institutional-card-tags"><i>تصنيف</i><i>سعر مستهدف</i></span><span class="institutional-card-cta">استكشف التوصيات <b>←</b></span>
-            </a>
-            <a class="institutional-feature-card institutional-card-marketbeat" href="https://www.marketbeat.com/ratings/" target="_blank" rel="noopener noreferrer">
-              <span class="institutional-card-glow"></span><span class="institutional-card-top"><span class="institutional-card-symbol">📈</span><span class="institutional-card-open">↗</span></span>
-              <span class="institutional-card-index">SOURCE 02</span><b class="institutional-card-title">MarketBeat</b><span class="institutional-card-desc">تغيّرات تقييمات المحللين والترقيات والتخفيضات.</span>
-              <span class="institutional-card-tags"><i>ترقيات</i><i>تخفيضات</i></span><span class="institutional-card-cta">استكشف التوصيات <b>←</b></span>
-            </a>
-            <a class="institutional-feature-card institutional-card-tipranks" href="https://www.tipranks.com/" target="_blank" rel="noopener noreferrer">
-              <span class="institutional-card-glow"></span><span class="institutional-card-top"><span class="institutional-card-symbol">🧭</span><span class="institutional-card-open">↗</span></span>
-              <span class="institutional-card-index">SOURCE 03</span><b class="institutional-card-title">TipRanks</b><span class="institutional-card-desc">أبحاث المحللين وتقييماتهم وتوقعات الأسعار.</span>
-              <span class="institutional-card-tags"><i>أبحاث</i><i>توقعات</i></span><span class="institutional-card-cta">استكشف التوصيات <b>←</b></span>
-            </a>
-          </div>
-          <section class="institutional-banks-strip" aria-label="البنوك الاستثمارية التي نتابع توصياتها">
-            <div class="institutional-banks-title"><span>🏛️</span><div><b>المؤسسات التي نتابعها</b><small>أسماء المؤسسات لا تعني توفر توصية حديثة منها</small></div></div>
-            <div class="institutional-bank-chips"><span><i>GS</i> Goldman Sachs</span><span><i>JP</i> JPMorgan</span><span><i>MS</i> Morgan Stanley</span><span><i>B</i> Bank of America</span></div>
-          </section>
-          <div class="institutional-radar-note"><span>⚠️</span><div><b>تنويه استثماري</b><p>⚠️ توصيات المحللين تقديرات قابلة للتغير وليست ضمانًا للنتائج أو إشارة شراء تلقائية. يجب التحقق من حداثة البيانات ومصدرها قبل اتخاذ أي قرار استثماري.</p></div></div>
-        </div>
-      </section>
       <section id="tab-account" class="terminal-tab">
         <div class="account-terminal sas-profile-shell">
           <div class="sas-profile-cover">
@@ -692,33 +651,7 @@
 </script>
 
 <script>
-/* Reliable institutional tab navigation fallback. Keeps existing tab logic intact. */
-(function(){
-  if (window.__sasInstitutionalTabFix) return;
-  window.__sasInstitutionalTabFix = true;
-  document.addEventListener('click', function(event){
-    var button = event.target && event.target.closest
-      ? event.target.closest('.terminal-tabs button[data-tab="institutional"]')
-      : null;
-    if (!button) return;
-    var section = document.getElementById('tab-institutional');
-    if (!section) return;
-    event.preventDefault();
-    try {
-      if (typeof window.switchTerminalTab === 'function') window.switchTerminalTab('institutional');
-    } catch (error) {
-      console.error('SAS PRO institutional tab navigation fallback:', error);
-    }
-    document.querySelectorAll('.terminal-main .terminal-tab').forEach(function(tab){
-      tab.classList.toggle('active', tab.id === 'tab-institutional');
-    });
-    document.querySelectorAll('.terminal-tabs button[data-tab]').forEach(function(tabButton){
-      tabButton.classList.toggle('active', tabButton === button);
-    });
-    section.scrollIntoView({behavior:'smooth', block:'start'});
-  }, true);
-})();
-</script>
+
 
 </body>
 </html>
