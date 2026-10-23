@@ -257,7 +257,7 @@ _fmp_targets_cache = {}
 async def fmp_analyst_grades(symbol: str):
     """Return recent analyst rating actions for one ticker; cached for two hours."""
     key = str(symbol or "").upper().strip()
-    if not re.fullmatch(r"[A-Z][A-Z0-9.\\-]{0,9}", key) or not _fmp_pool.size:
+    if not re.fullmatch(r"[A-Z][A-Z0-9.-]{0,9}", key) or not _fmp_pool.size:
         return []
     now = time.monotonic()
     cached = _fmp_grades_cache.get(key)
@@ -287,7 +287,7 @@ async def fmp_analyst_grades(symbol: str):
 async def fmp_price_target_consensus(symbol: str):
     """Return analyst consensus price targets; cached for 25 minutes per symbol."""
     key = str(symbol or "").upper().strip()
-    if not re.fullmatch(r"[A-Z][A-Z0-9.\\-]{0,9}", key) or not _fmp_pool.size:
+    if not re.fullmatch(r"[A-Z][A-Z0-9.-]{0,9}", key) or not _fmp_pool.size:
         return {}
     now = time.monotonic()
     cached = _fmp_targets_cache.get(key)
