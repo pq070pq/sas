@@ -3153,7 +3153,7 @@ async def scan_us_low_price_stocks(force_refresh: bool = False, progress_callbac
             "discovery_source_errors": {},
             "momentum_source": "Multi-source US movers + OHLCV staging",
         "momentum_rules": {
-            "small": {"price": "0.30-15.00", "change_pct": ">10", "volume": ">500000"},
+            "small": {"price": "0.30-6.00", "change_pct": ">10", "volume": ">500000"},
             "large": {"market_cap": ">1B", "change_pct": ">3"},
             "rvol_formula": "today_volume / average_volume_last_10_sessions",
             "rvol_time_thresholds": MOMENTUM_RVOL_THRESHOLDS,
