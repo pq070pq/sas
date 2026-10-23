@@ -329,7 +329,6 @@ function switchTerminalTab(tab){
  document.querySelectorAll('.terminal-tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
  document.querySelectorAll('.sas-mobile-dock button').forEach(x=>x.classList.toggle('is-active',x.getAttribute('onclick')?.includes("'"+tab+"'")));
  if(tab==='radar'){renderRadar();void loadRadarSnapshot();}
- if(tab==='institutional'){void loadInstitutionalRecommendations();}
 
 }
 async function initTerminal(){
