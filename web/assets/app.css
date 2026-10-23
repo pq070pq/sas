@@ -4654,3 +4654,20 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
     margin-top: 8px !important;
   }
 }
+
+
+/* Standalone institutional recommendations tab — isolated styles */
+.institutional-radar-panel{border:1px solid rgba(75,190,230,.24);border-radius:18px;padding:16px;background:radial-gradient(circle at 90% 0%,rgba(20,130,180,.14),transparent 45%),linear-gradient(145deg,#071827,#030b14);color:#e9f4ff}
+.institutional-radar-heading{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.institutional-radar-icon{width:48px;height:48px;flex:0 0 48px;display:grid;place-items:center;border-radius:14px;background:rgba(39,169,232,.12);border:1px solid rgba(83,201,242,.25);font-size:25px}
+.institutional-radar-heading h2{margin:4px 0;font-size:21px}
+.institutional-radar-heading p,.institutional-radar-intro{color:#a9bfd2;font-size:12px;line-height:1.9;margin:6px 0 14px}
+.institutional-source-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.institutional-source-card{display:block;text-decoration:none!important;color:#e6f6ff!important;border:1px solid #1a3a50;border-radius:12px;padding:13px;background:rgba(6,20,32,.9);transition:border-color .2s,transform .2s}
+.institutional-source-card:hover{border-color:#38b9eb;transform:translateY(-2px)}
+.institutional-source-card b,.institutional-source-card span,.institutional-source-card small{display:block}
+.institutional-source-card b{margin-bottom:7px;font-size:13px}
+.institutional-source-card span{color:#8ca8bd;font-size:11px;line-height:1.7}
+.institutional-source-card small{color:#55c8f5;margin-top:10px;font-size:11px}
+.institutional-radar-note{margin-top:14px;border:1px solid rgba(255,184,77,.25);border-radius:11px;padding:11px 12px;background:rgba(80,49,10,.16);color:#e8c995;font-size:11px;line-height:1.8}
+@media(max-width:600px){.institutional-radar-panel{padding:12px}.institutional-radar-heading h2{font-size:18px}.institutional-source-grid{grid-template-columns:1fr}}
