@@ -1,0 +1,59 @@
+/* SAS PRO institutional radar: animated, responsive source cards */
+.institutional-radar-shell{position:relative;isolation:isolate;overflow:hidden;margin:8px 0 24px;padding:clamp(14px,3.5vw,28px);border:1px solid rgba(48,205,242,.24);border-radius:26px;background:radial-gradient(ellipse at 8% 2%,rgba(16,128,170,.22),transparent 38%),radial-gradient(ellipse at 100% 42%,rgba(97,55,196,.15),transparent 38%),linear-gradient(155deg,#061a28 0%,#04111d 55%,#080d1c 100%);color:#e9f8ff;box-shadow:inset 0 1px rgba(255,255,255,.045),0 18px 48px rgba(0,0,0,.2)}
+.institutional-radar-shell:before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.18;background-image:linear-gradient(rgba(81,179,219,.1) 1px,transparent 1px),linear-gradient(90deg,rgba(81,179,219,.1) 1px,transparent 1px);background-size:34px 34px;mask-image:linear-gradient(to bottom,black,transparent 80%)}
+.institutional-radar-topline{display:flex;align-items:center;gap:8px;color:#54d8ff;font-size:10px;font-weight:900;letter-spacing:1.8px}
+.institutional-live-orb{width:7px;height:7px;border-radius:50%;background:#39f7c1;box-shadow:0 0 12px #39f7c1;animation:institutionalPulse 1.7s infinite}
+.institutional-topline-chip{margin-inline-start:auto;padding:5px 9px;border:1px solid rgba(78,205,255,.2);border-radius:99px;background:rgba(19,93,122,.2);color:#a7eaff;letter-spacing:0}
+.institutional-hero{display:grid;grid-template-columns:minmax(0,1fr) 150px;align-items:center;gap:18px;padding:24px 0 22px}
+.institutional-hero-copy{grid-column:1;grid-row:1}
+.institutional-kicker,.institutional-heading-kicker{font-size:10px;letter-spacing:1.7px;color:#61d8ff;font-weight:900}
+.institutional-hero-copy h2{margin:9px 0 10px;font-size:clamp(25px,4.4vw,36px);line-height:1.35;color:#f2fbff;text-shadow:0 0 24px rgba(51,196,255,.15)}
+.institutional-hero-copy p{margin:0;max-width:590px;color:#a6c0d1;font-size:13px;line-height:1.9}
+.institutional-hero-art{grid-column:2;grid-row:1;position:relative;display:grid;place-items:center;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(22,175,220,.17),rgba(8,32,54,.05) 62%,transparent 70%);animation:institutionalFloat 4.5s ease-in-out infinite}
+.institutional-bank-emoji{z-index:2;display:grid;place-items:center;width:82px;height:82px;border-radius:25px;border:1px solid rgba(94,217,255,.35);background:linear-gradient(145deg,rgba(15,80,110,.75),rgba(6,19,38,.9));font-size:39px;box-shadow:0 0 36px rgba(0,195,255,.17),inset 0 1px rgba(255,255,255,.15)}
+.institutional-orbit{position:absolute;border:1px solid rgba(68,201,246,.26);border-radius:50%;inset:12px;animation:institutionalSpin 15s linear infinite}
+.institutional-orbit:after{content:"";position:absolute;top:13%;left:17%;width:7px;height:7px;border-radius:50%;background:#57e3ff;box-shadow:0 0 12px #57e3ff}
+.institutional-orbit.orbit-b{inset:0;border-style:dashed;opacity:.6;animation-duration:24s;animation-direction:reverse}
+.institutional-hero-spark{position:absolute;color:#8ceaff;font-size:22px;text-shadow:0 0 14px #35cfff;animation:institutionalPulse 2.2s infinite}
+.institutional-hero-spark.spark-a{top:8%;right:12%}.institutional-hero-spark.spark-b{bottom:12%;left:12%;animation-delay:.8s}
+.institutional-quick-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:0 0 27px}
+.institutional-quick-stats>div{position:relative;display:grid;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:1px 9px;min-width:0;padding:12px;border:1px solid rgba(105,174,207,.16);border-radius:15px;background:linear-gradient(135deg,rgba(14,43,63,.78),rgba(5,18,31,.78))}
+.institutional-stat-icon{grid-row:span 2;display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:rgba(30,170,216,.12);color:#69ddff;font-size:19px}
+.institutional-quick-stats small{color:#83a7bd;font-size:10px}.institutional-quick-stats b{font-size:11px;line-height:1.6;color:#e4f7ff}
+.institutional-section-heading{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:0 0 13px}
+.institutional-section-heading h3{font-size:19px;margin:5px 0 0;color:#f1fbff}
+.institutional-heading-pulse{font-size:10px;color:#80b8d2;white-space:nowrap}
+.institutional-interactive-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;perspective:1000px}
+.institutional-feature-card{position:relative;display:flex;flex-direction:column;min-width:0;min-height:242px;overflow:hidden;padding:16px 14px 13px;border:1px solid rgba(80,164,206,.28);border-radius:19px;background:linear-gradient(150deg,rgba(12,40,60,.98),rgba(5,17,31,.98) 75%);color:#e8f8ff!important;text-decoration:none!important;box-shadow:0 9px 22px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.045);transform:translateY(0);transition:transform .3s cubic-bezier(.2,.8,.2,1),border-color .3s,box-shadow .3s}
+.institutional-feature-card:before{content:"";position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,transparent,#4edcff,transparent);opacity:.7}
+.institutional-card-marketbeat:before{background:linear-gradient(90deg,transparent,#8b8cff,transparent)}
+.institutional-card-tipranks:before{background:linear-gradient(90deg,transparent,#46e7b4,transparent)}
+.institutional-card-glow{position:absolute;top:-58px;right:-45px;width:145px;height:145px;border-radius:50%;background:rgba(21,173,230,.12);filter:blur(28px);transition:transform .4s,opacity .4s}
+.institutional-card-marketbeat .institutional-card-glow{background:rgba(120,104,255,.15)}.institutional-card-tipranks .institutional-card-glow{background:rgba(30,219,164,.13)}
+.institutional-card-top{position:relative;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.institutional-card-symbol{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;border:1px solid rgba(93,206,247,.23);background:rgba(23,98,132,.22);font-size:24px;box-shadow:0 0 18px rgba(49,190,240,.07)}
+.institutional-card-open{display:grid;place-items:center;width:29px;height:29px;border-radius:50%;border:1px solid rgba(124,191,218,.23);color:#8bdfff;font-size:17px;transition:transform .3s,background .3s}
+.institutional-card-index{font-size:9px;letter-spacing:1.5px;color:#5fcdf2;font-weight:900}
+.institutional-card-title{margin:7px 0;font-size:16px;line-height:1.4;overflow-wrap:anywhere}
+.institutional-card-desc{font-size:11px;line-height:1.8;color:#a5c0d2;flex:1}
+.institutional-card-tags{display:flex;flex-wrap:wrap;gap:5px;margin:13px 0}
+.institutional-card-tags i{font-style:normal;font-size:9px;color:#9bdff4;border:1px solid rgba(77,183,220,.19);border-radius:6px;padding:4px 6px;background:rgba(23,109,142,.13)}
+.institutional-card-cta{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:auto;padding-top:10px;border-top:1px solid rgba(110,169,200,.14);color:#70ddff;font-size:11px;font-weight:800}
+.institutional-card-cta b{font-size:17px;transition:transform .25s}
+.institutional-feature-card:hover,.institutional-feature-card:focus-visible{transform:translateY(-7px) rotateX(1deg);border-color:rgba(75,220,255,.68);box-shadow:0 16px 34px rgba(0,0,0,.3),0 0 25px rgba(36,192,238,.12);outline:none}
+.institutional-feature-card:hover .institutional-card-glow,.institutional-feature-card:focus-visible .institutional-card-glow{transform:scale(1.35);opacity:1}
+.institutional-feature-card:hover .institutional-card-open{transform:translate(2px,-2px);background:rgba(37,158,199,.2)}
+.institutional-feature-card:hover .institutional-card-cta b{transform:translateX(-4px)}
+.institutional-banks-strip{margin-top:18px;padding:15px;border:1px solid rgba(101,150,197,.18);border-radius:17px;background:rgba(5,18,31,.64)}
+.institutional-banks-title{display:flex;align-items:center;gap:10px;margin-bottom:12px}.institutional-banks-title>span{font-size:24px}
+.institutional-banks-title b,.institutional-banks-title small{display:block}.institutional-banks-title b{font-size:13px}.institutional-banks-title small{font-size:10px;color:#8caec2;margin-top:3px}
+.institutional-bank-chips{display:flex;flex-wrap:wrap;gap:8px}
+.institutional-bank-chips>span{display:flex;align-items:center;gap:7px;padding:7px 9px;border:1px solid rgba(96,162,195,.2);border-radius:10px;background:rgba(14,39,57,.8);font-size:10px;color:#d1e7f3}
+.institutional-bank-chips i{display:grid;place-items:center;width:25px;height:25px;border-radius:7px;background:rgba(47,170,214,.16);color:#80e1ff;font-size:9px;font-style:normal;font-weight:900}
+.institutional-radar-note{display:flex;align-items:flex-start;gap:10px;margin-top:14px;border:1px solid rgba(255,184,77,.22);border-radius:13px;padding:13px;background:rgba(80,49,10,.14);color:#e8c995;font-size:11px;line-height:1.8}
+.institutional-radar-note>span{font-size:20px}.institutional-radar-note p{margin:4px 0 0;color:#d4bd98}
+@keyframes institutionalPulse{0%,100%{opacity:.65;filter:brightness(1)}50%{opacity:1;filter:brightness(1.5)}}
+@keyframes institutionalFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes institutionalSpin{to{transform:rotate(360deg)}}
+@media(max-width:680px){.institutional-radar-shell{padding:14px;border-radius:21px}.institutional-hero{grid-template-columns:minmax(0,1fr) 92px;gap:10px;padding:19px 0}.institutional-hero-art{width:92px}.institutional-bank-emoji{width:57px;height:57px;border-radius:18px;font-size:29px}.institutional-hero-copy h2{font-size:23px}.institutional-hero-copy p{font-size:11px}.institutional-quick-stats{gap:6px;margin-bottom:22px}.institutional-quick-stats>div{grid-template-columns:1fr;justify-items:center;text-align:center;padding:10px 5px;gap:5px}.institutional-stat-icon{grid-row:auto}.institutional-quick-stats small{font-size:9px}.institutional-quick-stats b{font-size:9px}.institutional-interactive-grid{grid-template-columns:1fr;gap:10px}.institutional-feature-card{min-height:0;padding:14px}.institutional-card-top{margin-bottom:10px}.institutional-card-symbol{width:40px;height:40px}.institutional-card-title{font-size:15px}.institutional-card-desc{font-size:11px}.institutional-card-tags{margin:10px 0}.institutional-bank-chips{gap:6px}.institutional-bank-chips>span{font-size:9px;padding:6px}.institutional-section-heading h3{font-size:17px}.institutional-heading-pulse{font-size:9px}}
+@media(prefers-reduced-motion:reduce){.institutional-live-orb,.institutional-hero-art,.institutional-orbit,.institutional-hero-spark{animation:none!important}.institutional-feature-card,.institutional-card-glow,.institutional-card-open,.institutional-card-cta b{transition:none!important}.institutional-feature-card:hover,.institutional-feature-card:focus-visible{transform:none}}
