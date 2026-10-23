@@ -247,6 +247,70 @@ async def _fmp_get(endpoint: str, params: dict, timeout: int = 12):
     return None
 
 
+
+# Independent analyst recommendations feed. Per-symbol caches avoid repeated FMP usage.
+_FMP_GRADES_CACHE_TTL = 2 * 60 * 60
+_FMP_TARGETS_CACHE_TTL = 25 * 60
+_fmp_grades_cache = {}
+_fmp_targets_cache = {}
+
+async def fmp_analyst_grades(symbol: str):
+    """Return recent analyst rating actions for one ticker; cached for two hours."""
+    key = str(symbol or "").upper().strip()
+    if not re.fullmatch(r"[A-Z][A-Z0-9.-]{0,9}", key) or not _fmp_pool.size:
+        return []
+    now = time.monotonic()
+    cached = _fmp_grades_cache.get(key)
+    if cached and now - cached[0] < _FMP_GRADES_CACHE_TTL:
+        return cached[1]
+    rows = await _fmp_get("grades", {"symbol": key, "limit": 8}, timeout=8)
+    if not isinstance(rows, list):
+        return cached[1] if cached else []
+    clean = []
+    for row in rows[:8]:
+        if not isinstance(row, dict):
+            continue
+        clean.append({
+            "symbol": key,
+            "date": str(row.get("date") or ""),
+            "analyst": str(row.get("gradingCompany") or row.get("analystCompany") or ""),
+            "previous_grade": str(row.get("previousGrade") or ""),
+            "new_grade": str(row.get("newGrade") or ""),
+            "action": str(row.get("action") or ""),
+            "source": "FMP",
+            "source_url": "https://site.financialmodelingprep.com/developer/docs/stable/grades",
+        })
+    _fmp_grades_cache[key] = (now, clean)
+    return clean
+
+
+async def fmp_price_target_consensus(symbol: str):
+    """Return analyst consensus price targets; cached for 25 minutes per symbol."""
+    key = str(symbol or "").upper().strip()
+    if not re.fullmatch(r"[A-Z][A-Z0-9.-]{0,9}", key) or not _fmp_pool.size:
+        return {}
+    now = time.monotonic()
+    cached = _fmp_targets_cache.get(key)
+    if cached and now - cached[0] < _FMP_TARGETS_CACHE_TTL:
+        return cached[1]
+    rows = await _fmp_get("price-target-consensus", {"symbol": key}, timeout=8)
+    row = rows[0] if isinstance(rows, list) and rows and isinstance(rows[0], dict) else rows if isinstance(rows, dict) else {}
+    if not row:
+        return cached[1] if cached else {}
+    data = {
+        "symbol": key,
+        "target_high": row.get("targetHigh"),
+        "target_low": row.get("targetLow"),
+        "target_consensus": row.get("targetConsensus"),
+        "target_median": row.get("targetMedian"),
+        "source": "FMP",
+        "source_url": "https://site.financialmodelingprep.com/developer/docs/stable/price-target-consensus",
+        "retrieved_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _fmp_targets_cache[key] = (now, data)
+    return data
+
+
 def _normalise_fmp_news(rows):
     out = []
     for item in rows or []:

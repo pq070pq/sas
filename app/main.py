@@ -26,7 +26,7 @@ from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarS
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
-from .news import company_news, company_fundamentals, corporate_events, tipranks_analysis, market_news, _is_relevant_stock_market_news, _newsfilter_market_news
+from .news import company_news, company_fundamentals, corporate_events, tipranks_analysis, market_news, _is_relevant_stock_market_news, _newsfilter_market_news, fmp_analyst_grades, fmp_price_target_consensus
 from .news_translation import translate_stock_news
 from .scheduler import scheduler
 from .market_calendar import market_status, us_market_holidays
@@ -3331,6 +3331,66 @@ async def institutional_recommendations_endpoint(_: dict = Depends(require_pro))
         "mode": "news_headlines",
     }
     institutional_recommendations_endpoint._cache = {"at": now_mono, "payload": payload}
+    return payload
+
+
+
+@app.get("/api/market/analyst-recommendations")
+async def analyst_recommendations_endpoint(symbols: str = "", _: dict = Depends(require_pro)):
+    """Independent FMP analyst actions and price-target consensus; never uses the news ticker."""
+    # Require an explicit, bounded ticker list to prevent accidental market-wide API scans.
+    requested = []
+    for raw in re.split(r"[,;\s]+", str(symbols or "").upper()):
+        ticker_symbol = raw.strip()
+        if ticker_symbol and re.fullmatch(r"[A-Z][A-Z0-9.-]{0,9}", ticker_symbol) and ticker_symbol not in requested:
+            requested.append(ticker_symbol)
+        if len(requested) >= 6:
+            break
+    if not requested:
+        return {
+            "items": [],
+            "available": False,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "message_ar": "أرسل رموز الأسهم المراد عرض توصيات المحللين وأهدافها، بحد أقصى 6 رموز في الطلب.",
+            "provider": "FMP",
+            "mode": "analyst_grades_and_price_targets",
+        }
+    cache = getattr(analyst_recommendations_endpoint, "_cache", {})
+    cache_key = tuple(requested)
+    now_mono = time.monotonic()
+    if cache.get("key") == cache_key and now_mono - float(cache.get("at") or 0) < 15 * 60:
+        return copy.deepcopy(cache["payload"])
+    # Parallel calls are limited to six tickers and then cached independently in news.py.
+    async def one(ticker_symbol):
+        grades, targets = await asyncio.gather(
+            asyncio.wait_for(fmp_analyst_grades(ticker_symbol), timeout=10.0),
+            asyncio.wait_for(fmp_price_target_consensus(ticker_symbol), timeout=10.0),
+            return_exceptions=True,
+        )
+        if isinstance(grades, Exception):
+            grades = []
+        if isinstance(targets, Exception):
+            targets = {}
+        return {
+            "symbol": ticker_symbol,
+            "grades": grades if isinstance(grades, list) else [],
+            "targets": targets if isinstance(targets, dict) else {},
+        }
+    results = await asyncio.gather(*(one(symbol) for symbol in requested))
+    items = []
+    for result in results:
+        if result["grades"] or result["targets"]:
+            items.append(result)
+    payload = {
+        "items": items,
+        "available": bool(items),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "provider": "FMP",
+        "mode": "analyst_grades_and_price_targets",
+        "message_ar": "" if items else "لم تتوفر بيانات توصيات أو أهداف سعرية من FMP لهذه الرموز حاليًا؛ لم يتم إنشاء بيانات بديلة.",
+        "limits": {"max_symbols_per_request": 6, "response_cache_minutes": 15},
+    }
+    analyst_recommendations_endpoint._cache = {"key": cache_key, "at": now_mono, "payload": payload}
     return payload
 
 
