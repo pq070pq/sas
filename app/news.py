@@ -767,10 +767,13 @@ async def _newsfilter_market_news(limit: int = 24):
     if not api_key:
         return []
     query = (
-        'title:("Federal Reserve" OR "interest rates" OR inflation OR stocks OR shares '
-        'OR earnings OR Nasdaq OR Dow OR "S&P 500" OR tariffs OR economy OR "stock market") '
-        'OR description:("Federal Reserve" OR "interest rates" OR inflation OR stocks '
-        'OR earnings OR Nasdaq OR "S&P 500" OR tariffs)'
+        'title:("price target" OR "price objective" OR analyst OR upgrade OR upgraded OR downgrade '
+        'OR downgraded OR "raises rating" OR "cuts rating" OR "initiates coverage" OR "overweight" '
+        'OR "underweight" OR "buy rating" OR "sell rating" OR "Federal Reserve" OR "interest rates" '
+        'OR inflation OR stocks OR shares OR earnings OR Nasdaq OR Dow OR "S&P 500" OR tariffs OR economy OR "stock market") '
+        'OR description:("price target" OR analyst OR upgrade OR downgrade OR "raises rating" '
+        'OR "cuts rating" OR "initiates coverage" OR "Federal Reserve" OR "interest rates" '
+        'OR inflation OR stocks OR earnings OR Nasdaq OR "S&P 500" OR tariffs)'
     )
     try:
         async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
@@ -812,7 +815,13 @@ async def _newsfilter_market_news(limit: int = 24):
         normal = re.sub(r"[^a-z0-9]+", " ", headline.lower()).strip()
         if not normal or normal in seen:
             continue
-        if not any(term in normal for term in _US_EQUITY_TERMS) and not any(term in normal for term in (
+        analyst_action_terms = (
+            "analyst", "price target", "price objective", "upgrade", "upgraded",
+            "downgrade", "downgraded", "raises rating", "cuts rating",
+            "initiates coverage", "overweight", "underweight", "buy rating", "sell rating",
+        )
+        is_analyst_action = any(term in normal for term in analyst_action_terms)
+        if not is_analyst_action and not any(term in normal for term in _US_EQUITY_TERMS) and not any(term in normal for term in (
             "federal reserve", "interest rate", "inflation", "tariff", "treasury", "economic", "economy",
             "nasdaq", "s&p", "dow jones", "earnings", "stocks", "stock market", "shares",
         )):
