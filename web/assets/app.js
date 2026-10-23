@@ -322,35 +322,6 @@ async function loadRadarSnapshot(){
  })();
  return radarSnapshotLoadPromise;
 }
-let institutionalRecommendationsLoadedAt=0;
-async function loadInstitutionalRecommendations(force=false){
- const box=document.getElementById('institutionalRecommendationsFeed');if(!box)return;
- if(!force&&institutionalRecommendationsLoadedAt&&Date.now()-institutionalRecommendationsLoadedAt<300000)return;
- const sourceRows=[...(Array.isArray(terminalState.radar)?terminalState.radar:[]),...(Array.isArray(terminalState.preliminaryRadar)?terminalState.preliminaryRadar:[])];
- const radarSymbols=[...new Set(sourceRows.map(x=>String(x?.symbol||x?.ticker||'').trim().toUpperCase()).filter(x=>/^[A-Z][A-Z0-9.-]{0,9}$/.test(x)))];
- // Bounded fallback keeps the feed working before radar candidates exist; it does not scan the whole market.
- const symbols=(radarSymbols.length?radarSymbols:['AAPL','MSFT','NVDA','AMZN','GOOGL','TSLA']).slice(0,6);
- box.innerHTML='<div class="institutional-feed-loading"><span class="institutional-live-orb"></span> جارٍ جلب توصيات المحللين والأهداف السعرية…</div>';
- try{
-  const data=await api('/api/market/analyst-recommendations?symbols='+encodeURIComponent(symbols.join(',')),{timeoutMs:22000,retries:0});
-  const items=Array.isArray(data?.items)?data.items:[];institutionalRecommendationsLoadedAt=Date.now();
-  if(!items.length){box.innerHTML='<div class="institutional-feed-empty"><span>◷</span><b>لا تتوفر بيانات محللين لهذه الأسهم حاليًا</b><p>'+escHtml(data?.message_ar||'لن نعرض أهدافًا سعرية أو توصيات غير مؤكدة.')+'</p><button type="button" class="institutional-refresh-button" onclick="loadInstitutionalRecommendations(true)">↻ إعادة المحاولة</button></div>';return;}
-  const money=v=>{const n=Number(v);return v!==null&&v!==''&&Number.isFinite(n)?'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'غير متاح';};
-  const stamp=v=>{if(!v)return 'التاريخ غير متاح';const d=new Date(String(v).length===10?String(v)+'T00:00:00Z':v);return Number.isNaN(d.getTime())?'التاريخ غير متاح':d.toLocaleDateString('ar-SA',{dateStyle:'medium',timeZone:'Asia/Riyadh'});};
-  const cards=[];
-  for(const row of items){
-   const sym=String(row.symbol||'').toUpperCase(),t=row.targets||{};
-   if(Object.keys(t).length){
-    cards.push('<article class="institutional-news-card"><div class="institutional-news-card-top"><span class="institutional-news-badge">🎯 هدف سعري · '+escHtml(sym)+'</span><time>إجماع المحللين</time></div><b class="institutional-news-title">الهدف التوافقي: '+escHtml(money(t.target_consensus))+'</b><div class="institutional-target-grid"><span>الأعلى <b>'+escHtml(money(t.target_high))+'</b></span><span>الأدنى <b>'+escHtml(money(t.target_low))+'</b></span><span>الوسيط <b>'+escHtml(money(t.target_median))+'</b></span></div><p>أهداف المحللين المتاحة لدى المزود. لا تمثل توصية شراء أو ضمانًا للوصول إلى الهدف.</p></article>');
-   }
-   for(const g of (Array.isArray(row.grades)?row.grades:[]).slice(0,4)){
-    const action=[g.action,g.previous_grade&&g.new_grade?(g.previous_grade+' ← '+g.new_grade):g.new_grade].filter(Boolean).join(' · ');
-    cards.push('<article class="institutional-news-card"><div class="institutional-news-card-top"><span class="institutional-news-badge">🏦 تقييم محلل · '+escHtml(sym)+'</span><time>'+escHtml(stamp(g.date))+'</time></div><b class="institutional-news-title">'+escHtml(g.analyst||'جهة تحليلية غير محددة')+'</b><p>'+escHtml(action||'نُشر تحديث لتقييم السهم؛ تفاصيل التصنيف غير متاحة.')+'</p></article>');
-   }
-  }
-  box.innerHTML=cards.length?cards.join(''):'<div class="institutional-feed-empty"><span>◷</span><b>لا توجد توصيات منشورة لهذه الأسهم</b><p>لا توجد بيانات مؤكدة من المزود حاليًا؛ لم يتم إنشاء بيانات بديلة.</p></div>';
- }catch(error){box.innerHTML='<div class="institutional-feed-empty"><span>⚠️</span><b>تعذر تحديث توصيات المحللين</b><p>حاول التحديث بعد قليل. الأخبار العامة والرادار مستقلان عن هذا القسم.</p><button type="button" class="institutional-refresh-button" onclick="loadInstitutionalRecommendations(true)">إعادة المحاولة</button></div>';}
-}
 function switchTerminalTab(tab){
  if(tab!=='search'&&activeSymbolSearchController){activeSymbolSearchController.abort();activeSymbolSearchController=null;}
  terminalState.tab=tab;
