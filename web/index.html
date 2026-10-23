@@ -220,18 +220,40 @@
       <section id="tab-search" class="terminal-tab"><div class="search-terminal"><input id="symbolSearch" maxlength="12" autocomplete="off" placeholder="ابحث عن رمز السهم مثل NVDA أو AAPL"><button id="analyzeSymbolBtn" type="button" class="primary-btn symbol-action-btn analyze-action-btn" onclick="analyzeSymbol()" aria-label="تحليل السهم"><span class="symbol-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 17.5 9 12l3.5 3.5L20 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7H20v5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="symbol-action-copy"><b>تحليل السهم</b><small>السعر • الرسم • المؤشرات</small></span><span class="symbol-action-arrow" aria-hidden="true">‹</span></button><button id="shariahSearchBtn" type="button" class="secondary-btn shariah-search-btn shariah-search-btn-pro" onclick="searchShariah()" aria-label="بحث الشرعية"><span class="shariah-search-btn-orbit" aria-hidden="true"><span class="shariah-search-btn-icon"><svg viewBox="0 0 24 24" fill="none"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.5 4.5M10.8 7.2v7.2M7.2 10.8h7.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span></span><span class="shariah-search-btn-copy"><b>بحث الشرعية</b><small>تحقق من حالة السهم والمصادر المنشورة</small></span><span class="shariah-search-btn-arrow" aria-hidden="true">⌕</span></button></div><div id="shariahSearchResult" class="shariah-search-result" hidden></div><div id="symbolResult" class="symbol-result"><div class="empty-state">اكتب رمز السهم لعرض السعر، الرسم، المستويات، الأخبار وتحليل SAS PRO، أو استخدم «بحث الشرعية» للتحقق المستقل.</div></div></section>
 
       <section id="tab-institutional" class="terminal-tab">
-        <div class="institutional-radar-panel">
-          <div class="institutional-radar-heading">
-            <div class="institutional-radar-icon" aria-hidden="true">🏦</div>
-            <div><span class="eyebrow">SAS PRO • INSTITUTIONAL RADAR</span><h2>رادار توصيات المؤسسات</h2><p>ترقيات وتخفيضات المحللين والأسعار المستهدفة</p></div>
+        <div class="institutional-radar-shell">
+          <div class="institutional-radar-topline"><span class="institutional-live-orb"></span><span>SAS PRO • INSTITUTIONAL RADAR</span><span class="institutional-topline-chip">مركز المصادر</span></div>
+          <header class="institutional-hero">
+            <div class="institutional-hero-art" aria-hidden="true"><span class="institutional-orbit orbit-a"></span><span class="institutional-orbit orbit-b"></span><span class="institutional-bank-emoji">🏦</span><span class="institutional-hero-spark spark-a">✦</span><span class="institutional-hero-spark spark-b">✧</span></div>
+            <div class="institutional-hero-copy"><span class="institutional-kicker">ANALYST ACTIONS • PRICE TARGETS</span><h2>رادار توصيات المؤسسات</h2><p>تابع ترقيات المحللين وتخفيضاتهم والأسعار المستهدفة من مصادر متخصصة — كل مصدر في بطاقة تفاعلية مستقلة.</p></div>
+          </header>
+          <div class="institutional-quick-stats" aria-label="معلومات القسم">
+            <div><span class="institutional-stat-icon">↗</span><small>نوع البيانات</small><b>تقييمات المحللين</b></div>
+            <div><span class="institutional-stat-icon">◎</span><small>متابعة</small><b>الأسعار المستهدفة</b></div>
+            <div><span class="institutional-stat-icon">⏱</span><small>حالة التحديث</small><b>مصادر خارجية</b></div>
           </div>
-          <p class="institutional-radar-intro">قسم مستقل لمتابعة توصيات البنوك الاستثمارية مثل Goldman Sachs وJPMorgan وMorgan Stanley وBank of America. ستُعرض التوصية وتاريخها والسعر المستهدف عند توفر مصدر موثوق ومسموح باستخدامه.</p>
-          <div class="institutional-source-grid">
-            <a href="https://www.investing.com/equities/analyst-ratings" target="_blank" rel="noopener noreferrer" class="institutional-source-card"><b>📊 Investing.com</b><span>تصنيفات المحللين والأسعار المستهدفة</span><small>فتح المصدر الأصلي ↗</small></a>
-            <a href="https://www.marketbeat.com/ratings/" target="_blank" rel="noopener noreferrer" class="institutional-source-card"><b>📈 MarketBeat</b><span>تغيّرات تصنيفات المحللين</span><small>فتح المصدر الأصلي ↗</small></a>
-            <a href="https://www.tipranks.com/" target="_blank" rel="noopener noreferrer" class="institutional-source-card"><b>🧭 TipRanks</b><span>أبحاث المحللين وتقييماتهم</span><small>فتح المصدر الأصلي ↗</small></a>
+          <div class="institutional-section-heading"><div><span class="institutional-heading-kicker">SOURCE EXPLORER</span><h3>اختر منصة التوصيات</h3></div><span class="institutional-heading-pulse">اضغط على البطاقة ↙</span></div>
+          <div class="institutional-interactive-grid">
+            <a class="institutional-feature-card institutional-card-investing" href="https://www.investing.com/equities/analyst-ratings" target="_blank" rel="noopener noreferrer">
+              <span class="institutional-card-glow"></span><span class="institutional-card-top"><span class="institutional-card-symbol">📊</span><span class="institutional-card-open">↗</span></span>
+              <span class="institutional-card-index">SOURCE 01</span><b class="institutional-card-title">Investing.com</b><span class="institutional-card-desc">تصنيفات المحللين والأسعار المستهدفة للأسهم.</span>
+              <span class="institutional-card-tags"><i>تصنيف</i><i>سعر مستهدف</i></span><span class="institutional-card-cta">استكشف التوصيات <b>←</b></span>
+            </a>
+            <a class="institutional-feature-card institutional-card-marketbeat" href="https://www.marketbeat.com/ratings/" target="_blank" rel="noopener noreferrer">
+              <span class="institutional-card-glow"></span><span class="institutional-card-top"><span class="institutional-card-symbol">📈</span><span class="institutional-card-open">↗</span></span>
+              <span class="institutional-card-index">SOURCE 02</span><b class="institutional-card-title">MarketBeat</b><span class="institutional-card-desc">تغيّرات تقييمات المحللين والترقيات والتخفيضات.</span>
+              <span class="institutional-card-tags"><i>ترقيات</i><i>تخفيضات</i></span><span class="institutional-card-cta">استكشف التوصيات <b>←</b></span>
+            </a>
+            <a class="institutional-feature-card institutional-card-tipranks" href="https://www.tipranks.com/" target="_blank" rel="noopener noreferrer">
+              <span class="institutional-card-glow"></span><span class="institutional-card-top"><span class="institutional-card-symbol">🧭</span><span class="institutional-card-open">↗</span></span>
+              <span class="institutional-card-index">SOURCE 03</span><b class="institutional-card-title">TipRanks</b><span class="institutional-card-desc">أبحاث المحللين وتقييماتهم وتوقعات الأسعار.</span>
+              <span class="institutional-card-tags"><i>أبحاث</i><i>توقعات</i></span><span class="institutional-card-cta">استكشف التوصيات <b>←</b></span>
+            </a>
           </div>
-          <div class="institutional-radar-note">هذه روابط للمصادر العامة وليست موجزًا آليًا للتوصيات حتى الآن. سيُفعّل عرض التوصيات داخل SAS PRO بعد التحقق من إتاحة البيانات وشروط استخدامها. توصية البنك ليست إشارة شراء تلقائية.</div>
+          <section class="institutional-banks-strip" aria-label="البنوك الاستثمارية التي نتابع توصياتها">
+            <div class="institutional-banks-title"><span>🏛️</span><div><b>المؤسسات التي نتابعها</b><small>أسماء المؤسسات لا تعني توفر توصية حديثة منها</small></div></div>
+            <div class="institutional-bank-chips"><span><i>GS</i> Goldman Sachs</span><span><i>JP</i> JPMorgan</span><span><i>MS</i> Morgan Stanley</span><span><i>B</i> Bank of America</span></div>
+          </section>
+          <div class="institutional-radar-note"><span>⚠️</span><div><b>شفافية البيانات</b><p>البطاقات تفتح المصادر الأصلية؛ لا تعرض حاليًا توصيات مباشرة داخل SAS PRO. تفعيل موجز آلي يتطلب مصدر بيانات موثوقًا ومصرحًا باستخدامه. توصيات المحللين ليست إشارة شراء تلقائية.</p></div></div>
         </div>
       </section>
       <section id="tab-account" class="terminal-tab">
