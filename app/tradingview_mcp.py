@@ -77,7 +77,8 @@ def _rows_from_data(data):
             row["symbol"] = symbol.split(":", 1)[-1] if ":" in symbol else symbol
             row["exchange"] = symbol.split(":", 1)[0] if ":" in symbol else ""
         elif isinstance(item, dict):
-            row = dict(item)
+            row = dict(item.get("values") or {})
+            row.update({key: value for key, value in item.items() if key != "values"})
             symbol = str(row.get("symbol") or row.get("ticker") or row.get("s") or "").strip().upper()
             if ":" in symbol:
                 row.setdefault("exchange", symbol.split(":", 1)[0])
