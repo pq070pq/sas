@@ -1,4 +1,4 @@
-"""Independent publisher for verified speculative-radar candidates.
+"""Independent publisher for verified speculative-radar candidates with analyst-target confirmation.
 
 A symbol may be published at most once per New York trading session. This
 module deliberately requires observed float and session-open data; it does not
@@ -49,14 +49,17 @@ def build_speculative_report(candidate: dict) -> tuple[str | None, dict]:
         return None, result
 
     report = (
-        "🔥 <b>SAS PRO | أسهم المضاربي اللحظي</b>\n"
+        "🔥 <b>SAS PRO | المضاربي اللحظي + أهداف المحللين</b>\n"
+        "🏷️ <b>نوع الرصد:</b> مضاربي لحظي مؤكد + هدف محللين ≥ 50%\n"
         "━━━━━━━━━━━━━━━━━━\n"
         f"📌 السهم: <b>${symbol}</b>\n"
         f"💵 السعر الحالي: <b>${float(candidate['price']):,.4f}</b>\n"
         f"📈 الارتفاع من افتتاح الجلسة: <b>+{result['change_from_open_pct']:.2f}%</b>\n"
         f"📊 حجم التداول: <b>{int(float(candidate['volume'])):,}</b> سهم\n"
         f"🪙 الأسهم الحرة: <b>{int(float(candidate['float_shares'])):,}</b>\n"
-        "✅ اجتاز شروط فلتر الأسهم المضاربية\n"
+        "🎯 <b>فلتر الهدف:</b> صعود محتمل 50% أو أكثر وفق متوسط هدف المحللين\n"
+        "👥 <b>تغطية المحللين:</b> 3 محللين على الأقل\n"
+        "✅ اجتاز فلتر المضاربي اللحظي وأهداف المحللين\n"
         "⚠️ رصد آلي تعليمي وليس توصية شراء أو بيع. الأسهم المضاربية عالية المخاطر."
     )
     return report, result
