@@ -549,6 +549,7 @@ def _compact_radar_report(symbol, quote_data, tech, classification, row):
     lines = [
         "⚡ <b>SAS PRO | رصد 📡</b>",
         f"🔹 <b>الرمز:</b> {html.escape(str(symbol))} 🇺🇸",
+        "🏷️ <b>نوع الرصد:</b> رادار SAS الفني — فرصة مؤكدة اجتازت بوابة القناة",
         f"📈 <b>نوع الحركة:</b> {html.escape(move_type)}",
     ]
     if price is not None:
@@ -1172,45 +1173,22 @@ async def stock_radar_cycle():
                     except Exception:
                         await db.rollback()
                         logger.exception("Radar watch candidate persistence failed: %s", symbol)
-                    # Send the detection as a clearly labelled watch report rather than hiding it.
-                    # It is not a confirmed signal; the report lists the gate failure and technical checks.
+                    # Fail closed: incomplete candidates remain internal only.
+                    # Never send a radar report to Telegram unless the final gate passed.
+                    row["channel_delivery"] = {
+                        "published": False,
+                        "app_visible": False,
+                        "reason": "تم منع الإرسال لأن شروط التأكيد النهائية لم تكتمل",
+                    }
                     try:
-                        row["channel_delivery"] = {
-                            "published": True,
-                            "app_visible": False,
-                            "reason": "تم رصد السهم، لكن شروط تأكيد النشر لم تكتمل",
-                        }
-                        tech["channel_gate"] = row["channel_gate"]
-                        tech["radar_candidate_status"] = "مرشح تحت المراقبة — لم يجتز بوابة التأكيد"
-                        tech["quality_score"] = row.get("quality_score")
-                        tech["volume"] = row.get("volume")
-                        tech["shariah"] = shariah_map.get(symbol) or {
-                            "status": "unknown",
-                            "status_ar": "غير واضح / يحتاج تحقق",
-                            "verified": False,
-                            "message": "لم تتوفر نتيجة تحقق موثقة.",
-                            "sources": [],
-                        }
-                        watch_report = _compact_radar_report(symbol, q, tech, classification, row)
-                        send_result = await send_message(settings.telegram_channel_id, watch_report)
-                        watch_message_id = send_result.get("message_id") if isinstance(send_result, dict) else None
-                        if watch_message_id:
-                            if existing is not None:
-                                existing.telegram_message_id = int(watch_message_id)
-                                existing.payload = json.dumps(row, ensure_ascii=False)
-                                await db.commit()
-                            cycle_stats["sent"] += 1
-                            daily_channel_sent += 1
-                        else:
-                            cycle_stats["failed"] += 1
-                            delivery_errors[symbol] = "Telegram لم يُرجع message_id لرسالة المراقبة"
+                        existing.payload = json.dumps(row, ensure_ascii=False)
+                        await db.commit()
                     except Exception:
                         await db.rollback()
-                        cycle_stats["failed"] += 1
-                        logger.exception("Radar watch report delivery failed: %s", symbol)
+                        logger.exception("Radar rejected-candidate state update failed: %s", symbol)
                     _radar_seen.add(symbol)
                     logger.info(
-                        "Radar candidate sent as watch report: %s | session=%s | gate_reason=%s",
+                        "Radar candidate blocked from channel: %s | session=%s | gate_reason=%s",
                         symbol, status.get("session"), channel_reason,
                     )
                     continue

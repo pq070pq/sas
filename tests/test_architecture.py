@@ -52,7 +52,8 @@ class ArchitectureBoundaryTests(unittest.TestCase):
         self.assertEqual(settings.radar_app_daily_limit, 15)
         jobs_source = (APP / "jobs.py").read_text(encoding="utf-8")
         self.assertIn("channel_limit=unlimited", jobs_source)
-        self.assertIn("Radar candidate sent as watch report", jobs_source)
+        self.assertIn("Radar candidate blocked from channel", jobs_source)
+        self.assertIn("\"published\": False", jobs_source)
 
     def test_core_imports(self):
         for module in (
