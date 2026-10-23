@@ -44,6 +44,16 @@ class TradingViewMCPAdapterTests(unittest.TestCase):
         self.assertEqual(rows[0]["change_pct"], 12.5)
         self.assertEqual(rows[0]["source"], "TradingView MCP")
 
+    def test_normalizes_mcp_screener_values_shape(self):
+        rows = tradingview_mcp._rows_from_data({
+            "rows": [{"symbol": "NYSE:WXYZ", "values": {"close": 2.4, "change": 8.2, "volume": 750000, "market_cap_basic": 90000000}}]
+        })
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["symbol"], "WXYZ")
+        self.assertEqual(rows[0]["exchange"], "NYSE")
+        self.assertEqual(rows[0]["price"], 2.4)
+        self.assertEqual(rows[0]["change_pct"], 8.2)
+
     def test_drops_rows_without_numeric_price(self):
         rows = tradingview_mcp._rows_from_data({"rows": [{"symbol": "NASDAQ:BAD", "price": "N/A"}]})
         self.assertEqual(rows, [])
