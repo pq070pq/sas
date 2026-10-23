@@ -665,5 +665,35 @@
  paint();window.setInterval(paint,1000);
 })();
 </script>
+
+<script>
+/* Reliable institutional tab navigation fallback. Keeps existing tab logic intact. */
+(function(){
+  if (window.__sasInstitutionalTabFix) return;
+  window.__sasInstitutionalTabFix = true;
+  document.addEventListener('click', function(event){
+    var button = event.target && event.target.closest
+      ? event.target.closest('.terminal-tabs button[data-tab="institutional"]')
+      : null;
+    if (!button) return;
+    var section = document.getElementById('tab-institutional');
+    if (!section) return;
+    event.preventDefault();
+    try {
+      if (typeof window.switchTerminalTab === 'function') window.switchTerminalTab('institutional');
+    } catch (error) {
+      console.error('SAS PRO institutional tab navigation fallback:', error);
+    }
+    document.querySelectorAll('.terminal-main .terminal-tab').forEach(function(tab){
+      tab.classList.toggle('active', tab.id === 'tab-institutional');
+    });
+    document.querySelectorAll('.terminal-tabs button[data-tab]').forEach(function(tabButton){
+      tabButton.classList.toggle('active', tabButton === button);
+    });
+    section.scrollIntoView({behavior:'smooth', block:'start'});
+  }, true);
+})();
+</script>
+
 </body>
 </html>
