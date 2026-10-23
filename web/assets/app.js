@@ -327,11 +327,9 @@ async function loadInstitutionalRecommendations(force=false){
  const box=document.getElementById('institutionalRecommendationsFeed');if(!box)return;
  if(!force&&institutionalRecommendationsLoadedAt&&Date.now()-institutionalRecommendationsLoadedAt<300000)return;
  const sourceRows=[...(Array.isArray(terminalState.radar)?terminalState.radar:[]),...(Array.isArray(terminalState.preliminaryRadar)?terminalState.preliminaryRadar:[])];
- const symbols=[...new Set(sourceRows.map(x=>String(x?.symbol||x?.ticker||'').trim().toUpperCase()).filter(x=>/^[A-Z][A-Z0-9.-]{0,9}$/.test(x)))].slice(0,6);
- if(!symbols.length){
-  box.innerHTML='<div class="institutional-feed-empty"><span>◷</span><b>بانتظار رموز الأسهم المرصودة</b><p>ستظهر توصيات المحللين والأهداف السعرية للأسهم التي يرصدها SAS PRO، دون فحص السوق كاملًا.</p></div>';
-  return;
- }
+ const radarSymbols=[...new Set(sourceRows.map(x=>String(x?.symbol||x?.ticker||'').trim().toUpperCase()).filter(x=>/^[A-Z][A-Z0-9.-]{0,9}$/.test(x)))];
+ // Bounded fallback keeps the feed working before radar candidates exist; it does not scan the whole market.
+ const symbols=(radarSymbols.length?radarSymbols:['AAPL','MSFT','NVDA','AMZN','GOOGL','TSLA']).slice(0,6);
  box.innerHTML='<div class="institutional-feed-loading"><span class="institutional-live-orb"></span> جارٍ جلب توصيات المحللين والأهداف السعرية…</div>';
  try{
   const data=await api('/api/market/analyst-recommendations?symbols='+encodeURIComponent(symbols.join(',')),{timeoutMs:22000,retries:0});
