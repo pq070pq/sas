@@ -57,3 +57,23 @@
 @keyframes institutionalSpin{to{transform:rotate(360deg)}}
 @media(max-width:680px){.institutional-radar-shell{padding:14px;border-radius:21px}.institutional-hero{grid-template-columns:minmax(0,1fr) 92px;gap:10px;padding:19px 0}.institutional-hero-art{width:92px}.institutional-bank-emoji{width:57px;height:57px;border-radius:18px;font-size:29px}.institutional-hero-copy h2{font-size:23px}.institutional-hero-copy p{font-size:11px}.institutional-quick-stats{gap:6px;margin-bottom:22px}.institutional-quick-stats>div{grid-template-columns:1fr;justify-items:center;text-align:center;padding:10px 5px;gap:5px}.institutional-stat-icon{grid-row:auto}.institutional-quick-stats small{font-size:9px}.institutional-quick-stats b{font-size:9px}.institutional-interactive-grid{grid-template-columns:1fr;gap:10px}.institutional-feature-card{min-height:0;padding:14px}.institutional-card-top{margin-bottom:10px}.institutional-card-symbol{width:40px;height:40px}.institutional-card-title{font-size:15px}.institutional-card-desc{font-size:11px}.institutional-card-tags{margin:10px 0}.institutional-bank-chips{gap:6px}.institutional-bank-chips>span{font-size:9px;padding:6px}.institutional-section-heading h3{font-size:17px}.institutional-heading-pulse{font-size:9px}}
 @media(prefers-reduced-motion:reduce){.institutional-live-orb,.institutional-hero-art,.institutional-orbit,.institutional-hero-spark{animation:none!important}.institutional-feature-card,.institutional-card-glow,.institutional-card-open,.institutional-card-cta b{transition:none!important}.institutional-feature-card:hover,.institutional-feature-card:focus-visible{transform:none}}
+
+/* Institutional recommendation headlines styled like the SAS news feed */
+.institutional-refresh-button{border:1px solid rgba(82,213,255,.36);border-radius:999px;padding:8px 12px;background:rgba(18,89,117,.22);color:#8ce7ff;font:inherit;font-size:11px;cursor:pointer}
+.institutional-news-feed{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:12px 0 24px}
+.institutional-news-card{position:relative;min-width:0;padding:15px;border:1px solid rgba(77,181,220,.22);border-radius:17px;background:linear-gradient(145deg,rgba(13,43,63,.9),rgba(4,17,30,.96));box-shadow:0 8px 22px rgba(0,0,0,.17);animation:institutionalNewsIn .4s ease both;animation-delay:var(--institutional-card-delay,0ms);transition:transform .22s,border-color .22s,box-shadow .22s}
+.institutional-news-card:hover{transform:translateY(-3px);border-color:rgba(79,218,255,.55);box-shadow:0 12px 26px rgba(0,0,0,.23),0 0 17px rgba(42,188,235,.08)}
+.institutional-news-card-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+.institutional-news-badge{display:inline-flex;align-items:center;gap:5px;border:1px solid rgba(81,204,241,.2);border-radius:99px;padding:5px 8px;background:rgba(25,118,150,.15);font-size:10px;color:#91e6ff}
+.institutional-news-card time{font-size:9px;color:#86a5b9;text-align:end}
+.institutional-news-title{display:block;font-size:14px;line-height:1.8;color:#f1fbff;margin-bottom:7px}
+.institutional-news-original{display:block;color:#8daec1;font-size:10px;line-height:1.6;margin-bottom:7px}
+.institutional-news-card p{font-size:11px;line-height:1.85;color:#b3c8d7;margin:0 0 13px}
+.institutional-news-card-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:10px;border-top:1px solid rgba(102,167,197,.13);font-size:10px;color:#8baabe}
+.institutional-news-read{color:#65dfff;font-weight:800;text-decoration:none}
+.institutional-feed-loading,.institutional-feed-empty{grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:18px;border:1px solid rgba(82,177,210,.18);border-radius:15px;background:rgba(7,27,42,.75);color:#9dc3d6;font-size:12px}
+.institutional-feed-empty{display:block;text-align:center;padding:25px}.institutional-feed-empty>span{display:block;font-size:25px;margin-bottom:8px}.institutional-feed-empty b{display:block;color:#dceef8}.institutional-feed-empty p{font-size:11px;line-height:1.8}
+.institutional-source-heading{margin-top:28px}
+@keyframes institutionalNewsIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:680px){.institutional-news-feed{grid-template-columns:1fr;gap:9px}.institutional-news-card{padding:13px}.institutional-news-title{font-size:13px}.institutional-news-card p{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.institutional-news-card{animation:none;transition:none}}
