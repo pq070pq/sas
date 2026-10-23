@@ -3340,9 +3340,9 @@ async def analyst_recommendations_endpoint(symbols: str = "", _: dict = Depends(
     """Independent FMP analyst actions and price-target consensus; never uses the news ticker."""
     # Require an explicit, bounded ticker list to prevent accidental market-wide API scans.
     requested = []
-    for raw in re.split(r"[,;\\s]+", str(symbols or "").upper()):
+    for raw in re.split(r"[,;\s]+", str(symbols or "").upper()):
         ticker_symbol = raw.strip()
-        if ticker_symbol and re.fullmatch(r"[A-Z][A-Z0-9.\\-]{0,9}", ticker_symbol) and ticker_symbol not in requested:
+        if ticker_symbol and re.fullmatch(r"[A-Z][A-Z0-9.-]{0,9}", ticker_symbol) and ticker_symbol not in requested:
             requested.append(ticker_symbol)
         if len(requested) >= 6:
             break
