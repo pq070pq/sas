@@ -3265,6 +3265,67 @@ async def stock_cusp_analysis(symbol: str, _: dict = Depends(require_pro)):
                 "source_url": f"https://cuspwealth.com/ar/asset/{raw_symbol}",
                 "message_ar": "تعذر تحميل بيانات CUSP الآن.", "error": type(exc).__name__}
 
+@app.get("/api/market/institutional-recommendations")
+async def institutional_recommendations_endpoint(_: dict = Depends(require_pro)):
+    """News-style feed for current headlines about analyst actions and price targets.
+    Uses configured news providers; does not invent ratings or scrape analyst pages.
+    """
+    cache = getattr(institutional_recommendations_endpoint, "_cache", {})
+    now_mono = time.monotonic()
+    if cache.get("payload") and now_mono - float(cache.get("at") or 0) < 300:
+        return copy.deepcopy(cache["payload"])
+    try:
+        rows = await asyncio.wait_for(market_news(limit=40), timeout=12.0)
+    except Exception as exc:
+        logger.warning("Institutional recommendation news provider failed: %s", type(exc).__name__)
+        rows = []
+    action_terms = (
+        "analyst", "price target", "price-target", "upgrade", "upgraded", "downgrade",
+        "downgraded", "rating", "overweight", "underweight", "buy rating", "sell rating",
+        "initiated", "reiterated", "raised to", "cut to", "price objective",
+        "goldman sachs", "jpmorgan", "jp morgan", "morgan stanley", "bank of america",
+        "bofa", "citigroup", "citi", "barclays", "ubs", "wells fargo", "jefferies",
+        "raymond james", "needham", "benchmark", "wedbush", "piper sandler",
+    )
+    selected, seen = [], set()
+    for row in sorted((x for x in rows if isinstance(x, dict)), key=lambda x: int(x.get("datetime") or 0), reverse=True):
+        headline = str(row.get("headline") or "").strip()
+        text_blob = (headline + " " + str(row.get("summary") or "")).casefold()
+        url = str(row.get("url") or "").strip()
+        if not headline or not url.startswith(("https://", "http://")) or not any(term in text_blob for term in action_terms):
+            continue
+        dedupe = re.sub(r"[^a-z0-9]+", " ", headline.casefold()).strip()
+        if not dedupe or dedupe in seen:
+            continue
+        seen.add(dedupe)
+        selected.append({**row, "category": "institutional_recommendation"})
+        if len(selected) >= 16:
+            break
+    translated = []
+    if selected:
+        try:
+            translated = await asyncio.wait_for(translate_stock_news("INSTITUTIONAL", selected), timeout=18.0)
+        except Exception as exc:
+            logger.info("Institutional recommendation translation unavailable: %s", type(exc).__name__)
+    translated_by_url = {str(item.get("url") or "").rstrip("/"): item for item in translated if isinstance(item, dict) and item.get("url")}
+    items = []
+    for row in selected:
+        item = dict(row)
+        tr = translated_by_url.get(str(row.get("url") or "").rstrip("/"), {})
+        item["translated_headline"] = str(tr.get("translated_headline") or "").strip()
+        item["translated_summary"] = str(tr.get("summary") or "").strip()
+        item["source"] = str(row.get("source") or "مصدر إخباري")
+        items.append(item)
+    payload = {
+        "items": items, "updated_at": datetime.now(timezone.utc).isoformat(),
+        "available": bool(items),
+        "message_ar": "" if items else "لا توجد حاليًا أخبار حديثة مطابقة عن ترقيات المحللين أو الأسعار المستهدفة من المصادر المتاحة.",
+        "mode": "news_headlines",
+    }
+    institutional_recommendations_endpoint._cache = {"at": now_mono, "payload": payload}
+    return payload
+
+
 @app.get("/api/stocks/{symbol}/news")
 async def stock_news(symbol: str, _: dict = Depends(require_pro)):
     """Return original company-news evidence plus best-effort Arabic translation fields."""
