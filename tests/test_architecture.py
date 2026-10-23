@@ -46,13 +46,15 @@ class ArchitectureBoundaryTests(unittest.TestCase):
         self.assertNotIn("app.scanner", source)
         self.assertNotIn("app.jobs", source)
 
-    def test_channel_publishes_all_candidates_while_app_keeps_active_limit(self):
+    def test_channel_only_publishes_confirmed_candidates_while_app_keeps_active_limit(self):
         from app.config import settings
         self.assertEqual(settings.radar_channel_daily_limit, 0)
         self.assertEqual(settings.radar_app_daily_limit, 15)
         jobs_source = (APP / "jobs.py").read_text(encoding="utf-8")
         self.assertIn("channel_limit=unlimited", jobs_source)
-        self.assertIn("Radar candidate sent as watch report", jobs_source)
+        self.assertIn("Unconfirmed candidates remain in the app/database only", jobs_source)
+        self.assertIn('"published": False', jobs_source)
+        self.assertNotIn("Radar candidate sent as watch report", jobs_source)
 
     def test_core_imports(self):
         for module in (
