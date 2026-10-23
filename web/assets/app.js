@@ -322,6 +322,25 @@ async function loadRadarSnapshot(){
  })();
  return radarSnapshotLoadPromise;
 }
+let institutionalRecommendationsLoadedAt=0;
+async function loadInstitutionalRecommendations(force=false){
+ const box=document.getElementById('institutionalRecommendationsFeed');if(!box)return;
+ if(!force&&institutionalRecommendationsLoadedAt&&Date.now()-institutionalRecommendationsLoadedAt<300000)return;
+ box.innerHTML='<div class="institutional-feed-loading"><span class="institutional-live-orb"></span> جارٍ جلب أخبار التوصيات وترجمتها…</div>';
+ try{
+  const data=await api('/api/market/institutional-recommendations',{timeoutMs:26000,retries:0});
+  const items=Array.isArray(data?.items)?data.items:[];institutionalRecommendationsLoadedAt=Date.now();
+  if(!items.length){box.innerHTML='<div class="institutional-feed-empty"><span>◷</span><b>لا توجد توصيات منشورة حديثة مطابقة الآن</b><p>'+escHtml(data?.message_ar||'سيظهر الخبر هنا عند توفره من المصادر الإخبارية المتاحة.')+'</p></div>';return;}
+  box.innerHTML=items.map((n,i)=>{
+   const url=safeNewsUrl(n.url),title=String(n.translated_headline||n.headline||'خبر توصية'),original=String(n.headline||''),summary=String(n.translated_summary||n.summary||'');
+   const stamp=Number(n.datetime||0),timeLabel=stamp?new Date(stamp*1000).toLocaleString('ar-SA',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Riyadh'}):'وقت النشر غير متاح';
+   const source=String(n.source||'مصدر إخباري'),textBlob=(original+' '+summary).toLowerCase();
+   const bankTerms=['Goldman Sachs','JPMorgan','Morgan Stanley','Bank of America','Barclays','UBS','Citi','Wells Fargo','Jefferies'];
+   const bank=bankTerms.find(x=>textBlob.includes(x.toLowerCase()))||'تقييم محللين';
+   return '<article class="institutional-news-card" style="--institutional-card-delay:'+Math.min(i,8)*55+'ms"><div class="institutional-news-card-top"><span class="institutional-news-badge">🏦 '+escHtml(bank)+'</span><time>'+escHtml(timeLabel)+'</time></div><b class="institutional-news-title">'+escHtml(title)+'</b>'+(title!==original?'<small class="institutional-news-original">العنوان الأصلي: '+escHtml(original)+'</small>':'')+'<p>'+escHtml(summary||'لا يتوفر ملخص إضافي موثوق لهذا الخبر.')+'</p><div class="institutional-news-card-footer"><span>'+escHtml(source)+'</span>'+(url?'<a class="institutional-news-read" href="'+escHtml(url)+'" target="_blank" rel="noopener noreferrer">الخبر الأصلي ↗</a>':'')+'</div></article>';
+  }).join('');
+ }catch(error){box.innerHTML='<div class="institutional-feed-empty"><span>⚠️</span><b>تعذر تحديث أخبار التوصيات</b><p>حاول التحديث بعد قليل. لن نعرض بيانات غير مؤكدة.</p><button type="button" class="institutional-refresh-button" onclick="loadInstitutionalRecommendations(true)">إعادة المحاولة</button></div>';}
+}
 function switchTerminalTab(tab){
  if(tab!=='search'&&activeSymbolSearchController){activeSymbolSearchController.abort();activeSymbolSearchController=null;}
  terminalState.tab=tab;
@@ -329,6 +348,7 @@ function switchTerminalTab(tab){
  document.querySelectorAll('.terminal-tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));
  document.querySelectorAll('.sas-mobile-dock button').forEach(x=>x.classList.toggle('is-active',x.getAttribute('onclick')?.includes("'"+tab+"'")));
  if(tab==='radar'){renderRadar();void loadRadarSnapshot();}
+ if(tab==='institutional'){void loadInstitutionalRecommendations();}
 
 }
 async function initTerminal(){
