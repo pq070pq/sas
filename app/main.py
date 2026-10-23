@@ -26,7 +26,7 @@ from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarS
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
-from .news import company_news, company_fundamentals, corporate_events, tipranks_analysis, market_news, _is_relevant_stock_market_news
+from .news import company_news, company_fundamentals, corporate_events, tipranks_analysis, market_news, _is_relevant_stock_market_news, _newsfilter_market_news
 from .news_translation import translate_stock_news
 from .scheduler import scheduler
 from .market_calendar import market_status, us_market_holidays
@@ -3274,11 +3274,19 @@ async def institutional_recommendations_endpoint(_: dict = Depends(require_pro))
     now_mono = time.monotonic()
     if cache.get("payload") and now_mono - float(cache.get("at") or 0) < 300:
         return copy.deepcopy(cache["payload"])
-    try:
-        rows = await asyncio.wait_for(market_news(limit=40), timeout=12.0)
-    except Exception as exc:
-        logger.warning("Institutional recommendation news provider failed: %s", type(exc).__name__)
-        rows = []
+    # Query the dedicated analyst-action feed independently of the general-market
+    # relevance gate. That gate intentionally excludes many analyst-only headlines.
+    market_rows, analyst_rows = await asyncio.gather(
+        asyncio.wait_for(market_news(limit=40), timeout=12.0),
+        asyncio.wait_for(_newsfilter_market_news(limit=40), timeout=12.0),
+        return_exceptions=True,
+    )
+    rows = []
+    for result in (market_rows, analyst_rows):
+        if isinstance(result, list):
+            rows.extend(item for item in result if isinstance(item, dict))
+        elif isinstance(result, Exception):
+            logger.warning("Institutional recommendation provider failed: %s", type(result).__name__)
     action_terms = (
         "analyst", "price target", "price-target", "upgrade", "upgraded", "downgrade",
         "downgraded", "rating", "overweight", "underweight", "buy rating", "sell rating",
