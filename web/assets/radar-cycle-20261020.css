@@ -11,3 +11,14 @@
 .sas-radar-gauge-progress{transition:stroke-dashoffset .5s linear}
 @media(max-width:640px){.sas-radar-showcase{grid-template-columns:minmax(0,1fr);gap:14px;padding:15px;border-radius:20px}.sas-radar-visual{width:min(64vw,210px)}.sas-radar-copy{text-align:center}.sas-radar-status,.sas-radar-actions{justify-content:center}.sas-radar-status b{margin-inline-start:0}.sas-radar-auto-panel{max-width:100%}}
 @media(prefers-reduced-motion:reduce){.sas-radar-sweep,.sas-radar-dot{animation:none!important}.sas-radar-gauge-progress{transition:none}}
+
+/* Clear, honest weekend state: no simulated sweep or pulsing targets while the US market is closed for the weekend. */
+.sas-radar-visual.sas-radar-weekend-closed{border-color:rgba(235,91,111,.42);box-shadow:inset 0 0 26px rgba(235,91,111,.045),0 0 18px rgba(235,91,111,.07);cursor:pointer}
+.sas-radar-visual.sas-radar-weekend-closed .sas-radar-sweep{animation:none!important;opacity:0!important}
+.sas-radar-visual.sas-radar-weekend-closed .sas-radar-dot{animation:none!important;opacity:.45!important;box-shadow:0 0 5px rgba(112,244,200,.25)!important}
+.sas-radar-auto-panel[data-state="weekend"]{flex-wrap:wrap;align-items:center;gap:10px;border-color:rgba(235,91,111,.35);background:linear-gradient(120deg,rgba(45,13,26,.28),rgba(2,18,31,.82));padding:12px;box-sizing:border-box}
+.sas-radar-auto-panel[data-state="weekend"] .sas-radar-auto-copy{flex:1 1 150px;min-width:0;overflow-wrap:anywhere}
+.sas-radar-auto-panel[data-state="weekend"] .sas-radar-auto-copy b{display:block;line-height:1.6;white-space:normal}
+.sas-radar-auto-panel[data-state="weekend"] .sas-radar-auto-copy small{display:block;line-height:1.8;white-space:normal;overflow-wrap:anywhere}
+.sas-radar-auto-panel[data-state="weekend"] .sas-radar-schedule-status{flex:1 0 100%;width:100%;grid-column:auto;line-height:1.8;white-space:normal;overflow-wrap:anywhere}
+.sas-radar-auto-panel[data-state="weekend"] .sas-radar-gauge-progress{stroke-dashoffset:113.1!important;transition:none}
