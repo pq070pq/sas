@@ -53,7 +53,9 @@
  }
  function init(){
    const panel=$('sasRadarAutoPanel'),visual=document.querySelector('.sas-radar-visual');
-   if(panel&&!$('sasRadarScheduleStatus')){const small=document.createElement('small');small.id='sasRadarScheduleStatus';small.className='sas-radar-schedule-status';panel.appendChild(small);}
+   const copy=panel&&panel.querySelector('.sas-radar-auto-copy');
+   if(copy&&!$('sasRadarScheduleStatus')){const small=document.createElement('small');small.id='sasRadarScheduleStatus';small.className='sas-radar-schedule-status';copy.appendChild(small);}
+   else if(copy&&$('sasRadarScheduleStatus')&&$('sasRadarScheduleStatus').parentElement!==copy){copy.appendChild($('sasRadarScheduleStatus'));}
    if(panel&&!$('sasRadarGaugeProgress')){
      const gauge=document.createElement('span');gauge.className='sas-radar-auto-gauge';gauge.setAttribute('aria-hidden','true');
      gauge.innerHTML='<svg viewBox="0 0 44 44"><circle class="sas-radar-gauge-track" cx="22" cy="22" r="18"></circle><circle id="sasRadarGaugeProgress" class="sas-radar-gauge-progress" cx="22" cy="22" r="18"></circle></svg><span id="sasRadarCountdown">--:--</span>';
