@@ -26,9 +26,9 @@
    if(s.key!==lastMode){lastMode=s.key;nextAt=now+s.interval*1000;}
    const left=Math.max(0,Math.ceil((nextAt-now)/1000)),mm=String(Math.floor(left/60)).padStart(2,'0'),ss=String(left%60).padStart(2,'0');
    const countdown=$('sasRadarCountdown'),circleCountdown=$('sasRadarCircleCountdown'),title=$('sasRadarAutoTitle'),detail=$('sasRadarAutoDetail'),panel=$('sasRadarAutoPanel'),gauge=$('sasRadarGaugeProgress');
-   if(countdown)countdown.textContent=s.active?mm+':'+ss:'متوقف';if(circleCountdown)circleCountdown.textContent=s.active?mm+':'+ss:'مغلق';
+   if(countdown)countdown.textContent=s.weekend?'متوقف':mm+':'+ss;if(circleCountdown)circleCountdown.textContent=s.weekend?'مغلق':mm+':'+ss;
    if(title)title.textContent=s.label;
-   if(detail)detail.textContent=s.active?'فحص دوري كل 5 دقائق خلال الجلسة الرئيسية':s.key==='preopen'?'المسح الآلي متوقف حتى افتتاح السوق الأمريكي':s.key==='after'?'انتهت الجلسة الرئيسية؛ المسح الآلي متوقف':'السوق الأمريكي مغلق؛ لا يجري الرادار أي مسح آلي للأسهم';
+   if(detail)detail.textContent=s.active?'فحص دوري كل 5 دقائق خلال الجلسة الرئيسية':s.weekend?'المسح الآلي للأسهم متوقف خلال عطلة نهاية الأسبوع':s.key==='preopen'?'فحص هادئ كل 20 دقيقة قبل الافتتاح':s.key==='after'?'فحص هادئ كل 30 دقيقة بعد الإغلاق':'فحص هادئ كل 45 دقيقة خارج الجلسة';
    if(panel){panel.dataset.state=s.key;panel.setAttribute('aria-label',s.weekend?s.label:s.label+'، التحديث التالي خلال '+mm+':'+ss);}
    if(gauge){const circumference=2*Math.PI*18;gauge.style.strokeDasharray=String(circumference);gauge.style.strokeDashoffset=String(s.active?circumference*(1-left/s.interval):circumference);}
    const status=$('sasRadarScheduleStatus');if(status)status.textContent=s.active?s.label+' · الفحص التالي خلال '+mm+':'+ss:s.label+' · المسح الآلي متوقف حتى افتتاح السوق';
