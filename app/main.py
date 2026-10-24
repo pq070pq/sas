@@ -27,7 +27,7 @@ from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
 from .news import company_news, company_fundamentals, corporate_events, tipranks_analysis, market_news, _is_relevant_stock_market_news, _newsfilter_market_news
-from .news_translation import translate_stock_news
+from .news_translation import translate_stock_news, _mymemory_translate
 from .scheduler import scheduler
 from .market_calendar import market_status, us_market_holidays
 from .holiday_radar import stock_radar_enabled
@@ -2839,6 +2839,40 @@ async def market_news_endpoint(_: dict = Depends(require_pro)):
     except Exception as exc:
         logger.info("Market news Arabic translation unavailable: %s", type(exc).__name__)
         translated = []
+    # Retry missing headlines through the lightweight Arabic fallback before building the feed.
+    translated_urls = {
+        str(item.get("url") or "").strip()
+        for item in translated if isinstance(item, dict) and item.get("translated_headline")
+    }
+    missing_headlines = [
+        row for row in rows[:16]
+        if str(row.get("url") or "").strip() not in translated_urls
+        and str(row.get("headline") or row.get("title") or "").strip()
+    ]
+    if missing_headlines:
+        try:
+            fallback_headlines = await asyncio.wait_for(
+                asyncio.gather(
+                    *(_mymemory_translate(str(row.get("headline") or row.get("title") or ""))
+                      for row in missing_headlines),
+                    return_exceptions=True,
+                ),
+                timeout=7.0,
+            )
+            for row, fallback_headline in zip(missing_headlines, fallback_headlines):
+                if isinstance(fallback_headline, str) and any(0x0600 <= ord(ch) <= 0x06FF for ch in fallback_headline):
+                    translated.append({
+                        "url": str(row.get("url") or ""),
+                        "headline": str(row.get("headline") or row.get("title") or ""),
+                        "translated_headline": fallback_headline,
+                        "summary": "",
+                        "basis": "headline_only",
+                        "source": str(row.get("source") or ""),
+                        "translation_provider": "MyMemory fallback retry",
+                    })
+        except Exception as exc:
+            logger.info("Market news fallback translation unavailable: %s", type(exc).__name__)
+
     def normalized_news_url(value):
         # Match translation to source if tracking parameters or trailing slash differ.
         try:
