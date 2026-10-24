@@ -65,3 +65,8 @@
  .sas-radar-auto-panel.sas-radar-status-panel .sas-radar-auto-copy small,
  .sas-radar-auto-panel.sas-radar-status-panel .sas-radar-schedule-status{font-size:10px}
 }
+
+/* Weekend closure: hide both countdown widgets; never imply a scan is underway. */
+.sas-radar-auto-panel[data-state="weekend"] .sas-radar-auto-gauge,
+.sas-radar-visual.sas-radar-weekend-closed .sas-radar-live-countdown{display:none!important}
+.sas-radar-auto-panel[data-state="weekend"] .sas-radar-auto-copy{flex:1 1 auto!important;min-width:0!important}
