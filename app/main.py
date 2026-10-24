@@ -1441,16 +1441,35 @@ async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends
     await require_admin_permission(user, "users")
     now = utcnow()
     users = (await db.execute(select(User))).scalars().all()
+    subscription_rows = (await db.execute(
+        select(Subscription).order_by(Subscription.expires_at.desc())
+    )).scalars().all()
+    subscriptions_by_user = {}
+    for sub in subscription_rows:
+        subscriptions_by_user.setdefault(int(sub.telegram_id), []).append(sub)
     active = 0
     expired = 0
     trial = 0
     for u in users:
         trial_active = bool(u.status == "trial" and u.trial_expires and aware(u.trial_expires) > now)
+        user_subscriptions = subscriptions_by_user.get(int(u.telegram_id), [])
+        current_subscription = next(
+            (sub for sub in user_subscriptions if sub.active and aware(sub.expires_at) > now),
+            None,
+        )
+        # Existing Subscription records are authoritative for paid access.
+        # Keep legacy User fields as fallback only for users with no subscription records.
         paid_active = bool(
             not u.free_access
-            and u.status == "active"
-            and u.subscription_expires
-            and aware(u.subscription_expires) > now
+            and (
+                current_subscription is not None
+                or (
+                    not user_subscriptions
+                    and u.status == "active"
+                    and u.subscription_expires
+                    and aware(u.subscription_expires) > now
+                )
+            )
         )
         is_active_user = bool(u.free_access or trial_active or paid_active)
         if is_active_user:
@@ -1491,14 +1510,33 @@ async def admin_subscribers(state: str = "active", user=Depends(telegram_user), 
         raise HTTPException(400, "الحالة يجب أن تكون active أو expired")
     now = utcnow()
     users = (await db.execute(select(User).order_by(User.created_at.desc()))).scalars().all()
+    subscription_rows = (await db.execute(
+        select(Subscription).order_by(Subscription.expires_at.desc())
+    )).scalars().all()
+    subscriptions_by_user = {}
+    for sub in subscription_rows:
+        subscriptions_by_user.setdefault(int(sub.telegram_id), []).append(sub)
     rows = []
     for u in users:
         trial_active = bool(u.status == "trial" and u.trial_expires and aware(u.trial_expires) > now)
+        user_subscriptions = subscriptions_by_user.get(int(u.telegram_id), [])
+        current_subscription = next(
+            (sub for sub in user_subscriptions if sub.active and aware(sub.expires_at) > now),
+            None,
+        )
+        # Do not let a stale User.status hide a valid paid Subscription.
+        # Legacy User fields are used only when no Subscription record exists.
         paid_active = bool(
             not u.free_access
-            and u.status == "active"
-            and u.subscription_expires
-            and aware(u.subscription_expires) > now
+            and (
+                current_subscription is not None
+                or (
+                    not user_subscriptions
+                    and u.status == "active"
+                    and u.subscription_expires
+                    and aware(u.subscription_expires) > now
+                )
+            )
         )
         is_active_user = bool(u.free_access or trial_active or paid_active)
         if state == "active" and not is_active_user:
@@ -1516,7 +1554,7 @@ async def admin_subscribers(state: str = "active", user=Depends(telegram_user), 
         elif paid_active:
             source = "subscription"
             status_label = "🟢 اشتراك فعال"
-            expires = aware(u.subscription_expires)
+            expires = aware(current_subscription.expires_at) if current_subscription else aware(u.subscription_expires)
         elif u.status == "revoked":
             source = "revoked"
             status_label = "⛔ ملغى"
