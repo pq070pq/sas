@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Plus, Trash2, Pencil, Search, X, TrendingUp, Bot, Play, RefreshCw, Wallet, PiggyBank, ArrowUpRight, ArrowDownRight, Building2, ChevronDown, ChevronRight, Cpu, Bell, Clock, Newspaper, ExternalLink, BarChart3, Brain } from 'lucide-react'
 import { fetchAPI, stocksApi, type AIService, type NotifyChannel } from '@panwatch/api'
 import { klinesApi } from '@panwatch/api/klines'
-import { useLocalStorage, formatDateTime } from '@/lib/utils'
+import { useLocalStorage } from '@/lib/utils'
 import {
   buildPortfolioStockKeys,
   loadPortfolioPageBackgroundData,
@@ -36,134 +36,11 @@ import { parseAssistantPortfolioTarget } from '@/lib/assistant-navigation'
 import { useGuidedTour } from '@/components/onboarding/GuidedTour'
 import FirstAnalysis from '@/components/onboarding/FirstAnalysis'
 
-interface AgentResult {
-  success?: boolean
-  message?: string
-  title: string
-  content: string
-  should_alert: boolean
-  notified: boolean
-  skipped?: boolean
-}
-
-interface StockAgentInfo {
-  agent_name: string
-  display_name?: string
-  schedule: string
-  ai_model_id: number | null
-  notify_channel_ids: number[]
-}
-
-interface Stock {
-  asset_type?: 'stock' | 'etf'
-  id: number
-  symbol: string
-  name: string
-  market: string
-  sort_order?: number
-  agents: StockAgentInfo[]
-}
-
-interface Account {
-  id: number
-  name: string
-  available_funds: number
-  enabled: boolean
-}
-
-
-interface AgentConfig {
-  name: string
-  display_name: string
-  description: string
-  enabled: boolean
-  schedule: string
-  execution_mode: string  // batch: 批量分析, single: 逐只分析
-}
-
-interface SchedulePreview {
-  schedule: string
-  timezone: string
-  next_runs: string[]
-}
-
-interface SearchResult {
-  asset_type?: 'stock' | 'etf'
-  symbol: string
-  name: string
-  market: string
-}
-
-interface QuoteRequestItem {
-  symbol: string
-  market: string
-}
-
-
-interface StockForm {
-  asset_type: 'stock' | 'etf'
-  symbol: string
-  name: string
-  market: string
-}
-
-interface AccountForm {
-  name: string
-  available_funds: string
-}
-
-interface PositionForm {
-  account_id: number
-  stock_id: number
-  cost_price: string
-  quantity: string
-  invested_amount: string
-  trading_style: string
-  // 搜索选中的股票信息（新增持仓时用）
-  stock_symbol: string
-  stock_name: string
-  stock_market: string
-  stock_asset_type: 'stock' | 'etf'
-}
-
-// 建议池中的建议（包含来源和时间信息）
-interface PoolSuggestion extends Omit<SuggestionInfo, 'should_alert'> {
-  id: number
-  stock_symbol: string
-  stock_market?: string
-  stock_name: string
-  action: string
-  action_label: string
-  signal: string
-  reason: string
-  agent_name: string
-  agent_label: string
-  created_at: string
-  expires_at: string | null
-  is_expired: boolean
-  prompt_context: string
-  ai_response: string
-  meta?: Record<string, any>
-  should_alert?: boolean
-}
-
-interface NewsItem {
-  source: string
-  source_label: string
-  external_id: string
-  title: string
-  content: string
-  publish_time: string
-  symbols: string[]
-  importance: number
-  url: string
-}
-
-interface PriceAlertRuleSummary {
-  stock_symbol: string
-  market: string
-  enabled: boolean
-}
+import type { AgentResult, StockAgentInfo, Stock, Account, AgentConfig, SchedulePreview, SearchResult, QuoteRequestItem, StockForm, AccountForm, PositionForm, PoolSuggestion, NewsItem, PriceAlertRuleSummary } from '@/components/portfolio/types'
+import { AccountDialog } from '@/components/portfolio/AccountDialog'
+import { NewsDialog } from '@/components/portfolio/NewsDialog'
+import { PositionDialog } from '@/components/portfolio/PositionDialog'
+import { useQuoteRefresh } from '@/hooks/useQuoteRefresh'
 
 const emptyStockForm: StockForm = { symbol: '', name: '', market: 'CN', asset_type: 'stock' }
 const emptyAccountForm: AccountForm = { name: '', available_funds: '0' }
@@ -229,7 +106,6 @@ export default function StocksPage() {
   const [autoRefresh, setAutoRefresh] = useLocalStorage('panwatch_stocks_autoRefresh', false)
   const [refreshInterval, setRefreshInterval] = useLocalStorage('panwatch_stocks_refreshInterval', 30)
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null)
-  const refreshTimerRef = useRef<ReturnType<typeof setInterval>>()
 
   type ViewTab = 'positions' | 'watchlist'
   const [savedViewTab, setViewTab] = useLocalStorage<ViewTab>('panwatch_stocks_viewTab', 'positions')
@@ -504,7 +380,7 @@ export default function StocksPage() {
     }
   }, [refreshMarketStatus])
 
-  const refreshQuotes = useCallback(async (automatic = false) => {
+  const refreshQuotes = useCallback(async (automatic = false, signal?: AbortSignal) => {
     const statuses = marketStatusRef.current
     const items = buildQuoteItems().filter(item => !automatic ||
       !statuses.some(status => status.code === item.market) ||
@@ -513,8 +389,8 @@ export default function StocksPage() {
 
     setQuotesLoading(true)
     try {
-      const data = await requestQuotes(items)
-      if (data.length > 0) {
+      const data = await requestQuotes(items, signal)
+      if (!signal?.aborted && data.length > 0) {
         setQuotes(previous => ({ ...previous, ...toQuoteMap(data) }))
         setLastRefreshTime(new Date())
       }
@@ -864,27 +740,7 @@ export default function StocksPage() {
     return () => { cancelled = true }
   }, [agentDialogStock, agents, schedulePreviewCache, schedulePreviewLoading])
 
-  // Auto-refresh timer
-  useEffect(() => {
-    if (autoRefresh) {
-      refreshQuotes(true)
-      refreshTimerRef.current = setInterval(() => {
-        refreshQuotes(true)
-      }, refreshInterval * 1000)
-    } else {
-      // Clear interval when disabled
-      if (refreshTimerRef.current) {
-        clearInterval(refreshTimerRef.current)
-        refreshTimerRef.current = undefined
-      }
-    }
-
-    return () => {
-      if (refreshTimerRef.current) {
-        clearInterval(refreshTimerRef.current)
-      }
-    }
-  }, [autoRefresh, refreshInterval, refreshQuotes])
+  useQuoteRefresh(autoRefresh, refreshInterval, refreshQuotes)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -2500,228 +2356,33 @@ export default function StocksPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Account Dialog */}
-      <Dialog open={accountDialogOpen} onOpenChange={setAccountDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editAccountId ? stockT('stocksPage.messages.editAccount') : stockT('stocksPage.messages.addAccountTitle')}</DialogTitle>
-            <DialogDescription>{stockT('stocksPage.messages.accountInfo')}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div>
-              <Label>{stockT('stocksPage.messages.accountName')}</Label>
-              <Input
-                value={accountForm.name}
-                onChange={e => setAccountForm({ ...accountForm, name: e.target.value })}
-                placeholder={stockT('stocksPage.messages.accountName')}
-              />
-            </div>
-            <div>
-              <Label>{stockT('stocksPage.messages.availableFunds')}</Label>
-              <Input
-                value={accountForm.available_funds}
-                onChange={e => setAccountForm({ ...accountForm, available_funds: e.target.value })}
-                placeholder="0"
-                className="font-mono"
-                inputMode="decimal"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setAccountDialogOpen(false)}>{stockT('stocksPage.messages.cancel')}</Button>
-              <Button onClick={handleAccountSubmit} disabled={!accountForm.name}>
-                {editAccountId ? stockT('stocksPage.messages.save') : stockT('stocksPage.messages.create')}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AccountDialog open={accountDialogOpen} onOpenChange={setAccountDialogOpen} editing={!!editAccountId}
+        value={accountForm} onChange={setAccountForm} onSubmit={handleAccountSubmit} />
 
-      {/* Position Dialog */}
-      <Dialog
-        open={positionDialogOpen}
-        onOpenChange={(open) => {
-          setPositionDialogOpen(open)
-          if (!open) {
-            setPositionSearchQuery('')
-            setPositionSearchResults([])
-            setShowPositionDropdown(false)
-            setPositionSearchMarket('')
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editPositionId ? stockT('stocksPage.messages.editPosition') : stockT('stocksPage.messages.addPosition')}</DialogTitle>
-            <DialogDescription>
-              {accounts.find(a => a.id === positionDialogAccountId)?.name} {stockT('stocksPage.messages.positionInfo')}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            {editPositionId ? (
-              <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg bg-accent/30">
-                <span className={`text-[9px] px-1.5 py-0.5 rounded ${marketBadge(positionForm.stock_market).style}`}>
-                  {marketBadge(positionForm.stock_market).label}
-                </span>
-                <span className="font-mono text-[12px] text-muted-foreground">{positionForm.stock_symbol}</span>
-                <span className="text-[13px] text-foreground">{positionForm.stock_name}</span>
-                <Select value={positionForm.stock_asset_type} onValueChange={value => setPositionForm({ ...positionForm, stock_asset_type: value as 'stock' | 'etf' })}>
-                  <SelectTrigger aria-label={stockT('stocksPage.assetTypes.label')} className="w-28 h-8 shrink-0"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="stock">{stockT('stocksPage.assetTypes.stock')}</SelectItem>
-                    <SelectItem value="etf">{stockT('stocksPage.assetTypes.etf')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : (
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Label className="mb-0">{stockT('stocksPage.messages.searchStock')}</Label>
-                  <div className="flex items-center gap-1">
-                    {[
-                      { value: '', label: stockT('stocksPage.markets.all') },
-                      { value: 'CN', label: stockT('stocksPage.markets.cn') },
-                      { value: 'HK', label: stockT('stocksPage.markets.hk') },
-                      { value: 'US', label: stockT('stocksPage.markets.us') },
-                    ].map(opt => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => handlePositionSearchMarketChange(opt.value)}
-                        className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
-                          positionSearchMarket === opt.value
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-accent/50 text-muted-foreground hover:bg-accent'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="relative" ref={positionDropdownRef}>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-                    <Input
-                      value={positionSearchQuery}
-                      onChange={e => handlePositionSearchInput(e.target.value)}
-                      onFocus={() => positionSearchResults.length > 0 && setShowPositionDropdown(true)}
-                      placeholder={stockT('stocksPage.messages.searchPlaceholder', { example: positionSearchMarket === 'HK' ? '00700 / 02800' : positionSearchMarket === 'US' ? 'AAPL / SPY' : positionSearchMarket === 'CN' ? '600519 / 510300' : '510300 / 02800 / SPY' })}
-                      className="pl-9"
-                      autoComplete="off"
-                    />
-                    {positionSearching && <span className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />}
-                  </div>
-                  {showPositionDropdown && positionSearchResults.length > 0 && (
-                    <div className="relative w-full mt-1 max-h-48 overflow-auto overscroll-contain scrollbar card shadow-lg">
-                      {positionSearchResults.map(item => (
-                        <button
-                          key={`${item.market}-${item.symbol}`}
-                          type="button"
-                          onClick={() => selectPositionStock(item)}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-[13px] hover:bg-accent/50 text-left transition-colors"
-                        >
-                          <span className={`text-[9px] px-1 py-0.5 rounded ${marketBadge(item.market).style}`}>
-                            {marketBadge(item.market).label}
-                          </span>
-                          <span className="font-mono text-muted-foreground text-[12px]">{item.symbol}</span>
-                          <span className="flex-1 text-foreground">{item.name}</span>
-                          {item.asset_type === 'etf' && <Badge variant="secondary">{stockT('stocksPage.assetTypes.etf')}</Badge>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {positionForm.stock_symbol && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded ${marketBadge(positionForm.stock_market).style}`}>
-                      {marketBadge(positionForm.stock_market).label}
-                    </span>
-                    <span className="font-mono text-[12px] text-muted-foreground">{positionForm.stock_symbol}</span>
-                    <span className="text-[13px] text-foreground">{positionForm.stock_name}</span>
-                    <Select value={positionForm.stock_asset_type} onValueChange={value => setPositionForm({ ...positionForm, stock_asset_type: value as 'stock' | 'etf' })}>
-                      <SelectTrigger aria-label={stockT('stocksPage.assetTypes.label')} className="w-28 h-8 shrink-0"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="stock">{stockT('stocksPage.assetTypes.stock')}</SelectItem>
-                        <SelectItem value="etf">{stockT('stocksPage.assetTypes.etf')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPositionForm({ ...positionForm, stock_id: 0, stock_symbol: '', stock_name: '', stock_market: '' })
-                        setPositionSearchQuery('')
-                      }}
-                      className="ml-1 text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>{stockT('stocksPage.messages.costPrice')}</Label>
-                <Input
-                  value={positionForm.cost_price}
-                  onChange={e => setPositionForm({ ...positionForm, cost_price: e.target.value })}
-                  placeholder="0.00"
-                  className="font-mono"
-                  inputMode="decimal"
-                />
-              </div>
-              <div>
-                <Label>{stockT('stocksPage.messages.quantity')}</Label>
-                <Input
-                  value={positionForm.quantity}
-                  onChange={e => setPositionForm({ ...positionForm, quantity: e.target.value })}
-                  placeholder="0"
-                  className="font-mono"
-                  inputMode="numeric"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>{stockT('stocksPage.messages.investedAmount')} <span className="text-muted-foreground/60 text-[11px]">({stockT('stocksPage.messages.optional')})</span></Label>
-                <Input
-                  value={positionForm.invested_amount}
-                  onChange={e => setPositionForm({ ...positionForm, invested_amount: e.target.value })}
-                  placeholder={stockT('stocksPage.messages.optional')}
-                  className="font-mono"
-                  inputMode="decimal"
-                />
-              </div>
-              <div>
-                <Label>{stockT('stocksPage.messages.tradingStyle')} <span className="text-muted-foreground font-normal">({stockT('stocksPage.messages.optional')})</span></Label>
-                <Select
-                  value={positionForm.trading_style}
-                  onValueChange={val => setPositionForm({ ...positionForm, trading_style: val === '__none__' ? '' : val })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={stockT('stocksPage.messages.unset')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">{stockT('stocksPage.messages.unset')}</SelectItem>
-                    <SelectItem value="short">{stockT('stocksPage.messages.shortStyle')}</SelectItem>
-                    <SelectItem value="swing">{stockT('stocksPage.messages.swingStyle')}</SelectItem>
-                    <SelectItem value="long">{stockT('stocksPage.messages.longStyle')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setPositionDialogOpen(false)}>{stockT('stocksPage.messages.cancel')}</Button>
-              <Button
-                onClick={handlePositionSubmit}
-                disabled={!positionForm.cost_price || !positionForm.quantity || (!editPositionId && !positionForm.stock_id && !positionForm.stock_symbol)}
-              >
-                {editPositionId ? stockT('stocksPage.messages.save') : stockT('stocksPage.messages.add')}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PositionDialog
+        positionDialogOpen={positionDialogOpen}
+        setPositionDialogOpen={setPositionDialogOpen}
+        editPositionId={editPositionId}
+        positionForm={positionForm}
+        setPositionForm={setPositionForm}
+        accounts={accounts}
+        positionDialogAccountId={positionDialogAccountId}
+        positionSearchQuery={positionSearchQuery}
+        setPositionSearchQuery={setPositionSearchQuery}
+        positionSearchResults={positionSearchResults}
+        setPositionSearchResults={setPositionSearchResults}
+        showPositionDropdown={showPositionDropdown}
+        setShowPositionDropdown={setShowPositionDropdown}
+        positionSearchMarket={positionSearchMarket}
+        setPositionSearchMarket={setPositionSearchMarket}
+        positionSearching={positionSearching}
+        positionDropdownRef={positionDropdownRef}
+        handlePositionSearchMarketChange={handlePositionSearchMarketChange}
+        handlePositionSearchInput={handlePositionSearchInput}
+        selectPositionStock={selectPositionStock}
+        handlePositionSubmit={handlePositionSubmit}
+        marketBadge={marketBadge}
+      />
 
       {/* Agent Assignment Dialog */}
       <Dialog open={!!agentDialogStock} onOpenChange={open => !open && setAgentDialogStock(null)}>
@@ -2937,148 +2598,9 @@ export default function StocksPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 相关资讯弹窗 */}
-      <Dialog open={newsDialogOpen} onOpenChange={setNewsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Newspaper className="w-5 h-5 text-blue-500" />
-              {stockT('stocksPage.messages.relatedNews')}
-            </DialogTitle>
-            <DialogDescription>
-              {newsDialogSymbol
-                ? stockT('stocksPage.messages.newsTitleForStock', { name: newsDialogSymbol })
-                : stockT('stocksPage.messages.newsTitleAll')
-              }
-            </DialogDescription>
-          </DialogHeader>
+      <NewsDialog open={newsDialogOpen} onOpenChange={setNewsDialogOpen} symbol={newsDialogSymbol}
+        onSymbolChange={setNewsDialogSymbol} loading={newsLoading} news={news} stocks={stocks} onLoad={loadNews} />
 
-          {/* 股票筛选器 */}
-          <div className="flex items-center gap-2 flex-wrap py-2 border-b">
-            <span className="text-[12px] text-muted-foreground">{stockT('stocksPage.messages.newsFilter')}</span>
-            <button
-              onClick={() => { setNewsDialogSymbol(''); loadNews() }}
-              className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${
-                !newsDialogSymbol
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-accent/50 text-muted-foreground hover:bg-accent'
-              }`}
-            >
-              {stockT('stocksPage.markets.all')}
-            </button>
-            {stocks.slice(0, 10).map(stock => (
-              <button
-                key={stock.symbol}
-                onClick={() => { setNewsDialogSymbol(stock.name); loadNews(stock.name) }}
-                className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${
-                  newsDialogSymbol === stock.name
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-accent/50 text-muted-foreground hover:bg-accent'
-                }`}
-              >
-                {stock.name}
-                {stock.asset_type === 'etf' && <Badge variant="secondary" className="ml-1">{stockT('stocksPage.assetTypes.etf')}</Badge>}
-              </button>
-            ))}
-            {stocks.length > 10 && (
-              <span className="text-[10px] text-muted-foreground">+{stocks.length - 10}</span>
-            )}
-          </div>
-
-          {/* 新闻列表 */}
-          <div className="flex-1 overflow-y-auto min-h-0 py-2 scrollbar">
-            {newsLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <span className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                <span className="ml-2 text-[13px] text-muted-foreground">{stockT('stocksPage.messages.loading')}</span>
-              </div>
-            ) : news.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground text-[13px]">
-                {stockT('stocksPage.messages.noAnalysis')}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {news.map((item, idx) => (
-                  <div
-                    key={`${item.source}-${item.external_id}-${idx}`}
-                    className="p-3 rounded-lg bg-accent/30 hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${
-                            item.source === 'eastmoney' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' :
-                            item.source === 'eastmoney_news' ? 'bg-blue-500/10 text-blue-500' :
-                            'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                          }`}>
-                            {item.source_label}
-                          </span>
-                          {item.importance >= 2 && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500">
-                              {stockT('stocksPage.messages.announcement')}
-                            </span>
-                          )}
-                          <span className="text-[10px] text-muted-foreground">
-                            {formatDateTime(item.publish_time)}
-                          </span>
-                        </div>
-                        <a
-                          href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[13px] font-medium text-foreground hover:text-primary transition-colors block"
-                        >
-                          {item.title}
-                        </a>
-                        {item.symbols.length > 0 && (
-                          <div className="flex items-center gap-1.5 mt-2">
-                            {item.symbols.slice(0, 5).map(sym => {
-                              const stockInfo = stocks.find(s => s.symbol === sym)
-                              const stockName = stockInfo?.name || sym
-                              return (
-                                <button
-                                  key={sym}
-                                  onClick={() => { setNewsDialogSymbol(stockName); loadNews(stockName) }}
-                                  className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono hover:bg-primary/20 transition-colors"
-                                >
-                                  {stockName}
-                                </button>
-                              )
-                            })}
-                            {item.symbols.length > 5 && (
-                              <span className="text-[10px] text-muted-foreground">+{item.symbols.length - 5}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-shrink-0 p-1.5 rounded-md hover:bg-accent transition-colors"
-                        title={stockT('stocksPage.messages.viewOriginal')}
-                      >
-                        <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                      </a>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* 底部刷新按钮 */}
-          <div className="flex items-center justify-between pt-2 border-t">
-            <span className="text-[11px] text-muted-foreground">
-              {news.length} {stockT('stocksPage.messages.amountUnit')} {stockT('stocksPage.messages.stockNews')}
-            </span>
-            <Button variant="secondary" size="sm" onClick={() => loadNews(newsDialogSymbol || undefined)} disabled={newsLoading}>
-              <RefreshCw className={`w-3 h-3 ${newsLoading ? 'animate-spin' : ''}`} />
-              {stockT('stocksPage.messages.refreshed')}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

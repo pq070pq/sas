@@ -23,8 +23,8 @@ from src.modules.automation.tradingagents.observability import (
 from src.modules.automation.tradingagents.runtime_support import (
     VALID_ANALYSTS,
     apply_compat_patches,
+    bounded_tier_clients,
     build_ta_llm_config,
-    inject_api_key_env,
 )
 from src.modules.automation.tradingagents.data_context import (
     build_stock_metadata_context,
@@ -55,22 +55,17 @@ class TradingAgentsUnavailable(RuntimeError):
     """tradingagents 库未安装或上游 API 变更导致不可用。"""
 
 
-def _bounded_graph_class(graph_cls):
+def _bounded_graph_class(graph_cls, *, api_key: str | None = None):
     """让 TradingAgentsGraph 把请求边界传给 LangChain LLM 客户端。
 
-    TradingAgents 0.5.0 已支持 ``llm_max_retries``，但当前
-    版本的 ``_get_provider_kwargs`` 尚未读取自定义 timeout。通过一个很小的
-    子类适配该差异，避免直接修改 site-packages，也兼容后续上游自行支持
-    timeout 的版本。
+    TradingAgents 0.7.0 通过 create_tier_client 构造两个模型。
+    仅在构造期间适配 timeout，保持上游工厂和并行图执行行为。
     """
 
     class BoundedTradingAgentsGraph(graph_cls):
-        def _get_provider_kwargs(self):
-            kwargs = dict(super()._get_provider_kwargs())
-            timeout = self.config.get("llm_timeout_seconds")
-            if timeout is not None and timeout != "":
-                kwargs["timeout"] = float(timeout)
-            return kwargs
+        def __init__(self, *args, **kwargs):
+            with bounded_tier_clients(api_key):
+                super().__init__(*args, **kwargs)
 
     BoundedTradingAgentsGraph.__name__ = (
         f"Bounded{getattr(graph_cls, '__name__', 'TradingAgentsGraph')}"
@@ -542,7 +537,7 @@ class TradingAgentsAgent(BaseAgent):
         """在 worker 线程跑同步 TradingAgents 流程。
 
         步骤:
-        1. inject_api_key_env 注入 API key 到环境变量
+        1. 在模型客户端构造时传入本次运行的 API key
         2. patch_route_to_vendor 让 A 股请求路由到 PanWatch 数据
         3. TradingAgentsGraph.propagate 跑 3-5 分钟
         4. 返回 decision + final_state + cost_usd
@@ -553,7 +548,6 @@ class TradingAgentsAgent(BaseAgent):
         # 应用 LangChain 兼容性补丁:让小模型 (Qwen 7B 等) 返回的
         # tool_calls.args 字符串被自动转 dict。
         apply_compat_patches()
-        inject_api_key_env(ai_client)
 
         # patch + 数据上下文,确保 TradingAgents 调 route_to_vendor 时拿到 PanWatch 数据
         trace_id_for_ctx = getattr(progress_handler, "trace_id", "") if progress_handler else ""
@@ -562,7 +556,7 @@ class TradingAgentsAgent(BaseAgent):
             trace_id=trace_id_for_ctx,
             cancel_event=cancel_event,
         ):
-            graph = _bounded_graph_class(TradingAgentsGraph)(
+            graph = _bounded_graph_class(TradingAgentsGraph, api_key=ai_client.api_key or "panwatch-local")(
                 selected_analysts=ta_config["selected_analysts"],
                 debug=False,
                 config=ta_config,
@@ -585,13 +579,15 @@ class TradingAgentsAgent(BaseAgent):
                 date_str,
                 portfolio=to_tradingagents_portfolio(portfolio),
             )
+            # Upstream includes settings in its disk log, but not propagate's state.
+            final_state = {**dict(final_state or {}), "run_settings": graph.run_settings()}
 
         # Keep upstream cost metadata for legacy consumers, without fabricating
         # a charge from assumed tokens/model prices. The UI shows provider usage.
         cost_usd = self._extract_cost_from_graph(graph)
 
         return {
-            "decision": str(decision or "HOLD").upper(),
+            "decision": str(decision or "REVIEW").upper(),
             "final_state": dict(final_state) if final_state else {},
             "cost_usd": float(cost_usd or 0.0),
             "token_usage": progress_handler.token_usage if progress_handler else None,

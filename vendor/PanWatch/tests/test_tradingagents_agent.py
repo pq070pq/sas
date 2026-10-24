@@ -23,7 +23,7 @@ from src.modules.automation.tradingagents.observability import (
 from src.modules.automation.tradingagents.runtime_support import (
     VALID_ANALYSTS,
     build_ta_llm_config,
-    inject_api_key_env,
+    bounded_tier_clients,
 )
 from src.modules.automation.tradingagents.observability import (
     PanWatchProgressHandler,
@@ -62,7 +62,7 @@ class TestLLMAdapter(unittest.TestCase):
             ai_client, debate_rounds=2, selected_analysts=["market", "news"]
         )
         # 用 openrouter 走标准 chat completions,避开 OpenAI Responses API 的兼容性问题
-        self.assertEqual(config["llm_provider"], "openrouter")
+        self.assertEqual(config["llm_provider"], "openai_compatible")
         self.assertEqual(config["backend_url"], "https://api.deepseek.com")
         self.assertEqual(config["deep_think_llm"], "deepseek-chat")
         self.assertEqual(config["max_debate_rounds"], 2)
@@ -163,23 +163,15 @@ class TestLLMAdapter(unittest.TestCase):
         finally:
             upstream_config._config = original_config
 
-    def test_inject_api_key_env(self):
-        """API key 注入到环境变量 — OPENAI_API_KEY 被设置"""
+    def test_credentials_do_not_change_process_environment(self):
         import os
-        ai_client = MagicMock(api_key="sk-test-key")
-        previous = {
-            key: os.environ.get(key)
-            for key in ("OPENROUTER_API_KEY", "OPENAI_API_KEY", "DEEPSEEK_API_KEY")
-        }
-        try:
-            inject_api_key_env(ai_client)
-            self.assertEqual(os.environ.get("OPENAI_API_KEY"), "sk-test-key")
-        finally:
-            for key, value in previous.items():
-                if value is None:
-                    os.environ.pop(key, None)
-                else:
-                    os.environ[key] = value
+        from tradingagents.graph import trading_graph
+        before = dict(os.environ)
+        with patch.object(trading_graph, "create_tier_client", return_value="client") as factory:
+            with bounded_tier_clients("review-key"):
+                trading_graph.create_tier_client({}, "deep")
+            self.assertEqual(factory.call_args.kwargs["api_key"], "review-key")
+        self.assertEqual(dict(os.environ), before)
 
 
 # ============================================================================
@@ -483,16 +475,25 @@ class TestPhaseBFeatures(unittest.TestCase):
         """上游未读取 timeout 配置时，适配类仍需把它传给 ChatOpenAI。"""
         from src.modules.automation.tradingagents.agent import _bounded_graph_class
 
+        from tradingagents.graph import trading_graph
+        original = trading_graph.create_tier_client
+        captured = []
+
+        def factory(config, tier, **kwargs):
+            captured.append((tier, kwargs))
+            return tier
+
         class BaseGraph:
             def __init__(self, config):
-                self.config = config
+                self.deep = trading_graph.create_tier_client(config, "deep")
+                self.quick = trading_graph.create_tier_client(config, "quick")
 
-            def _get_provider_kwargs(self):
-                return {"max_retries": 0}
-
-        graph_cls = _bounded_graph_class(BaseGraph)
-        graph = graph_cls(config={"llm_timeout_seconds": 7})
-        self.assertEqual(graph._get_provider_kwargs(), {"max_retries": 0, "timeout": 7.0})
+        with patch.object(trading_graph, "create_tier_client", factory):
+            graph = _bounded_graph_class(BaseGraph)(config={"llm_timeout_seconds": 7})
+            self.assertIs(trading_graph.create_tier_client, factory)
+        self.assertEqual(captured, [("deep", {"timeout": 7.0}), ("quick", {"timeout": 7.0})])
+        self.assertEqual((graph.deep, graph.quick), ("deep", "quick"))
+        self.assertIs(trading_graph.create_tier_client, original)
 
     def test_paper_trading_bridge_disabled_skips(self):
         """模拟盘 bridge — enabled=False 直接 skip,不写库"""
@@ -687,8 +688,8 @@ class TestPortfolioContext(unittest.TestCase):
         patch_instrument_context(graph, "")
         self.assertEqual(graph.propagator.create_initial_state, original)
 
-    def test_run_sync_passes_native_portfolio_to_v050_propagate(self):
-        """运行入口必须把转换后的 portfolio 传给 0.5.0 propagate，而非提示词。"""
+    def test_run_sync_passes_native_portfolio_and_captures_v070_settings(self):
+        """持仓进入原生图；run_settings() 的独立元数据必须进入持久化结果。"""
         from contextlib import nullcontext
 
         from tradingagents.graph import trading_graph
@@ -701,6 +702,9 @@ class TestPortfolioContext(unittest.TestCase):
             def __init__(self, **kwargs):
                 self.propagator = None
                 self.total_cost = 0.01
+
+            def run_settings(self):
+                return {"version": "0.7.0", "deep_think_llm": "test-model"}
 
             def propagate(self, company_name, trade_date, asset_type="stock", portfolio=None):
                 captured.update({
@@ -721,7 +725,6 @@ class TestPortfolioContext(unittest.TestCase):
         with (
             patch.object(trading_graph, "TradingAgentsGraph", FakeGraph),
             patch.object(agent_module, "apply_compat_patches"),
-            patch.object(agent_module, "inject_api_key_env"),
             patch.object(agent_module, "patch_route_to_vendor", lambda: nullcontext()),
             patch.object(agent_module, "panwatch_data_context", lambda *args, **kwargs: nullcontext()),
         ):
@@ -737,6 +740,9 @@ class TestPortfolioContext(unittest.TestCase):
             )
 
         self.assertEqual(result["decision"], "HOLD")
+        self.assertEqual(result["final_state"]["run_settings"], {
+            "version": "0.7.0", "deep_think_llm": "test-model",
+        })
         self.assertEqual(captured["company_name"], "600519")
         self.assertIsInstance(captured["portfolio"], PortfolioContext)
         self.assertEqual(captured["portfolio"].positions[0].ticker, "600519")

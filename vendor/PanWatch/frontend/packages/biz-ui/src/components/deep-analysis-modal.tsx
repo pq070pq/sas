@@ -15,7 +15,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@panwatch/base-ui/components/ui/tabs'
 import { Button } from '@panwatch/base-ui/components/ui/button'
 import { useToast } from '@panwatch/base-ui/components/ui/toast'
-import { HoverPopover } from '@panwatch/base-ui/components/ui/hover-popover'
+import { AnalysisReader } from './analysis-reader'
+import { ToolkitDiagnostics } from './toolkit-diagnostics'
+export { ToolkitDiagnostics } from './toolkit-diagnostics'
 import {
   subscribeSSE,
   tradingAgentsApi,
@@ -342,8 +344,8 @@ export function DeepAnalysisModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[92vw] max-w-6xl max-h-[85vh] overflow-y-auto scrollbar">
-        <DialogHeader>
+      <DialogContent className="w-[92vw] max-w-6xl max-h-[92vh] flex flex-col overflow-hidden p-0">
+        <DialogHeader className="shrink-0 mb-0 border-b border-border/50 p-4 pr-14">
           <DialogTitle className="flex items-center gap-2">
             {tr('title', { name: stockName, symbol: stockSymbol })}
           </DialogTitle>
@@ -351,7 +353,7 @@ export function DeepAnalysisModal({
             {tr('description')}
           </DialogDescription>
         </DialogHeader>
-
+        <div className="min-h-0 overflow-y-auto scrollbar overscroll-contain p-4">
         {stage === 'idle' && (
           <IdleView
             stockSymbol={stockSymbol}
@@ -382,6 +384,7 @@ export function DeepAnalysisModal({
             </div>
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   )
@@ -518,140 +521,6 @@ function DataCollectionDiagnostics({ sources }: { sources: ProgressDataSource[] 
   )
 }
 
-interface ToolkitDiagItem {
-  action?: string
-  method?: string
-  symbol?: string
-  chars?: number
-  snippet?: string
-  source?: string
-  reason?: string
-}
-interface ToolkitDiagSummary {
-  hit: number
-  miss: number
-  passthrough: number
-  fallthrough?: number
-  error: number
-}
-
-export function ToolkitDiagnostics({
-  summary,
-  recent,
-  defaultOpen = false,
-}: {
-  summary: ToolkitDiagSummary | undefined
-  recent: ToolkitDiagItem[]
-  defaultOpen?: boolean
-}) {
-  const { t } = useTranslation('bizUi')
-  const tr = (key: string, options?: Record<string, unknown>) =>
-    (t as unknown as (key: string, options?: Record<string, unknown>) => string)(`deepAnalysis.${key}`, options)
-  if (!summary && recent.length === 0) return null
-
-  const hit = summary?.hit ?? 0
-  const miss = summary?.miss ?? 0
-  const pass = summary?.passthrough ?? 0
-  const fall = summary?.fallthrough ?? 0
-  const err = summary?.error ?? 0
-  const total = hit + miss + pass + fall + err
-
-  const ACTION_CLS: Record<string, string> = {
-    HIT: 'text-emerald-600 dark:text-emerald-400',
-    MISS: 'text-amber-600 dark:text-amber-400',
-    PASSTHROUGH: 'text-sky-600 dark:text-sky-400',
-    FALLTHROUGH: 'text-orange-600 dark:text-orange-400',
-    ERROR: 'text-rose-600',
-  }
-
-  return (
-    <details className="rounded-lg border border-border/40 bg-accent/10 p-3 text-[12px]" open={defaultOpen}>
-      <summary className="cursor-pointer flex items-center gap-2 flex-wrap">
-        <span className="font-medium">{tr('toolkit.title')}</span>
-        <span className="text-[11px] text-muted-foreground">
-          {tr('toolkit.subtitle')}
-        </span>
-        <span className="ml-auto text-[11px] whitespace-nowrap">
-          <span className={ACTION_CLS.HIT}>HIT {hit}</span>
-          <span className="text-muted-foreground"> · MISS {miss}</span>
-          <span className={ACTION_CLS.PASSTHROUGH}> · {tr('toolkit.passthrough')} {pass}</span>
-          {fall > 0 && <span className={ACTION_CLS.FALLTHROUGH}> · {tr('toolkit.fallback')} {fall}</span>}
-          {err > 0 && <span className="text-rose-600"> · {tr('toolkit.error')} {err}</span>}
-        </span>
-      </summary>
-      <div className="text-[10.5px] text-muted-foreground/80 mt-2 leading-relaxed">
-        <span className={ACTION_CLS.HIT}>HIT</span>: {tr('toolkit.legendHit')} ·{' '}
-        <span className={ACTION_CLS.MISS}>MISS</span>: {tr('toolkit.legendMiss')} ·{' '}
-        <span className={ACTION_CLS.PASSTHROUGH}>{tr('toolkit.passthrough')}</span>: {tr('toolkit.legendPassthrough')} ·{' '}
-        <span className={ACTION_CLS.FALLTHROUGH}>{tr('toolkit.fallback')}</span>: {tr('toolkit.legendFallback')}
-      </div>
-      {total === 0 ? (
-        <div className="text-[11px] text-muted-foreground mt-2">
-          {tr('toolkit.empty')}
-        </div>
-      ) : (
-        <div className="mt-2 space-y-1 max-h-64 overflow-y-auto scrollbar">
-          {recent.map((h, i) => {
-            const action = (h.action || '').toUpperCase()
-            const row = (
-              <div className="font-mono text-[10.5px] flex items-center gap-2 hover:bg-accent/30 px-1 rounded cursor-help w-full">
-                <span className={`${ACTION_CLS[action] || 'text-muted-foreground'} w-20 shrink-0`}>
-                  {action}
-                </span>
-                <span className="text-foreground/80 truncate flex-1 text-left">
-                  {h.method} ({h.symbol || '-'})
-                  {h.reason && <span className="text-muted-foreground"> · {h.reason}</span>}
-                  {h.chars != null && <span className="text-muted-foreground">{tr('toolkit.chars', { count: h.chars })}</span>}
-                  {h.source && <span className="text-muted-foreground/70"> · {h.source}</span>}
-                </span>
-              </div>
-            )
-            const hasDetail = !!(h.snippet || h.reason)
-            if (!hasDetail) return <div key={i}>{row}</div>
-            return (
-              <HoverPopover
-                key={i}
-                className="block w-full"
-                trigger={row}
-                title={
-                  <span>
-                    <span className={ACTION_CLS[action] || 'text-muted-foreground'}>{action}</span>
-                    <span className="text-muted-foreground"> · {h.method}({h.symbol || '-'})</span>
-                    {h.source && (
-                      <span className="text-muted-foreground/70"> · {h.source}</span>
-                    )}
-                  </span>
-                }
-                content={
-                  <div className="space-y-2">
-                    {h.reason && (
-                      <div className="text-[11px] text-amber-600 dark:text-amber-400">
-                        {h.reason}
-                      </div>
-                    )}
-                    {h.snippet && (
-                      <pre className="whitespace-pre-wrap break-words font-mono text-[10.5px] leading-snug bg-accent/30 rounded p-2 text-foreground/85 max-h-[60vh] overflow-y-auto scrollbar">
-                        {h.snippet}
-                        {h.chars != null && h.chars > h.snippet.length && (
-                          <span className="text-muted-foreground/60">
-                            {'\n\n'}{tr('toolkit.truncated', { total: h.chars, shown: h.snippet.length })}
-                          </span>
-                        )}
-                      </pre>
-                    )}
-                  </div>
-                }
-                popoverClassName="w-[44rem] max-w-[90vw]"
-                side="top"
-                align="start"
-              />
-            )
-          })}
-        </div>
-      )}
-    </details>
-  )
-}
 
 function StageRow({ stage }: { stage: ProgressStage }) {
   const { t } = useTranslation('bizUi')
@@ -705,12 +574,15 @@ function DoneView({
   const analysisDate = analysisDateForResult(result)
 
   return (
-    <div className="space-y-4 text-[13px]">
-      <AnalysisMetadata result={result} />
+    <div className="space-y-3 text-[13px]">
+      <details className="text-[11px] text-muted-foreground">
+        <summary className="cursor-pointer rounded leading-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t('analysisReader.metadata')} · {analysisDate}</summary>
+        <div className="pt-2"><AnalysisMetadata result={result} /></div>
+      </details>
       {fromCache && (
-        <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-2 text-[12px] text-amber-700 dark:text-amber-400 flex items-center justify-between">
+        <div className="text-[11px] text-muted-foreground flex items-center justify-between gap-2">
           <span>{tr('done.cached')}</span>
-          <Button variant="outline" size="sm" onClick={onRerun} className="ml-3 h-7 text-[11px]">
+          <Button variant="ghost" size="sm" onClick={onRerun} className="shrink-0 h-7 text-[11px]">
             {tr('done.rerun')}
           </Button>
         </div>
@@ -736,7 +608,7 @@ function DoneView({
       </div>
 
       {/* 统一 tab:最终决策 + 四位分析师 + 看多看空辩论 + 风控辩论(完整 + GFM 表格) */}
-      <AnalysisTabs sections={sections} />
+      <AnalysisReader result={result} documentView={sectionId => <AnalysisTabs initialSection={sectionId} sections={sections.length ? sections : [{ id: 'decision', title: tr('stages.final_decision'), markdown: result.content || '' }]} />} />
 
       {/* 数据注入诊断(历史报告):从 raw_data.toolkit_diagnostic 拿 */}
       {rawData.toolkit_diagnostic && (
@@ -755,11 +627,11 @@ function DoneView({
 }
 
 /** 决策与分析统一 tab。内容由 buildAnalysisSections 组装(弹窗与详细页共用),只渲染有内容的 tab。 */
-function AnalysisTabs({ sections }: { sections: AnalysisSection[] }) {
+function AnalysisTabs({ sections, initialSection }: { sections: AnalysisSection[]; initialSection?: string }) {
   if (sections.length === 0) return null
   return (
     <div className="rounded-lg border border-border/50 p-4">
-      <Tabs defaultValue={sections[0].id}>
+      <Tabs defaultValue={sections.find(section => section.id === initialSection)?.id || sections[0].id}>
         <TabsList>
           {sections.map((s) => (
             <TabsTrigger key={s.id} value={s.id}>
