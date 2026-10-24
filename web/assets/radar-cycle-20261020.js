@@ -20,20 +20,31 @@
    if(mins>=960&&mins<1200)return {key:'after',label:'ما بعد الإغلاق · رصد هادئ',interval:30*60,active:false};
    return {key:'night',label:'الوضع الليلي · تحديثات متباعدة',interval:45*60,active:false};
  }
- let nextAt=Date.now()+session().interval*1000,lastMode='';
+ let nextAt=Date.now()+session().interval*1000,lastMode='',scanInProgress=false;
  function paint(){
    const s=session(),now=Date.now();
    if(s.key!==lastMode){lastMode=s.key;nextAt=now+s.interval*1000;}
    const left=Math.max(0,Math.ceil((nextAt-now)/1000)),mm=String(Math.floor(left/60)).padStart(2,'0'),ss=String(left%60).padStart(2,'0');
    const countdown=$('sasRadarCountdown'),circleCountdown=$('sasRadarCircleCountdown'),title=$('sasRadarAutoTitle'),detail=$('sasRadarAutoDetail'),panel=$('sasRadarAutoPanel'),gauge=$('sasRadarGaugeProgress'),visual=document.querySelector('.sas-radar-visual'),circleCaption=visual&&visual.querySelector('.sas-radar-live-countdown small');
-   if(countdown)countdown.textContent=s.weekend?'متوقف':mm+':'+ss;if(circleCountdown)circleCountdown.textContent=s.weekend?'مغلق':mm+':'+ss;if(circleCaption)circleCaption.textContent=s.weekend?'عطلة نهاية الأسبوع':'حتى التحديث';if(visual)visual.classList.toggle('sas-radar-weekend-closed',!!s.weekend);
+   if(countdown)countdown.textContent=s.weekend?'متوقف':scanInProgress?'جارٍ الفحص':mm+':'+ss;if(circleCountdown)circleCountdown.textContent=s.weekend?'مغلق':scanInProgress?'فحص':mm+':'+ss;if(circleCaption)circleCaption.textContent=s.weekend?'عطلة نهاية الأسبوع':scanInProgress?'يجري تحديث النتائج':'حتى التحديث';if(visual)visual.classList.toggle('sas-radar-weekend-closed',!!s.weekend);
    if(title)title.textContent=s.label;
    if(detail)detail.textContent=s.active?'فحص دوري كل 5 دقائق خلال الجلسة الرئيسية':s.weekend?'المسح الآلي للأسهم متوقف خلال عطلة نهاية الأسبوع':s.key==='preopen'?'فحص هادئ كل 20 دقيقة قبل الافتتاح':s.key==='after'?'فحص هادئ كل 30 دقيقة بعد الإغلاق':'فحص هادئ كل 45 دقيقة خارج الجلسة';
    if(panel){panel.dataset.state=s.key;panel.setAttribute('aria-label',s.weekend?s.label:s.label+'، التحديث التالي خلال '+mm+':'+ss);}
    if(gauge){const circumference=2*Math.PI*18;gauge.style.strokeDasharray=String(circumference);gauge.style.strokeDashoffset=String(s.active?circumference*(1-left/s.interval):circumference);}
-   const status=$('sasRadarScheduleStatus');if(status)status.textContent=s.weekend?s.label+' · المسح الآلي متوقف حتى افتتاح السوق':s.label+' · التحديث التالي '+mm+':'+ss;
-   // Pause automatic stock scans on weekends only; preserve weekday radar cadence.
-   if(left===0){nextAt=now+s.interval*1000;if(!s.weekend&&typeof window.runRadar==='function'&&!window.__sasRadarAutoRun){window.__sasRadarAutoRun=true;Promise.resolve(window.runRadar(false)).catch(()=>{}).finally(()=>{window.__sasRadarAutoRun=false;});}}
+   const status=$('sasRadarScheduleStatus');if(status)status.textContent=s.weekend?s.label+' · المسح الآلي متوقف حتى افتتاح السوق':scanInProgress?s.label+' · جارٍ تنفيذ المسح وتحديث النتائج':s.label+' · التحديث التالي '+mm+':'+ss;
+   // Start one scan at zero; restart the countdown only after the scan settles,
+   // so it cannot jump back while results are still being refreshed.
+   if(left===0&&!scanInProgress){
+     if(s.weekend){nextAt=now+s.interval*1000;}
+     else if(typeof window.runRadar==='function'&&!window.__sasRadarAutoRun){
+       scanInProgress=true;window.__sasRadarAutoRun=true;
+       Promise.resolve().then(()=>window.runRadar(false)).catch(()=>{}).finally(()=>{
+         window.__sasRadarAutoRun=false;scanInProgress=false;
+         nextAt=Date.now()+session().interval*1000;
+         paint();
+       });
+     }else{nextAt=now+s.interval*1000;}
+   }
  }
  function init(){
    const visual=document.querySelector('.sas-radar-visual');
