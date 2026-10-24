@@ -31,6 +31,7 @@
    if(visual)visual.classList.toggle('sas-radar-weekend-closed',!!s.weekend);
    // Remove any countdown widgets left by an older cached script version.
    ['sasRadarAutoGauge','sasRadarGaugeProgress','sasRadarCountdown','sasRadarCircleCountdown','sasRadarScheduleStatus'].forEach(id=>{const el=$(id);if(el){const wrap=el.closest('.sas-radar-auto-gauge,.sas-radar-live-countdown,.sas-radar-schedule-status')||el;wrap.remove();}});
+   document.querySelectorAll('.sas-radar-auto-gauge,.sas-radar-live-countdown,.sas-radar-schedule-status,[id*="RadarCountdown"],[id*="RadarGauge"]').forEach(el=>el.remove());
    if(title)title.textContent=s.weekend?'السوق الأمريكي مغلق':scanInProgress?'جارٍ تنفيذ المسح':s.label;
    if(detail)detail.textContent=s.weekend?'عطلة نهاية الأسبوع · المسح الآلي متوقف':scanInProgress?'يتم فحص الأسهم وتحديث النتائج':s.active?'الرصد نشط · يعمل حسب الجدول':s.key==='preopen'?'الرصد قبل الافتتاح · تحديثات مجدولة':s.key==='after'?'ما بعد الإغلاق · تحديثات مجدولة':'الوضع الليلي · لا يوجد مسح مستمر';
    if(panel){panel.dataset.state=s.weekend?'weekend':scanInProgress?'scanning':s.key;panel.setAttribute('aria-label',s.weekend?s.label:scanInProgress?'جارٍ تنفيذ المسح':s.label);}
