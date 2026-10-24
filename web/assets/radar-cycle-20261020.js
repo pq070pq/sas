@@ -33,12 +33,12 @@
    // Weekend is a hard stopped state: never display a ticking countdown or imply that a scan is running.
    const gaugeWrap=countdown&&countdown.closest('.sas-radar-auto-gauge');
    const circleWrap=circleCountdown&&circleCountdown.closest('.sas-radar-live-countdown');
-   if(gaugeWrap)gaugeWrap.hidden=!!s.weekend;
-   if(circleWrap)circleWrap.hidden=!!s.weekend;
+   if(gaugeWrap){gaugeWrap.hidden=!!s.weekend;gaugeWrap.style.setProperty('display',s.weekend?'none':'','important');}
+   if(circleWrap){circleWrap.hidden=!!s.weekend;circleWrap.style.setProperty('display',s.weekend?'none':'','important');}
    if(countdown)countdown.textContent=s.weekend?'مغلق':scanInProgress?'فحص':mm+':'+ss;
    if(circleCountdown)circleCountdown.textContent=s.weekend?'مغلق':scanInProgress?'فحص':mm+':'+ss;
-   if(title)title.textContent=scanInProgress?'جارٍ تنفيذ المسح':s.label;
-   if(detail)detail.textContent=s.weekend?'عطلة نهاية الأسبوع · المسح الآلي متوقف':scanInProgress?'يتم فحص الأسهم وتحديث النتائج':s.active?'الرصد نشط · الفحص التالي حسب الجدول':s.key==='preopen'?'الرصد مستمر قبل الافتتاح · كل 20 دقيقة':s.key==='after'?'الرصد مستمر بعد الإغلاق · كل 30 دقيقة':'الرصد الليلي مستمر · كل 45 دقيقة';
+   if(title)title.textContent=s.weekend?'السوق الأمريكي مغلق':scanInProgress?'جارٍ تنفيذ المسح':s.label;
+   if(detail)detail.textContent=s.weekend?'عطلة نهاية الأسبوع · المسح الآلي متوقف':scanInProgress?'يتم فحص الأسهم وتحديث النتائج':s.active?'الرصد نشط · الفحص التالي حسب الجدول':s.key==='preopen'?'الرصد مستمر قبل الافتتاح · كل 20 دقيقة':s.key==='after'?'الرصد مستمر بعد الإغلاق · كل 30 دقيقة':'الرصد الليلي · لا يوجد مسح مستمر';
    if(panel){panel.dataset.state=s.weekend?'weekend':scanInProgress?'scanning':s.key;panel.setAttribute('aria-label',s.weekend?s.label:scanInProgress?'جارٍ تنفيذ المسح':s.label+' · '+mm+':'+ss);}
    if(gauge){const circumference=2*Math.PI*18;gauge.style.strokeDasharray=String(circumference);gauge.style.strokeDashoffset=String(s.weekend||scanInProgress?circumference:circumference*(1-left/s.interval));}
    const status=$('sasRadarScheduleStatus');if(status)status.textContent=scanInProgress?'جارٍ تنفيذ المسح وتحديث النتائج':s.weekend?s.label+' · المسح الآلي متوقف':s.label+' · التحديث التالي '+mm+':'+ss;
