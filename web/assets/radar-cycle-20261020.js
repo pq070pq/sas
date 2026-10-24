@@ -14,10 +14,11 @@
  const parts=()=>{const a=new Intl.DateTimeFormat('en-US',{timeZone:TZ,weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date());const o={};a.forEach(x=>o[x.type]=x.value);return {day:o.weekday,h:+o.hour,m:+o.minute};};
  function session(){
    const p=parts(),mins=p.h*60+p.m,weekday=['Mon','Tue','Wed','Thu','Fri'].includes(p.day);
-   if(weekday&&mins>=570&&mins<960)return {key:'open',label:'السوق الأمريكي مفتوح',interval:5*60,active:true};
-   if(weekday&&mins>=510&&mins<570)return {key:'preopen',label:'السوق الأمريكي مغلق · قبل الافتتاح',interval:20*60,active:false};
-   if(weekday&&mins>=960&&mins<1200)return {key:'after',label:'السوق الأمريكي مغلق · بعد الإغلاق',interval:30*60,active:false};
-   return {key:'night',label:'السوق الأمريكي مغلق · الوضع الليلي',interval:45*60,active:false};
+   if(!weekday)return {key:'weekend',label:'السوق الأمريكي مغلق · عطلة نهاية الأسبوع',interval:24*60*60,active:false,weekend:true};
+   if(mins>=570&&mins<960)return {key:'open',label:'السوق الأمريكي مفتوح',interval:5*60,active:true};
+   if(mins>=510&&mins<570)return {key:'preopen',label:'ما قبل الافتتاح · رصد هادئ',interval:20*60,active:false};
+   if(mins>=960&&mins<1200)return {key:'after',label:'ما بعد الإغلاق · رصد هادئ',interval:30*60,active:false};
+   return {key:'night',label:'الوضع الليلي · تحديثات متباعدة',interval:45*60,active:false};
  }
  let nextAt=Date.now()+session().interval*1000,lastMode='';
  function paint(){
@@ -28,7 +29,7 @@
    if(countdown)countdown.textContent=s.active?mm+':'+ss:'متوقف';if(circleCountdown)circleCountdown.textContent=s.active?mm+':'+ss:'مغلق';
    if(title)title.textContent=s.label;
    if(detail)detail.textContent=s.active?'فحص دوري كل 5 دقائق خلال الجلسة الرئيسية':s.key==='preopen'?'المسح الآلي متوقف حتى افتتاح السوق الأمريكي':s.key==='after'?'انتهت الجلسة الرئيسية؛ المسح الآلي متوقف':'السوق الأمريكي مغلق؛ لا يجري الرادار أي مسح آلي للأسهم';
-   if(panel){panel.dataset.state=s.key;panel.setAttribute('aria-label',s.label+'، التحديث التالي خلال '+mm+':'+ss);}
+   if(panel){panel.dataset.state=s.key;panel.setAttribute('aria-label',s.weekend?s.label:s.label+'، التحديث التالي خلال '+mm+':'+ss);}
    if(gauge){const circumference=2*Math.PI*18;gauge.style.strokeDasharray=String(circumference);gauge.style.strokeDashoffset=String(s.active?circumference*(1-left/s.interval):circumference);}
    const status=$('sasRadarScheduleStatus');if(status)status.textContent=s.active?s.label+' · الفحص التالي خلال '+mm+':'+ss:s.label+' · المسح الآلي متوقف حتى افتتاح السوق';
    // Never launch an automatic stock scan outside the regular US session.
