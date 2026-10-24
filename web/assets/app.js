@@ -272,28 +272,32 @@ function safeNewsUrl(value){
   return url.href;
  }catch{return '';}
 }
+function normalizeNewsMatchUrl(value){
+ try{const u=new URL(String(value||''));if(!['http:','https:'].includes(u.protocol))return String(value||'').trim().replace(/\/$/,'');u.hash='';u.search='';u.hostname=u.hostname.toLowerCase();u.pathname=u.pathname.replace(/\/$/,'');return u.toString().replace(/\/$/,'');}catch{return String(value||'').trim().replace(/\/$/,'');}
+}
 function renderNewsItems(items,limit=5,translatedItems=[]){
   if(!Array.isArray(items)||!items.length)return '<div class="empty-state">📰 لا توجد أخبار موثقة متاحة حاليًا.</div>';
   const translations=Array.isArray(translatedItems)?translatedItems:[];
-  const byUrl=new Map(translations.filter(x=>x&&typeof x==='object'&&safeNewsUrl(x.url)).map(x=>[safeNewsUrl(x.url),x]));
+  const byUrl=new Map(translations.filter(x=>x&&typeof x==='object'&&x.url).map(x=>[normalizeNewsMatchUrl(x.url),x]));
+  const byHeadline=new Map(translations.filter(x=>x&&typeof x==='object'&&x.headline).map(x=>[String(x.headline).trim().toLocaleLowerCase(),x]));
   return items.slice(0,limit).map(n=>{
    n=n&&typeof n==='object'?n:{};
    const url=safeNewsUrl(n.url);
    const originalHeadline=String(n.headline||n.title||'خبر');
-   const translated=(url&&byUrl.get(url))||translations.find(x=>x&&typeof x==='object'&&String(x.headline||'').trim()===originalHeadline.trim());
+   const translated=byUrl.get(normalizeNewsMatchUrl(n.url))||byHeadline.get(originalHeadline.trim().toLocaleLowerCase());
    // API market-news responses include translation fields on each news item.
    // Prefer those fields before the optional separate translation array.
-   const translatedHeadline=String(n.translated_headline||translated?.translated_headline||'').trim();
+   const translatedHeadline=String(n.translated_headline||translated?.translated_headline||n.title_ar||'').trim();
    const hasArabicHeadline=/[\u0600-\u06FF]/.test(translatedHeadline);
    // Never present an English source headline as though it were translated Arabic.
    const headline=escHtml(hasArabicHeadline?translatedHeadline:'تعذرت ترجمة العنوان مؤقتًا');
    const originalTitle=(!hasArabicHeadline||translatedHeadline!==originalHeadline)?'<small class="news-original-title">العنوان الأصلي: '+escHtml(originalHeadline)+'</small>':'';
    const source=escHtml(n.source||translated?.source||'مصدر غير محدد');
-   const aiSummary=String(n.translated_summary||translated?.summary||n.ai_summary||'').trim();
+   const aiSummary=String(n.translated_summary||translated?.summary||n.ai_summary||n.summary_ar||'').trim();
    const sourceSummary=String(n.summary||'').trim();
    const summary=aiSummary||sourceSummary;
    const label=aiSummary?'الملخص بالعربية':sourceSummary?'ملخص المصدر':'الملخص';
-   const basis=(translated?.basis==='headline_only'||n.ai_summary_basis==='headline_only')?' <small>(مبني على العنوان فقط)</small>':'';
+   const basis=(translated?.basis==='headline_only'||n.ai_summary_basis==='headline_only'||n.translation_basis==='headline_only')?' <small>(مبني على العنوان فقط)</small>':'';
    const untranslated=!translatedHeadline&&!aiSummary?' <small>(الترجمة غير متاحة لهذا الخبر حاليًا)</small>':'';
    const body='<b>'+headline+'</b>'+originalTitle+'<small>'+source+(url?' • ↗ اضغط لفتح المصدر الأصلي':'')+'</small><span style="display:block;white-space:normal;margin-top:6px;line-height:1.55"><strong>'+label+':</strong> '+escHtml(summary||'لا يتوفر مختصر موثوق لهذا الخبر.')+basis+untranslated+'</span>';
    return url?'<a class="news-entry" href="'+escHtml(url)+'" target="_blank" rel="noopener noreferrer">'+body+'</a>':'<div class="news-entry">'+body+'</div>';
