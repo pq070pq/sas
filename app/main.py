@@ -1457,14 +1457,15 @@ async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends
             (sub for sub in user_subscriptions if sub.active and aware(sub.expires_at) > now),
             None,
         )
-        # Existing Subscription records are authoritative for paid access.
-        # Keep legacy User fields as fallback only for users with no subscription records.
+        # Prefer a currently active, unexpired Subscription row.
+        # If none exists, preserve valid legacy/admin-activated User access even when
+        # historical inactive Subscription rows remain in the database.
         paid_active = bool(
             not u.free_access
             and (
                 current_subscription is not None
                 or (
-                    not user_subscriptions
+                    current_subscription is None
                     and u.status == "active"
                     and u.subscription_expires
                     and aware(u.subscription_expires) > now
@@ -1524,8 +1525,8 @@ async def admin_subscribers(state: str = "active", user=Depends(telegram_user), 
             (sub for sub in user_subscriptions if sub.active and aware(sub.expires_at) > now),
             None,
         )
-        # Do not let a stale User.status hide a valid paid Subscription.
-        # Legacy User fields are used only when no Subscription record exists.
+        # Do not let stale Subscription history hide a valid admin/legacy activation.
+        # A current Subscription row wins; otherwise honor active User fields with a future expiry.
         paid_active = bool(
             not u.free_access
             and (
