@@ -31,3 +31,18 @@
 .sas-radar-status-panel .sas-radar-auto-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .sas-radar-status-panel .sas-radar-auto-copy b{display:block;line-height:1.6;white-space:normal;overflow-wrap:anywhere}
 .sas-radar-status-panel .sas-radar-auto-copy small{display:block;line-height:1.8;white-space:normal;overflow-wrap:anywhere;color:#8fb7c6}
+
+/* Restored radar countdown, synchronized to the actual next scheduled scan. */
+.sas-radar-auto-gauge{position:relative;flex:0 0 54px;width:54px;height:54px;display:flex;align-items:center;justify-content:center}
+.sas-radar-auto-gauge svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.sas-radar-gauge-track,.sas-radar-gauge-progress{fill:none;stroke-width:4}
+.sas-radar-gauge-track{stroke:rgba(82,151,170,.22)}
+.sas-radar-gauge-progress{stroke:#27d8e9;stroke-linecap:round;transition:stroke-dashoffset .8s linear}
+.sas-radar-auto-gauge>span{font-size:10px;font-weight:800;font-variant-numeric:tabular-nums;color:#bdf9ff;z-index:1;text-align:center}
+.sas-radar-status-panel{gap:12px}
+.sas-radar-live-countdown{inset:35%;z-index:5}
+.sas-radar-visual.sas-radar-weekend-closed .sas-radar-live-countdown{border-color:rgba(235,91,111,.3);box-shadow:none}
+.sas-radar-visual.sas-radar-weekend-closed .sas-radar-live-countdown b{color:#ffc1cc;text-shadow:none}
+.sas-radar-auto-panel[data-state="weekend"] .sas-radar-gauge-progress{stroke:#e76b83;stroke-dashoffset:113.1!important;transition:none}
+.sas-radar-auto-panel[data-state="weekend"] .sas-radar-auto-gauge>span{font-size:9px;color:#ffc1cc}
+@media(max-width:640px){.sas-radar-auto-gauge{flex-basis:48px;width:48px;height:48px}.sas-radar-auto-gauge>span{font-size:9px}.sas-radar-live-countdown{inset:35%}}
