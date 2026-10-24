@@ -284,8 +284,10 @@ function renderNewsItems(items,limit=5,translatedItems=[]){
    // API market-news responses include translation fields on each news item.
    // Prefer those fields before the optional separate translation array.
    const translatedHeadline=String(n.translated_headline||translated?.translated_headline||'').trim();
-   const headline=escHtml(translatedHeadline||originalHeadline);
-   const originalTitle=translatedHeadline&&translatedHeadline!==originalHeadline?'<small class="news-original-title">العنوان الأصلي: '+escHtml(originalHeadline)+'</small>':'';
+   const hasArabicHeadline=/[\u0600-\u06FF]/.test(translatedHeadline);
+   // Never present an English source headline as though it were translated Arabic.
+   const headline=escHtml(hasArabicHeadline?translatedHeadline:'تعذرت ترجمة العنوان مؤقتًا');
+   const originalTitle=(!hasArabicHeadline||translatedHeadline!==originalHeadline)?'<small class="news-original-title">العنوان الأصلي: '+escHtml(originalHeadline)+'</small>':'';
    const source=escHtml(n.source||translated?.source||'مصدر غير محدد');
    const aiSummary=String(n.translated_summary||translated?.summary||n.ai_summary||'').trim();
    const sourceSummary=String(n.summary||'').trim();
