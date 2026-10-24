@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     trial_channel_id: str = ""
     # AI radar: provider-agnostic OpenAI-compatible endpoints.
     ai_radar_enabled: bool = True
+    # Optional TradingAgents-inspired review; disabled and isolated by default.
+    tradingagents_shadow_review_enabled: bool = False
     ai_radar_concurrency: int = 2
     ai_radar_timeout_seconds: int = 25
     ai_max_news: int = 5
