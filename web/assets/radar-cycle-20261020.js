@@ -26,13 +26,17 @@
  function paint(){
    const s=session(),now=Date.now();
    if(s.key!==lastMode){lastMode=s.key;nextAt=now+s.interval*1000;}
-   const left=Math.max(0,Math.ceil((nextAt-now)/1000));
+   const left=Math.max(0,Math.ceil((nextAt-now)/1000)),mm=String(Math.floor(left/60)).padStart(2,'0'),ss=String(left%60).padStart(2,'0');
    const title=$('sasRadarAutoTitle'),detail=$('sasRadarAutoDetail'),panel=$('sasRadarAutoPanel'),visual=document.querySelector('.sas-radar-visual');
+   const countdown=$('sasRadarCountdown'),circleCountdown=$('sasRadarCircleCountdown'),gauge=$('sasRadarGaugeProgress');
    if(visual)visual.classList.toggle('sas-radar-weekend-closed',!!s.weekend);
+   if(countdown)countdown.textContent=s.weekend?'مغلق':scanInProgress?'فحص':mm+':'+ss;
+   if(circleCountdown)circleCountdown.textContent=s.weekend?'مغلق':scanInProgress?'فحص':mm+':'+ss;
    if(title)title.textContent=scanInProgress?'جارٍ تنفيذ المسح':s.label;
-   if(detail)detail.textContent=s.weekend?'المسح الآلي متوقف خلال عطلة نهاية الأسبوع':scanInProgress?'يتم فحص الأسهم وتحديث النتائج':s.active?'الرصد الآلي نشط · تحديث كل 5 دقائق':s.key==='preopen'?'الرصد مستمر قبل الافتتاح · تحديث كل 20 دقيقة':s.key==='after'?'الرصد مستمر بعد الإغلاق · تحديث كل 30 دقيقة':'الرصد الليلي مستمر · تحديث كل 45 دقيقة';
-   if(panel){panel.dataset.state=s.weekend?'weekend':scanInProgress?'scanning':s.key;panel.setAttribute('aria-label',scanInProgress?'جارٍ تنفيذ المسح':s.label);}
-   const status=$('sasRadarScheduleStatus');if(status)status.textContent=scanInProgress?'جارٍ تنفيذ المسح وتحديث النتائج':s.weekend?s.label+' · المسح الآلي متوقف':s.label+' · '+(s.active?'الرصد كل 5 دقائق':s.key==='preopen'?'الرصد كل 20 دقيقة':s.key==='after'?'الرصد كل 30 دقيقة':'الرصد كل 45 دقيقة');
+   if(detail)detail.textContent=s.weekend?'عطلة نهاية الأسبوع · المسح الآلي متوقف':scanInProgress?'يتم فحص الأسهم وتحديث النتائج':s.active?'الرصد نشط · الفحص التالي حسب الجدول':s.key==='preopen'?'الرصد مستمر قبل الافتتاح · كل 20 دقيقة':s.key==='after'?'الرصد مستمر بعد الإغلاق · كل 30 دقيقة':'الرصد الليلي مستمر · كل 45 دقيقة';
+   if(panel){panel.dataset.state=s.weekend?'weekend':scanInProgress?'scanning':s.key;panel.setAttribute('aria-label',s.weekend?s.label:scanInProgress?'جارٍ تنفيذ المسح':s.label+' · '+mm+':'+ss);}
+   if(gauge){const circumference=2*Math.PI*18;gauge.style.strokeDasharray=String(circumference);gauge.style.strokeDashoffset=String(s.weekend||scanInProgress?circumference:circumference*(1-left/s.interval));}
+   const status=$('sasRadarScheduleStatus');if(status)status.textContent=scanInProgress?'جارٍ تنفيذ المسح وتحديث النتائج':s.weekend?s.label+' · المسح الآلي متوقف':s.label+' · التحديث التالي '+mm+':'+ss;
    // Start one scan at zero; restart the countdown only after the scan settles,
    // so it cannot jump back while results are still being refreshed.
    if(left===0&&!scanInProgress){
@@ -48,8 +52,16 @@
    }
  }
  function init(){
-   const panel=$('sasRadarAutoPanel');
+   const panel=$('sasRadarAutoPanel'),visual=document.querySelector('.sas-radar-visual');
    if(panel&&!$('sasRadarScheduleStatus')){const small=document.createElement('small');small.id='sasRadarScheduleStatus';small.className='sas-radar-schedule-status';panel.appendChild(small);}
+   if(panel&&!$('sasRadarGaugeProgress')){
+     const gauge=document.createElement('span');gauge.className='sas-radar-auto-gauge';gauge.setAttribute('aria-hidden','true');
+     gauge.innerHTML='<svg viewBox="0 0 44 44"><circle class="sas-radar-gauge-track" cx="22" cy="22" r="18"></circle><circle id="sasRadarGaugeProgress" class="sas-radar-gauge-progress" cx="22" cy="22" r="18"></circle></svg><span id="sasRadarCountdown">--:--</span>';
+     panel.prepend(gauge);
+   }
+   if(visual&&!$('sasRadarCircleCountdown')){
+     const timer=document.createElement('span');timer.className='sas-radar-live-countdown';timer.innerHTML='<b id="sasRadarCircleCountdown">--:--</b><small>حتى الفحص التالي</small>';visual.appendChild(timer);
+   }
    paint();window.setInterval(paint,1000);
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
