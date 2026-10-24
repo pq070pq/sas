@@ -30,6 +30,11 @@
    const title=$('sasRadarAutoTitle'),detail=$('sasRadarAutoDetail'),panel=$('sasRadarAutoPanel'),visual=document.querySelector('.sas-radar-visual');
    const countdown=$('sasRadarCountdown'),circleCountdown=$('sasRadarCircleCountdown'),gauge=$('sasRadarGaugeProgress');
    if(visual)visual.classList.toggle('sas-radar-weekend-closed',!!s.weekend);
+   // Weekend is a hard stopped state: never display a ticking countdown or imply that a scan is running.
+   const gaugeWrap=countdown&&countdown.closest('.sas-radar-auto-gauge');
+   const circleWrap=circleCountdown&&circleCountdown.closest('.sas-radar-live-countdown');
+   if(gaugeWrap)gaugeWrap.hidden=!!s.weekend;
+   if(circleWrap)circleWrap.hidden=!!s.weekend;
    if(countdown)countdown.textContent=s.weekend?'مغلق':scanInProgress?'فحص':mm+':'+ss;
    if(circleCountdown)circleCountdown.textContent=s.weekend?'مغلق':scanInProgress?'فحص':mm+':'+ss;
    if(title)title.textContent=scanInProgress?'جارٍ تنفيذ المسح':s.label;
@@ -40,7 +45,7 @@
    // Start one scan at zero; restart the countdown only after the scan settles,
    // so it cannot jump back while results are still being refreshed.
    if(left===0&&!scanInProgress){
-     if(s.weekend){nextAt=now+s.interval*1000;}
+     if(s.weekend){nextAt=now+s.interval*1000;return;}
      else if(typeof window.runRadar==='function'&&!window.__sasRadarAutoRun){
        scanInProgress=true;window.__sasRadarAutoRun=true;
        Promise.resolve().then(()=>window.runRadar(false)).catch(()=>{}).finally(()=>{
