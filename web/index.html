@@ -11,12 +11,12 @@
 <link rel="stylesheet" href="/assets/premium-interactive-navigation.css?v=20261023-3">
 <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
 
-<link rel="stylesheet" href="/assets/radar-cycle-20261020.css?v=us-weekend-countdown-20261024-2">
+<link rel="stylesheet" href="/assets/radar-cycle-20261020.css?v=radar-status-panel-no-countdown-20261024-4">
 <link rel="stylesheet" href="/assets/speculative-radar-card.css?v=cache-bypass-20261022-9">
 <link rel="stylesheet" href="/assets/radar-card-layout.css?v=cache-bypass-20261022-9">
 <link rel="stylesheet" href="/assets/radar-card-candles-managed-icon.css?v=cache-bypass-20261022-9">
 <script src="/assets/radar-card-candles-managed-icon.js?v=cache-bypass-20261022-9" defer></script>
-<script src="/assets/radar-cycle-20261020.js?v=force-refresh-weekend-countdown-20261024-3" defer></script>
+<script src="/assets/radar-cycle-20261020.js?v=radar-status-panel-no-countdown-20261024-4" defer></script>
 </head>
 <body>
 <div id="sasWelcomeOverlay" class="sas-welcome-overlay" hidden aria-live="polite" role="status">
@@ -195,9 +195,9 @@
    <span class="sas-radar-sweep"></span><span class="sas-radar-dot dot-one"></span><span class="sas-radar-dot dot-two"></span><span class="sas-radar-dot dot-three"></span>
    <span class="sas-radar-center"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0Z" stroke="currentColor" stroke-width="1.5"/><path d="M12 12 18.5 5.5M12 3v18M3 12h18" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg></span>
   </button>
-  <div class="sas-radar-auto-panel" id="sasRadarAutoPanel" data-state="waiting" role="status" aria-live="polite">
-   <div class="sas-radar-auto-gauge" aria-hidden="true"><svg viewBox="0 0 44 44"><circle class="sas-radar-gauge-track" cx="22" cy="22" r="18"></circle><circle id="sasRadarGaugeProgress" class="sas-radar-gauge-progress" cx="22" cy="22" r="18"></circle></svg><span id="sasRadarCountdown">--:--</span></div>
-   <div class="sas-radar-auto-copy"><b id="sasRadarAutoTitle">الرادار التلقائي جاهز</b><small id="sasRadarAutoDetail">سيبدأ الفحص عند فتح مساحة الرصد</small></div>
+  <div class="sas-radar-auto-panel sas-radar-status-panel" id="sasRadarAutoPanel" data-state="waiting" role="status" aria-live="polite">
+   <span class="sas-radar-state-indicator" aria-hidden="true"></span>
+   <div class="sas-radar-auto-copy"><b id="sasRadarAutoTitle">الرادار التلقائي جاهز</b><small id="sasRadarAutoDetail">حالة الرصد ستظهر هنا دون عداد تنازلي</small></div>
   </div>
  </div>
  <div class="sas-radar-copy"><span class="eyebrow">SAS PRO • SMART RADAR</span><h2>رادار الفرص</h2><p>يمسح النتائج الفعلية ويعرض الفرص المكتشفة أسفل الرادار.</p><div class="sas-radar-status"><i></i><span>الرصد المباشر</span><b id="sasRadarCount">0 فرصة</b></div><div class="sas-radar-actions"><button type="button" class="sas-radar-scan-btn" onclick="runRadar(false)"><span>⟳</span> ابدأ مسحًا جديدًا</button><button type="button" class="sas-view-all" onclick="switchTerminalTab('radar')">كل النتائج <span>←</span></button></div></div>
