@@ -31,9 +31,9 @@
    if(detail)detail.textContent=s.active?'فحص دوري كل 5 دقائق خلال الجلسة الرئيسية':s.weekend?'المسح الآلي للأسهم متوقف خلال عطلة نهاية الأسبوع':s.key==='preopen'?'فحص هادئ كل 20 دقيقة قبل الافتتاح':s.key==='after'?'فحص هادئ كل 30 دقيقة بعد الإغلاق':'فحص هادئ كل 45 دقيقة خارج الجلسة';
    if(panel){panel.dataset.state=s.key;panel.setAttribute('aria-label',s.weekend?s.label:s.label+'، التحديث التالي خلال '+mm+':'+ss);}
    if(gauge){const circumference=2*Math.PI*18;gauge.style.strokeDasharray=String(circumference);gauge.style.strokeDashoffset=String(s.active?circumference*(1-left/s.interval):circumference);}
-   const status=$('sasRadarScheduleStatus');if(status)status.textContent=s.active?s.label+' · الفحص التالي خلال '+mm+':'+ss:s.label+' · المسح الآلي متوقف حتى افتتاح السوق';
-   // Never launch an automatic stock scan outside the regular US session.
-   if(left===0){nextAt=now+s.interval*1000;if(s.active&&typeof window.runRadar==='function'&&!window.__sasRadarAutoRun){window.__sasRadarAutoRun=true;Promise.resolve(window.runRadar(false)).catch(()=>{}).finally(()=>{window.__sasRadarAutoRun=false;});}}
+   const status=$('sasRadarScheduleStatus');if(status)status.textContent=s.weekend?s.label+' · المسح الآلي متوقف حتى افتتاح السوق':s.label+' · التحديث التالي '+mm+':'+ss;
+   // Pause automatic stock scans on weekends only; preserve weekday radar cadence.
+   if(left===0){nextAt=now+s.interval*1000;if(!s.weekend&&typeof window.runRadar==='function'&&!window.__sasRadarAutoRun){window.__sasRadarAutoRun=true;Promise.resolve(window.runRadar(false)).catch(()=>{}).finally(()=>{window.__sasRadarAutoRun=false;});}}
  }
  function init(){
    const visual=document.querySelector('.sas-radar-visual');
