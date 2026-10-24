@@ -70,3 +70,10 @@
 .sas-radar-auto-panel[data-state="weekend"] .sas-radar-auto-gauge,
 .sas-radar-visual.sas-radar-weekend-closed .sas-radar-live-countdown{display:none!important}
 .sas-radar-auto-panel[data-state="weekend"] .sas-radar-auto-copy{flex:1 1 auto!important;min-width:0!important}
+
+/* Definitive removal: no radar countdown UI on any session or viewport. */
+#sasRadarAutoPanel .sas-radar-auto-gauge,
+.sas-radar-visual .sas-radar-live-countdown,
+#sasRadarAutoPanel .sas-radar-schedule-status,
+#sasRadarAutoPanel [id*="RadarCountdown"],
+.sas-radar-visual [id*="RadarCountdown"]{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;width:0!important;height:0!important;overflow:hidden!important}
