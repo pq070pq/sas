@@ -164,6 +164,31 @@ class RadarOutcome(Base):
     evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
+class RadarForwardCheck(Base):
+    """Immutable entry snapshot plus forward returns at completed trading sessions."""
+    __tablename__ = "radar_forward_checks"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    radar_signal_id: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    symbol: Mapped[str] = mapped_column(String(24), index=True)
+    signal_date: Mapped[str] = mapped_column(String(16), index=True)
+    entry_price: Mapped[float] = mapped_column()
+    entry_spy_close: Mapped[float | None] = mapped_column()
+    close_3: Mapped[float | None] = mapped_column()
+    return_3_pct: Mapped[float | None] = mapped_column()
+    spy_return_3_pct: Mapped[float | None] = mapped_column()
+    excess_3_pct: Mapped[float | None] = mapped_column()
+    close_5: Mapped[float | None] = mapped_column()
+    return_5_pct: Mapped[float | None] = mapped_column()
+    spy_return_5_pct: Mapped[float | None] = mapped_column()
+    excess_5_pct: Mapped[float | None] = mapped_column()
+    close_10: Mapped[float | None] = mapped_column()
+    return_10_pct: Mapped[float | None] = mapped_column()
+    spy_return_10_pct: Mapped[float | None] = mapped_column()
+    excess_10_pct: Mapped[float | None] = mapped_column()
+    data_source: Mapped[str | None] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(24), default="pending", index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
 class ScheduledReport(Base):
     __tablename__ = "scheduled_reports"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
