@@ -4892,13 +4892,19 @@ def _classify_sec_filing_text(form, description, items, text):
             impact = "مختلط — النص يحتوي مؤشرات متعارضة"
             evidence = "توجد إشارات إيجابية وسلبية في النص؛ يلزم تقييم التفاصيل معًا."
     if clean:
-        # Skip the filing cover text; use the first informative sentence/section.
+        # Prefer the substantive section over the SEC cover page.
         event = clean
-        for marker in ("Item 1.01", "Item 2.02", "Item 2.03", "Item 5.02", "Item 8.01", "Management's Discussion", "Results of Operations"):
+        found_section = False
+        for marker in ("Item 1.01", "Item 1.02", "Item 2.01", "Item 2.02", "Item 2.03", "Item 2.05", "Item 2.06", "Item 5.02", "Item 7.01", "Item 8.01", "Management's Discussion", "Results of Operations"):
             pos = event.lower().find(marker.lower())
             if pos >= 0:
                 event = event[pos:]
+                found_section = True
                 break
+        if not found_section and str(form).upper() in {"10-Q", "10-K"}:
+            event = "تقرير مالي دوري؛ يلزم تلخيص قسم النتائج المالية بدل صفحة الغلاف."
+        elif not found_section and re.search(r"current report|primary document", str(description or ""), re.I):
+            event = "لم نعثر على قسم الحدث في النص المستخرج؛ راجع البنود المسجلة والمستند الأصلي."
         event = event[:650].strip()
     elif item_codes:
         descriptions = [item_map[c] for c in item_codes if c in item_map]
