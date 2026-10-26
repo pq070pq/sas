@@ -50,7 +50,7 @@ _SESSION_QUOTE_LOCKS = {}
 async def _quote_for_current_session(symbol: str):
     status = market_status()
     session = str(status.get("session") or "closed")
-    prefer_extended = session in {"premarket", "afterhours"}
+    prefer_extended = session in {"premarket", "afterhours", "night"}
     key = (str(symbol or "").upper().strip(), session)
 
     def cached_quote():
