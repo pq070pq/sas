@@ -88,8 +88,9 @@ jobs:
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
           FINNHUB_API_KEY_2: ${{ secrets.FINNHUB_API_KEY_2 }}
           FINNHUB_API_KEY_3: ${{ secrets.FINNHUB_API_KEY_3 }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
         with:
-          envs: MARKETAUX_API_KEY,MARKETAUX_API_KEY_2,MARKETAUX_API_KEY_3,TWELVE_DATA_API_KEY_2,TWELVE_DATA_API_KEY_3,TWELVE_DATA_API_KEYS,FINNHUB_API_KEY,FINNHUB_API_KEY_2,FINNHUB_API_KEY_3
+          envs: MARKETAUX_API_KEY,MARKETAUX_API_KEY_2,MARKETAUX_API_KEY_3,TWELVE_DATA_API_KEY_2,TWELVE_DATA_API_KEY_3,TWELVE_DATA_API_KEYS,FINNHUB_API_KEY,FINNHUB_API_KEY_2,FINNHUB_API_KEY_3,SEC_USER_AGENT
           host: ${{ secrets.OVH_HOST }}
           username: ${{ secrets.OVH_USER || 'root' }}
           key_path: ${{ runner.temp }}/ovh_key
@@ -114,6 +115,24 @@ jobs:
             git update-ref -d refs/remotes/origin/main || true
             git fetch --prune origin +refs/heads/main:refs/remotes/origin/main
             git reset --hard refs/remotes/origin/main
+            # Persist SEC contact identity from GitHub Actions Secret without logging the value.
+            if [ -n "${SEC_USER_AGENT:-}" ]; then
+              python3 - <<'PY'
+            import os
+            from pathlib import Path
+
+            env_path = Path("/opt/saspro/.env")
+            lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+            value = os.environ["SEC_USER_AGENT"].strip()
+            lines = [line for line in lines if not line.startswith("SEC_USER_AGENT=")]
+            lines.append("SEC_USER_AGENT=" + value)
+            env_path.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+            os.chmod(env_path, 0o600)
+            print("SEC_USER_AGENT updated from GitHub Actions Secret.")
+            PY
+            else
+              echo "SEC_USER_AGENT secret is not configured; leaving server .env unchanged."
+            fi
             # Install the repository-managed, safe daily cleanup timer (GitHub remains the source of truth).
             install -d -m 0755 /etc/systemd/system
             install -m 0644 /opt/saspro/systemd/saspro-cleanup.service /etc/systemd/system/saspro-cleanup.service
