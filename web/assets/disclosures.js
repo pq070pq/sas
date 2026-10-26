@@ -18,7 +18,7 @@ return ['إفصاح شركة',''];
 function plainSummary(f){
 const title=String(f.description||'').trim();
 const text=(title+' '+String(f.items||'')).toLowerCase();
-const itemText=String(f.items||'').match(/\\b\\d{1,2}\\.\\d{2}\\b/g)||[];
+const itemText=String(f.items||'').match(/\b\d{1,2}\.\d{2}\b/g)||[];
 const itemMap={
 '1.01':'توقيع اتفاقية أو عقد مهم جديد',
 '1.02':'إنهاء أو إلغاء اتفاقية مهمة',
