@@ -5,7 +5,48 @@ const status = $('status'), company = $('company'), resultsSection = $('resultsS
 let controller = null;
 function escapeHTML(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function setStatus(title,detail,kind=''){status.className='status '+kind;status.innerHTML='<div class="status-icon">'+(kind==='error'?'!':kind==='loading'?'◌':'⌕')+'</div><div><strong>'+escapeHTML(title)+'</strong><p>'+escapeHTML(detail)+'</p></div>';status.hidden=false;}
-function eventTag(f){const s=((f.form||'')+' '+(f.description||'')).toLowerCase();if(/reverse split|reverse stock split|stock split/.test(s))return ['تقسيم أسهم','warn'];if(/424b5|s-1|s-3|offering|prospectus|at-the-market|atm offering/.test(s))return ['طرح / إصدار محتمل','risk'];if(/delist|delisting|non-compliance|deficiency|nasdaq listing|nyse listing/.test(s))return ['امتثال / إدراج','risk'];if(/8-k/.test(s))return ['حدث جوهري','warn'];return ['إفصاح شركة',''];}
-function render(items, data){results.innerHTML='';if(sort.value==='oldest')items.sort((a,b)=>(a.filingDate||'').localeCompare(b.filingDate||''));else items.sort((a,b)=>(b.filingDate||'').localeCompare(a.filingDate||''));$('resultCount').textContent=items.length+' مستند';$('resultSummary').textContent='إيداعات SEC الرسمية للشركة المحددة';if(!items.length){results.innerHTML='<div class="empty">لا توجد إفصاحات تطابق الفلاتر المحددة في الفترة المختارة.</div>';return;}for(const f of items){const [tag,kind]=eventTag(f);const card=document.createElement('article');card.className='filing';const title=f.description||('نموذج '+f.form);const accession=encodeURIComponent(f.accessionNumber||'');card.innerHTML='<div class="filing-top"><div class="filing-title">'+escapeHTML(title)+'</div><div class="filing-date">'+escapeHTML(f.filingDate||'—')+'</div></div><div class="chips"><span class="chip form">'+escapeHTML(f.form||'SEC')+'</span><span class="chip '+kind+'">'+tag+'</span>'+(f.reportDate?'<span class="chip">الفترة: '+escapeHTML(f.reportDate)+'</span>':'')+'</div><div class="filing-desc">'+(f.items?'<b>بنود مذكورة:</b> '+escapeHTML(f.items):'هذا تصنيف أولي حسب نوع النموذج ووصف الإيداع؛ افتح المستند للتأكد من الحدث الفعلي.')+'</div><div class="filing-actions"><a class="primary" href="'+escapeHTML(f.documentUrl||f.filingUrl)+'" target="_blank" rel="noopener">فتح المستند الأصلي ↗</a><a href="'+escapeHTML(f.filingUrl)+'" target="_blank" rel="noopener">صفحة الإيداع في SEC ↗</a></div>';results.appendChild(card);}}
+function eventTag(f){
+const s=((f.form||'')+' '+(f.description||'')).toLowerCase();
+if(/reverse split|reverse stock split|stock split/.test(s))return ['تقسيم أسهم','warn'];
+if(/424b5|s-1|s-3|offering|prospectus|at-the-market|atm offering/.test(s))return ['طرح / إصدار أسهم','risk'];
+if(/delist|delisting|non-compliance|deficiency|nasdaq listing|nyse listing/.test(s))return ['مشكلة إدراج أو التزام','risk'];
+if(/8-k/.test(s))return ['إفصاح عن تطور مهم','warn'];
+if(/10-q/.test(s))return ['تقرير ربع سنوي',''];
+if(/10-k/.test(s))return ['تقرير سنوي',''];
+return ['إفصاح شركة',''];
+}
+function plainSummary(f){
+const title=String(f.description||'').trim();
+const text=(title+' '+String(f.items||'')).toLowerCase();
+const itemText=String(f.items||'').match(/\\b\\d{1,2}\\.\\d{2}\\b/g)||[];
+const itemMap={
+'1.01':'توقيع اتفاقية أو عقد مهم جديد',
+'1.02':'إنهاء أو إلغاء اتفاقية مهمة',
+'1.03':'إجراءات مرتبطة بالإفلاس أو إعادة الهيكلة',
+'2.01':'إتمام صفقة أو استحواذ أو بيع أصل مهم',
+'2.02':'إعلان نتائج مالية أو تحديث نتائج الشركة',
+'2.03':'إنشاء التزام مالي كبير أو اقتراض جديد',
+'2.04':'تغيّر أو تعثّر في التزامات مالية',
+'2.05':'خطة لإعادة الهيكلة أو إغلاق أو تقليص أعمال',
+'2.06':'تسجيل خسارة أو انخفاض في قيمة أصل',
+'3.01':'مشكلة تتعلق باستمرار إدراج السهم أو قواعد السوق',
+'5.02':'تغيير في الإدارة أو مجلس الإدارة',
+'5.07':'نتائج تصويت المساهمين',
+'7.01':'إعلان معلومات للمستثمرين أو السوق',
+'8.01':'إعلان تطور مهم آخر',
+'9.01':'مرفقات أو مستندات داعمة للإفصاح'
+};
+let headline='', meaning='', impact='';
+if(/reverse split|reverse stock split/.test(text)){headline='الشركة أعلنت عن تجميع أسهمها';meaning='يتم جمع عدة أسهم في عدد أقل، وقد يتغير عدد الأسهم وسعرها الحسابي تبعًا لنسبة التجميع.';impact='هذا الإجراء وحده ما يعني أن قيمة استثمارك زادت؛ راجع النسبة والتاريخ والتفاصيل.';}
+else if(/stock split/.test(text)){headline='الشركة أعلنت عن تقسيم أسهمها';meaning='يتغير عدد الأسهم وسعر السهم الحسابي حسب نسبة التقسيم.';impact='التقسيم بحد ذاته ما يثبت ارتفاع قيمة الاستثمار أو انخفاضها.';}
+else if(/424b5|s-1|s-3|offering|prospectus|at-the-market|atm offering/.test(text)){headline='الإفصاح قد يكون متعلقًا بطرح أو إصدار أسهم';meaning='قد تكون الشركة بصدد جمع تمويل من المستثمرين. نحتاج مراجعة شروط الطرح والمستند للتأكد.';impact='إذا كان فيه إصدار أسهم جديدة، فقد تتأثر حصة المساهمين الحاليين؛ لا يمكن الجزم من نوع النموذج وحده.';}
+else if(/delist|delisting|non-compliance|deficiency/.test(text)){headline='الإفصاح قد يتعلق بملاحظة على إدراج الشركة أو التزامها';meaning='قد تكون الجهة المشغلة للسوق نبهت الشركة إلى شرط يحتاج معالجة.';impact='تحقق من المهلة والإجراء المطلوب؛ نوع النموذج وحده ما يوضح هل تم حل المشكلة.';}
+else if(/^10-q$/.test(String(f.form||'').toLowerCase())){headline='تقرير مالي ربع سنوي';meaning='يعرض أداء الشركة خلال الربع، مثل الإيرادات والأرباح والخسائر والتدفقات النقدية.';impact='لازم مقارنة الأرقام بالفترة السابقة وتوقعات الشركة لمعرفة إذا كان الأداء تحسن أو تراجع.';}
+else if(/^10-k$/.test(String(f.form||'').toLowerCase())){headline='تقرير مالي سنوي';meaning='يعرض نتائج السنة ومخاطر الشركة ووضعها المالي.';impact='اقرأ قسم المخاطر والنتائج المالية لمعرفة أبرز التغييرات.';}
+else if(itemText.length){const descriptions=[...new Set(itemText.map(code=>itemMap[code]).filter(Boolean))];if(descriptions.length){headline=descriptions.join('؛ ');meaning='هذه البنود توضح موضوع الإفصاح بشكل مبدئي، وليست بديلًا عن قراءة التفاصيل.';impact='الأثر على السهم يعتمد على تفاصيل الحدث وحجمه وشروطه، ولا يمكن تحديده من رقم البند فقط.';}}
+if(!headline){headline=title||('إفصاح من نوع '+String(f.form||'غير محدد'));meaning='وصف الإيداع المتاح ما يكفي لتحديد الحدث بدقة، لذلك ما راح نفترض تفاصيل غير مذكورة.';impact='افتح المستند الأصلي لمعرفة وش صار بالضبط وأي أثر معلن على الشركة.';}
+return {headline,meaning,impact,hasDetails:!!(title||itemText.length)};
+}
+function render(items, data){results.innerHTML='';if(sort.value==='oldest')items.sort((a,b)=>(a.filingDate||'').localeCompare(b.filingDate||''));else items.sort((a,b)=>(b.filingDate||'').localeCompare(a.filingDate||''));$('resultCount').textContent=items.length+' مستند';$('resultSummary').textContent='ملخصات مبسطة للإفصاحات الرسمية — افتح المستند للتفاصيل';if(!items.length){results.innerHTML='<div class="empty">لا توجد إفصاحات تطابق الفلاتر المحددة في الفترة المختارة.</div>';return;}for(const f of items){const [tag,kind]=eventTag(f);const summary=plainSummary(f);const card=document.createElement('article');card.className='filing';card.innerHTML='<div class="filing-top"><div class="filing-title">'+escapeHTML(summary.headline)+'</div><div class="filing-date">'+escapeHTML(f.filingDate||'—')+'</div></div><div class="chips"><span class="chip form">'+escapeHTML(f.form||'SEC')+'</span><span class="chip '+kind+'">'+tag+'</span>'+(f.reportDate?'<span class="chip">الفترة: '+escapeHTML(f.reportDate)+'</span>':'')+'</div><div class="plain-summary"><div><b>وش صار؟</b><p>'+escapeHTML(summary.meaning)+'</p></div><div><b>وش يعني للمساهم؟</b><p>'+escapeHTML(summary.impact)+'</p></div></div><div class="filing-desc">'+(f.items?'<span class="muted-label">أرقام البنود في الإفصاح:</span> '+escapeHTML(f.items):'')+' <span class="summary-note">ملخص آلي مبسط من وصف الإيداع والبنود المتاحة؛ قد لا يوضح كل التفاصيل.</span></div><div class="filing-actions"><a class="primary" href="'+escapeHTML(f.documentUrl||f.filingUrl)+'" target="_blank" rel="noopener">اقرأ التفاصيل والمستند الأصلي ↗</a><a href="'+escapeHTML(f.filingUrl)+'" target="_blank" rel="noopener">كل مرفقات الإيداع ↗</a></div>';results.appendChild(card);}}
 form.addEventListener('submit', async e=>{e.preventDefault();const q=query.value.trim();if(!q)return;if(controller)controller.abort();controller=new AbortController();btn.disabled=true;btn.textContent='جارٍ البحث…';resultsSection.hidden=true;company.hidden=true;setStatus('جارٍ جلب الإفصاحات الحقيقية','الاتصال بخدمة بحث SEC EDGAR عبر SAS PRO…','loading');try{const params=new URLSearchParams({q,form:formType.value,days:period.value,limit:'100'});const response=await fetch('/api/disclosures/search?'+params.toString(),{signal:controller.signal,headers:{Accept:'application/json'}});const data=await response.json();if(!response.ok)throw new Error(data.detail||'تعذر الوصول إلى بيانات SEC.');if(data.error)throw new Error(data.error);const co=data.company||{};company.innerHTML='<div><div class="company-name">'+escapeHTML(co.name||q)+'</div><div class="company-meta">CIK '+escapeHTML(co.cik||'—')+' · SEC EDGAR · '+escapeHTML(data.asOf||'')+'</div></div><span class="company-ticker">'+escapeHTML(co.ticker||q.toUpperCase())+'</span>';company.hidden=false;resultsSection.hidden=false;render(data.filings||[],data);setStatus('اكتمل البحث','تم جلب '+(data.filings||[]).length+' إيداعًا من SEC EDGAR. تصنيف الأحداث آلي وليس حكمًا نهائيًا.');}catch(err){if(err.name==='AbortError')return;setStatus('تعذر إكمال البحث',err.message||'خطأ غير معروف. أعد المحاولة بعد قليل.','error');}finally{btn.disabled=false;btn.innerHTML='<span class="btn-icon">⌕</span> افحص الإفصاحات';}});
 })();
