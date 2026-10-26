@@ -4792,3 +4792,118 @@ async def admin_plan_visibility(plan: str, request: Request, user=Depends(telegr
     await setting_set(db, f"plan_{plan}_visible", "1" if bool(body.get("visible")) else "0")
     await db.commit()
     return {"ok": True, "plan": plan, "visible": bool(body.get("visible"))}
+
+
+# SEC EDGAR disclosure search. Public filing data only; cached to respect SEC fair-access limits.
+_SEC_TICKERS_CACHE = {"expires": 0.0, "items": None}
+_SEC_SUBMISSIONS_CACHE = {}
+_SEC_CACHE_TTL = 600
+
+@app.get("/disclosures")
+async def disclosures_page():
+    return FileResponse(Path("web/disclosures.html"))
+
+@app.get("/api/disclosures/search")
+async def search_sec_disclosures(
+    q: str,
+    form: str = "all",
+    days: str = "all",
+    limit: int = 100,
+):
+    query = (q or "").strip()[:100]
+    if not query:
+        raise HTTPException(400, "أدخل رمز السهم أو اسم الشركة.")
+    allowed_forms = {"all", "8-K", "10-K", "10-Q", "S-1", "S-3", "424B5", "DEF 14A", "4", "SC 13D", "SC 13G"}
+    if form not in allowed_forms:
+        raise HTTPException(400, "نوع الإفصاح غير مدعوم.")
+    if days not in {"all", "30", "90", "365"}:
+        raise HTTPException(400, "الفترة الزمنية غير صحيحة.")
+    limit = max(1, min(int(limit or 100), 100))
+    headers = {
+        "User-Agent": os.getenv("SEC_USER_AGENT", "SAS PRO Disclosure Radar contact: configure SEC_USER_AGENT"),
+        "Accept-Encoding": "gzip, deflate",
+        "Accept": "application/json",
+    }
+    now = time.time()
+    try:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True, headers=headers) as client:
+            if not _SEC_TICKERS_CACHE["items"] or now >= _SEC_TICKERS_CACHE["expires"]:
+                response = await client.get("https://www.sec.gov/files/company_tickers.json")
+                response.raise_for_status()
+                raw = response.json()
+                _SEC_TICKERS_CACHE["items"] = list(raw.values())
+                _SEC_TICKERS_CACHE["expires"] = now + 21600
+            companies = _SEC_TICKERS_CACHE["items"]
+            normalized = query.casefold()
+            exact = [c for c in companies if str(c.get("ticker", "")).casefold() == normalized]
+            exact_name = [c for c in companies if str(c.get("title", "")).casefold() == normalized]
+            prefix = [c for c in companies if str(c.get("ticker", "")).casefold().startswith(normalized)]
+            name_matches = [c for c in companies if normalized in str(c.get("title", "")).casefold()]
+            matches = exact or exact_name or prefix or name_matches
+            if not matches:
+                raise HTTPException(404, "لم يتم العثور على الشركة في قائمة SEC. جرّب رمز السهم الرسمي.")
+            match = matches[0]
+            cik_int = int(match["cik_str"])
+            cik = str(cik_int).zfill(10)
+            cache_key = cik
+            cached = _SEC_SUBMISSIONS_CACHE.get(cache_key)
+            if cached and now - cached[0] < _SEC_CACHE_TTL:
+                submission = cached[1]
+            else:
+                response = await client.get(f"https://data.sec.gov/submissions/CIK{cik}.json")
+                response.raise_for_status()
+                submission = response.json()
+                _SEC_SUBMISSIONS_CACHE[cache_key] = (now, submission)
+            recent = (submission.get("filings") or {}).get("recent") or {}
+            forms = recent.get("form") or []
+            filing_dates = recent.get("filingDate") or []
+            accessions = recent.get("accessionNumber") or []
+            docs = recent.get("primaryDocument") or []
+            descriptions = recent.get("primaryDocDescription") or []
+            report_dates = recent.get("reportDate") or []
+            items_list = recent.get("items") or []
+            cutoff = (date.today() - timedelta(days=int(days))).isoformat() if days != "all" else None
+            filings = []
+            for i, filing_form in enumerate(forms):
+                filing_date = filing_dates[i] if i < len(filing_dates) else ""
+                if cutoff and filing_date and filing_date < cutoff:
+                    continue
+                if form != "all" and filing_form != form:
+                    continue
+                accession = accessions[i] if i < len(accessions) else ""
+                doc = docs[i] if i < len(docs) else ""
+                accession_path = accession.replace("-", "")
+                cik_path = str(cik_int)
+                filing_url = f"https://www.sec.gov/Archives/edgar/data/{cik_path}/{accession_path}/"
+                document_url = filing_url + doc if doc else f"https://www.sec.gov/Archives/edgar/data/{cik_path}/{accession_path}/"
+                filings.append({
+                    "form": filing_form,
+                    "filingDate": filing_date,
+                    "accessionNumber": accession,
+                    "description": descriptions[i] if i < len(descriptions) else "",
+                    "reportDate": report_dates[i] if i < len(report_dates) else "",
+                    "items": items_list[i] if i < len(items_list) else "",
+                    "filingUrl": filing_url,
+                    "documentUrl": document_url,
+                })
+                if len(filings) >= limit:
+                    break
+            return {
+                "company": {
+                    "name": match.get("title") or submission.get("name") or query,
+                    "ticker": match.get("ticker") or query.upper(),
+                    "cik": cik,
+                },
+                "asOf": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                "source": "SEC EDGAR",
+                "filings": filings,
+                "count": len(filings),
+            }
+    except HTTPException:
+        raise
+    except httpx.HTTPStatusError as exc:
+        logger.warning("SEC disclosure provider HTTP error status=%s", exc.response.status_code)
+        raise HTTPException(502, "مصدر SEC غير متاح حاليًا. أعد المحاولة لاحقًا.") from exc
+    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+        logger.warning("SEC disclosure search failed: %s", type(exc).__name__)
+        raise HTTPException(502, "تعذر جلب بيانات SEC حاليًا. تحقق من الاتصال وإعداد SEC_USER_AGENT.") from exc
