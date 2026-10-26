@@ -1478,28 +1478,45 @@ async def stock_radar_cycle():
                     cycle_stats["failed"],
                 )
 
-        # Send a quiet status at most once per hour while scans find no
-        # channel-worthy opportunity. Real opportunity reports are unaffected.
-        if cycle_stats.get("sent", 0) > 0:
-            _radar_no_opportunity_announced = False
-            _radar_no_opportunity_last_sent = 0.0
-        elif (
-            not _radar_no_opportunity_announced
-            or time.monotonic() - _radar_no_opportunity_last_sent >= 3600
-        ):
+        # Publish the no-opportunity notice only after a completed, healthy scan
+        # with no channel-qualified candidates. Persist the once-per-session key
+        # so process/container restarts cannot spam the channel.
+        scan_errors = int(diagnostics.get("errors") or 0)
+        no_channel_opportunity = channel_gate_passed == 0 and cycle_stats.get("sent", 0) == 0
+        if no_channel_opportunity and scan_errors == 0 and settings.telegram_channel_id:
+            no_opportunity_key = f"radar-no-op:{session_date}"[:64]
             try:
-                await send_message(settings.telegram_channel_id, RADAR_STATUS)
-                _radar_no_opportunity_announced = True
-                _radar_no_opportunity_last_sent = time.monotonic()
-                logger.info(
-                    "Stock radar no-opportunity status sent: hourly heartbeat, cycle id=%s.",
-                    run.id,
-                )
+                async with SessionLocal() as status_db:
+                    already_notified = (await status_db.execute(
+                        select(ScheduledReport).where(
+                            ScheduledReport.report_key == no_opportunity_key
+                        )
+                    )).scalars().first()
+                    if already_notified is None:
+                        await send_message(settings.telegram_channel_id, RADAR_STATUS)
+                        status_db.add(ScheduledReport(report_key=no_opportunity_key))
+                        await status_db.commit()
+                        _radar_no_opportunity_announced = True
+                        _radar_no_opportunity_last_sent = time.monotonic()
+                        logger.info(
+                            "Stock radar no-opportunity status sent once for session=%s cycle=%s.",
+                            session_date, run.id,
+                        )
+                    else:
+                        logger.info(
+                            "Stock radar no-opportunity status suppressed: already sent for session=%s.",
+                            session_date,
+                        )
             except Exception as exc:
                 logger.exception(
                     "Stock radar no-opportunity status failed; continuing radar cycle: %s",
                     exc,
                 )
+        elif scan_errors:
+            logger.warning(
+                "Stock radar no-opportunity status suppressed because scan had errors: cycle=%s errors=%s.",
+                run.id, scan_errors,
+            )
 
         top = [
             {
