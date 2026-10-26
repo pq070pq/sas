@@ -4805,17 +4805,30 @@ class _SECTextExtractor(HTMLParser):
     def handle_endtag(self, tag):
         if tag in {"script", "style", "ix:header"} and self.skip_depth:
             self.skip_depth -= 1
-        if tag in {"p", "div", "br", "tr", "td", "h1", "h2", "h3"}:
-            self.parts.append("\\n")
+        if tag in {"p", "div", "br", "tr", "td", "h1", "h2", "h3", "section"}:
+            self.parts.append(" ")
     def handle_data(self, data):
         if not self.skip_depth and data.strip():
             self.parts.append(data.strip())
     def text(self):
-        return re.sub(r"\\s+", " ", " ".join(self.parts)).strip()
+        value = " ".join(self.parts)
+        value = re.sub(r"\\[nrt]", " ", value)
+        value = re.sub(r"\s+", " ", value)
+        return value.strip()
 
 
 _SEC_FILING_TEXT_CACHE = {}
 _SEC_FILING_TEXT_TTL = 1800
+
+def _clean_sec_filing_text(value):
+    value = html.unescape(str(value or ""))
+    value = re.sub(r"\\[nrt]", " ", value)
+    value = re.sub(r"\s+", " ", value).strip()
+    # Remove common SEC cover-page boilerplate so the summary does not repeat it.
+    value = re.sub(r"UNITED STATES SECURITIES AND EXCHANGE COMMISSION.*?FORM\s+(?:8-K|10-Q|10-K)\b", " ", value, flags=re.I)
+    value = re.sub(r"WASHINGTON,?\s+D\.?C\.?\s+\d{5}", " ", value, flags=re.I)
+    value = re.sub(r"\s+", " ", value).strip()
+    return value
 
 async def _sec_fetch_filing_text(client, url):
     now = time.time()
@@ -4827,41 +4840,83 @@ async def _sec_fetch_filing_text(client, url):
         response.raise_for_status()
         extractor = _SECTextExtractor()
         extractor.feed(response.text[:2_000_000])
-        text = extractor.text()[:12000]
+        text = _clean_sec_filing_text(extractor.text())[:12000]
         _SEC_FILING_TEXT_CACHE[url] = (now, text)
         return text
     except (httpx.HTTPError, ValueError):
         return ""
 
 def _classify_sec_filing_text(form, description, items, text):
-    source = (str(description or "") + " " + str(items or "") + " " + str(text or "")).lower()
-    event = ""
+    clean = _clean_sec_filing_text(text)
+    source = (str(description or "") + " " + str(items or "") + " " + clean).lower()
+    item_codes = re.findall(r"\b\d{1,2}\.\d{2}\b", str(items or ""))
+    item_map = {
+        "1.01": "توقيع اتفاقية مهمة",
+        "1.02": "إنهاء اتفاقية مهمة",
+        "1.03": "إفلاس أو إعادة هيكلة",
+        "2.01": "إتمام استحواذ أو بيع أصل",
+        "2.02": "إعلان نتائج مالية",
+        "2.03": "التزام مالي أو اقتراض كبير",
+        "2.04": "تغيّر في التزامات مالية",
+        "2.05": "إعادة هيكلة أو إغلاق أعمال",
+        "2.06": "خسارة أو انخفاض قيمة أصل",
+        "3.01": "مشكلة في شروط الإدراج",
+        "5.02": "تغيير في الإدارة",
+        "5.07": "نتائج تصويت المساهمين",
+        "7.01": "معلومات معلنة للمستثمرين",
+        "8.01": "تطور آخر مهم",
+        "9.01": "مرفقات داعمة للإفصاح",
+    }
+    matched = []
     evidence = ""
-    impact = "غير واضح — نص الإفصاح لا يثبت اتجاهًا"
+    impact = "غير واضح — لا توجد أدلة كافية لتحديد اتجاه الأثر"
     impact_class = "unknown"
     rules = [
-        (r"going concern|chapter 11|bankruptcy|default under|material weakness in internal control|delisting|received a delisting notice", "مؤشر سلبي محتمل", "negative"),
-        (r"entered into a definitive agreement to acquire|completed the acquisition|awarded .* contract|record quarterly revenue|revenue increased by|net income increased by|raises its full.year guidance", "مؤشر إيجابي محتمل", "positive"),
-        (r"terminated .* agreement|withdraws its guidance|lowers its full.year guidance|revenue declined by|net loss increased by|material impairment charge", "مؤشر سلبي محتمل", "negative"),
+        (r"bankruptcy|chapter 11|going concern|default under|material weakness in internal control|received a delisting notice|delisting", "إشارة سلبية في النص", "negative"),
+        (r"revenue increased by|net income increased by|raises its full.year guidance|record quarterly revenue|awarded .* contract|completed the acquisition", "إشارة إيجابية في النص", "positive"),
+        (r"terminated .* agreement|withdraws its guidance|lowers its full.year guidance|revenue declined by|net loss increased by|material impairment charge", "إشارة سلبية في النص", "negative"),
     ]
     for pattern, label, cls in rules:
         match = re.search(pattern, source, re.I)
         if match:
-            impact, impact_class = label, cls
-            evidence = source[max(0, match.start()-100):match.end()+160]
-            break
-    if text:
-        clean = re.sub(r"\\s+", " ", text)
-        event = clean[:420]
-    elif items:
-        event = "بنود الإفصاح المسجلة: " + str(items)
-    elif description:
+            matched.append((label, cls))
+            if not evidence:
+                evidence = source[max(0, match.start()-100):match.end()+160]
+    if matched:
+        classes = {x[1] for x in matched}
+        if len(classes) == 1:
+            impact_class = matched[0][1]
+            impact = matched[0][0] + " (بحسب العبارة الظاهرة)"
+        else:
+            impact_class = "unknown"
+            impact = "مختلط — النص يحتوي مؤشرات متعارضة"
+            evidence = "توجد إشارات إيجابية وسلبية في النص؛ يلزم تقييم التفاصيل معًا."
+    if clean:
+        # Skip the filing cover text; use the first informative sentence/section.
+        event = clean
+        for marker in ("Item 1.01", "Item 2.02", "Item 2.03", "Item 5.02", "Item 8.01", "Management's Discussion", "Results of Operations"):
+            pos = event.lower().find(marker.lower())
+            if pos >= 0:
+                event = event[pos:]
+                break
+        event = event[:650].strip()
+    elif item_codes:
+        descriptions = [item_map[c] for c in item_codes if c in item_map]
+        event = "موضوع الإفصاح: " + "، ".join(dict.fromkeys(descriptions)) if descriptions else "بنود الإفصاح: " + ", ".join(item_codes)
+    elif description and not re.search(r"current report|primary document", description, re.I):
         event = str(description)
     else:
-        event = "لم يتوفر نص كافٍ لتحديد الحدث."
+        event = "ما قدرنا نستخرج نص واضح يشرح الحدث من المستند."
     if not evidence:
-        evidence = "لا توجد عبارة صريحة كافية في النص المتاح لتصنيف الأثر."
-    return {"eventSummary": event, "impactLabel": impact, "impactClass": impact_class, "impactEvidence": evidence[:300], "analysisBasis": "نص المستند" if text else "بيانات وصفية فقط"}
+        evidence = "ما ظهرت عبارة صريحة كافية لتصنيف الأثر."
+    return {
+        "eventSummary": event,
+        "impactLabel": impact,
+        "impactClass": impact_class,
+        "impactEvidence": evidence[:300],
+        "analysisBasis": "نص المستند" if clean else ("بنود الإفصاح فقط" if item_codes else "بيانات وصفية فقط"),
+        "textAvailable": bool(clean),
+    }
 
 # SEC EDGAR disclosure search. Public filing data only; cached to respect SEC fair-access limits.
 _SEC_TICKERS_CACHE = {"expires": 0.0, "items": None}
