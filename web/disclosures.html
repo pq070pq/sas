@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#071019"><title>فاحص الإفصاحات | SAS PRO</title>
+<link rel="stylesheet" href="/assets/disclosures.css?v=1">
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+<a class="back" href="/" aria-label="العودة إلى SAS PRO">← العودة إلى SAS PRO</a>
+<div class="brand"><div class="logo">SEC</div><div><div class="eyebrow">SAS PRO • INTELLIGENCE</div><h1>فاحص إفصاحات الأسهم</h1><p>بحث مباشر في إيداعات الشركات لدى هيئة الأوراق المالية الأمريكية</p></div></div>
+<div class="source-pill"><span></span> مصدر رسمي · SEC EDGAR</div>
+</header>
+<section class="search-card">
+<div class="card-head"><div><h2>ابحث عن إفصاح</h2><p>اكتب رمز السهم أو اسم الشركة، ثم حدّد نطاق البحث.</p></div><span class="live-label">LIVE SEARCH</span></div>
+<form id="searchForm">
+<label for="query">رمز السهم أو اسم الشركة</label>
+<div class="search-row"><input id="query" name="q" placeholder="مثال: AAPL أو INLF" autocomplete="off" required maxlength="100"><button id="searchBtn" type="submit"><span class="btn-icon">⌕</span> افحص الإفصاحات</button></div>
+<div class="filters">
+<div><label for="formType">نوع النموذج</label><select id="formType"><option value="all">جميع الإفصاحات</option><option>8-K</option><option>10-K</option><option>10-Q</option><option>S-1</option><option>S-3</option><option>424B5</option><option>DEF 14A</option><option>4</option><option>SC 13D</option><option>SC 13G</option></select></div>
+<div><label for="period">الفترة</label><select id="period"><option value="all">كل الفترات المتاحة</option><option value="30">آخر 30 يومًا</option><option value="90">آخر 90 يومًا</option><option value="365">آخر سنة</option></select></div>
+<div><label for="sort">ترتيب النتائج</label><select id="sort"><option value="newest">الأحدث أولًا</option><option value="oldest">الأقدم أولًا</option></select></div>
+</div>
+<div class="hint"><span>ⓘ</span> النتائج من ملفات SEC الأصلية. تصنيف الحدث آلي ويحتاج مراجعة نص الإفصاح.</div>
+</form>
+</section>
+<section id="status" class="status" aria-live="polite"><div class="status-icon">⌕</div><div><strong>جاهز للفحص</strong><p>أدخل رمز السهم لعرض أحدث الإيداعات والروابط الرسمية.</p></div></section>
+<section id="company" class="company-card" hidden></section>
+<section id="resultsSection" hidden>
+<div class="results-head"><div><h2>نتائج الإفصاحات</h2><p id="resultSummary">—</p></div><span id="resultCount" class="count">0 مستند</span></div>
+<div id="results" class="results"></div>
+<div class="footnote">SAS PRO يعرض بيانات الإيداع وروابطها؛ لا يُعد هذا تحليلًا قانونيًا أو توصية استثمارية.</div>
+</section>
+<footer>بيانات المصدر: U.S. Securities and Exchange Commission · <a href="https://www.sec.gov/edgar/search/" target="_blank" rel="noopener">SEC EDGAR</a></footer>
+</div>
+<script src="/assets/disclosures.js?v=1" defer></script>
+</body></html>
