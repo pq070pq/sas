@@ -36,3 +36,16 @@
 @media(min-width:700px){.terminal-tabs{max-width:1000px;margin-inline:auto!important}.terminal-tabs>button{min-height:100px!important}.terminal-tab-icon{width:58px!important;height:58px!important}.terminal-tab-label{font-size:16px!important}}
 @media(max-width:380px){.terminal-tabs{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:3px!important;padding:5px!important}.terminal-tabs>button{min-height:78px!important;padding:7px 1px!important;gap:5px!important}.terminal-tab-icon{width:32px!important;height:32px!important;min-width:28px;min-height:28px}.terminal-tab-label{font-size:10px!important;letter-spacing:-.2px!important}}
 @media(prefers-reduced-motion:reduce){.terminal-tabs>button,.terminal-tabs>button:after,.terminal-tab-icon{transition:none!important}.terminal-tabs>button.active{animation:none!important}}
+
+
+/* Normalize optical size: SVG paths have different natural bounds inside the same viewBox. */
+.terminal-tabs>button .terminal-tab-icon svg{display:block;transform-origin:center;flex:none}
+.terminal-tabs>button[aria-label="الرئيسية"] .terminal-tab-icon svg{transform:scale(1.02)}
+.terminal-tabs>button[aria-label="الرادار"] .terminal-tab-icon svg{transform:scale(.96)}
+.terminal-tabs>button[aria-label="بحث"] .terminal-tab-icon svg{transform:scale(1.12)}
+.terminal-tabs>button[aria-label="فاحص الإفصاحات"] .terminal-tab-icon svg{transform:scale(1.20)}
+.terminal-tabs>button[aria-label="الحساب"] .terminal-tab-icon svg{transform:scale(1.10)}
+@media(max-width:380px){
+ .terminal-tabs>button[aria-label="بحث"] .terminal-tab-icon svg{transform:scale(1.08)}
+ .terminal-tabs>button[aria-label="فاحص الإفصاحات"] .terminal-tab-icon svg{transform:scale(1.12)}
+}
