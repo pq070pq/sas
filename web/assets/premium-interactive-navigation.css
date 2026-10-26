@@ -81,3 +81,38 @@
  .terminal-tabs>button .nav-icon-sweep,.terminal-tabs>button .nav-icon-search-ring,
  .terminal-tabs>button .nav-icon-user-head,.terminal-tabs>button .nav-icon-user-body{transition:none!important}
 }
+
+
+/* SAS PRO: vivid but lightweight icon interaction and faster mobile rendering. */
+.terminal-tabs>button .terminal-tab-icon{
+  will-change:transform,filter;
+  transition:transform .18s ease-out,filter .18s ease-out,color .18s ease-out;
+  filter:drop-shadow(0 0 3px rgba(35,218,255,.42));
+}
+.terminal-tabs>button .terminal-tab-icon:before{
+  content:"";position:absolute;inset:8%;border-radius:50%;
+  background:radial-gradient(circle,rgba(26,222,255,.19),rgba(26,222,255,0) 68%);
+  opacity:0;transform:scale(.65);transition:opacity .2s ease,transform .2s ease;pointer-events:none;
+}
+.terminal-tabs>button:hover .terminal-tab-icon:before,
+.terminal-tabs>button:focus-visible .terminal-tab-icon:before,
+.terminal-tabs>button.active .terminal-tab-icon:before{opacity:1;transform:scale(1.15)}
+.terminal-tabs>button:hover .terminal-tab-icon,
+.terminal-tabs>button:focus-visible .terminal-tab-icon{filter:drop-shadow(0 0 5px rgba(35,225,255,.8)) drop-shadow(0 0 12px rgba(35,225,255,.34))}
+.terminal-tabs>button.active .terminal-tab-icon{filter:drop-shadow(0 0 6px rgba(35,238,255,.95)) drop-shadow(0 0 14px rgba(35,225,255,.48))}
+.terminal-tabs>button.active .terminal-tab-icon svg{animation:sasIconPulse 2.8s ease-in-out infinite}
+.terminal-tabs>button[aria-label="الرادار"].active .nav-icon-sweep{animation:sasRadarSweep 3.2s linear infinite}
+.terminal-tabs>button[aria-label="بحث"].active .nav-icon-search-ring{filter:drop-shadow(0 0 4px rgba(35,225,255,.7))}
+.terminal-tabs>button[aria-label="فاحص الإفصاحات"].active .terminal-tab-icon svg{filter:drop-shadow(0 0 4px rgba(35,225,255,.85))}
+@keyframes sasIconPulse{0%,100%{opacity:1}50%{opacity:.82}}
+@keyframes sasRadarSweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+/* Avoid costly backdrop-filter repainting across the whole nav on mobile. */
+@media(max-width:600px){
+ .terminal-tabs{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+ .terminal-tabs>button{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+ .terminal-tabs>button.active{animation:none!important;box-shadow:0 0 0 1px rgba(0,222,255,.16),0 0 15px rgba(0,211,255,.2),inset 0 0 12px rgba(0,211,255,.08)!important}
+}
+@media(prefers-reduced-motion:reduce){
+ .terminal-tabs>button .terminal-tab-icon,.terminal-tabs>button .terminal-tab-icon:before{transition:none!important}
+ .terminal-tabs>button.active .terminal-tab-icon svg,.terminal-tabs>button[aria-label="الرادار"].active .nav-icon-sweep{animation:none!important}
+}
