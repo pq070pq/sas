@@ -4819,8 +4819,20 @@ async def search_sec_disclosures(
     if days not in {"all", "30", "90", "365"}:
         raise HTTPException(400, "الفترة الزمنية غير صحيحة.")
     limit = max(1, min(int(limit or 100), 100))
+    sec_user_agent = os.getenv("SEC_USER_AGENT", "").strip()
+    if (
+        not sec_user_agent
+        or "@" not in sec_user_agent
+        or "example.com" in sec_user_agent.casefold()
+        or "configure sec_user_agent" in sec_user_agent.casefold()
+        or "your_email" in sec_user_agent.casefold()
+    ):
+        raise HTTPException(
+            503,
+            "البحث متوقف حتى ضبط SEC_USER_AGENT باسم التطبيق وبريد تواصل حقيقي في إعدادات الخادم.",
+        )
     headers = {
-        "User-Agent": os.getenv("SEC_USER_AGENT", "SAS PRO Disclosure Radar contact: configure SEC_USER_AGENT"),
+        "User-Agent": sec_user_agent,
         "Accept-Encoding": "gzip, deflate",
         "Accept": "application/json",
     }
