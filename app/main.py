@@ -4794,6 +4794,75 @@ async def admin_plan_visibility(plan: str, request: Request, user=Depends(telegr
     return {"ok": True, "plan": plan, "visible": bool(body.get("visible"))}
 
 
+class _SECTextExtractor(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+        self.skip_depth = 0
+    def handle_starttag(self, tag, attrs):
+        if tag in {"script", "style", "ix:header"}:
+            self.skip_depth += 1
+    def handle_endtag(self, tag):
+        if tag in {"script", "style", "ix:header"} and self.skip_depth:
+            self.skip_depth -= 1
+        if tag in {"p", "div", "br", "tr", "td", "h1", "h2", "h3"}:
+            self.parts.append("\\n")
+    def handle_data(self, data):
+        if not self.skip_depth and data.strip():
+            self.parts.append(data.strip())
+    def text(self):
+        return re.sub(r"\\s+", " ", " ".join(self.parts)).strip()
+
+
+_SEC_FILING_TEXT_CACHE = {}
+_SEC_FILING_TEXT_TTL = 1800
+
+async def _sec_fetch_filing_text(client, url):
+    now = time.time()
+    cached = _SEC_FILING_TEXT_CACHE.get(url)
+    if cached and now - cached[0] < _SEC_FILING_TEXT_TTL:
+        return cached[1]
+    try:
+        response = await client.get(url, headers={"Accept": "text/html,application/xhtml+xml,text/plain"})
+        response.raise_for_status()
+        extractor = _SECTextExtractor()
+        extractor.feed(response.text[:2_000_000])
+        text = extractor.text()[:12000]
+        _SEC_FILING_TEXT_CACHE[url] = (now, text)
+        return text
+    except (httpx.HTTPError, ValueError):
+        return ""
+
+def _classify_sec_filing_text(form, description, items, text):
+    source = (str(description or "") + " " + str(items or "") + " " + str(text or "")).lower()
+    event = ""
+    evidence = ""
+    impact = "غير واضح — نص الإفصاح لا يثبت اتجاهًا"
+    impact_class = "unknown"
+    rules = [
+        (r"going concern|chapter 11|bankruptcy|default under|material weakness in internal control|delisting|received a delisting notice", "مؤشر سلبي محتمل", "negative"),
+        (r"entered into a definitive agreement to acquire|completed the acquisition|awarded .* contract|record quarterly revenue|revenue increased by|net income increased by|raises its full.year guidance", "مؤشر إيجابي محتمل", "positive"),
+        (r"terminated .* agreement|withdraws its guidance|lowers its full.year guidance|revenue declined by|net loss increased by|material impairment charge", "مؤشر سلبي محتمل", "negative"),
+    ]
+    for pattern, label, cls in rules:
+        match = re.search(pattern, source, re.I)
+        if match:
+            impact, impact_class = label, cls
+            evidence = source[max(0, match.start()-100):match.end()+160]
+            break
+    if text:
+        clean = re.sub(r"\\s+", " ", text)
+        event = clean[:420]
+    elif items:
+        event = "بنود الإفصاح المسجلة: " + str(items)
+    elif description:
+        event = str(description)
+    else:
+        event = "لم يتوفر نص كافٍ لتحديد الحدث."
+    if not evidence:
+        evidence = "لا توجد عبارة صريحة كافية في النص المتاح لتصنيف الأثر."
+    return {"eventSummary": event, "impactLabel": impact, "impactClass": impact_class, "impactEvidence": evidence[:300], "analysisBasis": "نص المستند" if text else "بيانات وصفية فقط"}
+
 # SEC EDGAR disclosure search. Public filing data only; cached to respect SEC fair-access limits.
 _SEC_TICKERS_CACHE = {"expires": 0.0, "items": None}
 _SEC_SUBMISSIONS_CACHE = {}
@@ -4876,6 +4945,7 @@ async def search_sec_disclosures(
             items_list = recent.get("items") or []
             cutoff = (date.today() - timedelta(days=int(days))).isoformat() if days != "all" else None
             filings = []
+            analyzed_count = 0
             for i, filing_form in enumerate(forms):
                 filing_date = filing_dates[i] if i < len(filing_dates) else ""
                 if cutoff and filing_date and filing_date < cutoff:
@@ -4888,6 +4958,16 @@ async def search_sec_disclosures(
                 cik_path = str(cik_int)
                 filing_url = f"https://www.sec.gov/Archives/edgar/data/{cik_path}/{accession_path}/"
                 document_url = filing_url + doc if doc else f"https://www.sec.gov/Archives/edgar/data/{cik_path}/{accession_path}/"
+                filing_text = ""
+                if doc and analyzed_count < 12 and filing_form in {"8-K", "10-K", "10-Q", "S-1", "S-3", "424B5"}:
+                    filing_text = await _sec_fetch_filing_text(client, document_url)
+                    analyzed_count += 1
+                analysis = _classify_sec_filing_text(
+                    filing_form,
+                    descriptions[i] if i < len(descriptions) else "",
+                    items_list[i] if i < len(items_list) else "",
+                    filing_text,
+                )
                 filings.append({
                     "form": filing_form,
                     "filingDate": filing_date,
@@ -4895,6 +4975,8 @@ async def search_sec_disclosures(
                     "description": descriptions[i] if i < len(descriptions) else "",
                     "reportDate": report_dates[i] if i < len(report_dates) else "",
                     "items": items_list[i] if i < len(items_list) else "",
+                    "textAvailable": bool(filing_text),
+                    "analysis": analysis,
                     "filingUrl": filing_url,
                     "documentUrl": document_url,
                 })
