@@ -49,3 +49,35 @@
  .terminal-tabs>button[aria-label="بحث"] .terminal-tab-icon svg{transform:scale(1.08)}
  .terminal-tabs>button[aria-label="فاحص الإفصاحات"] .terminal-tab-icon svg{transform:scale(1.12)}
 }
+
+
+/* Unified SAS PRO navigation icon system: consistent stroke, proportions and semantic motion. */
+.terminal-tabs>button .terminal-tab-icon svg{width:100%!important;height:100%!important;overflow:visible}
+.terminal-tabs>button[aria-label="الرئيسية"] .terminal-tab-icon svg,
+.terminal-tabs>button[aria-label="الرادار"] .terminal-tab-icon svg,
+.terminal-tabs>button[aria-label="بحث"] .terminal-tab-icon svg,
+.terminal-tabs>button[aria-label="فاحص الإفصاحات"] .terminal-tab-icon svg,
+.terminal-tabs>button[aria-label="الحساب"] .terminal-tab-icon svg{transform:none!important}
+.terminal-tabs>button .nav-icon-spark{opacity:.55;transition:opacity .2s ease}
+.terminal-tabs>button[aria-label="الرادار"] .nav-icon-sweep{transform-origin:24px 24px;transform:rotate(0deg);transition:transform .35s ease}
+.terminal-tabs>button[aria-label="بحث"] .nav-icon-search-ring{transform-origin:20.5px 20.5px;transition:transform .25s ease}
+.terminal-tabs>button[aria-label="الحساب"] .nav-icon-user-head,
+.terminal-tabs>button[aria-label="الحساب"] .nav-icon-user-body{transition:transform .25s ease;transform-origin:24px 24px}
+.terminal-tabs>button:hover .nav-icon-spark,
+.terminal-tabs>button.active .nav-icon-spark{opacity:1}
+.terminal-tabs>button[aria-label="الرئيسية"]:hover .nav-icon-main,
+.terminal-tabs>button[aria-label="الرئيسية"].active .nav-icon-main{filter:drop-shadow(0 0 3px currentColor)}
+.terminal-tabs>button[aria-label="الرادار"]:hover .nav-icon-sweep,
+.terminal-tabs>button[aria-label="الرادار"].active .nav-icon-sweep{transform:rotate(35deg)}
+.terminal-tabs>button[aria-label="بحث"]:hover .nav-icon-search-ring,
+.terminal-tabs>button[aria-label="بحث"].active .nav-icon-search-ring{transform:scale(1.06)}
+.terminal-tabs>button[aria-label="فاحص الإفصاحات"]:hover .terminal-tab-icon svg,
+.terminal-tabs>button[aria-label="فاحص الإفصاحات"].active .terminal-tab-icon svg{filter:drop-shadow(0 0 5px rgba(60,230,255,.75))}
+.terminal-tabs>button[aria-label="الحساب"]:hover .nav-icon-user-head,
+.terminal-tabs>button[aria-label="الحساب"].active .nav-icon-user-head{transform:translateY(-1.5px)}
+.terminal-tabs>button[aria-label="الحساب"]:hover .nav-icon-user-body,
+.terminal-tabs>button[aria-label="الحساب"].active .nav-icon-user-body{transform:translateY(-.5px)}
+@media(prefers-reduced-motion:reduce){
+ .terminal-tabs>button .nav-icon-sweep,.terminal-tabs>button .nav-icon-search-ring,
+ .terminal-tabs>button .nav-icon-user-head,.terminal-tabs>button .nav-icon-user-body{transition:none!important}
+}
