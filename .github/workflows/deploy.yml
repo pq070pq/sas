@@ -126,7 +126,7 @@ jobs:
             value = os.environ["SEC_USER_AGENT"].strip()
             lines = [line for line in lines if not line.startswith("SEC_USER_AGENT=")]
             lines.append("SEC_USER_AGENT=" + value)
-            env_path.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+            env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
             os.chmod(env_path, 0o600)
             print("SEC_USER_AGENT updated from GitHub Actions Secret.")
             PY
