@@ -4892,20 +4892,40 @@ def _classify_sec_filing_text(form, description, items, text):
             impact = "مختلط — النص يحتوي مؤشرات متعارضة"
             evidence = "توجد إشارات إيجابية وسلبية في النص؛ يلزم تقييم التفاصيل معًا."
     if clean:
-        # Prefer the substantive section over the SEC cover page.
-        event = clean
-        found_section = False
-        for marker in ("Item 1.01", "Item 1.02", "Item 2.01", "Item 2.02", "Item 2.03", "Item 2.05", "Item 2.06", "Item 5.02", "Item 7.01", "Item 8.01", "Management's Discussion", "Results of Operations"):
-            pos = event.lower().find(marker.lower())
-            if pos >= 0:
-                event = event[pos:]
-                found_section = True
-                break
-        if not found_section and str(form).upper() in {"10-Q", "10-K"}:
-            event = "تقرير مالي دوري؛ يلزم تلخيص قسم النتائج المالية بدل صفحة الغلاف."
-        elif not found_section and re.search(r"current report|primary document", str(description or ""), re.I):
-            event = "لم نعثر على قسم الحدث في النص المستخرج؛ راجع البنود المسجلة والمستند الأصلي."
-        event = event[:650].strip()
+        # Detect table-of-contents / heading-heavy SEC text and show a useful Arabic explanation.
+        is_periodic = str(form).upper() in {"10-Q", "10-K"}
+        heading_markers = (
+            "results of operations", "quantitative and qualitative disclosures",
+            "controls and procedures", "legal proceedings", "risk factors",
+            "unregistered sales of equity securities", "defaults upon senior securities",
+            "mine safety disclosures", "other information", "exhibits",
+        )
+        heading_hits = sum(1 for marker in heading_markers if marker in clean.lower())
+        is_contents = heading_hits >= 4 or ("cautionary note regarding forward-looking statements" in clean.lower() and heading_hits >= 2)
+        if is_periodic and is_contents:
+            event = (
+                "هذا تقرير مالي دوري للشركة، والنص المستخرج الظاهر هو فهرس التقرير وليس النتائج نفسها. "
+                "الفهرس يذكر أقسام النتائج التشغيلية، مخاطر السوق، الرقابة والإجراءات القانونية. "
+                "ما نقدر نحكم إن الأداء تحسن أو تراجع من عناوين الأقسام فقط؛ نحتاج أرقام الإيرادات وصافي الربح والتدفق النقدي ومقارنتها بالفترة السابقة."
+            )
+        elif is_periodic:
+            # Do not expose long English passages as if they were an Arabic summary.
+            event = (
+                "هذا تقرير مالي دوري (ربع سنوي أو سنوي). لم نستخرج بعد فقرة نتائج مالية موثوقة تكفي لكتابة ملخص عربي. "
+                "راجع قسم النتائج التشغيلية والأرقام المالية في المستند الأصلي."
+            )
+        else:
+            event = clean
+            found_section = False
+            for marker in ("Item 1.01", "Item 1.02", "Item 2.01", "Item 2.02", "Item 2.03", "Item 2.05", "Item 2.06", "Item 5.02", "Item 7.01", "Item 8.01", "Management's Discussion", "Results of Operations"):
+                pos = event.lower().find(marker.lower())
+                if pos >= 0:
+                    event = event[pos:]
+                    found_section = True
+                    break
+            if not found_section and re.search(r"current report|primary document", str(description or ""), re.I):
+                event = "لم نعثر على قسم الحدث في النص المستخرج؛ راجع البنود المسجلة والمستند الأصلي."
+            event = event[:650].strip()
     elif item_codes:
         descriptions = [item_map[c] for c in item_codes if c in item_map]
         event = "موضوع الإفصاح: " + "، ".join(dict.fromkeys(descriptions)) if descriptions else "بنود الإفصاح: " + ", ".join(item_codes)
