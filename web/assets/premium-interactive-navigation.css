@@ -116,3 +116,23 @@
  .terminal-tabs>button .terminal-tab-icon,.terminal-tabs>button .terminal-tab-icon:before{transition:none!important}
  .terminal-tabs>button.active .terminal-tab-icon svg,.terminal-tabs>button[aria-label="الرادار"].active .nav-icon-sweep{animation:none!important}
 }
+
+
+/* Stronger visible mobile-first icon glow: the selected icon remains visibly lit on touch devices. */
+.terminal-tabs>button .terminal-tab-icon:before{
+  opacity:.3;transform:scale(1);inset:0;
+  background:radial-gradient(circle,rgba(18,224,255,.22) 0%,rgba(18,224,255,.09) 42%,transparent 74%);
+}
+.terminal-tabs>button.active .terminal-tab-icon:before{
+  opacity:1;transform:scale(1.28);
+  background:radial-gradient(circle,rgba(18,224,255,.34) 0%,rgba(18,224,255,.15) 46%,transparent 76%);
+}
+.terminal-tabs>button.active .terminal-tab-icon{
+  color:#69f3ff!important;
+  filter:drop-shadow(0 0 5px rgba(32,232,255,.95)) drop-shadow(0 0 13px rgba(32,220,255,.68))!important;
+}
+.terminal-tabs>button.active .terminal-tab-label{text-shadow:0 0 8px rgba(32,220,255,.3),0 1px 8px rgba(0,0,0,.4)}
+.terminal-tabs>button:not(.active):active .terminal-tab-icon{transform:scale(1.14);filter:drop-shadow(0 0 9px rgba(32,232,255,.9))!important}
+@keyframes sasIconBreath{0%,100%{filter:drop-shadow(0 0 4px rgba(32,232,255,.68))}50%{filter:drop-shadow(0 0 9px rgba(32,232,255,.98)) drop-shadow(0 0 15px rgba(32,220,255,.5))}}
+.terminal-tabs>button.active .terminal-tab-icon{animation:sasIconBreath 2.4s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){.terminal-tabs>button.active .terminal-tab-icon{animation:none!important}}
