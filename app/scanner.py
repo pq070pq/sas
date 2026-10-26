@@ -1713,7 +1713,26 @@ def _smart_levels_ict_confirmation(
     hard_blocks = []
     if fake:
         hard_blocks.append("اختراق وهمي")
-    if adr_exhausted and not breakout_retest:
+
+    # ADR exhaustion normally blocks late entries. Permit only a narrowly
+    # defined high-quality confirmed breakout: strong score, healthy RSI/RVOL,
+    # limited extension, sufficient room, and no fake/bearish-divergence signal.
+    # This avoids suppressing every strong breakout solely because the daily
+    # range is near ADR, without weakening the general exhaustion protection.
+    strong_breakout_despite_adr = bool(
+        breakout_confirmed
+        and score >= 70
+        and rsi14 is not None
+        and 50 <= rsi14 <= 70
+        and rvol >= 1.5
+        and extension is not None
+        and extension <= 8
+        and room is not None
+        and room >= 3
+        and not fake
+        and not divergence.get("bearish")
+    )
+    if adr_exhausted and not (breakout_retest or strong_breakout_despite_adr):
         hard_blocks.append("إنهاك ADR")
     if patterns.get("head_shoulders") and patterns.get("head_shoulders_neckline") and price < patterns["head_shoulders_neckline"] * 0.995:
         hard_blocks.append("رأس وكتفين هابط")
