@@ -1960,11 +1960,11 @@ const SAS_SITE_MEDIA_MANAGED_ITEMS_V2=[
  {slot:'icon-profile',label:'أيقونة ملف المستخدم الشخصي',fallback:'👤',target:'.sas-profile-avatar'},
  {slot:'icon-radar',label:'أيقونة زر الرادار',fallback:'📡',target:'.radar-icon'},
  {slot:'icon-channel',label:'أيقونة زر القناة',fallback:'✈️',target:'.channel-icon'},
- {slot:'icon-home',label:'أيقونة تبويب الرئيسية',fallback:'⌂',target:'.terminal-tabs button[data-tab="dashboard"]'},
- {slot:'icon-tab-radar',label:'أيقونة تبويب الرادار',fallback:'📡',target:'.terminal-tabs button[data-tab="radar"]'},
- {slot:'icon-search',label:'أيقونة تبويب البحث',fallback:'🔎',target:'.terminal-tabs button[data-tab="search"]'},
+ 
+ 
+ 
  {slot:'icon-news',label:'أيقونة أخبار السوق الأمريكي',fallback:'📰',target:'.sas-market-news-icon'},
- {slot:'icon-account',label:'أيقونة تبويب الحساب',fallback:'👤',target:'.terminal-tabs button[data-tab="account"]'},
+ 
 
 
 
