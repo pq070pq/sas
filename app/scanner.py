@@ -471,21 +471,24 @@ def _classify_momentum_candidate(row):
     change_pct = _f(row.get("change_pct"), 0)
     volume = _f(row.get("volume"), 0)
     market_cap = _f(row.get("market_cap"), 0)
-    # Early staging lane: admit low-priced US names before a 10% daily run,
-    # but keep them as candidates only; the final SAS/ICT, liquidity, levels,
-    # risk/reward and anti-chase gates remain unchanged.
-    if (
-        MIN_PRICE <= price <= MAX_PRICE
-        and change_pct >= 4.0
-        and volume >= 250_000.0
-    ):
-        return "early_mover"
+    # Preserve the established small-stock classification first. The early
+    # staging lane only labels candidates that have not already qualified as
+    # standard small momentum, so boundary and downstream section logic stay
+    # backward-compatible.
     if (
         MIN_PRICE <= price <= MAX_PRICE
         and change_pct > MOMENTUM_SMALL_MIN_GAIN
         and volume > MOMENTUM_SMALL_MIN_VOLUME
     ):
         return "small"
+    # Early staging lane: admit low-priced US names before a 10% daily run,
+    # but keep them as candidates only; final confirmation gates remain intact.
+    if (
+        MIN_PRICE <= price <= MAX_PRICE
+        and change_pct >= 4.0
+        and volume >= 250_000.0
+    ):
+        return "early_mover"
     if (
         market_cap > MOMENTUM_LARGE_MIN_MARKET_CAP
         and change_pct > MOMENTUM_LARGE_MIN_GAIN
