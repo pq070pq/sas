@@ -471,6 +471,15 @@ def _classify_momentum_candidate(row):
     change_pct = _f(row.get("change_pct"), 0)
     volume = _f(row.get("volume"), 0)
     market_cap = _f(row.get("market_cap"), 0)
+    # Early staging lane: admit low-priced US names before a 10% daily run,
+    # but keep them as candidates only; the final SAS/ICT, liquidity, levels,
+    # risk/reward and anti-chase gates remain unchanged.
+    if (
+        MIN_PRICE <= price <= MAX_PRICE
+        and change_pct >= 4.0
+        and volume >= 250_000.0
+    ):
+        return "early_mover"
     if (
         MIN_PRICE <= price <= MAX_PRICE
         and change_pct > MOMENTUM_SMALL_MIN_GAIN
@@ -528,6 +537,12 @@ async def _apply_daily_momentum_filter(candidates):
             market_cap = _f(row.get("market_cap"), 0)
             if (
                 MIN_PRICE <= price <= MAX_PRICE
+                and change_pct >= 4.0
+                and volume >= 250_000.0
+            ):
+                section = "early_mover"
+            elif (
+                MIN_PRICE <= price <= MAX_PRICE
                 and change_pct > MOMENTUM_SMALL_MIN_GAIN
                 and volume > MOMENTUM_SMALL_MIN_VOLUME
             ):
@@ -540,7 +555,9 @@ async def _apply_daily_momentum_filter(candidates):
             else:
                 return None
 
-        required = threshold[section]
+        # Early movers are admitted to technical staging with a lower RVOL
+        # threshold; this is not a publish pass. Final strategy gates still apply.
+        required = 0.8 if section == "early_mover" else threshold[section]
         if rvol10 <= required:
             return None
         result = dict(row)
