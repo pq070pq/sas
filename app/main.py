@@ -4838,9 +4838,15 @@ async def _sec_fetch_filing_text(client, url):
     try:
         response = await client.get(url, headers={"Accept": "text/html,application/xhtml+xml,text/plain"})
         response.raise_for_status()
+        raw_document = response.text[:2_000_000]
+        # Preserve explicit ownership transaction codes from SEC XML before stripping tags.
+        ownership_codes = re.findall(r"<transactionCode>\\s*([A-Z])\\s*</transactionCode>", raw_document, re.I)
         extractor = _SECTextExtractor()
-        extractor.feed(response.text[:2_000_000])
-        text = _clean_sec_filing_text(extractor.text())[:12000]
+        extractor.feed(raw_document)
+        text = _clean_sec_filing_text(extractor.text())
+        if ownership_codes:
+            text += " " + " ".join("transactionCode=" + code.upper() for code in ownership_codes)
+        text = text[:12000]
         _SEC_FILING_TEXT_CACHE[url] = (now, text)
         return text
     except (httpx.HTTPError, ValueError):
@@ -4891,6 +4897,52 @@ def _classify_sec_filing_text(form, description, items, text):
             impact_class = "unknown"
             impact = "مختلط — النص يحتوي مؤشرات متعارضة"
             evidence = "توجد إشارات إيجابية وسلبية في النص؛ يلزم تقييم التفاصيل معًا."
+    if str(form).upper() in {"3", "4", "5"}:
+        # Ownership filings are transaction reports, not earnings/news reports.
+        # Read only explicit transaction codes and amounts; do not infer a market signal.
+        raw = clean or str(description or "")
+        tx_codes = re.findall(r"<transactionCode>\\s*([A-Z])\\s*</transactionCode>|transactionCode[^A-Z]{0,20}([A-Z])", raw, re.I)
+        codes = [next((part for part in pair if part), "").upper() for pair in tx_codes]
+        count = len(codes)
+        labels = {
+            "P": "شراء في السوق أو شراء مُبلّغ عنه",
+            "S": "بيع مُبلّغ عنه",
+            "A": "منح أو إضافة أسهم",
+            "D": "التصرف في أسهم أو تسليمها",
+            "M": "ممارسة خيار أو مشتق مالي",
+            "F": "أسهم سُلّمت لتغطية التزام أو ضريبة",
+            "G": "هبة أو نقل ملكية",
+            "C": "تحويل أو ممارسة أداة مشتقة حسب الترميز",
+            "J": "معاملة أخرى محددة في الإفصاح",
+        }
+        known = [labels[c] for c in codes if c in labels]
+        if known:
+            event = "إفصاح ملكية: " + "؛ ".join(dict.fromkeys(known))
+            if count > 1:
+                event += f" (عدد العمليات الظاهرة: {count})"
+            if "P" in codes and not any(c in codes for c in ("S", "A", "D", "M", "F", "G")):
+                impact = "إشارة متابعة محتملة — شراء مُبلّغ عنه، وليس دليلًا كافيًا على صعود السهم"
+                impact_class = "unknown"
+            elif "S" in codes and not any(c in codes for c in ("P", "A", "D", "M", "F", "G")):
+                impact = "إشارة متابعة محتملة — بيع مُبلّغ عنه، وليس دليلًا كافيًا على هبوط السهم"
+                impact_class = "unknown"
+            else:
+                impact = "غير واضح — نوع المعاملة وحده لا يحدد اتجاه السهم"
+                impact_class = "unknown"
+            evidence = "رموز المعاملات المستخرجة: " + ", ".join(codes)
+        else:
+            event = "إفصاح عن ملكية شخص مطّلع أو تغيّر في ملكيته، لكن تفاصيل المعاملة لم تُستخرج بوضوح."
+            impact = "غير واضح — نحتاج نوع المعاملة وعدد الأسهم والملكية قبلها وبعدها."
+            impact_class = "unknown"
+            evidence = "لم يتم العثور على رمز معاملة واضح في النص المستخرج."
+        return {
+            "eventSummary": event,
+            "impactLabel": impact,
+            "impactClass": impact_class,
+            "impactEvidence": evidence[:300],
+            "analysisBasis": "بيانات ملكية ومعاملات" if known else "بيانات غير مكتملة",
+            "textAvailable": bool(clean),
+        }
     if clean:
         # Detect table-of-contents / heading-heavy SEC text and show a useful Arabic explanation.
         is_periodic = str(form).upper() in {"10-Q", "10-K"}
@@ -5040,7 +5092,7 @@ async def search_sec_disclosures(
                 filing_url = f"https://www.sec.gov/Archives/edgar/data/{cik_path}/{accession_path}/"
                 document_url = filing_url + doc if doc else f"https://www.sec.gov/Archives/edgar/data/{cik_path}/{accession_path}/"
                 filing_text = ""
-                if doc and analyzed_count < 12 and filing_form in {"8-K", "10-K", "10-Q", "S-1", "S-3", "424B5"}:
+                if doc and analyzed_count < 12 and filing_form in {"3", "4", "5", "8-K", "10-K", "10-Q", "S-1", "S-3", "424B5"}:
                     filing_text = await _sec_fetch_filing_text(client, document_url)
                     analyzed_count += 1
                 analysis = _classify_sec_filing_text(
