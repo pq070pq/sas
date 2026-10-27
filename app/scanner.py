@@ -82,6 +82,28 @@ def _is_allowed_exchange(row):
     return exchange in ALLOWED_EXCHANGES or exchange == "US"
 
 
+def _extract_candle_rows(payload):
+    """Unwrap common OHLCV response envelopes without assuming one provider schema."""
+    current = payload
+    for _ in range(5):
+        if isinstance(current, list):
+            return current
+        if not isinstance(current, dict):
+            return []
+        found = None
+        for key in ("data", "results", "items", "klines", "candles", "values", "history", "prices"):
+            value = current.get(key)
+            if isinstance(value, list):
+                return value
+            if isinstance(value, dict):
+                found = value
+                break
+        if found is None:
+            return []
+        current = found
+    return current if isinstance(current, list) else []
+
+
 def _parse_candles(rows):
     out = []
     for row in rows or []:
@@ -1203,13 +1225,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
                 )
             r.raise_for_status()
             payload = r.json()
-            data = payload.get("data") if isinstance(payload, dict) else payload
-            if isinstance(data, list):
-                rows = data
-            elif isinstance(data, dict):
-                rows = data.get("klines") or data.get("candles") or data.get("values") or []
-            else:
-                rows = []
+            rows = _extract_candle_rows(payload)
             candles = _parse_candles(rows)
             if len(candles) >= min_candles:
                 _candle_cache.put(key, {"candles": candles, "source": "PanWatch"})
