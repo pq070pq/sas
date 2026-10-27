@@ -4,10 +4,8 @@ This router is deliberately NOT included by app/main.py. Before mounting it, add
 shared persistent rate limiting, CSRF protection for cookie-authenticated writes,
 a transactional email outbox, and route-level integration tests.
 """
-from urllib.parse import urlsplit
-
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import get_session
@@ -32,7 +30,7 @@ SESSION_COOKIE_MAX_AGE = 30 * 24 * 60 * 60
 
 
 class RegisterInput(BaseModel):
-    email: EmailStr
+    email: str = Field(min_length=3, max_length=254)
     password: str = Field(min_length=12, max_length=1024)
 
 
