@@ -17,8 +17,8 @@ from .config import settings
 # Core Telegram/payment tables must exist before the rollout is considered safe.
 LEGACY_REQUIRED_COLUMNS: dict[str, set[str]] = {
     "users": {"id", "telegram_id", "status"},
-    "subscriptions": {"id", "telegram_id"},
-    "payments": {"id", "telegram_id", "telegram_charge_id"},
+    "subscriptions": {"id", "telegram_id", "plan", "starts_at", "expires_at", "active"},
+    "payments": {"id", "telegram_id", "plan", "stars", "telegram_charge_id"},
 }
 
 # Additive standalone tables. Missing tables are reported, never created here.
