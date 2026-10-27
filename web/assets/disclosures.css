@@ -21,3 +21,8 @@
 .floating-home::before{content:"";width:8px;height:8px;border-radius:50%;background:#66e7b7;box-shadow:0 0 10px rgba(102,231,183,.9)}
 .floating-home:active{transform:translateX(-50%) scale(.95);box-shadow:0 0 0 3px rgba(102,231,183,.16),0 4px 12px rgba(0,0,0,.35)}
 @media(max-width:600px){.floating-home{top:calc(env(safe-area-inset-top,0px) + 86px);left:50%;min-width:174px;padding:13px 24px;font-size:15px;border-radius:18px}.top{padding-top:78px}}
+
+/* Visibility correction: place home button in document flow below Telegram chrome */
+.floating-home{position:relative;top:auto;left:auto;transform:none;display:flex;width:max-content;min-width:174px;margin:82px auto 18px;z-index:2}
+.floating-home:active{transform:scale(.95)}
+@media(max-width:600px){.floating-home{position:relative;top:auto;left:auto;transform:none;width:max-content;min-width:174px;margin:82px auto 18px;padding:13px 24px}.floating-home:active{transform:scale(.95)}.top{padding-top:8px}}
