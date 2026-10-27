@@ -4,6 +4,8 @@
 
 - The standalone authentication API router remains intentionally **unmounted** in `app/main.py`.
 - The current Telegram Mini App, Telegram identities, subscriptions, Stars payments, and production entry points are unchanged by this branch.
+- CI passed on the latest schema-preflight commit `d1fae1bb1f0e66ea95d385b72718f731ca42d622`, including compile, unit tests, and Mini App JavaScript validation: https://github.com/pq070pq/sas/actions/runs/40590060956
+- Earlier CI runs below document incremental validation history; the latest green run is the source of truth for the current branch head.
 - CI passed on commit `9893749ca0b0a2d4c92be9b5f044dc1faad78c4c`: https://github.com/pq070pq/sas/actions/runs/40586638444
 - CI passed on commit `83af2994b57e6e79e44cd13923e62a6d31d8f9d1`, including the expired-email-lease recovery test: https://github.com/pq070pq/sas/actions/runs/40587057550
 - CI passed on the combined commit `58f658578a8c6c7ecddaaed5924165d815e1a27b`, including Python unit tests and Mini App JavaScript syntax checks: https://github.com/pq070pq/sas/actions/runs/40587390704
@@ -11,12 +13,13 @@
 
 ## Remaining launch blockers
 
-- [x] Encrypted transactional email outbox stores verification/reset emails in the same transaction as their tokens; retries and expired-lease recovery are implemented. Atomic compare-and-set claiming is added but needs a green CI run on the final commit and concurrency testing before release.
+- [x] Encrypted transactional email outbox stores verification/reset emails in the same transaction as their tokens; retries and expired-lease recovery are implemented. Atomic compare-and-set claiming and a multi-worker concurrency test are covered by green CI on the latest branch head. Staging crash/restart and SMTP tests remain required.
 - [x] Isolated browser pages for verification and password reset are implemented on this branch with no-store/referrer/frame safety headers; the pages router remains unmounted.
 - [x] Implement isolated ASGI middleware for standalone-route security headers and a 16 KiB streaming request-body cap; its focused tests are added and must pass CI before rollout. Middleware remains uninstalled in the production app.
 - [ ] Production database migration/backup and rollback procedure for the additive standalone tables.
 - [ ] Configure SMTP credentials and `STANDALONE_PUBLIC_ORIGIN` in deployment secrets; never commit credentials.
 - [x] Add multi-worker concurrency test for atomic outbox claims; CI passed on commit `39db885dc7f12db576f30c4c1f393db423e32f50`: https://github.com/pq070pq/sas/actions/runs/40588050983
+- [x] Verify latest branch-head CI after schema-preflight column checks: https://github.com/pq070pq/sas/actions/runs/40590060956
 - [ ] Stage with a separate database, restricted email recipient allowlist, and a verified backup/restore procedure.
 - [ ] Run Telegram regression checks and verify payment callbacks, subscriptions, and the existing Mini App.
 - [ ] Review reverse-proxy configuration and trusted client IP handling before enabling rate limits behind a proxy.
