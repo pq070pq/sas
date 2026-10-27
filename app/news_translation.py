@@ -181,7 +181,8 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
         provider_name, result = await request_provider(*provider)
         for item in result:
             combined.setdefault(str(item.get("url") or ""), item)
-        if len(combined) >= len(selected):
+        if result:
+            # A successful provider response is enough; do not spend another provider quota for partial extras.
             break
 
     missing = [item for item in selected if str(item.get("url") or "") not in combined]
