@@ -7,7 +7,7 @@ Telegram users and Telegram subscription records are not modified here.
 from datetime import datetime, timedelta, timezone
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import SASAccount, SASAuthToken, SASLoginSession
@@ -61,6 +61,19 @@ async def verify_account_email(session: AsyncSession, raw_token: str) -> SASAcco
         raise InvalidOrExpiredToken("Verification token is invalid or expired.")
     account = await session.get(SASAccount, token.account_id)
     if account is None or not account.is_active:
+        raise InvalidOrExpiredToken("Verification token is invalid or expired.")
+    # Atomically consume the token to prevent two concurrent requests from
+    # successfully using the same verification link.
+    consumed = await session.execute(
+        update(SASAuthToken)
+        .where(
+            SASAuthToken.id == token.id,
+            SASAuthToken.consumed_at.is_(None),
+            SASAuthToken.expires_at > now,
+        )
+        .values(consumed_at=now)
+    )
+    if consumed.rowcount != 1:
         raise InvalidOrExpiredToken("Verification token is invalid or expired.")
     token.consumed_at = now
     account.email_verified_at = account.email_verified_at or now
@@ -144,6 +157,18 @@ async def reset_password(session: AsyncSession, raw_token: str, new_password: st
         raise InvalidOrExpiredToken("Password reset token is invalid or expired.")
     account = await session.get(SASAccount, token.account_id)
     if account is None or not account.is_active or account.email_verified_at is None:
+        raise InvalidOrExpiredToken("Password reset token is invalid or expired.")
+    # Atomically consume the reset token; a concurrent replay must fail.
+    consumed = await session.execute(
+        update(SASAuthToken)
+        .where(
+            SASAuthToken.id == token.id,
+            SASAuthToken.consumed_at.is_(None),
+            SASAuthToken.expires_at > now,
+        )
+        .values(consumed_at=now)
+    )
+    if consumed.rowcount != 1:
         raise InvalidOrExpiredToken("Password reset token is invalid or expired.")
     token.consumed_at = now
     account.password_hash = new_hash
