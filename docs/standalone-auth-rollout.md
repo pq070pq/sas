@@ -16,7 +16,8 @@
 - [x] Implement isolated ASGI middleware for standalone-route security headers and a 16 KiB streaming request-body cap; its focused tests are added and must pass CI before rollout. Middleware remains uninstalled in the production app.
 - [ ] Production database migration/backup and rollback procedure for the additive standalone tables.
 - [ ] Configure SMTP credentials and `STANDALONE_PUBLIC_ORIGIN` in deployment secrets; never commit credentials.
-- [ ] Add multi-worker concurrency testing for atomic outbox claims, then stage with a separate database and restricted email recipient allowlist.
+- [x] Add multi-worker concurrency test for atomic outbox claims; CI passed on commit `39db885dc7f12db576f30c4c1f393db423e32f50`: https://github.com/pq070pq/sas/actions/runs/40588050983
+- [ ] Stage with a separate database, restricted email recipient allowlist, and a verified backup/restore procedure.
 - [ ] Run Telegram regression checks and verify payment callbacks, subscriptions, and the existing Mini App.
 - [ ] Review reverse-proxy configuration and trusted client IP handling before enabling rate limits behind a proxy.
 
@@ -47,3 +48,21 @@
 - Existing Telegram `users`, `subscriptions`, and `payments` remain unchanged.
 - Standalone routes remain unmounted until all blockers are resolved.
 - Never report production readiness based only on unit tests.
+
+
+## Staging checklist (do not use production credentials)
+
+Before mounting either standalone router in any environment:
+
+- [ ] Create an isolated staging database and verify the existing Telegram tables are not copied into a writable shared staging database.
+- [ ] Take a database backup and perform a restore into a separate disposable database; record the result and rollback command.
+- [ ] Set `STANDALONE_PUBLIC_ORIGIN` to the exact HTTPS staging origin.
+- [ ] Set SMTP host, port, username, password, sender address, and TLS options using the supported `STANDALONE_` environment variables in the deployment secret store.
+- [ ] Generate a dedicated Fernet key for `STANDALONE_EMAIL_FERNET_KEY`; store it separately in the secret store and document key rotation/recovery. Never reuse a key from another environment.
+- [ ] Restrict staging email delivery to an allowlist of test recipients at the SMTP/provider layer.
+- [ ] Configure proxy and firewall rules so rate limiting uses the actual trusted peer address; do not trust arbitrary forwarded headers.
+- [ ] Apply additive standalone-table migrations only in staging, then verify backup/restore and rollback before considering production.
+- [ ] Test registration, verification expiry/reuse, login, logout, reset expiry/reuse, session revocation, email retry, worker restart during send, and two-worker contention.
+- [ ] Verify no passwords, one-time tokens, SMTP credentials, or decrypted email bodies appear in application/proxy logs.
+- [ ] Run Telegram bot, Mini App, Stars payment, subscription renewal, and callback regression checks.
+- [ ] Keep standalone routes unmounted until the entire checklist is signed off and explicit approval is given.
