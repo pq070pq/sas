@@ -10,7 +10,7 @@
 ## Remaining launch blockers
 
 - [ ] Durable transactional email outbox with retry/idempotency. Current SMTP delivery happens inline and is not crash-safe; do not expose registration/reset endpoints publicly until this is addressed.
-- [ ] Browser pages for the verification and password-reset links sent in email.
+- [x] Isolated browser pages for verification and password reset are implemented on this branch with no-store/referrer/frame safety headers; the pages router remains unmounted.
 - [ ] Security headers and explicit request-body size limits for the standalone endpoints.
 - [ ] Production database migration/backup and rollback procedure for the additive standalone tables.
 - [ ] Configure SMTP credentials and `STANDALONE_PUBLIC_ORIGIN` in deployment secrets; never commit credentials.
