@@ -145,7 +145,11 @@ class StandaloneOutboxTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(row.attempts, 1)
             self.assertEqual(row.last_error, "RuntimeError")
             self.assertNotIn(secret, row.last_error)
-            self.assertGreater(row.available_at, now)
+            retry_at = row.available_at
+            if retry_at.tzinfo is None:
+                # SQLite may return timezone-aware columns as naive datetimes.
+                retry_at = retry_at.replace(tzinfo=timezone.utc)
+            self.assertGreater(retry_at, now)
             self.assertIsNone(row.locked_until)
 
     async def test_enqueue_stores_ciphertext_and_deduplicates(self):
