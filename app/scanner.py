@@ -1282,8 +1282,17 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
             "OHLCV_INSUFFICIENT symbol=%s count=%d required=%d source=%s diagnostic=%s",
             key, len(fallback_candles), min_candles, source, diagnostic,
         )
+        # Preserve observed partial candles and provider diagnostics instead of
+        # collapsing a partial history into [] / unavailable. The classifier
+        # still refuses to calculate a score until min_candles is met.
+        if fallback_candles:
+            source_label = source
+            if diagnostic:
+                source_label = f"{source}; diagnostics: {str(diagnostic)[:240]}"
+            _candle_cache.put(key, {"candles": fallback_candles, "source": source_label})
+            return fallback_candles, source_label
     except Exception as exc:
-        logger.warning("OHLCV_SHARED_FALLBACK_FAILED symbol=%s error=%s", key, type(exc).__name__)
+        logger.warning("OHLCV_SHARED_FALLBACK_FAILED symbol=%s error=%s detail=%s", key, type(exc).__name__, str(exc)[:180])
 
     _candle_cache.put(key, {"candles": [], "source": "unavailable"})
     return [], "unavailable"
