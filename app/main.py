@@ -4891,6 +4891,52 @@ def _classify_sec_filing_text(form, description, items, text):
             impact_class = "unknown"
             impact = "مختلط — النص يحتوي مؤشرات متعارضة"
             evidence = "توجد إشارات إيجابية وسلبية في النص؛ يلزم تقييم التفاصيل معًا."
+    if str(form).upper() in {"3", "4", "5"}:
+        # Ownership filings are transaction reports, not earnings/news reports.
+        # Read only explicit transaction codes and amounts; do not infer a market signal.
+        raw = clean or str(description or "")
+        tx_codes = re.findall(r"<transactionCode>\\s*([A-Z])\\s*</transactionCode>|transactionCode[^A-Z]{0,20}([A-Z])", raw, re.I)
+        codes = [next((part for part in pair if part), "").upper() for pair in tx_codes]
+        count = len(codes)
+        labels = {
+            "P": "شراء في السوق أو شراء مُبلّغ عنه",
+            "S": "بيع مُبلّغ عنه",
+            "A": "منح أو إضافة أسهم",
+            "D": "التصرف في أسهم أو تسليمها",
+            "M": "ممارسة خيار أو مشتق مالي",
+            "F": "أسهم سُلّمت لتغطية التزام أو ضريبة",
+            "G": "هبة أو نقل ملكية",
+            "C": "تحويل أو ممارسة أداة مشتقة حسب الترميز",
+            "J": "معاملة أخرى محددة في الإفصاح",
+        }
+        known = [labels[c] for c in codes if c in labels]
+        if known:
+            event = "إفصاح ملكية: " + "؛ ".join(dict.fromkeys(known))
+            if count > 1:
+                event += f" (عدد العمليات الظاهرة: {count})"
+            if "P" in codes and not any(c in codes for c in ("S", "A", "D", "M", "F", "G")):
+                impact = "إشارة متابعة محتملة — شراء مُبلّغ عنه، وليس دليلًا كافيًا على صعود السهم"
+                impact_class = "unknown"
+            elif "S" in codes and not any(c in codes for c in ("P", "A", "D", "M", "F", "G")):
+                impact = "إشارة متابعة محتملة — بيع مُبلّغ عنه، وليس دليلًا كافيًا على هبوط السهم"
+                impact_class = "unknown"
+            else:
+                impact = "غير واضح — نوع المعاملة وحده لا يحدد اتجاه السهم"
+                impact_class = "unknown"
+            evidence = "رموز المعاملات المستخرجة: " + ", ".join(codes)
+        else:
+            event = "إفصاح عن ملكية شخص مطّلع أو تغيّر في ملكيته، لكن تفاصيل المعاملة لم تُستخرج بوضوح."
+            impact = "غير واضح — نحتاج نوع المعاملة وعدد الأسهم والملكية قبلها وبعدها."
+            impact_class = "unknown"
+            evidence = "لم يتم العثور على رمز معاملة واضح في النص المستخرج."
+        return {
+            "eventSummary": event,
+            "impactLabel": impact,
+            "impactClass": impact_class,
+            "impactEvidence": evidence[:300],
+            "analysisBasis": "بيانات ملكية ومعاملات" if known else "بيانات غير مكتملة",
+            "textAvailable": bool(clean),
+        }
     if clean:
         # Detect table-of-contents / heading-heavy SEC text and show a useful Arabic explanation.
         is_periodic = str(form).upper() in {"10-Q", "10-K"}
