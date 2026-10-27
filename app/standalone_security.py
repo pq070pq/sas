@@ -71,7 +71,6 @@ class StandaloneSecurityMiddleware:
                     (b"x-frame-options", b"DENY"),
                     (b"referrer-policy", b"no-referrer"),
                     (b"cache-control", b"no-store"),
-                    (b"content-security-policy", b"default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"),
                     (b"permissions-policy", b"camera=(), microphone=(), geolocation=()"),
                 ])
                 message = {**message, "headers": response_headers}
@@ -91,7 +90,6 @@ class StandaloneSecurityMiddleware:
                 (b"x-content-type-options", b"nosniff"),
                 (b"x-frame-options", b"DENY"),
                 (b"referrer-policy", b"no-referrer"),
-                (b"content-security-policy", b"default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"),
                 (b"permissions-policy", b"camera=(), microphone=(), geolocation=()"),
             ],
         })
