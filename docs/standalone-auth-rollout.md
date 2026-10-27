@@ -94,3 +94,15 @@ python -m app.standalone_schema_preflight
 ```
 
 It reports whether the required legacy Telegram/payment tables and columns exist and whether the additive standalone tables are present. It does not create or alter tables. A successful exit only means the required legacy columns were found; the report deliberately keeps `safe_to_enable_routes` false because the command cannot validate backups, restored data, SMTP delivery, reverse-proxy trust, or end-to-end behavior. Run it against staging first and preserve its output without database credentials.
+
+
+## GitHub-only workflow (no laptop or SSH access)
+
+The owner may continue this work from a phone using GitHub only. For each code change:
+- Keep changes on `feature/sas-standalone-next`.
+- Use GitHub Actions as the automated compile/unit-test/Mini App syntax check.
+- Inspect the exact run and job-step conclusions for the latest commit before describing it as passed.
+- Keep routers unmounted and do not deploy or merge to `main`.
+- Do not paste database credentials, SMTP passwords, Fernet keys, bot tokens, or production database contents into issues, commits, workflow logs, or chat.
+
+GitHub Actions currently validates code in its CI environment; it does not prove the live server database was backed up/restored, production SMTP works, or the Telegram payment flow works in production. Those remain explicit rollout blockers until a safe staging environment is available.
