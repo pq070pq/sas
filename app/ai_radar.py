@@ -12,6 +12,9 @@ from .config import settings
 from .key_pool import KeyPool, parse_keys
 
 _groq_pool = KeyPool(parse_keys(settings.groq_api_keys, settings.groq_api_key), settings.api_key_cooldown_seconds)
+_gemini_pool = KeyPool(parse_keys(settings.gemini_api_keys, settings.gemini_api_key), settings.api_key_cooldown_seconds)
+_openrouter_pool = KeyPool(parse_keys(settings.openrouter_api_keys, settings.openrouter_api_key), settings.api_key_cooldown_seconds)
+_provider_blocked_until: dict[str, float] = {}
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +32,10 @@ def _providers():
             "base_url": settings.groq_base_url.rstrip("/"),
             "model": settings.groq_model,
         })
-    if settings.gemini_api_key:
-        providers.append({"name": "Gemini", "key": settings.gemini_api_key, "base_url": settings.gemini_base_url.rstrip("/"), "model": settings.gemini_model})
-    if settings.openrouter_api_key:
-        providers.append({"name": "OpenRouter", "key": settings.openrouter_api_key, "base_url": settings.openrouter_base_url.rstrip("/"), "model": settings.openrouter_model})
+    if _gemini_pool.size:
+        providers.append({"name": "Gemini", "pool": _gemini_pool, "base_url": settings.gemini_base_url.rstrip("/"), "model": settings.gemini_model})
+    if _openrouter_pool.size:
+        providers.append({"name": "OpenRouter", "pool": _openrouter_pool, "base_url": settings.openrouter_base_url.rstrip("/"), "model": settings.openrouter_model})
     return providers
 
 
@@ -332,6 +335,8 @@ async def analyze_stock(
         async with httpx.AsyncClient(timeout=settings.ai_radar_timeout_seconds) as client:
             for provider in providers:
                 try:
+                    if _provider_blocked_until.get(provider["name"], 0) > time.monotonic():
+                        continue
                     key = provider.get("key")
                     pool = provider.get("pool")
                     if pool is not None:
@@ -365,9 +370,17 @@ async def analyze_stock(
                         headers=headers,
                         json=body,
                     )
-                    if response.status_code in (401, 403, 429) and pool is not None:
+                    if response.status_code in (401, 403) and pool is not None:
+                        await pool.mark_failure(key)
+                        continue
+                    if response.status_code == 429:
+                        # Rate limits may be account-wide; do not rotate through keys to evade them.
                         retry = response.headers.get("Retry-After")
-                        await pool.mark_failure(key, retry_after=int(retry) if retry and retry.isdigit() else None)
+                        cooldown = int(retry) if retry and retry.isdigit() else 900
+                        _provider_blocked_until[provider["name"]] = time.monotonic() + max(60, min(cooldown, 86400))
+                        if pool is not None:
+                            await pool.mark_failure(key, retry_after=cooldown)
+                        logger.warning("AI provider quota/rate limit reached; provider cooled down: %s", provider["name"])
                         continue
                     response.raise_for_status()
                     if pool is not None:
