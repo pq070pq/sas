@@ -146,6 +146,34 @@ jobs:
               echo "Removing untracked server-side .dockerignore that can hide application source."
               rm -f .dockerignore
             fi
+            # Ensure the historical OHLCV provider is running before recreating SAS PRO.
+            # Do not restart SAS PRO if PanWatch cannot become ready.
+            docker compose up -d --build panwatch
+            panwatch_id=$(docker compose ps -q panwatch)
+            if [ -z "$panwatch_id" ]; then
+              echo "❌ Docker Compose did not return a container ID for panwatch."
+              docker compose ps -a panwatch || true
+              docker compose logs --tail=120 panwatch || true
+              exit 1
+            fi
+            panwatch_ready=0
+            for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+              status=$(docker inspect -f '{{.State.Status}}' "$panwatch_id" 2>/dev/null || true)
+              if [ "$status" = "running" ] && docker compose exec -T panwatch python -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/openapi.json", timeout=3)' >/dev/null 2>&1; then
+                panwatch_ready=1
+                break
+              fi
+              echo "PanWatch not ready yet ($i/15); status=$status"
+              sleep 2
+            done
+            if [ "$panwatch_ready" -ne 1 ]; then
+              echo "❌ PanWatch did not become ready; keeping the existing SAS PRO container untouched."
+              docker compose ps -a panwatch || true
+              docker compose logs --tail=160 panwatch || true
+              exit 1
+            fi
+            echo "✅ PanWatch is running and its local OpenAPI endpoint responds."
+
             # أعد بناء خدمة SAS PRO دون كاش حتى يصل آخر كود من main إلى الصورة الفعلية.
             docker compose build --no-cache --pull=false saspro
             # تنظيف الملفات المؤقتة والكاشات القديمة الخاصة بـ SAS PRO فقط، دون المساس ببيانات المستخدم أو قواعد البيانات.
