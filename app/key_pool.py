@@ -69,7 +69,6 @@ class KeyPool:
                 if state.key != key:
                     continue
                 state.failures += 1
-                # Exponential backoff, capped at 15 minutes.
                 delay = retry_after if retry_after and retry_after > 0 else min(
                     900, self._cooldown * (2 ** min(state.failures - 1, 4))
                 )
@@ -97,7 +96,8 @@ def parse_keys(*values: str | None) -> list[str]:
     for value in values:
         if not value:
             continue
-        for item in str(value).replace("\\n", ",").replace(";", ",").split(","):
+        normalized = str(value).replace("\\n", ",").replace("\n", ",").replace(";", ",")
+        for item in normalized.split(","):
             key = item.strip()
             if key and key not in seen:
                 seen.add(key)
