@@ -14,3 +14,10 @@
 .floating-home{position:fixed;z-index:9999;top:calc(env(safe-area-inset-top,0px) + 62px);left:12px;display:inline-flex;align-items:center;gap:7px;padding:9px 13px;border-radius:999px;background:rgba(8,25,34,.96);border:1px solid #2b5c51;color:#8be4c3;text-decoration:none;font-size:13px;font-weight:800;box-shadow:0 5px 18px #0005;backdrop-filter:blur(8px)}
 .floating-home:active{transform:scale(.97)}
 @media(max-width:600px){.floating-home{top:calc(env(safe-area-inset-top,0px) + 58px);left:10px;padding:8px 11px;font-size:12px}.top{padding-top:46px}}
+
+/* SAS PRO centered interactive home control */
+.floating-home{top:calc(env(safe-area-inset-top,0px) + 84px);left:50%;transform:translateX(-50%);min-width:164px;justify-content:center;gap:10px;padding:13px 24px;border:1px solid rgba(104,231,190,.68);border-radius:18px;background:linear-gradient(135deg,rgba(13,53,49,.98),rgba(7,25,36,.98));color:#a1f4d5;font-size:15px;letter-spacing:.1px;box-shadow:0 0 0 1px rgba(104,231,190,.08),0 8px 24px rgba(0,0,0,.42),0 0 22px rgba(63,208,166,.16);backdrop-filter:blur(12px);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.floating-home span{font-weight:850}
+.floating-home::before{content:"";width:8px;height:8px;border-radius:50%;background:#66e7b7;box-shadow:0 0 10px rgba(102,231,183,.9)}
+.floating-home:active{transform:translateX(-50%) scale(.95);box-shadow:0 0 0 3px rgba(102,231,183,.16),0 4px 12px rgba(0,0,0,.35)}
+@media(max-width:600px){.floating-home{top:calc(env(safe-area-inset-top,0px) + 86px);left:50%;min-width:174px;padding:13px 24px;font-size:15px;border-radius:18px}.top{padding-top:78px}}
