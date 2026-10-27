@@ -4,6 +4,8 @@ This router is deliberately NOT included by app/main.py. Before mounting it, add
 shared persistent rate limiting, CSRF protection for cookie-authenticated writes,
 a transactional email outbox, and route-level integration tests.
 """
+import smtplib
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,7 +79,7 @@ def _origin(request: Request) -> str:
 async def _send_mail_or_fail(recipient: str, subject: str, body: str) -> None:
     try:
         await send_standalone_email(recipient, subject, body)
-    except (EmailDeliveryNotConfigured, OSError, ValueError) as exc:
+    except (EmailDeliveryNotConfigured, OSError, ValueError, smtplib.SMTPException) as exc:
         raise HTTPException(status_code=503, detail="Email delivery is temporarily unavailable.") from exc
 
 
