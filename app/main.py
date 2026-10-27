@@ -4897,6 +4897,36 @@ def _classify_sec_filing_text(form, description, items, text):
             impact_class = "unknown"
             impact = "مختلط — النص يحتوي مؤشرات متعارضة"
             evidence = "توجد إشارات إيجابية وسلبية في النص؛ يلزم تقييم التفاصيل معًا."
+    if str(form).upper() == "6-K":
+        # Foreign private issuer current reports often have a cover-page primary document
+        # and the actual press release or exhibit in the filing attachments.
+        headings = ("press release", "financial results", "results for", "announces", "appointed", "resigns", "agreement", "acquisition", "offering", "dividend", "guidance", "business update")
+        meaningful = clean and len(clean) > 500 and sum(1 for h in headings if h in clean.lower()) >= 2
+        if meaningful:
+            event = clean[:650]
+            impact = "غير واضح — يلزم قراءة الخبر والأرقام لتحديد الأثر"
+            impact_class = "unknown"
+            evidence = "تم استخراج نص من المستند، لكن لا توجد قاعدة كافية للحكم على أثره السوقي."
+            for pattern, label, cls in rules:
+                match = re.search(pattern, source, re.I)
+                if match:
+                    impact = label + " (بحسب العبارة الظاهرة)"
+                    impact_class = cls
+                    evidence = source[max(0, match.start()-100):match.end()+160]
+                    break
+        else:
+            event = "إفصاح 6-K لشركة أجنبية مدرجة في السوق الأمريكي. الملف الذي جرى قراءته لا يحتوي تفاصيل الحدث بشكل كافٍ؛ قد تكون التفاصيل في مرفق أو بيان صحفي ضمن نفس الإيداع."
+            impact = "غير واضح — لم نصل إلى نص الحدث الفعلي"
+            impact_class = "unknown"
+            evidence = "المستند المتاح لا يتجاوز غلاف الإيداع أو لا يحتوي نصًا كافيًا."
+        return {
+            "eventSummary": event,
+            "impactLabel": impact,
+            "impactClass": impact_class,
+            "impactEvidence": evidence[:300],
+            "analysisBasis": "نص المستند" if meaningful else "غلاف الإيداع أو نص غير كافٍ",
+            "textAvailable": bool(clean),
+        }
     if str(form).upper() in {"3", "4", "5"}:
         # Ownership filings are transaction reports, not earnings/news reports.
         # Read only explicit transaction codes and amounts; do not infer a market signal.
@@ -5092,7 +5122,7 @@ async def search_sec_disclosures(
                 filing_url = f"https://www.sec.gov/Archives/edgar/data/{cik_path}/{accession_path}/"
                 document_url = filing_url + doc if doc else f"https://www.sec.gov/Archives/edgar/data/{cik_path}/{accession_path}/"
                 filing_text = ""
-                if doc and analyzed_count < 12 and filing_form in {"3", "4", "5", "8-K", "10-K", "10-Q", "S-1", "S-3", "424B5"}:
+                if doc and analyzed_count < 12 and filing_form in {"3", "4", "5", "6-K", "8-K", "10-K", "10-Q", "S-1", "S-3", "424B5"}:
                     filing_text = await _sec_fetch_filing_text(client, document_url)
                     analyzed_count += 1
                 analysis = _classify_sec_filing_text(
