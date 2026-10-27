@@ -10,8 +10,8 @@ class StandaloneSchemaPreflightTests(unittest.TestCase):
         engine = create_engine("sqlite:///:memory:")
         with engine.begin() as connection:
             connection.execute(text("CREATE TABLE users (id INTEGER PRIMARY KEY, telegram_id INTEGER, status TEXT)"))
-            connection.execute(text("CREATE TABLE subscriptions (id INTEGER PRIMARY KEY, telegram_id INTEGER)"))
-            connection.execute(text("CREATE TABLE payments (id INTEGER PRIMARY KEY, telegram_id INTEGER, telegram_charge_id TEXT)"))
+            connection.execute(text("CREATE TABLE subscriptions (id INTEGER PRIMARY KEY, telegram_id INTEGER, plan TEXT, starts_at TEXT, expires_at TEXT, active BOOLEAN)"))
+            connection.execute(text("CREATE TABLE payments (id INTEGER PRIMARY KEY, telegram_id INTEGER, plan TEXT, stars INTEGER, telegram_charge_id TEXT)"))
             before = set(__import__("sqlalchemy").inspect(connection).get_table_names())
             result = inspect_schema(connection)
             after = set(__import__("sqlalchemy").inspect(connection).get_table_names())
