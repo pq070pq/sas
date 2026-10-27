@@ -1,38 +1,47 @@
 # SAS PRO standalone authentication rollout
 
-## Current state
+## Current state (2026-10-28)
 
-The standalone account and email-delivery services are intentionally not mounted in `app/main.py`. Telegram login, subscriptions, Stars payments, and the current Mini App remain the active path.
+- The standalone authentication API router remains intentionally **unmounted** in `app/main.py`.
+- The current Telegram Mini App, Telegram identities, subscriptions, Stars payments, and production entry points are unchanged by this branch.
+- The branch CI passed on commit `0d6902e9169d3a594020a83390190904a9bf11a3`: https://github.com/pq070pq/sas/actions/runs/40583190868
+- Standalone API tests cover account lifecycle, email-verification/reset tokens, session revocation, Origin checks, and database-backed rate limits. Passing branch CI is not a substitute for staging/security review.
 
-## Required before exposing endpoints
+## Remaining launch blockers
 
-- [ ] Run the branch CI workflow and inspect the full test output; a missing status is not a passing result.
-- [ ] Add HTTP routes in a separate router and keep them unmounted until the route tests pass.
-- [ ] Use HTTPS-only, HttpOnly, Secure, SameSite cookies for browser sessions; define a CSRF strategy before enabling state-changing cookie-authenticated requests.
-- [ ] Add per-IP and per-account rate limits for login, registration, verification, and password-reset requests.
-- [ ] Return generic public responses for password-reset requests and avoid account enumeration.
-- [ ] Send verification/reset emails before committing any public success response. Never log raw tokens.
-- [ ] Configure `STANDALONE_SMTP_HOST`, `STANDALONE_SMTP_PORT`, `STANDALONE_EMAIL_FROM`, `STANDALONE_SMTP_USERNAME`, `STANDALONE_SMTP_PASSWORD`, `STANDALONE_SMTP_USE_TLS`, and `STANDALONE_SMTP_USE_SSL` in the deployment environment. Do not commit credentials.
-- [ ] Configure the public HTTPS base URL and verify generated links point only to the intended SAS domain.
-- [ ] Add security headers, request-size limits, and production-safe error handling.
-- [ ] Test registration, email verification, login/logout, expired/replayed tokens, password reset, session revocation, rate limits, and Telegram regression.
-- [ ] Review database migration/backup and rollback steps before any production rollout.
+- [ ] Durable transactional email outbox with retry/idempotency. Current SMTP delivery happens inline and is not crash-safe; do not expose registration/reset endpoints publicly until this is addressed.
+- [ ] Browser pages for the verification and password-reset links sent in email.
+- [ ] Security headers and explicit request-body size limits for the standalone endpoints.
+- [ ] Production database migration/backup and rollback procedure for the additive standalone tables.
+- [ ] Configure SMTP credentials and `STANDALONE_PUBLIC_ORIGIN` in deployment secrets; never commit credentials.
+- [ ] Stage with a separate database and restricted email recipient allowlist.
+- [ ] Run Telegram regression checks and verify payment callbacks, subscriptions, and the existing Mini App.
+- [ ] Review reverse-proxy configuration and trusted client IP handling before enabling rate limits behind a proxy.
+
+## Security controls already implemented on this branch
+
+- Passwords are PBKDF2-HMAC-SHA256 hashes; raw one-time tokens are not stored.
+- Verification and reset tokens are single-use; password reset revokes existing sessions.
+- Login requires a verified and active account.
+- Public registration/reset responses avoid revealing account existence.
+- Session cookie is Secure, HttpOnly, and SameSite=Lax.
+- Login/logout require a same-origin `Origin` header.
+- Database-backed per-IP and per-identity fixed-window rate limits use hashed bucket keys and persist independently of failed auth transactions.
+- Public email links use a configured HTTPS origin, not the request Host header.
 
 ## Rollout sequence
 
-1. Keep this branch isolated; do not merge or deploy automatically.
-2. Get CI green and review failures, not just the workflow badge.
-3. Configure SMTP secrets in the target environment without exposing them in logs.
-4. Mount the standalone router behind a feature flag only after route tests and security review pass.
-5. Test on staging using a separate database and email recipient allowlist.
-6. Verify Telegram bot, current Mini App, subscription checks, and payment callbacks still work.
-7. Enable standalone sign-up gradually; keep a rollback switch that disables standalone routes without affecting Telegram.
-8. Only then consider a production merge/deploy with explicit approval.
+1. Keep work on `feature/sas-standalone-next`; do not merge/deploy automatically.
+2. Implement the durable email outbox and isolated browser pages, with tests.
+3. Require green CI for the exact final commit and inspect the actual test output.
+4. Configure SMTP secrets and the fixed public origin in a staging environment.
+5. Run end-to-end browser tests and verify no email token or password appears in logs.
+6. Verify Telegram bot, Mini App, subscriptions, and payment callbacks are unchanged.
+7. Enable behind a feature flag only after explicit approval; keep an immediate standalone-only rollback switch.
+8. Production merge/deploy requires explicit user approval.
 
 ## Safety invariants
 
 - Existing Telegram `users`, `subscriptions`, and `payments` remain unchanged.
-- Standalone tokens are stored as digests and must be single-use where applicable.
-- An unverified or inactive account cannot log in.
-- Password reset revokes active sessions.
-- No production readiness claim is made until CI and staging checks are verified.
+- Standalone routes remain unmounted until all blockers are resolved.
+- Never report production readiness based only on unit tests.
