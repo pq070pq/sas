@@ -206,11 +206,16 @@ async def request_password_reset(payload: PasswordResetRequest, request: Request
         request, session, scope="password-reset-request", identity=str(payload.email),
         identity_limit=4, identity_window_seconds=3600,
     )
-    raw_token = await create_password_reset_token(session, str(payload.email))
-    if raw_token:
-        subject, body = password_reset_email(_origin(request), raw_token)
-        await _send_mail_or_fail(str(payload.email), subject, body)
-    await session.commit()
+    try:
+        raw_token = await create_password_reset_token(session, str(payload.email))
+        if raw_token:
+            subject, body = password_reset_email(_origin(request), raw_token)
+            await _send_mail_or_fail(str(payload.email), subject, body)
+        await session.commit()
+    except Exception:
+        # Do not leave a usable reset token behind when email delivery fails.
+        await session.rollback()
+        raise
     return {"message": "If a verified account exists for that address, a reset email will be sent."}
 
 
