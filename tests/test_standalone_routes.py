@@ -28,7 +28,9 @@ class StandaloneRouteDefinitionTests(unittest.TestCase):
             RegisterInput(email="trader@example.com", password="short")
         with self.assertRaises(ValueError):
             ResetInput(token="t" * 32, new_password="short")
-        self.assertEqual(LoginInput(email="TRADER@example.com", password="x").email, "trader@example.com")\n        with self.assertRaises(ValueError):\n            LoginInput(email="not-an-email", password="x")
+        self.assertEqual(LoginInput(email="TRADER@example.com", password="x").email, "trader@example.com")
+        with self.assertRaises(ValueError):
+            LoginInput(email="not-an-email", password="x")
         self.assertEqual(PasswordResetRequest(email="Trader@Example.com").email, "trader@example.com")
 
 
