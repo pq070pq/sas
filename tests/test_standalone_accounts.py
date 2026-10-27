@@ -108,6 +108,17 @@ class StandaloneAccountLifecycleTests(unittest.IsolatedAsyncioTestCase):
             account, verification = await register_account(session, "pending@example.com", "a-strong-test-password")
             self.assertIsNone(await create_password_reset_token(session, account.email))
 
+    async def test_malformed_tokens_fail_closed(self):
+        async with self.sessions() as session:
+            with self.assertRaises(InvalidOrExpiredToken):
+                await verify_account_email(session, "bad")
+            with self.assertRaises(InvalidOrExpiredToken):
+                await authenticate_session(session, "bad")
+            with self.assertRaises(InvalidOrExpiredToken):
+                await reset_password(session, "bad", "a-new-strong-password")
+            # Logout is intentionally idempotent for malformed/unknown tokens.
+            await logout_account(session, "bad")
+
 
 if __name__ == "__main__":
     unittest.main()
