@@ -115,7 +115,7 @@ class StandaloneAuthHTTPIntegrationTests(unittest.IsolatedAsyncioTestCase):
         })
         self.assertEqual(response.status_code, 202, response.text)
         verification_body = self.mail.await_args.args[2]
-        verification_match = re.search(r"/standalone/verify-email\\?token=([^\\s]+)", verification_body)
+        verification_match = re.search(r"/standalone/verify-email\?token=([^\s]+)", verification_body)
         self.assertIsNotNone(verification_match, verification_body)
         response = await self.client.post(
             "/api/standalone/auth/verify-email", json={"token": verification_match.group(1)}
@@ -138,7 +138,7 @@ class StandaloneAuthHTTPIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 202, response.text)
         self.assertEqual(response.json()["message"], unknown_message)
         reset_body = self.mail.await_args.args[2]
-        reset_match = re.search(r"/standalone/reset-password\\?token=([^\\s]+)", reset_body)
+        reset_match = re.search(r"/standalone/reset-password\?token=([^\s]+)", reset_body)
         self.assertIsNotNone(reset_match, reset_body)
 
         response = await self.client.post(
