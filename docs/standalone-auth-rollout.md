@@ -4,6 +4,8 @@
 
 - The standalone authentication API router remains intentionally **unmounted** in `app/main.py`.
 - The current Telegram Mini App, Telegram identities, subscriptions, Stars payments, and production entry points are unchanged by this branch.
+- CI passed on the latest outbox retry-test fix `613f7cbe5fa9ac143a9c8964c782f18881a73b7c`, including compile, all unit tests, and Mini App JavaScript validation: https://github.com/pq070pq/sas/actions/runs/40590963523
+- The retry test now normalizes SQLite's naive datetime result to UTC before comparing it with an aware datetime; the test is still asserting the retry is scheduled after the reference time.
 - CI passed on the latest schema-preflight commit `d1fae1bb1f0e66ea95d385b72718f731ca42d622`, including compile, unit tests, and Mini App JavaScript validation: https://github.com/pq070pq/sas/actions/runs/40590060956
 - Earlier CI runs below document incremental validation history; the latest green run is the source of truth for the current branch head.
 - CI passed on commit `9893749ca0b0a2d4c92be9b5f044dc1faad78c4c`: https://github.com/pq070pq/sas/actions/runs/40586638444
@@ -20,6 +22,7 @@
 - [ ] Configure SMTP credentials and `STANDALONE_PUBLIC_ORIGIN` in deployment secrets; never commit credentials.
 - [x] Add multi-worker concurrency test for atomic outbox claims; CI passed on commit `39db885dc7f12db576f30c4c1f393db423e32f50`: https://github.com/pq070pq/sas/actions/runs/40588050983
 - [x] Verify latest branch-head CI after schema-preflight column checks: https://github.com/pq070pq/sas/actions/runs/40590060956
+- [x] Verify the email retry failure path and timezone-safe assertion on the latest branch head: https://github.com/pq070pq/sas/actions/runs/40590963523
 - [ ] Stage with a separate database, restricted email recipient allowlist, and a verified backup/restore procedure.
 - [ ] Run Telegram regression checks and verify payment callbacks, subscriptions, and the existing Mini App.
 - [ ] Review reverse-proxy configuration and trusted client IP handling before enabling rate limits behind a proxy.
