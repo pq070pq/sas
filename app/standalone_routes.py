@@ -9,7 +9,8 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import get_session
-from .standalone_auth import normalize_email\nfrom .standalone_accounts import (
+from .standalone_auth import normalize_email
+from .standalone_accounts import (
     AccountAlreadyExists,
     InvalidCredentials,
     InvalidOrExpiredToken,
