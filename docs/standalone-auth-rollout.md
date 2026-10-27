@@ -66,3 +66,20 @@ Before mounting either standalone router in any environment:
 - [ ] Verify no passwords, one-time tokens, SMTP credentials, or decrypted email bodies appear in application/proxy logs.
 - [ ] Run Telegram bot, Mini App, Stars payment, subscription renewal, and callback regression checks.
 - [ ] Keep standalone routes unmounted until the entire checklist is signed off and explicit approval is given.
+
+
+## Database migration and rollback review
+
+The application currently uses SQLAlchemy `Base.metadata.create_all` inside `init_db()`; there is no Alembic migration directory in this repository. That means a future deployment/restart of a revision containing the additive standalone models may create their tables automatically, even while the standalone routers are unmounted. Do not treat “routers unmounted” as “no database schema change.”
+
+Before any production deployment containing these models:
+
+1. Confirm the exact production database URL and database engine without printing credentials into logs or chat.
+2. Take a consistent backup using the database engine's supported procedure. For SQLite, stop or quiesce writers and back up the database together with its WAL state, or use SQLite's online backup API; do not copy only the main `.db` file while WAL writes may be active.
+3. Restore that backup into a separate disposable database and verify row counts for `users`, `subscriptions`, and `payments`, plus integrity checks.
+4. Deploy only the additive schema/model revision with standalone routes still unmounted; inspect that the existing tables and rows are unchanged and that only expected `sas_*` tables/indexes were added.
+5. Re-run Telegram login, Mini App, Stars payment callbacks, subscription checks, and radar smoke tests.
+6. Rollback application code without deleting the additive `sas_*` tables. Do not drop tables or restore an old backup over live writes as a routine rollback; preserve new data and perform a separately reviewed recovery.
+7. Since there is no versioned migration framework yet, add a formal, reviewed migration mechanism before schema changes that modify existing tables or become operationally complex.
+
+This is a documented procedure, not a claim that a backup, restore, or production migration has been performed.
