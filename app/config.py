@@ -57,9 +57,11 @@ class Settings(BaseSettings):
     groq_base_url: str = "https://api.groq.com/openai/v1"
     groq_model: str = "openai/gpt-oss-120b"
     gemini_api_key: str = ""
+    gemini_api_keys: str = ""
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
     gemini_model: str = "gemini-2.5-flash"
     openrouter_api_key: str = ""
+    openrouter_api_keys: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_model: str = "openai/gpt-oss-20b:free"
     expiry_warning_hours: int = 72
