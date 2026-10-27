@@ -63,6 +63,29 @@ class SASIdentityLink(Base):
     __table_args__ = (UniqueConstraint("provider", "provider_subject", name="uq_sas_identity_provider_subject"),)
 
 
+class SASAuthToken(Base):
+    """Single-purpose expiring token record; stores only a digest."""
+    __tablename__ = "sas_auth_tokens"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[str] = mapped_column(String(36), ForeignKey("sas_accounts.id", ondelete="CASCADE"), index=True)
+    purpose: Mapped[str] = mapped_column(String(32), index=True)
+    token_digest: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class SASLoginSession(Base):
+    """Revocable session record; raw bearer tokens are never persisted."""
+    __tablename__ = "sas_login_sessions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[str] = mapped_column(String(36), ForeignKey("sas_accounts.id", ondelete="CASCADE"), index=True)
+    token_digest: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
 class AccessRequest(Base):
     __tablename__ = "access_requests"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
