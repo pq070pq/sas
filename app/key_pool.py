@@ -6,9 +6,12 @@ mechanism for bypassing a provider's account/organization quota or terms.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from dataclasses import dataclass
 from typing import Iterable
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -46,20 +49,23 @@ class KeyPool:
                 state = self._states[idx]
                 if state.blocked_until <= now:
                     self._cursor = (idx + 1) % len(self._states)
+                    logger.debug("API_KEY_POOL_ACQUIRED slot=%s pool_size=%s", idx + 1, len(self._states))
                     return state.key
+            logger.info("API_KEY_POOL_EXHAUSTED pool_size=%s available=0", len(self._states))
             return None
 
     async def mark_success(self, key: str) -> None:
         async with self._lock:
-            for state in self._states:
+            for idx, state in enumerate(self._states):
                 if state.key == key:
                     state.failures = 0
                     state.blocked_until = 0.0
+                    logger.debug("API_KEY_POOL_SUCCESS slot=%s", idx + 1)
                     return
 
     async def mark_failure(self, key: str, *, retry_after: int | None = None) -> None:
         async with self._lock:
-            for state in self._states:
+            for idx, state in enumerate(self._states):
                 if state.key != key:
                     continue
                 state.failures += 1
@@ -68,6 +74,11 @@ class KeyPool:
                     900, self._cooldown * (2 ** min(state.failures - 1, 4))
                 )
                 state.blocked_until = time.monotonic() + delay
+                available = sum(1 for item in self._states if item.blocked_until <= time.monotonic())
+                logger.warning(
+                    "API_KEY_POOL_FAILURE slot=%s failures=%s cooldown_seconds=%s available=%s pool_size=%s",
+                    idx + 1, state.failures, delay, available, len(self._states),
+                )
                 return
 
     async def snapshot(self) -> dict:
@@ -86,7 +97,7 @@ def parse_keys(*values: str | None) -> list[str]:
     for value in values:
         if not value:
             continue
-        for item in str(value).replace("\n", ",").replace(";", ",").split(","):
+        for item in str(value).replace("\\n", ",").replace(";", ",").split(","):
             key = item.strip()
             if key and key not in seen:
                 seen.add(key)
