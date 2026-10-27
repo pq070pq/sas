@@ -12,7 +12,7 @@ import logging
 import os
 
 from cryptography.fernet import Fernet, InvalidToken
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import SASEmailOutbox
@@ -89,31 +89,43 @@ async def enqueue_email(
 async def deliver_one(session: AsyncSession, *, now: datetime | None = None) -> bool:
     """Deliver one due message. Safe to run manually; no background task is started here."""
     current = now or datetime.now(timezone.utc)
-    row = await session.scalar(
-        select(SASEmailOutbox)
-        .where(
-            or_(
-                and_(
-                    SASEmailOutbox.status == "pending",
-                    SASEmailOutbox.available_at <= current,
-                ),
-                and_(
-                    SASEmailOutbox.status == "sending",
-                    SASEmailOutbox.locked_until.is_not(None),
-                    SASEmailOutbox.locked_until <= current,
-                ),
-            )
-        )
+    eligible = or_(
+        and_(
+            SASEmailOutbox.status == "pending",
+            SASEmailOutbox.available_at <= current,
+        ),
+        and_(
+            SASEmailOutbox.status == "sending",
+            SASEmailOutbox.locked_until.is_not(None),
+            SASEmailOutbox.locked_until <= current,
+        ),
+    )
+    candidate_id = await session.scalar(
+        select(SASEmailOutbox.id)
+        .where(eligible)
         .order_by(SASEmailOutbox.id)
         .limit(1)
     )
+    if candidate_id is None:
+        return False
+    # Atomic compare-and-set claim: concurrent workers cannot both acquire the same lease.
+    claimed_id = await session.scalar(
+        update(SASEmailOutbox)
+        .where(SASEmailOutbox.id == candidate_id, eligible)
+        .values(
+            status="sending",
+            locked_until=current + timedelta(minutes=2),
+            attempts=SASEmailOutbox.attempts + 1,
+        )
+        .returning(SASEmailOutbox.id)
+    )
+    if claimed_id is None:
+        await session.rollback()
+        return False
+    await session.commit()
+    row = await session.get(SASEmailOutbox, claimed_id)
     if row is None:
         return False
-    # Commit a lease before network I/O so two workers are less likely to pick it.
-    row.status = "sending"
-    row.locked_until = current + timedelta(minutes=2)
-    row.attempts = (row.attempts or 0) + 1
-    await session.commit()
     try:
         subject, body = decrypt_message(row.body)
         await send_standalone_email(row.recipient, subject, body)
