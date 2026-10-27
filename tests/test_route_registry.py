@@ -23,6 +23,15 @@ class ProductionRouteRegistryTests(unittest.TestCase):
         duplicates = sorted(name for name, count in Counter(names).items() if count > 1)
         self.assertEqual(duplicates, [], f"Duplicate top-level functions: {duplicates}")
 
+    def test_standalone_auth_routes_remain_unmounted_in_production_app(self):
+        paths = {route.path for route in app.routes}
+        self.assertFalse(
+            any(path.startswith("/api/standalone/auth") for path in paths),
+            "Standalone auth API must remain disabled until rollout approval.",
+        )
+        self.assertNotIn("/standalone/verify-email", paths)
+        self.assertNotIn("/standalone/reset-password", paths)
+
     def test_no_duplicate_method_path_registrations(self):
         seen = {}
         duplicates = []
