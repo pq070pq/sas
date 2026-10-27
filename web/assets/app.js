@@ -1036,7 +1036,15 @@ async function runRadar(show=true){
    document.querySelectorAll('.sas-radar-showcase,.sas-radar-visual,.terminal-page').forEach(el=>el.classList.remove('sas-radar-scanning'));
  }
 }
-function renderRadar(){renderCards(document.getElementById('radarGrid'),terminalState.radar);}
+function renderRadar(){
+ // Show preliminary scan candidates beside confirmed opportunities. Keep them separate by status;
+ // this is display-only and does not change confirmation or Telegram publishing gates.
+ const confirmed=Array.isArray(terminalState.radar)?terminalState.radar:[];
+ const preliminary=Array.isArray(terminalState.preliminaryRadar)?terminalState.preliminaryRadar:[];
+ const confirmedSymbols=new Set(confirmed.map(x=>String(x.symbol||'').toUpperCase()));
+ const combined=[...confirmed,...preliminary.filter(x=>!confirmedSymbols.has(String(x.symbol||'').toUpperCase()))];
+ renderCards(document.getElementById('radarGrid'),combined);
+}
 function renderCards(el,rows){
  if(!el)return;
  const all=Array.isArray(rows)?rows:[];
