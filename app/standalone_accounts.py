@@ -26,6 +26,13 @@ class InvalidOrExpiredToken(ValueError):
     """A verification or session token is invalid, expired, consumed, or revoked."""
 
 
+def _token_digest_or_raise(raw_token: str) -> str:
+    try:
+        return digest_token(raw_token)
+    except ValueError:
+        raise InvalidOrExpiredToken("Token is invalid or expired.") from None
+
+
 async def register_account(session: AsyncSession, email: str, password: str, *, verification_ttl_minutes: int = 30) -> tuple[SASAccount, str]:
     """Create an unverified account and return a one-time raw verification token.
 
@@ -55,7 +62,7 @@ async def register_account(session: AsyncSession, email: str, password: str, *, 
 async def verify_account_email(session: AsyncSession, raw_token: str) -> SASAccount:
     now = datetime.now(timezone.utc)
     token = await session.scalar(select(SASAuthToken).where(
-        SASAuthToken.token_digest == digest_token(raw_token), SASAuthToken.purpose == "email_verification",
+        SASAuthToken.token_digest == _token_digest_or_raise(raw_token), SASAuthToken.purpose == "email_verification",
         SASAuthToken.consumed_at.is_(None), SASAuthToken.expires_at > now))
     if token is None:
         raise InvalidOrExpiredToken("Verification token is invalid or expired.")
@@ -104,7 +111,7 @@ async def login_account(session: AsyncSession, email: str, password: str, *, ses
 async def authenticate_session(session: AsyncSession, raw_token: str) -> SASAccount:
     now = datetime.now(timezone.utc)
     login_session = await session.scalar(select(SASLoginSession).where(
-        SASLoginSession.token_digest == digest_token(raw_token), SASLoginSession.revoked_at.is_(None),
+        SASLoginSession.token_digest == _token_digest_or_raise(raw_token), SASLoginSession.revoked_at.is_(None),
         SASLoginSession.expires_at > now))
     if login_session is None:
         raise InvalidOrExpiredToken("Session is invalid or expired.")
@@ -115,8 +122,12 @@ async def authenticate_session(session: AsyncSession, raw_token: str) -> SASAcco
 
 
 async def logout_account(session: AsyncSession, raw_token: str) -> None:
+    try:
+        token_digest = digest_token(raw_token)
+    except ValueError:
+        return
     login_session = await session.scalar(select(SASLoginSession).where(
-        SASLoginSession.token_digest == digest_token(raw_token), SASLoginSession.revoked_at.is_(None)))
+        SASLoginSession.token_digest == token_digest, SASLoginSession.revoked_at.is_(None)))
     if login_session is not None:
         login_session.revoked_at = datetime.now(timezone.utc)
         await session.flush()
@@ -151,7 +162,7 @@ async def reset_password(session: AsyncSession, raw_token: str, new_password: st
     new_hash = hash_password(new_password)
     now = datetime.now(timezone.utc)
     token = await session.scalar(select(SASAuthToken).where(
-        SASAuthToken.token_digest == digest_token(raw_token), SASAuthToken.purpose == "password_reset",
+        SASAuthToken.token_digest == _token_digest_or_raise(raw_token), SASAuthToken.purpose == "password_reset",
         SASAuthToken.consumed_at.is_(None), SASAuthToken.expires_at > now))
     if token is None:
         raise InvalidOrExpiredToken("Password reset token is invalid or expired.")
