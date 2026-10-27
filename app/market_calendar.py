@@ -187,7 +187,7 @@ def market_status(now: datetime | None = None) -> dict:
     if local.weekday() in (6, 0, 1, 2, 3) and t >= (20, 0) and t < NIGHT_SESSION_START:
         night_open = _dt_at(local, *NIGHT_SESSION_START)
         return {
-            "open": False, "radar_active": False, "holiday": False, "session": "night_pending",
+            "open": False, "radar_active": True, "holiday": False, "session": "night_pending",
             "label_ar": "🟣 التداول الليلي يفتح قريبًا",
             "short_ar": "يفتح قريبًا",
             "reason": "night session pending",
@@ -198,7 +198,7 @@ def market_status(now: datetime | None = None) -> dict:
         }
 
     return {
-        "open": False, "radar_active": False, "holiday": False, "session": "overnight",
+        "open": False, "radar_active": True, "holiday": False, "session": "overnight",
         "label_ar": "مغلق — انتظار البري ماركت 🌙", "short_ar": "مغلق",
         "reason": "overnight", "date": d.isoformat(),
         "local_time": local.isoformat(), "next_premarket_et": "04:00",
