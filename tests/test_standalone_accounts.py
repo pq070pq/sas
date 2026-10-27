@@ -1,6 +1,7 @@
 import unittest
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.db import Base, SASAccount, SASAuthToken, SASLoginSession
@@ -33,9 +34,7 @@ class StandaloneAccountLifecycleTests(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(account.email, "trader@example.com")
             self.assertIsNone(account.email_verified_at)
-            stored = await session.scalar(
-                __import__("sqlalchemy").select(SASAuthToken).where(SASAuthToken.account_id == account.id)
-            )
+            stored = await session.scalar(select(SASAuthToken).where(SASAuthToken.account_id == account.id))
             self.assertIsNotNone(stored)
             self.assertNotEqual(stored.token_digest, verification_token)
             await session.commit()
@@ -49,9 +48,7 @@ class StandaloneAccountLifecycleTests(unittest.IsolatedAsyncioTestCase):
 
             logged_in, raw_session = await login_account(session, account.email, "a-strong-test-password")
             self.assertEqual(logged_in.id, account.id)
-            stored_session = await session.scalar(
-                __import__("sqlalchemy").select(SASLoginSession).where(SASLoginSession.account_id == account.id)
-            )
+            stored_session = await session.scalar(select(SASLoginSession).where(SASLoginSession.account_id == account.id))
             self.assertNotEqual(stored_session.token_digest, raw_session)
             await session.commit()
 
@@ -81,9 +78,7 @@ class StandaloneAccountLifecycleTests(unittest.IsolatedAsyncioTestCase):
     async def test_expired_verification_token_is_rejected(self):
         async with self.sessions() as session:
             account, token = await register_account(session, "expired@example.com", "a-strong-test-password")
-            record = await session.scalar(
-                __import__("sqlalchemy").select(SASAuthToken).where(SASAuthToken.account_id == account.id)
-            )
+            record = await session.scalar(select(SASAuthToken).where(SASAuthToken.account_id == account.id))
             record.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
             await session.commit()
             with self.assertRaises(InvalidOrExpiredToken):
