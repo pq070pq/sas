@@ -6,7 +6,8 @@
 - The current Telegram Mini App, Telegram identities, subscriptions, Stars payments, and production entry points are unchanged by this branch.
 - CI passed on commit `9893749ca0b0a2d4c92be9b5f044dc1faad78c4c`: https://github.com/pq070pq/sas/actions/runs/40586638444
 - CI passed on commit `83af2994b57e6e79e44cd13923e62a6d31d8f9d1`, including the expired-email-lease recovery test: https://github.com/pq070pq/sas/actions/runs/40587057550
-- The later atomic-claim change on commit `71e0d9b244e229ba96d8189971320d1aee4679e5` still needs a successful CI run on the final combined commit. Passing branch CI is not a substitute for staging/security review.
+- CI passed on the combined commit `58f658578a8c6c7ecddaaed5924165d815e1a27b`, including Python unit tests and Mini App JavaScript syntax checks: https://github.com/pq070pq/sas/actions/runs/40587390704
+- Passing branch CI is not a substitute for staging/security review or concurrency tests with multiple independent workers.
 
 ## Remaining launch blockers
 
@@ -15,7 +16,7 @@
 - [ ] Add/verify security headers for all standalone API responses and enforce explicit request-body size limits before enabling the routes.
 - [ ] Production database migration/backup and rollback procedure for the additive standalone tables.
 - [ ] Configure SMTP credentials and `STANDALONE_PUBLIC_ORIGIN` in deployment secrets; never commit credentials.
-- [ ] Stage with a separate database and restricted email recipient allowlist.
+- [ ] Add multi-worker concurrency testing for atomic outbox claims, then stage with a separate database and restricted email recipient allowlist.
 - [ ] Run Telegram regression checks and verify payment callbacks, subscriptions, and the existing Mini App.
 - [ ] Review reverse-proxy configuration and trusted client IP handling before enabling rate limits behind a proxy.
 
