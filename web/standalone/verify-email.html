@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#020912">
+<meta name="robots" content="noindex,nofollow">
+<title>تأكيد البريد | SAS PRO</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#020912;color:#eaf2ff}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(ellipse at top,#102d4b 0,transparent 55%),#020912}
+main{width:min(100%,440px);padding:28px;border:1px solid #214464;border-radius:22px;background:#071421;box-shadow:0 18px 60px #0008;text-align:center}
+.logo{font-weight:900;letter-spacing:.12em;color:#62d5ff;font-size:1.4rem}h1{font-size:1.35rem;margin:18px 0 10px}p{color:#aebfd3;line-height:1.8}button{width:100%;padding:13px;border:0;border-radius:12px;background:#00a9d6;color:#00131d;font-weight:800;font-size:1rem;cursor:pointer}button:disabled{opacity:.5;cursor:wait}#message{min-height:3em;margin-top:18px}a{color:#62d5ff}
+</style>
+</head>
+<body><main>
+<div class="logo">SAS PRO</div>
+<h1>تأكيد البريد الإلكتروني</h1>
+<p>اضغط لتأكيد بريدك الإلكتروني وتفعيل حساب SAS PRO.</p>
+<button id="verify" type="button">تأكيد البريد</button>
+<p id="message" role="status" aria-live="polite"></p>
+</main>
+<script>
+(() => {
+  const button = document.getElementById("verify");
+  const message = document.getElementById("message");
+  const token = new URLSearchParams(window.location.search).get("token") || "";
+  button.addEventListener("click", async () => {
+    if (!token || token.length < 20 || token.length > 512) {
+      message.textContent = "رابط التأكيد غير صالح أو منتهي الصلاحية.";
+      button.disabled = true;
+      return;
+    }
+    button.disabled = true;
+    message.textContent = "جارٍ تأكيد البريد…";
+    try {
+      const response = await fetch("/api/standalone/auth/verify-email", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        credentials: "same-origin", body: JSON.stringify({token})
+      });
+      if (!response.ok) throw new Error("verification_failed");
+      message.textContent = "تم تأكيد البريد بنجاح. يمكنك الآن تسجيل الدخول إلى حسابك.";
+      button.textContent = "تم التأكيد";
+    } catch (_) {
+      message.textContent = "تعذر تأكيد البريد. قد يكون الرابط منتهي الصلاحية أو استُخدم سابقًا.";
+      button.disabled = false;
+    }
+  });
+  if (!token) { message.textContent = "رابط التأكيد غير صالح أو منتهي الصلاحية."; button.disabled = true; }
+})();
+</script>
+</body></html>
