@@ -5086,7 +5086,7 @@ async def search_sec_disclosures(
                 filing_url = f"https://www.sec.gov/Archives/edgar/data/{cik_path}/{accession_path}/"
                 document_url = filing_url + doc if doc else f"https://www.sec.gov/Archives/edgar/data/{cik_path}/{accession_path}/"
                 filing_text = ""
-                if doc and analyzed_count < 12 and filing_form in {"8-K", "10-K", "10-Q", "S-1", "S-3", "424B5"}:
+                if doc and analyzed_count < 12 and filing_form in {"3", "4", "5", "8-K", "10-K", "10-Q", "S-1", "S-3", "424B5"}:
                     filing_text = await _sec_fetch_filing_text(client, document_url)
                     analyzed_count += 1
                 analysis = _classify_sec_filing_text(
