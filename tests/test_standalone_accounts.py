@@ -119,6 +119,34 @@ class StandaloneAccountLifecycleTests(unittest.IsolatedAsyncioTestCase):
             # Logout is intentionally idempotent for malformed/unknown tokens.
             await logout_account(session, "bad")
 
+    async def test_expired_login_session_is_rejected(self):
+        async with self.sessions() as session:
+            account = await self._verified_account(session, "session-expiry@example.com")
+            await session.commit()
+            _, raw_session = await login_account(session, account.email, "a-strong-test-password")
+            row = await session.scalar(select(SASLoginSession).where(
+                SASLoginSession.account_id == account.id
+            ))
+            row.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+            await session.commit()
+            with self.assertRaises(InvalidOrExpiredToken):
+                await authenticate_session(session, raw_session)
+
+    async def test_expired_password_reset_token_is_rejected(self):
+        async with self.sessions() as session:
+            account = await self._verified_account(session, "reset-expiry@example.com")
+            await session.commit()
+            reset_token = await create_password_reset_token(session, account.email)
+            await session.commit()
+            row = await session.scalar(select(SASAuthToken).where(
+                SASAuthToken.account_id == account.id,
+                SASAuthToken.purpose == "password_reset",
+            ))
+            row.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+            await session.commit()
+            with self.assertRaises(InvalidOrExpiredToken):
+                await reset_password(session, reset_token, "a-new-strong-password")
+
 
 if __name__ == "__main__":
     unittest.main()
