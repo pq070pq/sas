@@ -127,7 +127,8 @@ async def verify_email(payload: TokenInput, session: AsyncSession = Depends(get_
 
 
 @router.post("/login")
-async def login(payload: LoginInput, response: Response, session: AsyncSession = Depends(get_session)):
+async def login(payload: LoginInput, response: Response, request: Request, session: AsyncSession = Depends(get_session)):
+    _require_same_origin(request)
     try:
         account, raw_token = await login_account(session, str(payload.email), payload.password)
         await session.commit()
