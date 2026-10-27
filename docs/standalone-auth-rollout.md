@@ -8,6 +8,8 @@
 - The retry test now normalizes SQLite's naive datetime result to UTC before comparing it with an aware datetime; the test is still asserting the retry is scheduled after the reference time.
 - Latest guard-test CI passed on commit `495613f4842b253db1e47f797e3134b42afc897e`, including compile, unit tests, and Mini App JavaScript validation: https://github.com/pq070pq/sas/actions/runs/40591495136
 - The production deploy workflow now explicitly gates its job to `refs/heads/main`; a separate run for the preceding workflow-only commit was cancelled when the newer test commit queued, so use the passing guard-test run above as the latest green CI record.
+- Documentation-only follow-up passed CI on commit `548b0dc35ef1613920c7fb8288b6b9b33e844a04`: https://github.com/pq070pq/sas/actions/runs/40591950719. All job steps passed (Python compile, unit tests, and Mini App JavaScript validation).
+- The owner currently works from a phone with GitHub only and has no separate staging host available. Do not treat GitHub Actions as staging, and do not enable standalone routes or add production secrets to the workflow. A separately provisioned staging host/database is still required for live SMTP and backup/restore tests.
 - CI passed on the latest schema-preflight commit `d1fae1bb1f0e66ea95d385b72718f731ca42d622`, including compile, unit tests, and Mini App JavaScript validation: https://github.com/pq070pq/sas/actions/runs/40590060956
 - Earlier CI runs below document incremental validation history; the latest green run is the source of truth for the current branch head.
 - CI passed on commit `9893749ca0b0a2d4c92be9b5f044dc1faad78c4c`: https://github.com/pq070pq/sas/actions/runs/40586638444
@@ -115,3 +117,4 @@ The owner may continue this work from a phone using GitHub only. For each code c
 - Do not paste database credentials, SMTP passwords, Fernet keys, bot tokens, or production database contents into issues, commits, workflow logs, or chat.
 
 GitHub Actions currently validates code in its CI environment; it does not prove the live server database was backed up/restored, production SMTP works, or the Telegram payment flow works in production. Those remain explicit rollout blockers until a safe staging environment is available.
+- If only GitHub and a phone are available, continue with code review, isolated tests, and documentation. Do not repurpose the production deployment workflow as staging, and do not run preflight against production as a substitute for an isolated database.
