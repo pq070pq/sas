@@ -4838,9 +4838,15 @@ async def _sec_fetch_filing_text(client, url):
     try:
         response = await client.get(url, headers={"Accept": "text/html,application/xhtml+xml,text/plain"})
         response.raise_for_status()
+        raw_document = response.text[:2_000_000]
+        # Preserve explicit ownership transaction codes from SEC XML before stripping tags.
+        ownership_codes = re.findall(r"<transactionCode>\\s*([A-Z])\\s*</transactionCode>", raw_document, re.I)
         extractor = _SECTextExtractor()
-        extractor.feed(response.text[:2_000_000])
-        text = _clean_sec_filing_text(extractor.text())[:12000]
+        extractor.feed(raw_document)
+        text = _clean_sec_filing_text(extractor.text())
+        if ownership_codes:
+            text += " " + " ".join("transactionCode=" + code.upper() for code in ownership_codes)
+        text = text[:12000]
         _SEC_FILING_TEXT_CACHE[url] = (now, text)
         return text
     except (httpx.HTTPError, ValueError):
