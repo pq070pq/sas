@@ -115,7 +115,7 @@ jobs:
           ssh_opts=(-i "$key_file" -p "$OVH_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=15)
           ssh "${ssh_opts[@]}" "$OVH_USER@$OVH_HOST" 'cd /opt/saspro && {
             echo "===== CONTAINER STATUS =====";
-            docker compose ps saspro panwatch;
+            docker compose ps -a saspro panwatch;
             echo "===== SAS PRO TO PANWATCH CONNECTIVITY (READ ONLY) =====";
             docker compose exec -T saspro python -c '\''import urllib.request; print("PANWATCH_HTTP_STATUS=", urllib.request.urlopen("http://panwatch:8000/openapi.json", timeout=5).status)'\'' 2>&1 || true;
             echo "===== PANWATCH SERVICE LOGS =====";
