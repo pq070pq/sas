@@ -1,14 +1,22 @@
 import unittest
 
-from app.db import Base, SASAccount, SASAuthToken, SASIdentityLink, SASLoginSession, User, Subscription, Payment
+from app.db import Base, SASEmailOutbox, SASAccount, SASAuthToken, SASIdentityLink, SASLoginSession, User, Subscription, Payment
 from app.standalone_auth import digest_token, hash_password, new_bearer_token, normalize_email, validate_password, verify_password
 
 
 class StandaloneIdentitySchemaTests(unittest.TestCase):
     def test_new_tables_are_additive(self):
-        for name in ("sas_accounts", "sas_identity_links", "sas_auth_tokens", "sas_login_sessions",
+        for name in ("sas_accounts", "sas_identity_links", "sas_auth_tokens", "sas_login_sessions", "sas_email_outbox",
                      "users", "subscriptions", "payments"):
             self.assertIn(name, Base.metadata.tables)
+
+    def test_outbox_schema_has_no_plaintext_token_fields(self):
+        columns = SASEmailOutbox.__table__.columns
+        self.assertIn("body", columns)
+        self.assertIn("dedupe_key", columns)
+        self.assertNotIn("token", columns)
+        self.assertNotIn("raw_token", columns)
+        self.assertTrue(columns["dedupe_key"].unique)
 
     def test_telegram_schema_remains_unchanged(self):
         self.assertIn("telegram_id", User.__table__.columns)
