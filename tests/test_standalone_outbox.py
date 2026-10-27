@@ -114,6 +114,48 @@ class StandaloneOutboxTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(second_result)
         send.assert_awaited_once()
 
+    async def test_accepted_email_with_unrecorded_success_can_be_retried_after_lease_expiry(self):
+        """Document at-least-once delivery if SMTP accepts but success state is not persisted."""
+        now = datetime.now(timezone.utc)
+        async with self.sessions() as session:
+            row = await enqueue_email(
+                session,
+                dedupe_key=dedupe_key("verify", "accepted-before-crash-token"),
+                recipient="person@example.com",
+                subject="Verify account",
+                body="https://sas.example.com/standalone/verify-email?token=accepted-before-crash-token",
+            )
+            row.available_at = now - timedelta(seconds=1)
+            await session.commit()
+            row_id = row.id
+
+        # Simulate SMTP accepting the message, followed by a worker crash before
+        # it can persist status="sent". The durable row is left with an active lease.
+        with patch("app.standalone_outbox.send_standalone_email", new_callable=AsyncMock) as send:
+            async with self.sessions() as session:
+                self.assertTrue(await deliver_one(session, now=now))
+            send.assert_awaited_once()
+
+        async with self.sessions() as session:
+            row = await session.get(SASEmailOutbox, row_id)
+            row.status = "sending"
+            row.sent_at = None
+            row.locked_until = now - timedelta(seconds=1)
+            await session.commit()
+
+        # Expired-lease recovery will retry, so this confirms at-least-once behavior
+        # and documents the duplicate-delivery risk; it does not claim exactly-once.
+        with patch("app.standalone_outbox.send_standalone_email", new_callable=AsyncMock) as retry_send:
+            async with self.sessions() as session:
+                self.assertTrue(await deliver_one(session, now=now + timedelta(minutes=3)))
+            retry_send.assert_awaited_once()
+            self.assertIn("accepted-before-crash-token", retry_send.await_args.args[2])
+
+        async with self.sessions() as session:
+            row = await session.get(SASEmailOutbox, row_id)
+            self.assertEqual(row.status, "sent")
+            self.assertEqual(row.attempts, 2)
+
     async def test_failed_delivery_retries_without_storing_sensitive_error_text(self):
         now = datetime.now(timezone.utc)
         secret = "sensitive-one-time-token"
