@@ -75,6 +75,15 @@ class SASAuthToken(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
+class SASRateLimitBucket(Base):
+    """Persistent fixed-window counter shared across application workers."""
+    __tablename__ = "sas_rate_limit_buckets"
+    bucket_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    hits: Mapped[int] = mapped_column(Integer, default=0)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
 class SASLoginSession(Base):
     """Revocable session record; raw bearer tokens are never persisted."""
     __tablename__ = "sas_login_sessions"
