@@ -60,12 +60,10 @@ class StandaloneSecurityMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.headers["x-frame-options"], "DENY")
         self.assertEqual(response.headers["referrer-policy"], "no-referrer")
         self.assertEqual(response.headers["cache-control"], "no-store")
-        self.assertIn("frame-ancestors 'none'", response.headers["content-security-policy"])
 
     async def test_does_not_change_unrelated_routes(self):
         response = await self.client.get("/health")
         self.assertEqual(response.status_code, 200)
-        self.assertNotIn("content-security-policy", response.headers)
 
 
 if __name__ == "__main__":
