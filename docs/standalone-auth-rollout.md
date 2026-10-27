@@ -13,7 +13,7 @@
 
 - [x] Encrypted transactional email outbox stores verification/reset emails in the same transaction as their tokens; retries and expired-lease recovery are implemented. Atomic compare-and-set claiming is added but needs a green CI run on the final commit and concurrency testing before release.
 - [x] Isolated browser pages for verification and password reset are implemented on this branch with no-store/referrer/frame safety headers; the pages router remains unmounted.
-- [ ] Add/verify security headers for all standalone API responses and enforce explicit request-body size limits before enabling the routes.
+- [x] Implement isolated ASGI middleware for standalone-route security headers and a 16 KiB streaming request-body cap; its focused tests are added and must pass CI before rollout. Middleware remains uninstalled in the production app.
 - [ ] Production database migration/backup and rollback procedure for the additive standalone tables.
 - [ ] Configure SMTP credentials and `STANDALONE_PUBLIC_ORIGIN` in deployment secrets; never commit credentials.
 - [ ] Add multi-worker concurrency testing for atomic outbox claims, then stage with a separate database and restricted email recipient allowlist.
