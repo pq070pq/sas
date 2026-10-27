@@ -7,6 +7,7 @@ a transactional email outbox, and route-level integration tests.
 import smtplib
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from urllib.parse import urlsplit
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -69,6 +70,21 @@ class PasswordResetRequest(BaseModel):
         return normalize_email(value)
 
 
+def _require_same_origin(request: Request) -> None:
+    """Reject cross-origin cookie-authenticated writes (defense in depth)."""
+    expected = _origin(request)
+    supplied = request.headers.get("origin", "").strip()
+    if not supplied:
+        raise HTTPException(status_code=403, detail="Origin header is required.")
+    try:
+        parsed = urlsplit(supplied)
+        supplied_origin = f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else ""
+    except ValueError:
+        supplied_origin = ""
+    if supplied_origin != expected:
+        raise HTTPException(status_code=403, detail="Cross-origin request rejected.")
+
+
 def _origin(request: Request) -> str:
     # Never trust Host or forwarded headers to construct password-bearing links.
     # Configure the fixed origin in deployment before enabling this router.
@@ -127,6 +143,7 @@ async def login(payload: LoginInput, response: Response, session: AsyncSession =
 
 @router.post("/logout", status_code=204)
 async def logout(response: Response, request: Request, session: AsyncSession = Depends(get_session)):
+    _require_same_origin(request)
     await logout_account(session, request.cookies.get(SESSION_COOKIE, ""))
     await session.commit()
     response.delete_cookie(key=SESSION_COOKIE, path="/", secure=True, httponly=True, samesite="lax")
