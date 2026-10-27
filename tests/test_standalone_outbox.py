@@ -77,6 +77,43 @@ class StandaloneOutboxTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(row.locked_until)
             self.assertEqual(row.attempts, 1)
 
+    async def test_concurrent_workers_do_not_send_same_message_twice(self):
+        async with self.sessions() as session:
+            await enqueue_email(
+                session,
+                dedupe_key=dedupe_key("verify", "concurrent-worker-token"),
+                recipient="person@example.com",
+                subject="Verify account",
+                body="https://sas.example.com/standalone/verify-email?token=concurrent-worker-token",
+            )
+            await session.commit()
+
+        import asyncio
+
+        send_started = asyncio.Event()
+        release_send = asyncio.Event()
+
+        async def delayed_send(*args):
+            send_started.set()
+            await release_send.wait()
+
+        async def worker():
+            async with self.sessions() as session:
+                return await deliver_one(session)
+
+        with patch("app.standalone_outbox.send_standalone_email", new_callable=AsyncMock, side_effect=delayed_send) as send:
+            first = asyncio.create_task(worker())
+            await asyncio.wait_for(send_started.wait(), timeout=2)
+            second = asyncio.create_task(worker())
+            # The first worker holds a live lease while SMTP is delayed.
+            second_result = await asyncio.wait_for(second, timeout=2)
+            release_send.set()
+            first_result = await asyncio.wait_for(first, timeout=2)
+
+        self.assertTrue(first_result)
+        self.assertFalse(second_result)
+        send.assert_awaited_once()
+
     async def test_enqueue_stores_ciphertext_and_deduplicates(self):
         async with self.sessions() as session:
             key = dedupe_key("verify", "one-time-token-value")
