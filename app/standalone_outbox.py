@@ -12,7 +12,7 @@ import logging
 import os
 
 from cryptography.fernet import Fernet, InvalidToken
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import SASEmailOutbox
@@ -92,8 +92,17 @@ async def deliver_one(session: AsyncSession, *, now: datetime | None = None) -> 
     row = await session.scalar(
         select(SASEmailOutbox)
         .where(
-            SASEmailOutbox.status == "pending",
-            SASEmailOutbox.available_at <= current,
+            or_(
+                and_(
+                    SASEmailOutbox.status == "pending",
+                    SASEmailOutbox.available_at <= current,
+                ),
+                and_(
+                    SASEmailOutbox.status == "sending",
+                    SASEmailOutbox.locked_until.is_not(None),
+                    SASEmailOutbox.locked_until <= current,
+                ),
+            )
         )
         .order_by(SASEmailOutbox.id)
         .limit(1)
