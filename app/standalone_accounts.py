@@ -179,6 +179,7 @@ async def reset_password(session: AsyncSession, raw_token: str, new_password: st
             SASAuthToken.expires_at > now,
         )
         .values(consumed_at=now)
+        .execution_options(synchronize_session=False)
     )
     if consumed.rowcount != 1:
         raise InvalidOrExpiredToken("Password reset token is invalid or expired.")
