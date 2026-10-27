@@ -5,11 +5,11 @@ shared persistent rate limiting, CSRF protection for cookie-authenticated writes
 a transactional email outbox, and route-level integration tests.
 """
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import get_session
-from .standalone_accounts import (
+from .standalone_auth import normalize_email\nfrom .standalone_accounts import (
     AccountAlreadyExists,
     InvalidCredentials,
     InvalidOrExpiredToken,
