@@ -1408,6 +1408,31 @@ async def admin_radar_run_preview(user=Depends(telegram_user)):
                     "risk_reward": (row.get("targets") or {}).get("risk_reward"),
                 }
 
+            # If the main strategy returns no watch rows, expose the scanner's
+            # rejected breakout diagnostics as clearly labelled watch-only entries.
+            # These are NOT confirmed opportunities and must never be published.
+            watch_top = [compact(x) for x in watch[:10]]
+            if not watch_top:
+                breakout_rows = diagnostics.get("breakout_diagnostics") or []
+                for item in breakout_rows:
+                    symbol = str(item.get("symbol") or "").strip().upper()
+                    if not symbol:
+                        continue
+                    watch_top.append({
+                        "symbol": symbol,
+                        "price": item.get("price"),
+                        "change_pct": item.get("change_pct"),
+                        "rvol": item.get("rvol"),
+                        "status": "watch",
+                        "confirmation_ready": False,
+                        "gate_reasons": item.get("reject_reasons") or ["لم يجتز بوابة التأكيد؛ للمراقبة فقط"],
+                        "targets": [item.get("target1")] if item.get("target1") else [],
+                        "risk_reward": item.get("risk_reward"),
+                        "watch_only_diagnostic": True,
+                    })
+                    if len(watch_top) >= 10:
+                        break
+
             return {
                 "ok": True,
                 "mode": "preview_only",
@@ -1424,7 +1449,7 @@ async def admin_radar_run_preview(user=Depends(telegram_user)):
                     "watch": len(watch),
                 },
                 "top5": [compact(x) for x in confirmed[:5]],
-                "watch_top": [compact(x) for x in watch[:10]],
+                "watch_top": watch_top,
                 "rejections": (diagnostics.get("filtered_examples") or [])[:20],
                 "filter_counts": diagnostics.get("filter_counts") or {},
                 "message": "تم الفحص فقط؛ لم يتم إرسال أي رسالة إلى قناة Telegram أو تغيير قائمة القناة.",
