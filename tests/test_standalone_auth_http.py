@@ -52,14 +52,14 @@ class StandaloneAuthHTTPIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(match, body)
         token = match.group(1)
 
-        response = await self.client.post("/api/standalone/auth/login", json={
+        response = await self.client.post("/api/standalone/auth/login", headers={"origin": "https://sas.example.com"}, json={
             "email": "trader@example.com", "password": "strong-password-123"
         })
         self.assertEqual(response.status_code, 401)
 
         response = await self.client.post("/api/standalone/auth/verify-email", json={"token": token})
         self.assertEqual(response.status_code, 200, response.text)
-        response = await self.client.post("/api/standalone/auth/login", json={
+        response = await self.client.post("/api/standalone/auth/login", headers={"origin": "https://sas.example.com"}, json={
             "email": "TRADER@example.com", "password": "strong-password-123"
         })
         self.assertEqual(response.status_code, 200, response.text)
@@ -74,6 +74,21 @@ class StandaloneAuthHTTPIntegrationTests(unittest.IsolatedAsyncioTestCase):
         response = await self.client.get("/api/standalone/auth/me")
         self.assertEqual(response.status_code, 401)
 
+
+    async def test_login_rejects_cross_origin_requests(self):
+        response = await self.client.post(
+            "/api/standalone/auth/login",
+            headers={"origin": "https://attacker.example"},
+            json={"email": "trader@example.com", "password": "strong-password-123"},
+        )
+        self.assertEqual(response.status_code, 403, response.text)
+
+    async def test_login_requires_origin_header(self):
+        response = await self.client.post(
+            "/api/standalone/auth/login",
+            json={"email": "trader@example.com", "password": "strong-password-123"},
+        )
+        self.assertEqual(response.status_code, 403, response.text)
 
     async def test_logout_rejects_cross_origin_requests(self):
         response = await self.client.post(
