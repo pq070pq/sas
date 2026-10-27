@@ -1,5 +1,6 @@
 import os
 import unittest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 from cryptography.fernet import Fernet
@@ -11,6 +12,7 @@ from app.standalone_outbox import (
     OutboxEncryptionNotConfigured,
     decrypt_message,
     dedupe_key,
+    deliver_one,
     enqueue_email,
     encrypt_message,
 )
@@ -44,6 +46,36 @@ class StandaloneOutboxTests(unittest.IsolatedAsyncioTestCase):
         os.environ.pop("STANDALONE_EMAIL_FERNET_KEY", None)
         with self.assertRaises(OutboxEncryptionNotConfigured):
             encrypt_message("Subject", "token-bearing body")
+
+    async def test_expired_sending_lease_is_reclaimed_and_delivered(self):
+        now = datetime.now(timezone.utc)
+        async with self.sessions() as session:
+            row = await enqueue_email(
+                session,
+                dedupe_key=dedupe_key("verify", "expired-lease-token"),
+                recipient="person@example.com",
+                subject="Verify account",
+                body="https://sas.example.com/standalone/verify-email?token=expired-lease-token",
+            )
+            row.status = "sending"
+            row.locked_until = now - timedelta(seconds=1)
+            await session.commit()
+            row_id = row.id
+
+        with patch("app.standalone_outbox.send_standalone_email", new_callable=AsyncMock) as send:
+            async with self.sessions() as session:
+                delivered = await deliver_one(session, now=now)
+                self.assertTrue(delivered)
+            send.assert_awaited_once()
+            self.assertEqual(send.await_args.args[0], "person@example.com")
+            self.assertEqual(send.await_args.args[1], "Verify account")
+            self.assertIn("expired-lease-token", send.await_args.args[2])
+
+        async with self.sessions() as session:
+            row = await session.get(SASEmailOutbox, row_id)
+            self.assertEqual(row.status, "sent")
+            self.assertIsNone(row.locked_until)
+            self.assertEqual(row.attempts, 1)
 
     async def test_enqueue_stores_ciphertext_and_deduplicates(self):
         async with self.sessions() as session:
