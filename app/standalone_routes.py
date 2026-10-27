@@ -1,8 +1,8 @@
 """Unmounted standalone account API.
 
 This router is deliberately NOT included by app/main.py. Before mounting it, add
-shared persistent rate limiting, CSRF protection for cookie-authenticated writes,
-a transactional email outbox, and route-level integration tests.
+a durable transactional email outbox and browser verification/reset pages. Rate limits
+are database-backed and Origin checks protect cookie-setting/login and logout writes.
 """
 import smtplib
 
@@ -27,6 +27,7 @@ from .standalone_accounts import (
 )
 from .standalone_email import EmailDeliveryNotConfigured, send_standalone_email
 from .standalone_email_templates import password_reset_email, verification_email
+from .standalone_rate_limit import enforce_rate_limit
 
 router = APIRouter(prefix="/api/standalone/auth", tags=["standalone-auth"])
 SESSION_COOKIE = "sas_standalone_session"
@@ -70,6 +71,27 @@ class PasswordResetRequest(BaseModel):
         return normalize_email(value)
 
 
+async def _enforce_attempt_limits(
+    request: Request,
+    session: AsyncSession,
+    *,
+    scope: str,
+    identity: str,
+    identity_limit: int,
+    identity_window_seconds: int,
+) -> None:
+    # Use the socket peer address, not client-controlled X-Forwarded-For.
+    # Deployments behind a trusted proxy should configure proxy trust explicitly.
+    ip = request.client.host if request.client else "unknown"
+    await enforce_rate_limit(
+        session, scope=f"{scope}:ip", identity=ip, limit=40, window_seconds=60
+    )
+    await enforce_rate_limit(
+        session, scope=f"{scope}:identity", identity=identity,
+        limit=identity_limit, window_seconds=identity_window_seconds,
+    )
+
+
 def _require_same_origin(request: Request) -> None:
     """Reject cross-origin cookie-authenticated writes (defense in depth)."""
     expected = _origin(request)
@@ -101,6 +123,10 @@ async def _send_mail_or_fail(recipient: str, subject: str, body: str) -> None:
 
 @router.post("/register", status_code=202)
 async def register(payload: RegisterInput, request: Request, session: AsyncSession = Depends(get_session)):
+    await _enforce_attempt_limits(
+        request, session, scope="register", identity=str(payload.email),
+        identity_limit=5, identity_window_seconds=3600,
+    )
     try:
         account, raw_token = await register_account(session, str(payload.email), payload.password)
         subject, body = verification_email(_origin(request), raw_token)
@@ -116,7 +142,11 @@ async def register(payload: RegisterInput, request: Request, session: AsyncSessi
 
 
 @router.post("/verify-email")
-async def verify_email(payload: TokenInput, session: AsyncSession = Depends(get_session)):
+async def verify_email(payload: TokenInput, request: Request, session: AsyncSession = Depends(get_session)):
+    await _enforce_attempt_limits(
+        request, session, scope="verify", identity=payload.token,
+        identity_limit=10, identity_window_seconds=3600,
+    )
     try:
         account = await verify_account_email(session, payload.token)
         await session.commit()
@@ -129,6 +159,10 @@ async def verify_email(payload: TokenInput, session: AsyncSession = Depends(get_
 @router.post("/login")
 async def login(payload: LoginInput, response: Response, request: Request, session: AsyncSession = Depends(get_session)):
     _require_same_origin(request)
+    await _enforce_attempt_limits(
+        request, session, scope="login", identity=str(payload.email),
+        identity_limit=8, identity_window_seconds=900,
+    )
     try:
         account, raw_token = await login_account(session, str(payload.email), payload.password)
         await session.commit()
@@ -145,6 +179,10 @@ async def login(payload: LoginInput, response: Response, request: Request, sessi
 @router.post("/logout", status_code=204)
 async def logout(response: Response, request: Request, session: AsyncSession = Depends(get_session)):
     _require_same_origin(request)
+    await _enforce_attempt_limits(
+        request, session, scope="logout", identity=request.cookies.get(SESSION_COOKIE, "missing"),
+        identity_limit=20, identity_window_seconds=3600,
+    )
     await logout_account(session, request.cookies.get(SESSION_COOKIE, ""))
     await session.commit()
     response.delete_cookie(key=SESSION_COOKIE, path="/", secure=True, httponly=True, samesite="lax")
@@ -164,6 +202,10 @@ async def me(request: Request, session: AsyncSession = Depends(get_session)):
 
 @router.post("/request-password-reset", status_code=202)
 async def request_password_reset(payload: PasswordResetRequest, request: Request, session: AsyncSession = Depends(get_session)):
+    await _enforce_attempt_limits(
+        request, session, scope="password-reset-request", identity=str(payload.email),
+        identity_limit=4, identity_window_seconds=3600,
+    )
     raw_token = await create_password_reset_token(session, str(payload.email))
     if raw_token:
         subject, body = password_reset_email(_origin(request), raw_token)
@@ -173,7 +215,11 @@ async def request_password_reset(payload: PasswordResetRequest, request: Request
 
 
 @router.post("/reset-password", status_code=204)
-async def reset(payload: ResetInput, session: AsyncSession = Depends(get_session)):
+async def reset(payload: ResetInput, request: Request, session: AsyncSession = Depends(get_session)):
+    await _enforce_attempt_limits(
+        request, session, scope="password-reset", identity=payload.token,
+        identity_limit=10, identity_window_seconds=3600,
+    )
     try:
         await reset_password(session, payload.token, payload.new_password)
         await session.commit()
