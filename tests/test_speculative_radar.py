@@ -1,6 +1,10 @@
 import unittest
 
-from app.speculative_radar import build_speculative_report, speculative_report_key
+from app.speculative_radar import (
+    _radar_session_is_scannable,
+    build_speculative_report,
+    speculative_report_key,
+)
 from app.finviz_intraday_filter import evaluate_intraday_candidate
 
 
@@ -59,6 +63,13 @@ class SpeculativeRadarTests(unittest.TestCase):
             speculative_report_key("ABCD", "2026-10-21"),
             speculative_report_key("ABCD", "2026-10-22"),
         )
+
+    def test_radar_runs_in_all_sessions_except_weekends_and_holidays(self):
+        for session in ("premarket", "regular", "afterhours", "night", "night_pending", "overnight"):
+            with self.subTest(session=session):
+                self.assertTrue(_radar_session_is_scannable({"session": session, "holiday": False}))
+        self.assertFalse(_radar_session_is_scannable({"session": "weekend", "holiday": False}))
+        self.assertFalse(_radar_session_is_scannable({"session": "holiday", "holiday": True}))
 
     def test_missing_symbol_is_rejected(self):
         report, result = build_speculative_report({"price": 5.5})
