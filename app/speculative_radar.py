@@ -150,6 +150,110 @@ async def _finnhub_session_quote(client: httpx.AsyncClient, symbol: str) -> dict
     return None
 
 
+def _radar_session_is_scannable(status: dict) -> bool:
+    """Keep both radars scheduled in every known session except weekends/holidays."""
+    session = str((status or {}).get("session") or "").strip().lower()
+    return not bool((status or {}).get("holiday")) and session not in {"weekend", "holiday", ""}
+
+
+def _parse_market_timestamp(value):
+    """Parse provider candle timestamps and normalize them to New York time."""
+    from datetime import datetime, timezone
+
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(float(value), timezone.utc).astimezone(ZoneInfo("America/New_York"))
+        except (ValueError, OverflowError, OSError):
+            return None
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=ZoneInfo("America/New_York"))
+    return parsed.astimezone(ZoneInfo("America/New_York"))
+
+
+async def _extended_session_quote(client: httpx.AsyncClient, symbol: str, session: str) -> dict | None:
+    """Get a fresh session-specific price/open/volume from observed 1-minute bars.
+
+    Do not substitute Finnhub's regular-session quote for premarket, after-hours,
+    or overnight prices. If PanWatch cannot provide fresh bars for that session,
+    this candidate is skipped rather than publishing stale or misleading data.
+    """
+    from datetime import datetime, timedelta
+    from .config import settings
+
+    now = datetime.now(ZoneInfo("America/New_York"))
+    if session == "premarket":
+        start = now.replace(hour=4, minute=0, second=0, microsecond=0)
+        end = now.replace(hour=9, minute=30, second=0, microsecond=0)
+    elif session == "afterhours":
+        start = now.replace(hour=16, minute=0, second=0, microsecond=0)
+        end = now.replace(hour=20, minute=0, second=0, microsecond=0)
+    elif session == "night":
+        start = now.replace(hour=21, minute=0, second=0, microsecond=0)
+        if now.hour < 4:
+            start -= timedelta(days=1)
+        end = now
+    else:
+        # There is no verified live session quote during the 20:00–21:00 ET
+        # transition or the overnight wait. The radar still scans, but won't
+        # publish a candidate without fresh traded prices.
+        return None
+
+    try:
+        response = await client.get(
+            f"{settings.panwatch_base_url.rstrip('/')}/api/klines/{symbol.upper()}",
+            params={"market": "US", "days": 2, "interval": "1min"},
+            timeout=8,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        data = payload.get("data") or payload
+        rows = data
+        if isinstance(data, dict):
+            rows = next(
+                (data.get(key) for key in ("klines", "candles", "values", "data", "results")
+                 if isinstance(data.get(key), list)),
+                [],
+            )
+        bars = []
+        for row in rows if isinstance(rows, list) else []:
+            if not isinstance(row, dict):
+                continue
+            lower = {str(k).strip().lower(): v for k, v in row.items()}
+            stamp = next((lower.get(k) for k in ("datetime", "date", "time", "timestamp", "t") if lower.get(k) not in (None, "")), None)
+            stamp = _parse_market_timestamp(stamp)
+            if stamp is None or not (start <= stamp <= min(end, now)):
+                continue
+            try:
+                op = float(lower.get("open", lower.get("o")))
+                close = float(lower.get("close", lower.get("c")))
+                volume = float(lower.get("volume", lower.get("v", 0)) or 0)
+            except (TypeError, ValueError):
+                continue
+            if op <= 0 or close <= 0 or volume < 0:
+                continue
+            bars.append((stamp, op, close, volume))
+        bars.sort(key=lambda item: item[0])
+        if not bars or (now - bars[-1][0]).total_seconds() > 20 * 60:
+            return None
+        return {
+            "price": bars[-1][2],
+            "session_open": bars[0][1],
+            "volume": sum(bar[3] for bar in bars),
+            "source": "PanWatch 1m",
+            "is_extended_hours": True,
+        }
+    except Exception as exc:
+        logger.debug("SPECULATIVE_EXTENDED_QUOTE_FAILED symbol=%s session=%s error=%s", symbol, session, type(exc).__name__)
+        return None
+
+
 async def _fmp_float_shares(client: httpx.AsyncClient, symbol: str) -> float | None:
     """Fetch actual float shares from FMP; never substitute shares outstanding."""
     cached = _FLOAT_CACHE.get(symbol)
@@ -203,9 +307,11 @@ async def speculative_radar_cycle() -> dict:
     from .scanner import discover_low_price_stocks
 
     status = market_status()
-    if status.get("session") != "regular":
-        logger.info("SPECULATIVE_RADAR_SKIPPED session=%s", status.get("session"))
-        return {"status": "outside_regular_session", "sent": 0}
+    session = str(status.get("session") or "").lower()
+    if not _radar_session_is_scannable(status):
+        logger.info("SPECULATIVE_RADAR_SKIPPED session=%s", session)
+        return {"status": "outside_market_calendar", "session": session, "sent": 0}
+    logger.info("SPECULATIVE_RADAR_ACTIVE session=%s", session)
 
     try:
         discovered = await discover_low_price_stocks(price_min=1.00, price_max=10.00)
@@ -219,7 +325,7 @@ async def speculative_radar_cycle() -> dict:
         row for row in discovered
         if isinstance(row, dict)
         and 1.00 <= (_number(row.get("price")) or 0) <= 10.00
-        and (_number(row.get("volume")) or 0) > 500_000
+        and (_number(row.get("volume")) or 0) > 0
         and str(row.get("symbol") or "").strip()
     ]
     shortlist.sort(key=lambda row: _number(row.get("volume")) or 0, reverse=True)
@@ -233,13 +339,22 @@ async def speculative_radar_cycle() -> dict:
         async def check(row: dict):
             symbol = str(row.get("symbol") or "").upper().strip()
             async with semaphore:
-                quote = await _finnhub_session_quote(client, symbol)
+                if session == "regular":
+                    quote = await _finnhub_session_quote(client, symbol)
+                    observed_volume = _number(row.get("volume"))
+                else:
+                    quote = await _extended_session_quote(client, symbol, session)
+                    observed_volume = _number(quote.get("volume")) if quote else None
                 if not quote:
-                    return {"status": "quote_unavailable", "symbol": symbol}
+                    return {"status": "session_quote_unavailable", "symbol": symbol, "session": session}
                 price = quote["price"]
                 session_open = quote["session_open"]
+                if not (1.00 <= price <= 10.00):
+                    return {"status": "price_filtered", "symbol": symbol}
+                if observed_volume is None or observed_volume <= 500_000:
+                    return {"status": "session_volume_filtered", "symbol": symbol}
                 change = ((price - session_open) / session_open) * 100
-                if not (1.00 <= price <= 10.00) or change < 10.0:
+                if change < 10.0:
                     return {"status": "price_or_momentum_filtered", "symbol": symbol}
                 float_shares = await _fmp_float_shares(client, symbol)
                 if float_shares is None:
@@ -248,7 +363,7 @@ async def speculative_radar_cycle() -> dict:
                     "symbol": symbol,
                     "price": price,
                     "float_shares": float_shares,
-                    "volume": _number(row.get("volume")),
+                    "volume": observed_volume,
                     "session_open": session_open,
                 })
 
