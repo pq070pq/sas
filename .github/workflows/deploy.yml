@@ -14,6 +14,8 @@ concurrency:
 
 jobs:
   deploy:
+    # Manual dispatch from a feature branch must never deploy that branch to production.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
