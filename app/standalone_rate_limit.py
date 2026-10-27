@@ -52,6 +52,8 @@ async def enforce_rate_limit(
         set_={"hits": SASRateLimitBucket.hits + 1},
     ).returning(SASRateLimitBucket.hits)
     hits = (await session.execute(statement)).scalar_one()
+    # Persist the counter before route logic can roll back a failed login/reset.
+    await session.commit()
     if hits > limit:
         raise HTTPException(
             status_code=429,
