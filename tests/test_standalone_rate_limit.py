@@ -43,11 +43,10 @@ class StandaloneRateLimitTests(unittest.IsolatedAsyncioTestCase):
     async def test_new_window_starts_a_separate_counter(self):
         now = datetime.now(timezone.utc)
         async with self.sessions() as session:
-            for _ in range(2):
-                await enforce_rate_limit(
-                    session, scope="register", identity="person@example.com",
-                    limit=1, window_seconds=60, now=now,
-                )
+            await enforce_rate_limit(
+                session, scope="register", identity="person@example.com",
+                limit=1, window_seconds=60, now=now,
+            )
             with self.assertRaises(HTTPException):
                 await enforce_rate_limit(
                     session, scope="register", identity="person@example.com",
