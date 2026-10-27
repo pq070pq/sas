@@ -114,6 +114,37 @@ class StandaloneOutboxTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(second_result)
         send.assert_awaited_once()
 
+    async def test_failed_delivery_retries_without_storing_sensitive_error_text(self):
+        now = datetime.now(timezone.utc)
+        secret = "sensitive-one-time-token"
+        async with self.sessions() as session:
+            row = await enqueue_email(
+                session,
+                dedupe_key=dedupe_key("verify", secret),
+                recipient="person@example.com",
+                subject="Verify account",
+                body=f"https://sas.example.com/standalone/verify-email?token={secret}",
+            )
+            await session.commit()
+            row_id = row.id
+
+        with patch(
+            "app.standalone_outbox.send_standalone_email",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError(f"provider failed while handling {secret}"),
+        ):
+            async with self.sessions() as session:
+                self.assertTrue(await deliver_one(session, now=now))
+
+        async with self.sessions() as session:
+            row = await session.get(SASEmailOutbox, row_id)
+            self.assertEqual(row.status, "pending")
+            self.assertEqual(row.attempts, 1)
+            self.assertEqual(row.last_error, "RuntimeError")
+            self.assertNotIn(secret, row.last_error)
+            self.assertGreater(row.available_at, now)
+            self.assertIsNone(row.locked_until)
+
     async def test_enqueue_stores_ciphertext_and_deduplicates(self):
         async with self.sessions() as session:
             key = dedupe_key("verify", "one-time-token-value")
