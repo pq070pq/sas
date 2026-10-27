@@ -117,7 +117,7 @@ jobs:
             echo "===== CONTAINER STATUS =====";
             docker compose ps saspro panwatch;
             echo "===== SAS PRO TO PANWATCH CONNECTIVITY (READ ONLY) =====";
-            docker compose exec -T saspro python -c '\''import urllib.request; u="http://panwatch:8000/openapi.json"; exec("try:\\n r=urllib.request.urlopen(u, timeout=5); print(\\"PANWATCH_HTTP_STATUS=\\", r.status)\\nexcept Exception as e: print(\\"PANWATCH_PROBE_ERROR=\\", type(e).__name__, str(e)[:160])")'\'' || true;
+            docker compose exec -T saspro python -c '\''import urllib.request; print("PANWATCH_HTTP_STATUS=", urllib.request.urlopen("http://panwatch:8000/openapi.json", timeout=5).status)'\'' 2>&1 || true;
             echo "===== PANWATCH SERVICE LOGS =====";
             docker compose logs --tail=250 --timestamps panwatch 2>&1 | grep -Ei "error|exception|traceback|failed|fatal|listening|started|uvicorn|bind|port|health" | tail -n 150 || true;
             echo "===== RECENT RADAR / DATA / SCHEDULER EVENTS =====";
