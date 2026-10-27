@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from .config import settings
@@ -35,6 +35,33 @@ class User(Base):
     terms_version: Mapped[str | None] = mapped_column(String(32))
     trial_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     channel_join_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+class SASAccount(Base):
+    """Platform-neutral SAS account; kept separate from legacy Telegram users.
+
+    Authentication endpoints are intentionally added in a later, tested step.
+    This additive table does not change Telegram login or subscription behavior.
+    """
+    __tablename__ = "sas_accounts"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    email: Mapped[str] = mapped_column(String(254), unique=True, index=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class SASIdentityLink(Base):
+    """Optional link from a SAS account to a legacy/external identity."""
+    __tablename__ = "sas_identity_links"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    account_id: Mapped[str] = mapped_column(String(36), ForeignKey("sas_accounts.id", ondelete="CASCADE"), index=True)
+    provider: Mapped[str] = mapped_column(String(32), index=True)
+    provider_subject: Mapped[str] = mapped_column(String(255))
+    linked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    __table_args__ = (UniqueConstraint("provider", "provider_subject", name="uq_sas_identity_provider_subject"),)
+
 
 class AccessRequest(Base):
     __tablename__ = "access_requests"
