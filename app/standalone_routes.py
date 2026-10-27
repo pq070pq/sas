@@ -1,11 +1,9 @@
 """Unmounted standalone account API.
 
-This router is deliberately NOT included by app/main.py. Before mounting it, add
-a durable transactional email outbox and browser verification/reset pages. Rate limits
+This router is deliberately NOT included by app/main.py. Verification and reset emails
+are placed in the encrypted outbox in the same transaction as their tokens. Rate limits
 are database-backed and Origin checks protect cookie-setting/login and logout writes.
 """
-import smtplib
-
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from urllib.parse import urlsplit
 from pydantic import BaseModel, Field, field_validator
@@ -25,7 +23,7 @@ from .standalone_accounts import (
     reset_password,
     verify_account_email,
 )
-from .standalone_email import EmailDeliveryNotConfigured, send_standalone_email
+from .standalone_outbox import enqueue_email, dedupe_key
 from .standalone_email_templates import password_reset_email, verification_email
 from .standalone_rate_limit import enforce_rate_limit
 
@@ -114,13 +112,6 @@ def _origin(request: Request) -> str:
     return standalone_public_origin()
 
 
-async def _send_mail_or_fail(recipient: str, subject: str, body: str) -> None:
-    try:
-        await send_standalone_email(recipient, subject, body)
-    except (EmailDeliveryNotConfigured, OSError, ValueError, smtplib.SMTPException) as exc:
-        raise HTTPException(status_code=503, detail="Email delivery is temporarily unavailable.") from exc
-
-
 @router.post("/register", status_code=202)
 async def register(payload: RegisterInput, request: Request, session: AsyncSession = Depends(get_session)):
     await _enforce_attempt_limits(
@@ -130,7 +121,10 @@ async def register(payload: RegisterInput, request: Request, session: AsyncSessi
     try:
         account, raw_token = await register_account(session, str(payload.email), payload.password)
         subject, body = verification_email(_origin(request), raw_token)
-        await _send_mail_or_fail(account.email, subject, body)
+        await enqueue_email(
+            session, dedupe_key=dedupe_key("verify", raw_token),
+            recipient=account.email, subject=subject, body=body,
+        )
         await session.commit()
     except AccountAlreadyExists:
         await session.rollback()
@@ -210,7 +204,10 @@ async def request_password_reset(payload: PasswordResetRequest, request: Request
         raw_token = await create_password_reset_token(session, str(payload.email))
         if raw_token:
             subject, body = password_reset_email(_origin(request), raw_token)
-            await _send_mail_or_fail(str(payload.email), subject, body)
+            await enqueue_email(
+                session, dedupe_key=dedupe_key("password-reset", raw_token),
+                recipient=str(payload.email), subject=subject, body=body,
+            )
         await session.commit()
     except Exception:
         # Do not leave a usable reset token behind when email delivery fails.
