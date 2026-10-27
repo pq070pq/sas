@@ -5,9 +5,11 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 from fastapi import FastAPI
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.db import Base, get_session
+from app.db import Base, SASEmailOutbox, get_session
+from app.standalone_outbox import decrypt_message
 from app.standalone_routes import router
 
 
@@ -29,25 +31,32 @@ class StandaloneAuthHTTPIntegrationTests(unittest.IsolatedAsyncioTestCase):
             transport=httpx.ASGITransport(app=self.app),
             base_url="https://testserver",
         )
-        self.mail = AsyncMock()
-        self.mail_patch = patch("app.standalone_routes.send_standalone_email", self.mail)
-        self.mail_patch.start()
-        self.origin_patch = patch.dict("os.environ", {"STANDALONE_PUBLIC_ORIGIN": "https://sas.example.com"})
+        self.origin_patch = patch.dict("os.environ", {
+            "STANDALONE_PUBLIC_ORIGIN": "https://sas.example.com",
+            "STANDALONE_EMAIL_FERNET_KEY": "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=",
+        })
         self.origin_patch.start()
 
     async def asyncTearDown(self):
         self.origin_patch.stop()
-        self.mail_patch.stop()
         await self.client.aclose()
         await self.engine.dispose()
+
+    async def queued_email_body(self, expected_path: str) -> str:
+        async with self.sessions() as session:
+            rows = list((await session.scalars(select(SASEmailOutbox).order_by(SASEmailOutbox.id))).all())
+            for row in reversed(rows):
+                _, body = decrypt_message(row.body)
+                if expected_path in body:
+                    return body
+        self.fail(f"No queued email contained {expected_path!r}")
 
     async def test_register_verify_login_me_logout_http_flow(self):
         response = await self.client.post("/api/standalone/auth/register", json={
             "email": " Trader@Example.com ", "password": "strong-password-123"
         })
         self.assertEqual(response.status_code, 202, response.text)
-        self.mail.assert_awaited_once()
-        body = self.mail.await_args.args[2]
+        body = await self.queued_email_body("/standalone/verify-email?token=")
         match = re.search(r"/standalone/verify-email\?token=([^\s]+)", body)
         self.assertIsNotNone(match, body)
         token = match.group(1)
@@ -108,13 +117,14 @@ class StandaloneAuthHTTPIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(unknown.status_code, 202, unknown.text)
         unknown_message = unknown.json()["message"]
-        self.mail.assert_not_awaited()
+        async with self.sessions() as session:
+            self.assertEqual(await session.scalar(select(SASEmailOutbox.id)), None)
 
         response = await self.client.post("/api/standalone/auth/register", json={
             "email": "reset@example.com", "password": "original-password-123"
         })
         self.assertEqual(response.status_code, 202, response.text)
-        verification_body = self.mail.await_args.args[2]
+        verification_body = await self.queued_email_body("/standalone/verify-email?token=")
         verification_match = re.search(r"/standalone/verify-email\?token=([^\s]+)", verification_body)
         self.assertIsNotNone(verification_match, verification_body)
         response = await self.client.post(
@@ -137,7 +147,7 @@ class StandaloneAuthHTTPIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(response.status_code, 202, response.text)
         self.assertEqual(response.json()["message"], unknown_message)
-        reset_body = self.mail.await_args.args[2]
+        reset_body = await self.queued_email_body("/standalone/reset-password?token=")
         reset_match = re.search(r"/standalone/reset-password\?token=([^\s]+)", reset_body)
         self.assertIsNotNone(reset_match, reset_body)
 
@@ -164,17 +174,21 @@ class StandaloneAuthHTTPIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(response.status_code, 400, response.text)
 
-    async def test_registration_email_failure_does_not_create_account(self):
-        self.mail.side_effect = OSError("mail server unavailable")
+    async def test_registration_queues_encrypted_email_atomically(self):
         response = await self.client.post("/api/standalone/auth/register", json={
             "email": "fail@example.com", "password": "strong-password-123"
         })
-        self.assertEqual(response.status_code, 503, response.text)
+        self.assertEqual(response.status_code, 202, response.text)
         async with self.sessions() as session:
             from sqlalchemy import select
             from app.db import SASAccount
             account = await session.scalar(select(SASAccount).where(SASAccount.email == "fail@example.com"))
-            self.assertIsNone(account)
+            self.assertIsNotNone(account)
+            queued = await session.scalar(select(SASEmailOutbox).where(SASEmailOutbox.recipient == "fail@example.com"))
+            self.assertIsNotNone(queued)
+            self.assertEqual(queued.status, "pending")
+            self.assertEqual(queued.subject, "[encrypted]")
+            self.assertIn("/standalone/verify-email?token=", decrypt_message(queued.body)[1])
 
     async def test_invalid_email_is_rejected_before_handler(self):
         response = await self.client.post("/api/standalone/auth/register", json={
