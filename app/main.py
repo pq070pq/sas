@@ -5035,6 +5035,10 @@ _SEC_CACHE_TTL = 600
 async def disclosures_page():
     return FileResponse(Path("web/disclosures.html"))
 
+@app.get("/scanstock")
+async def scanstock_page():
+    return FileResponse(Path("web/scanstock.html"))
+
 @app.get("/api/disclosures/search")
 async def search_sec_disclosures(
     q: str,
