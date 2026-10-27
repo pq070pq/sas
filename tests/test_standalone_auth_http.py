@@ -69,10 +69,22 @@ class StandaloneAuthHTTPIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()["email"], "trader@example.com")
 
-        response = await self.client.post("/api/standalone/auth/logout")
+        response = await self.client.post("/api/standalone/auth/logout", headers={"origin": "https://sas.example.com"})
         self.assertEqual(response.status_code, 204, response.text)
         response = await self.client.get("/api/standalone/auth/me")
         self.assertEqual(response.status_code, 401)
+
+
+    async def test_logout_rejects_cross_origin_requests(self):
+        response = await self.client.post(
+            "/api/standalone/auth/logout",
+            headers={"origin": "https://attacker.example"},
+        )
+        self.assertEqual(response.status_code, 403, response.text)
+
+    async def test_logout_requires_origin_header(self):
+        response = await self.client.post("/api/standalone/auth/logout")
+        self.assertEqual(response.status_code, 403, response.text)
 
     async def test_registration_email_failure_does_not_create_account(self):
         self.mail.side_effect = OSError("mail server unavailable")
