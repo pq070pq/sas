@@ -101,6 +101,69 @@ class StandaloneAuthHTTPIntegrationTests(unittest.IsolatedAsyncioTestCase):
         response = await self.client.post("/api/standalone/auth/logout")
         self.assertEqual(response.status_code, 403, response.text)
 
+    async def test_password_reset_http_flow_and_account_enumeration(self):
+        unknown = await self.client.post(
+            "/api/standalone/auth/request-password-reset",
+            json={"email": "unknown@example.com"},
+        )
+        self.assertEqual(unknown.status_code, 202, unknown.text)
+        unknown_message = unknown.json()["message"]
+        self.mail.assert_not_awaited()
+
+        response = await self.client.post("/api/standalone/auth/register", json={
+            "email": "reset@example.com", "password": "original-password-123"
+        })
+        self.assertEqual(response.status_code, 202, response.text)
+        verification_body = self.mail.await_args.args[2]
+        verification_match = re.search(r"/standalone/verify-email\\?token=([^\\s]+)", verification_body)
+        self.assertIsNotNone(verification_match, verification_body)
+        response = await self.client.post(
+            "/api/standalone/auth/verify-email", json={"token": verification_match.group(1)}
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+
+        response = await self.client.post(
+            "/api/standalone/auth/login",
+            headers={"origin": "https://sas.example.com"},
+            json={"email": "reset@example.com", "password": "original-password-123"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        old_session_cookie = response.cookies.get("sas_standalone_session")
+        self.assertTrue(old_session_cookie)
+
+        response = await self.client.post(
+            "/api/standalone/auth/request-password-reset",
+            json={"email": "RESET@example.com"},
+        )
+        self.assertEqual(response.status_code, 202, response.text)
+        self.assertEqual(response.json()["message"], unknown_message)
+        reset_body = self.mail.await_args.args[2]
+        reset_match = re.search(r"/standalone/reset-password\\?token=([^\\s]+)", reset_body)
+        self.assertIsNotNone(reset_match, reset_body)
+
+        response = await self.client.post(
+            "/api/standalone/auth/reset-password",
+            json={"token": reset_match.group(1), "new_password": "replacement-password-456"},
+        )
+        self.assertEqual(response.status_code, 204, response.text)
+        response = await self.client.get(
+            "/api/standalone/auth/me",
+            cookies={"sas_standalone_session": old_session_cookie},
+        )
+        self.assertEqual(response.status_code, 401)
+
+        response = await self.client.post(
+            "/api/standalone/auth/login",
+            headers={"origin": "https://sas.example.com"},
+            json={"email": "reset@example.com", "password": "replacement-password-456"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        response = await self.client.post(
+            "/api/standalone/auth/reset-password",
+            json={"token": reset_match.group(1), "new_password": "another-password-789"},
+        )
+        self.assertEqual(response.status_code, 400, response.text)
+
     async def test_registration_email_failure_does_not_create_account(self):
         self.mail.side_effect = OSError("mail server unavailable")
         response = await self.client.post("/api/standalone/auth/register", json={
