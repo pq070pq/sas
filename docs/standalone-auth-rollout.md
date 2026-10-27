@@ -83,3 +83,14 @@ Before any production deployment containing these models:
 7. Since there is no versioned migration framework yet, add a formal, reviewed migration mechanism before schema changes that modify existing tables or become operationally complex.
 
 This is a documented procedure, not a claim that a backup, restore, or production migration has been performed.
+
+
+## Read-only schema preflight command
+
+A read-only schema inventory is available on the work branch:
+
+```bash
+python -m app.standalone_schema_preflight
+```
+
+It reports whether the required legacy Telegram/payment tables and columns exist and whether the additive standalone tables are present. It does not create or alter tables. A successful exit only means the required legacy columns were found; the report deliberately keeps `safe_to_enable_routes` false because the command cannot validate backups, restored data, SMTP delivery, reverse-proxy trust, or end-to-end behavior. Run it against staging first and preserve its output without database credentials.
