@@ -6,6 +6,8 @@
 - The current Telegram Mini App, Telegram identities, subscriptions, Stars payments, and production entry points are unchanged by this branch.
 - CI passed on the latest outbox retry-test fix `613f7cbe5fa9ac143a9c8964c782f18881a73b7c`, including compile, all unit tests, and Mini App JavaScript validation: https://github.com/pq070pq/sas/actions/runs/40590963523
 - The retry test now normalizes SQLite's naive datetime result to UTC before comparing it with an aware datetime; the test is still asserting the retry is scheduled after the reference time.
+- Latest guard-test CI passed on commit `495613f4842b253db1e47f797e3134b42afc897e`, including compile, unit tests, and Mini App JavaScript validation: https://github.com/pq070pq/sas/actions/runs/40591495136
+- The production deploy workflow now explicitly gates its job to `refs/heads/main`; a separate run for the preceding workflow-only commit was cancelled when the newer test commit queued, so use the passing guard-test run above as the latest green CI record.
 - CI passed on the latest schema-preflight commit `d1fae1bb1f0e66ea95d385b72718f731ca42d622`, including compile, unit tests, and Mini App JavaScript validation: https://github.com/pq070pq/sas/actions/runs/40590060956
 - Earlier CI runs below document incremental validation history; the latest green run is the source of truth for the current branch head.
 - CI passed on commit `9893749ca0b0a2d4c92be9b5f044dc1faad78c4c`: https://github.com/pq070pq/sas/actions/runs/40586638444
@@ -106,6 +108,7 @@ It reports whether the required legacy Telegram/payment tables and columns exist
 
 The owner may continue this work from a phone using GitHub only. For each code change:
 - Keep changes on `feature/sas-standalone-next`.
+- Production deploy job has an explicit `github.ref == 'refs/heads/main'` condition to block manual dispatch from feature branches; the test suite asserts this guard remains present.
 - Use GitHub Actions as the automated compile/unit-test/Mini App syntax check.
 - Inspect the exact run and job-step conclusions for the latest commit before describing it as passed.
 - Keep routers unmounted and do not deploy or merge to `main`.
