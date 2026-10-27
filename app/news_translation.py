@@ -4,8 +4,14 @@ import json
 import logging
 import httpx
 from .config import settings
+from .key_pool import KeyPool, parse_keys
 
 logger = logging.getLogger(__name__)
+
+_gemini_pool = KeyPool(parse_keys(settings.gemini_api_keys, settings.gemini_api_key), settings.api_key_cooldown_seconds)
+_groq_pool = KeyPool(parse_keys(settings.groq_api_keys, settings.groq_api_key), settings.api_key_cooldown_seconds)
+_openrouter_pool = KeyPool(parse_keys(settings.openrouter_api_keys, settings.openrouter_api_key), settings.api_key_cooldown_seconds)
+_translation_provider_blocked_until: dict[str, float] = {}
 
 _translation_cache: dict[str, tuple[float, str]] = {}
 _TRANSLATION_CACHE_TTL = 24 * 60 * 60
@@ -87,9 +93,9 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
     if not selected:
         return []
     providers = [
-        ("Gemini", settings.gemini_api_key, settings.gemini_base_url, settings.gemini_model),
-        ("Groq", settings.groq_api_key, settings.groq_base_url, settings.groq_model),
-        ("OpenRouter", settings.openrouter_api_key, settings.openrouter_base_url, settings.openrouter_model),
+        ("Gemini", _gemini_pool, settings.gemini_base_url, settings.gemini_model),
+        ("Groq", _groq_pool, settings.groq_base_url, settings.groq_model),
+        ("OpenRouter", _openrouter_pool, settings.openrouter_base_url, settings.openrouter_model),
     ]
     # Stable ids and original headlines recover matches if a provider rewrites URLs.
     payload = [
@@ -107,10 +113,15 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
         f"رمز السهم المعروض: {symbol}. لا تنسب خبرًا للشركة إلا إذا دل النص على ذلك. الأخبار: "
         + json.dumps(payload, ensure_ascii=False)
     )
-    # Query configured providers concurrently so one stale/slow key cannot block
-    # every other translator. Preserve provider preference when merging results.
-    async def request_provider(provider_name, api_key, base_url, model):
-        if not api_key or not base_url:
+    # Sequential provider fallback avoids paying/requesting all providers in parallel.
+    async def request_provider(provider_name, pool, base_url, model):
+        if pool.size == 0 or not base_url:
+            return provider_name, []
+        import time
+        if _translation_provider_blocked_until.get(provider_name, 0) > time.monotonic():
+            return provider_name, []
+        api_key = await pool.acquire()
+        if not api_key:
             return provider_name, []
         try:
             async with httpx.AsyncClient(timeout=5) as client:
@@ -122,7 +133,18 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
                                        {"role": "user", "content": prompt}],
                           "response_format": {"type": "json_object"}},
                 )
+                if response.status_code in (401, 403):
+                    await pool.mark_failure(api_key)
+                    return provider_name, []
+                if response.status_code == 429:
+                    retry = response.headers.get("Retry-After")
+                    cooldown = int(retry) if retry and retry.isdigit() else 900
+                    _translation_provider_blocked_until[provider_name] = time.monotonic() + max(60, min(cooldown, 86400))
+                    await pool.mark_failure(api_key, retry_after=cooldown)
+                    logger.warning("News translation quota/rate limit reached; provider cooled down: %s", provider_name)
+                    return provider_name, []
                 response.raise_for_status()
+                await pool.mark_success(api_key)
                 parsed = json.loads(response.json()["choices"][0]["message"]["content"])
             translations = parsed.get("items", []) if isinstance(parsed, dict) else []
             by_url = {_normalize_news_url(str(item.get("url") or "")): item for item in translations
@@ -154,17 +176,13 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
             logger.warning("News translation provider %s failed for %s: %s", provider_name, symbol, type(exc).__name__)
             return provider_name, []
 
-    responses = await asyncio.gather(
-        *(request_provider(*provider) for provider in providers),
-        return_exceptions=True,
-    )
     combined = {}
-    for response in responses:
-        if not isinstance(response, tuple) or len(response) != 2:
-            continue
-        provider_name, result = response
+    for provider in providers:
+        provider_name, result = await request_provider(*provider)
         for item in result:
             combined.setdefault(str(item.get("url") or ""), item)
+        if len(combined) >= len(selected):
+            break
 
     missing = [item for item in selected if str(item.get("url") or "") not in combined]
     if missing:
