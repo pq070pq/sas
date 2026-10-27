@@ -79,6 +79,7 @@ async def verify_account_email(session: AsyncSession, raw_token: str) -> SASAcco
             SASAuthToken.expires_at > now,
         )
         .values(consumed_at=now)
+        .execution_options(synchronize_session=False)
     )
     if consumed.rowcount != 1:
         raise InvalidOrExpiredToken("Verification token is invalid or expired.")
