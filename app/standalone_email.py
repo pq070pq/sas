@@ -1,40 +1,50 @@
 """Email delivery for standalone SAS accounts.
 
-This module is deliberately not wired to any public endpoint until SMTP is configured
-and verified. It fails closed when delivery is not configured and never logs credentials
-or message contents.
+Not wired to public endpoints yet. SMTP settings use the STANDALONE_ environment
+prefix and the existing .env file. Delivery fails closed when configuration is absent.
 """
 import asyncio
 import smtplib
 from email.message import EmailMessage
 
-from .config import settings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class EmailDeliveryNotConfigured(RuntimeError):
     """Raised when outbound email cannot safely be attempted."""
 
 
+class StandaloneEmailSettings(BaseSettings):
+    smtp_host: str = ""
+    smtp_port: int = 587
+    email_from: str = ""
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = True
+    smtp_use_ssl: bool = False
+    model_config = SettingsConfigDict(env_file=".env", env_prefix="STANDALONE_", extra="ignore")
+
+
+email_settings = StandaloneEmailSettings()
+
+
 def _smtp_config() -> dict[str, object]:
-    host = settings.standalone_smtp_host.strip()
-    sender = settings.standalone_email_from.strip()
+    host = email_settings.smtp_host.strip()
+    sender = email_settings.email_from.strip()
     if not host or not sender:
         raise EmailDeliveryNotConfigured("Standalone email delivery is not configured.")
-    port = settings.standalone_smtp_port
+    port = email_settings.smtp_port
     if not 1 <= port <= 65535:
         raise EmailDeliveryNotConfigured("Standalone SMTP port is invalid.")
-    if settings.standalone_smtp_use_tls and settings.standalone_smtp_use_ssl:
+    if email_settings.smtp_use_tls and email_settings.smtp_use_ssl:
         raise EmailDeliveryNotConfigured("Configure either SMTP STARTTLS or implicit SSL, not both.")
-    if settings.standalone_smtp_username and not settings.standalone_smtp_password:
+    if email_settings.smtp_username and not email_settings.smtp_password:
         raise EmailDeliveryNotConfigured("SMTP password is missing for the configured username.")
     return {
-        "host": host,
-        "port": port,
-        "sender": sender,
-        "username": settings.standalone_smtp_username.strip(),
-        "password": settings.standalone_smtp_password,
-        "starttls": settings.standalone_smtp_use_tls,
-        "ssl": settings.standalone_smtp_use_ssl,
+        "host": host, "port": port, "sender": sender,
+        "username": email_settings.smtp_username.strip(),
+        "password": email_settings.smtp_password,
+        "starttls": email_settings.smtp_use_tls, "ssl": email_settings.smtp_use_ssl,
     }
 
 
@@ -57,14 +67,12 @@ def _send_sync(recipient: str, subject: str, text_body: str) -> None:
 
 
 async def send_standalone_email(recipient: str, subject: str, text_body: str) -> None:
-    """Send plain-text account email or fail without pretending it was delivered."""
-    config = _smtp_config()
+    """Send plain-text account email; never report success before SMTP accepts it."""
+    _smtp_config()
     if not recipient or "\n" in recipient or "\r" in recipient:
         raise ValueError("A valid recipient address is required.")
     if not subject or "\n" in subject or "\r" in subject:
         raise ValueError("A valid email subject is required.")
     if not text_body.strip():
         raise ValueError("Email body cannot be empty.")
-    # Validate config before handing off to the worker thread.
-    del config
     await asyncio.to_thread(_send_sync, recipient, subject, text_body)
