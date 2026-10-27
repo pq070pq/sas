@@ -65,6 +65,12 @@ class MiniAppRollbackContractTests(unittest.TestCase):
         self.assertIn("async def market_news_endpoint", main)
         self.assertIn("translate_stock_news", main)
 
+    def test_production_deploy_is_gated_to_main_branch(self):
+        workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
+        self.assertIn("branches:", workflow)
+        self.assertIn("- main", workflow)
+        self.assertIn("if: github.ref == 'refs/heads/main'", workflow)
+
     def test_deploy_smoke_test_accepts_new_market_pulse_ui(self):
         workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text(encoding="utf-8")
         self.assertIn('id="sasMarketNewsTrack"', workflow)
