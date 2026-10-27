@@ -125,6 +125,9 @@ class StandaloneOutboxTests(unittest.IsolatedAsyncioTestCase):
                 subject="Verify account",
                 body=f"https://sas.example.com/standalone/verify-email?token={secret}",
             )
+            # Freeze the queue's due time so this test does not depend on
+            # sub-second timing between enqueueing and delivery.
+            row.available_at = now - timedelta(seconds=1)
             await session.commit()
             row_id = row.id
 
