@@ -1,4 +1,3 @@
-import asyncio
 import unittest
 
 from app.key_pool import KeyPool, parse_keys
