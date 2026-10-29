@@ -248,6 +248,8 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                         attempts.append(f"Finnhub:HTTP{status_code}" if status_code else f"Finnhub:{type(exc).__name__}")
                         if isinstance(exc, httpx.TimeoutException):
                             _ohlcv_provider_failed("finnhub", cooldown_seconds=300, threshold=2)
+                        elif isinstance(exc, httpx.HTTPStatusError):
+                            _ohlcv_provider_failed("finnhub", cooldown_seconds=300, threshold=2)
                         if status_code not in (401, 403):
                             break
                 if finnhub_keys and auth_failures == len(finnhub_keys):
@@ -319,6 +321,8 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
                         status_code = getattr(getattr(exc, "response", None), "status_code", None)
                         attempts.append(f"FMP:HTTP{status_code}" if status_code else f"FMP:{type(exc).__name__}")
                         if isinstance(exc, httpx.TimeoutException):
+                            _ohlcv_provider_failed("fmp", cooldown_seconds=300, threshold=2)
+                        elif isinstance(exc, httpx.HTTPStatusError):
                             _ohlcv_provider_failed("fmp", cooldown_seconds=300, threshold=2)
                         if status_code not in (401, 403):
                             break
