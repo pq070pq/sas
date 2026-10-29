@@ -529,17 +529,26 @@ async def _apply_daily_momentum_filter(candidates):
     # unavailable; other candidates continue through the keyless shared OHLCV
     # fallback chain. This repairs the RVOL gate without spending credits on
     # every discovered symbol.
+    # Spend the tightly capped Twelve Data fallback budget on the actual
+    # requested low-priced US equity universe, not larger-cap rows that may
+    # enter the broad gainers feed. This keeps the same maximum call count.
+    fallback_candidates = [
+        row for row in candidates
+        if MIN_PRICE <= _f(row.get("price"), 0.0) <= MAX_PRICE
+        and _is_allowed_exchange(row)
+        and not _is_excluded_security(row)
+        and row.get("symbol")
+    ]
     fallback_symbols = {
         str(row.get("symbol") or "").upper()
         for row in sorted(
-            candidates,
+            fallback_candidates,
             key=lambda item: (
                 float(item.get("change_pct") or 0),
                 float(item.get("volume") or 0),
             ),
             reverse=True,
         )[:max(0, min(int(settings.twelve_data_scan_fallback_symbols or 0), 3))]
-        if row.get("symbol")
     }
 
     async def enrich(row):
