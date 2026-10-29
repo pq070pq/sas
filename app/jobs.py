@@ -716,7 +716,10 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
         change = 0.0
 
     try:
-        volume = float(row.get("volume") or 0)
+        # Prefer observed session volume from a fresh 1-minute extended-hours
+        # quote; fall back to the scanner's session volume field only when the
+        # quote provider does not expose it.
+        volume = float((quote_data or {}).get("session_volume") or row.get("volume") or 0)
     except (TypeError, ValueError):
         volume = 0.0
     dollar_volume = price * volume
@@ -1047,7 +1050,21 @@ async def stock_radar_cycle():
                 symbol = str(row.get("symbol") or "").upper()
                 async with quote_sem:
                     try:
-                        q = await quote(symbol, prefer_extended=status.get("session") in {"premarket", "afterhours", "night"})
+                        classification = row.get("classification") or {}
+                        is_extended_session = status.get("session") in {"premarket", "afterhours", "night"}
+                        # Do not spend extended-quote API calls on every scanned
+                        # symbol. Only candidates already confirmed by SAS need
+                        # a session-specific quote for the Telegram gate.
+                        needs_extended_quote = bool(
+                            is_extended_session
+                            and classification.get("opportunity_status") == "confirmed"
+                            and classification.get("confirmation_ready")
+                        )
+                        q = await quote(
+                            symbol,
+                            prefer_extended=needs_extended_quote,
+                            session=status.get("session"),
+                        )
                         return symbol, q
                     except Exception:
                         logger.exception("Quote provider failed for %s; live quote unavailable.", symbol)
