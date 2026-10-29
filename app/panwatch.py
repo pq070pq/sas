@@ -1,9 +1,40 @@
 import csv
 import math
 import io
+import time
 import httpx
 from .config import settings
 from .twelve_guard import call as twelve_call
+
+
+# Failed optional providers must not consume a full timeout for every symbol.
+# Cooldowns are process-local and short-lived; a provider can recover naturally.
+_OHLCV_PROVIDER_COOLDOWNS: dict[str, float] = {}
+_OHLCV_PROVIDER_FAILURE_STREAKS: dict[str, int] = {}
+
+
+def _ohlcv_provider_available(name: str) -> bool:
+    until = _OHLCV_PROVIDER_COOLDOWNS.get(name, 0.0)
+    if until > time.monotonic():
+        return False
+    _OHLCV_PROVIDER_COOLDOWNS.pop(name, None)
+    return True
+
+
+def _ohlcv_provider_failed(
+    name: str, *, cooldown_seconds: float = 300.0, threshold: int = 3, immediate: bool = False
+) -> None:
+    failures = _OHLCV_PROVIDER_FAILURE_STREAKS.get(name, 0) + 1
+    if immediate or failures >= max(1, threshold):
+        _OHLCV_PROVIDER_COOLDOWNS[name] = time.monotonic() + max(30.0, cooldown_seconds)
+        _OHLCV_PROVIDER_FAILURE_STREAKS[name] = 0
+    else:
+        _OHLCV_PROVIDER_FAILURE_STREAKS[name] = failures
+
+
+def _ohlcv_provider_succeeded(name: str) -> None:
+    _OHLCV_PROVIDER_FAILURE_STREAKS.pop(name, None)
+    _OHLCV_PROVIDER_COOLDOWNS.pop(name, None)
 
 
 
