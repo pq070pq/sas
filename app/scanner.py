@@ -585,6 +585,7 @@ async def _apply_daily_momentum_filter(candidates):
                     client,
                     symbol,
                     allow_twelve_fallback=symbol in fallback_symbols,
+                    allow_yahoo=True,
                 )
         rvol10 = _momentum_rvol_10d(candles)
         if rvol10 is None:
@@ -1054,7 +1055,10 @@ async def discover_low_price_stocks(price_min=MIN_PRICE, price_max=MAX_PRICE):
             try:
                 async with asyncio.timeout(analysis_timeout):
                     candles, source = await _get_analysis_candles(
-                        client, symbol, allow_twelve_fallback=False
+                        client,
+                        symbol,
+                        allow_twelve_fallback=False,
+                        allow_yahoo=True,
                     )
             except (asyncio.TimeoutError, httpx.HTTPError, Exception) as exc:
                 stage_stats["candle_error"] += 1
@@ -1236,7 +1240,13 @@ async def discover_low_price_stocks(price_min=MIN_PRICE, price_max=MAX_PRICE):
 
 
 
-async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool = False, min_candles: int = 30):
+async def _get_analysis_candles(
+    client,
+    symbol: str,
+    allow_twelve_fallback: bool = False,
+    min_candles: int = 30,
+    allow_yahoo: bool = False,
+):
     """Get observed daily OHLCV using existing sources and quota-safe fallbacks."""
     global _twelve_data_quota_exhausted
     key = symbol.upper()
@@ -1311,7 +1321,7 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
                 # Yahoo is enabled only from the active-session radar path; the
                 # holiday scanner never reaches this call.
                 timeout_seconds=8,
-                allow_yahoo=True,
+                allow_yahoo=allow_yahoo,
                 skip_panwatch=True,
             )
         fallback_candles = _parse_candles(history.get("candles") if isinstance(history, dict) else [])
