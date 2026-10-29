@@ -1306,10 +1306,13 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
                 interval="1d",
                 min_candles=min_candles,
                 allow_twelve_data=False,
-                # The fast PanWatch attempt above already used a 7-second
-                # timeout. Keep the fallback call bounded so one slow provider
-                # does not consume the entire 24-second per-symbol budget.
+                # The fast PanWatch attempt above already ran. Do not repeat the
+                # same slow request; use a bounded fallback chain instead.
+                # Yahoo is enabled only from the active-session radar path; the
+                # holiday scanner never reaches this call.
                 timeout_seconds=8,
+                allow_yahoo=True,
+                skip_panwatch=True,
             )
         fallback_candles = _parse_candles(history.get("candles") if isinstance(history, dict) else [])
         source = str(history.get("source") or "unavailable") if isinstance(history, dict) else "unavailable"
