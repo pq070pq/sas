@@ -739,7 +739,26 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
         return False, "لا يوجد سعر لحظي موثوق للجلسة الحالية"
     if classification.get("distribution_risk") or classification.get("bearish_head_shoulders"):
         return False, "تناقض هابط قوي"
-    if classification.get("chase_risk"):
+
+    # A confirmed, shallow breakout retest is not automatically a chase just
+    # because price remains far above EMA20. Permit this narrow exception only
+    # when the scanner has already confirmed the opportunity, the retest is
+    # valid, extension is measurable and <= 8%, structure is bullish, and no
+    # fake-breakout/bearish-distribution warning exists. All live-quote,
+    # stop, session and extended-hours gates below still apply.
+    try:
+        breakout_extension = float(classification.get("breakout_extension_pct"))
+    except (TypeError, ValueError):
+        breakout_extension = None
+    valid_retest_entry = bool(
+        classification.get("breakout_retest")
+        and not classification.get("breakout_fake")
+        and bool(classification.get("market_structure_bullish"))
+        and breakout_extension is not None
+        and 0 <= breakout_extension <= 8.0
+        and float(classification.get("rsi14") or 0) <= 73
+    )
+    if classification.get("chase_risk") and not valid_retest_entry:
         return False, "مطاردة سعرية"
     # لا نكرر قرار الرادار هنا. scanner.py هو صاحب قرار صلاحية الفرصة.
     # بوابة القناة تتحقق فقط من سلامة بيانات النشر ومخاطر الإرسال، حتى لا
