@@ -718,16 +718,13 @@ async def _panwatch_extended_quote(symbol: str, session: str | None) -> dict | N
         return None
 
     try:
-        response = await httpx.AsyncClient(timeout=8, follow_redirects=True).__aenter__()
-        try:
-            result = await response.get(
+        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+            result = await client.get(
                 f"{settings.panwatch_base_url.rstrip('/')}/api/klines/{symbol.upper()}",
                 params={"market": "US", "days": 2, "interval": "1min"},
             )
             result.raise_for_status()
             payload = result.json()
-        finally:
-            await response.aclose()
 
         data = payload.get("data") or payload if isinstance(payload, dict) else payload
         rows = data
