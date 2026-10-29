@@ -689,7 +689,113 @@ async def macro_quote(symbol: str):
         "is_extended_hours": False,
     }
 
-async def quote(symbol: str, prefer_extended: bool = False):
+async def _panwatch_extended_quote(symbol: str, session: str | None) -> dict | None:
+    """Return a fresh, session-bounded quote from observed PanWatch 1-minute bars.
+
+    This is a fallback only when the quote API does not expose a distinct
+    extended-hours price. Historical/daily candles are never promoted to live.
+    """
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+
+    if session not in {"premarket", "afterhours", "night"}:
+        return None
+
+    now = datetime.now(ZoneInfo("America/New_York"))
+    if session == "premarket":
+        start = now.replace(hour=4, minute=0, second=0, microsecond=0)
+        end = now.replace(hour=9, minute=30, second=0, microsecond=0)
+    elif session == "afterhours":
+        start = now.replace(hour=16, minute=0, second=0, microsecond=0)
+        end = now.replace(hour=20, minute=0, second=0, microsecond=0)
+    else:
+        start = now.replace(hour=21, minute=0, second=0, microsecond=0)
+        if now.hour < 4:
+            start -= timedelta(days=1)
+        end = now
+
+    if now < start or now > end:
+        return None
+
+    try:
+        response = await httpx.AsyncClient(timeout=8, follow_redirects=True).__aenter__()
+        try:
+            result = await response.get(
+                f"{settings.panwatch_base_url.rstrip('/')}/api/klines/{symbol.upper()}",
+                params={"market": "US", "days": 2, "interval": "1min"},
+            )
+            result.raise_for_status()
+            payload = result.json()
+        finally:
+            await response.aclose()
+
+        data = payload.get("data") or payload if isinstance(payload, dict) else payload
+        rows = data
+        if isinstance(data, dict):
+            rows = next(
+                (data.get(key) for key in ("klines", "candles", "values", "data", "results")
+                 if isinstance(data.get(key), list)),
+                [],
+            )
+
+        bars = []
+        for row in rows if isinstance(rows, list) else []:
+            if not isinstance(row, dict):
+                continue
+            lower = {str(k).strip().lower(): v for k, v in row.items()}
+            raw_stamp = next(
+                (lower.get(key) for key in ("datetime", "date", "time", "timestamp", "t")
+                 if lower.get(key) not in (None, "")),
+                None,
+            )
+            try:
+                if isinstance(raw_stamp, (int, float)):
+                    stamp_num = float(raw_stamp)
+                    if stamp_num > 1e12:
+                        stamp_num /= 1000
+                    from datetime import timezone
+                    stamp = datetime.fromtimestamp(stamp_num, timezone.utc).astimezone(ZoneInfo("America/New_York"))
+                else:
+                    stamp_text = str(raw_stamp or "").strip()
+                    if not stamp_text:
+                        continue
+                    stamp = datetime.fromisoformat(stamp_text.replace("Z", "+00:00"))
+                    if stamp.tzinfo is None:
+                        stamp = stamp.replace(tzinfo=ZoneInfo("America/New_York"))
+                    else:
+                        stamp = stamp.astimezone(ZoneInfo("America/New_York"))
+                op = float(lower.get("open", lower.get("o")))
+                close = float(lower.get("close", lower.get("c")))
+                volume = float(lower.get("volume", lower.get("v", 0)) or 0)
+            except (TypeError, ValueError, OverflowError, OSError):
+                continue
+            if start <= stamp <= min(end, now) and op > 0 and close > 0 and volume >= 0:
+                bars.append((stamp, op, close, volume))
+
+        bars.sort(key=lambda item: item[0])
+        if not bars or (now - bars[-1][0]).total_seconds() > 20 * 60:
+            return None
+        session_open = bars[0][1]
+        last_price = bars[-1][2]
+        session_volume = sum(item[3] for item in bars)
+        if session_open <= 0 or last_price <= 0 or session_volume <= 0:
+            return None
+        return {
+            "symbol": symbol.upper(),
+            "price": last_price,
+            "change_pct": ((last_price / session_open) - 1.0) * 100.0,
+            "source": "PanWatch Extended 1m",
+            "is_extended_hours": True,
+            "is_overnight_hours": session == "night",
+            "session_volume": session_volume,
+            "datetime": bars[-1][0].isoformat(),
+        }
+    except Exception as exc:
+        logger.info("PANWATCH_EXTENDED_QUOTE_FAILED symbol=%s session=%s error=%s", symbol, session, type(exc).__name__)
+        return None
+
+
+async def quote(symbol: str, prefer_extended: bool = False, session: str | None = None):
     """Return a real quote using rotating keys and independent provider fallbacks."""
     if prefer_extended and (settings.twelve_data_api_key or settings.twelve_data_api_keys):
         try:
@@ -713,6 +819,11 @@ async def quote(symbol: str, prefer_extended: bool = False):
                     }
         except Exception as exc:
             logger.info("EXTENDED_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
+
+    if prefer_extended:
+        panwatch_quote = await _panwatch_extended_quote(symbol, session)
+        if panwatch_quote:
+            return panwatch_quote
 
     # Prefer FMP's direct equity quote before Finnhub because the current
     # session can advance while a provider's last quote remains behind.
