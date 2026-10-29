@@ -23,6 +23,40 @@ class RadarPriceRangeTests(unittest.TestCase):
                 row = {"price": price, "change_pct": 10.1, "volume": 500_001, "market_cap": 0}
                 self.assertIsNone(scanner._classify_momentum_candidate(row))
 
+    def test_gap_watch_accepts_stock_that_gapped_from_in_range_previous_close(self):
+        row = {
+            "price": 8.34,
+            "previous_close": 5.97,
+            "change_pct": 39.7,
+            "volume": 17_100_000,
+            "quote_type": "EQUITY",
+            "exchange": "NASDAQ",
+        }
+        self.assertTrue(scanner._is_gap_watch_candidate(row))
+
+    def test_gap_watch_rejects_stock_without_in_range_previous_close(self):
+        row = {
+            "price": 8.34,
+            "previous_close": 7.20,
+            "change_pct": 39.7,
+            "volume": 17_100_000,
+            "quote_type": "EQUITY",
+            "exchange": "NASDAQ",
+        }
+        self.assertFalse(scanner._is_gap_watch_candidate(row))
+
+    def test_gap_watch_rejects_excessive_price_and_low_volume(self):
+        base = {
+            "price": 8.34,
+            "previous_close": 5.97,
+            "change_pct": 39.7,
+            "volume": 17_100_000,
+            "quote_type": "EQUITY",
+            "exchange": "NASDAQ",
+        }
+        self.assertFalse(scanner._is_gap_watch_candidate({**base, "price": 12.01}))
+        self.assertFalse(scanner._is_gap_watch_candidate({**base, "volume": 10_000}))
+
     def test_daily_momentum_filter_drops_out_of_range_rows_before_ohlcv(self):
         candidates = [
             {"symbol": "ABOVE", "price": 6.01, "change_pct": 30, "volume": 5_000_000},

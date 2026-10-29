@@ -361,6 +361,34 @@ def _momentum_rvol_10d(candles):
     return today_volume / baseline if baseline > 0 else None
 
 
+def _is_gap_watch_candidate(row):
+    """Keep a stock for watch-only analysis when it gapped above the normal price cap.
+
+    The previous close must have been inside the user's $0.30-$6.00 universe;
+    current price is capped at 2x the configured maximum to avoid broad noisy
+    high-priced movers. This never makes a gap a confirmed opportunity.
+    """
+    price = _f(
+        row.get("price") or row.get("regularMarketPrice") or row.get("current_price"),
+        0.0,
+    )
+    previous_close = _f(
+        row.get("previous_close")
+        or row.get("regularMarketPreviousClose")
+        or row.get("regularMarketPreviousCloseRaw"),
+        0.0,
+    )
+    change_pct = _f(row.get("change_pct") or row.get("regularMarketChangePercent"), 0.0)
+    volume = _f(row.get("volume") or row.get("regularMarketVolume"), 0.0)
+    return bool(
+        MAX_PRICE < price <= MAX_PRICE * 2
+        and MIN_PRICE <= previous_close <= MAX_PRICE
+        and change_pct >= MOMENTUM_SMALL_MIN_GAIN
+        and volume > MOMENTUM_SMALL_MIN_VOLUME
+        and not _is_excluded_security(row)
+    )
+
+
 async def _discover_yahoo_top_gainers(client, price_min=MIN_PRICE, price_max=MAX_PRICE):
     """Yahoo custom screener: exact daily momentum rules for both sections."""
     threshold, now = _momentum_time_filter()
@@ -395,6 +423,16 @@ async def _discover_yahoo_top_gainers(client, price_min=MIN_PRICE, price_max=MAX
             equity_query([
                 {"operator": "gt", "operands": ["percentchange", MOMENTUM_LARGE_MIN_GAIN]},
                 {"operator": "gt", "operands": ["intradaymarketcap", MOMENTUM_LARGE_MIN_MARKET_CAP]},
+            ]),
+        ),
+        # Gap lane: discover movers above $6, then verify previous close was
+        # inside the configured range before admitting them to watch-only staging.
+        (
+            "gap_watch",
+            equity_query([
+                {"operator": "gt", "operands": ["percentchange", MOMENTUM_SMALL_MIN_GAIN]},
+                {"operator": "btwn", "operands": ["intradayprice", MAX_PRICE, MAX_PRICE * 2]},
+                {"operator": "gt", "operands": ["dayvolume", MOMENTUM_SMALL_MIN_VOLUME]},
             ]),
         ),
     ]
@@ -464,6 +502,14 @@ async def _discover_yahoo_top_gainers(client, price_min=MIN_PRICE, price_max=MAX
                         change_pct > MOMENTUM_SMALL_MIN_GAIN and
                         volume > MOMENTUM_SMALL_MIN_VOLUME):
                     continue
+            elif section == "gap_watch":
+                row["previous_close"] = _parse_yahoo_number(
+                    row.get("regularMarketPreviousClose") or row.get("previousClose")
+                )
+                if not _is_gap_watch_candidate({
+                    **row, "price": price, "change_pct": change_pct, "volume": volume
+                }):
+                    continue
             else:
                 if not (market_cap > MOMENTUM_LARGE_MIN_MARKET_CAP and
                         change_pct > MOMENTUM_LARGE_MIN_GAIN):
@@ -529,10 +575,13 @@ async def _apply_daily_momentum_filter(candidates):
     # gainers feed can also include larger-cap names above this user's target.
     candidates = [
         row for row in candidates
-        if MIN_PRICE <= _f(
-            row.get("price") or row.get("regularMarketPrice") or row.get("current_price"),
-            0.0,
-        ) <= MAX_PRICE
+        if (
+            MIN_PRICE <= _f(
+                row.get("price") or row.get("regularMarketPrice") or row.get("current_price"),
+                0.0,
+            ) <= MAX_PRICE
+            or _is_gap_watch_candidate(row)
+        )
         and not _is_excluded_security(row)
     ]
     if not candidates:
@@ -591,12 +640,14 @@ async def _apply_daily_momentum_filter(candidates):
         if rvol10 is None:
             return None
         section = str(row.get("momentum_section") or "").lower()
-        if section not in threshold:
+        if section not in threshold and section != "gap_watch":
             price = _f(row.get("price"), 0)
             change_pct = _f(row.get("change_pct"), 0)
             volume = _f(row.get("volume"), 0)
             market_cap = _f(row.get("market_cap"), 0)
-            if (
+            if _is_gap_watch_candidate(row):
+                section = "gap_watch"
+            elif (
                 MIN_PRICE <= price <= MAX_PRICE
                 and change_pct >= 4.0
                 and volume >= 250_000.0
@@ -618,7 +669,7 @@ async def _apply_daily_momentum_filter(candidates):
 
         # Early movers are admitted to technical staging with a lower RVOL
         # threshold; this is not a publish pass. Final strategy gates still apply.
-        required = 0.8 if section == "early_mover" else threshold[section]
+        required = 0.8 if section in {"early_mover", "gap_watch"} else threshold[section]
         if rvol10 <= required:
             return None
         result = dict(row)
@@ -628,6 +679,10 @@ async def _apply_daily_momentum_filter(candidates):
         result["momentum_candle_source"] = source
         result["momentum_session_verified"] = True
         result["momentum_warning_under_1"] = bool(result["price"] < 1.0)
+        result["gap_watch_only"] = section == "gap_watch"
+        if section == "gap_watch":
+            result["opportunity_status"] = "watch"
+            result["gap_watch_reason"] = "تجاوز حد السعر؛ إغلاق سابق داخل نطاق الرادار، يحتاج تأكيدًا فنيًا قبل النشر"
         return result
 
     enriched = await asyncio.gather(*(enrich(row) for row in candidates), return_exceptions=False)
