@@ -36,5 +36,97 @@ class OhlcvProviderCooldownTests(unittest.TestCase):
             self.assertNotIn("fmp", panwatch._OHLCV_PROVIDER_FAILURE_STREAKS)
 
 
+
+class _YahooResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self.payload
+
+
+class YahooOhlcvFallbackTests(unittest.IsolatedAsyncioTestCase):
+    def _payload(self):
+        from datetime import datetime, timedelta, timezone
+        now = datetime.now(timezone.utc)
+        timestamps = [int((now - timedelta(days=39 - i)).timestamp()) for i in range(40)]
+        return {
+            "chart": {
+                "result": [{
+                    "timestamp": timestamps,
+                    "indicators": {
+                        "quote": [{
+                            "open": [1.0] * 40,
+                            "high": [1.2] * 40,
+                            "low": [0.9] * 40,
+                            "close": [1.1] * 40,
+                            "volume": [100000] * 40,
+                        }]
+                    },
+                }],
+                "error": None,
+            }
+        }
+
+    async def test_yahoo_fallback_is_used_only_when_explicitly_allowed(self):
+        payload = self._payload()
+
+        class FakeClient:
+            urls = []
+
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def get(self, url, *args, **kwargs):
+                self.urls.append(url)
+                if "query1.finance.yahoo.com/v8/finance/chart/" in url:
+                    return _YahooResponse(payload)
+                raise AssertionError(f"unexpected network source: {url}")
+
+        with patch("app.panwatch.httpx.AsyncClient", FakeClient), patch(
+            "app.panwatch._ohlcv_provider_available", return_value=False
+        ):
+            candles, source, diagnostics = await panwatch.ohlcv(
+                "TEST",
+                days=90,
+                min_candles=30,
+                allow_twelve_data=False,
+                timeout_seconds=8,
+                allow_yahoo=True,
+                skip_panwatch=True,
+            )
+
+        self.assertEqual(len(candles), 40)
+        self.assertEqual(source, "Yahoo Finance Candles")
+        self.assertTrue(any("query1.finance.yahoo.com" in url for url in FakeClient.urls))
+
+        FakeClient.urls.clear()
+        with patch("app.panwatch.httpx.AsyncClient", FakeClient), patch(
+            "app.panwatch._ohlcv_provider_available", return_value=False
+        ):
+            candles, source, diagnostics = await panwatch.ohlcv(
+                "TEST",
+                days=90,
+                min_candles=30,
+                allow_twelve_data=False,
+                timeout_seconds=8,
+                allow_yahoo=False,
+                skip_panwatch=True,
+            )
+
+        self.assertEqual(candles, [])
+        self.assertEqual(source, "unavailable")
+        self.assertFalse(any("query1.finance.yahoo.com" in url for url in FakeClient.urls))
+
+
 if __name__ == "__main__":
     unittest.main()
