@@ -193,123 +193,158 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
             if len(rows) >= minimum: source = "Twelve Data"
             elif len(rows): attempts.append("TwelveData:insufficient")
         if len(rows) < minimum:
-            # Finnhub candle endpoint is an additional historical-data fallback
-            # for cases where PanWatch/Twelve Data do not return enough bars.
-            finnhub_keys = [
-                item.strip()
-                for item in str(getattr(settings, "finnhub_api_keys", "") or "").replace("\\n", ",").replace(";", ",").split(",")
-                if item.strip()
-            ]
-            if getattr(settings, "finnhub_api_key", ""):
-                finnhub_keys.insert(0, str(settings.finnhub_api_key).strip())
-            finnhub_keys = list(dict.fromkeys(key for key in finnhub_keys if key))
-            for finnhub_key in finnhub_keys:
-                try:
-                    from datetime import datetime, timedelta, timezone
-                    end_ts = int(datetime.now(timezone.utc).timestamp())
-                    start_ts = int((datetime.now(timezone.utc) - timedelta(days=max(45, min(int(days) * 2, 730)))).timestamp())
-                    r = await client.get(
-                        "https://finnhub.io/api/v1/stock/candle",
-                        params={"symbol": symbol.upper(), "resolution": "D", "from": start_ts, "to": end_ts, "token": finnhub_key},
-                    )
-                    if r.status_code in (401, 403):
-                        attempts.append(f"Finnhub:HTTP{r.status_code}")
-                        continue
-                    if r.status_code == 429:
-                        attempts.append("Finnhub:HTTP429 rate-limited; key rotation stopped")
+            # Finnhub can return 401/403 for every configured credential when
+            # the plan or key pool is unauthorized. After repeated symbol-level
+            # failures, cool it down instead of spending 3 requests per symbol.
+            if not _ohlcv_provider_available("finnhub"):
+                attempts.append("Finnhub:cooldown")
+            else:
+                finnhub_keys = [
+                    item.strip()
+                    for item in str(getattr(settings, "finnhub_api_keys", "") or "").replace("\\n", ",").replace(";", ",").split(",")
+                    if item.strip()
+                ]
+                if getattr(settings, "finnhub_api_key", ""):
+                    finnhub_keys.insert(0, str(settings.finnhub_api_key).strip())
+                finnhub_keys = list(dict.fromkeys(key for key in finnhub_keys if key))
+                auth_failures = 0
+                for finnhub_key in finnhub_keys:
+                    try:
+                        from datetime import datetime, timedelta, timezone
+                        end_ts = int(datetime.now(timezone.utc).timestamp())
+                        start_ts = int((datetime.now(timezone.utc) - timedelta(days=max(45, min(int(days) * 2, 730)))).timestamp())
+                        r = await client.get(
+                            "https://finnhub.io/api/v1/stock/candle",
+                            params={"symbol": symbol.upper(), "resolution": "D", "from": start_ts, "to": end_ts, "token": finnhub_key},
+                        )
+                        if r.status_code in (401, 403):
+                            auth_failures += 1
+                            attempts.append(f"Finnhub:HTTP{r.status_code}")
+                            continue
+                        if r.status_code == 429:
+                            attempts.append("Finnhub:HTTP429 rate-limited; cooldown started")
+                            _ohlcv_provider_failed("finnhub", cooldown_seconds=900, threshold=1, immediate=True)
+                            break
+                        r.raise_for_status()
+                        _ohlcv_provider_succeeded("finnhub")
+                        payload = r.json()
+                        if payload.get("s") == "ok" and payload.get("c"):
+                            candidate_rows = [{
+                                "datetime": datetime.fromtimestamp(payload["t"][i], timezone.utc).strftime("%Y-%m-%d"),
+                                "open": payload["o"][i], "high": payload["h"][i],
+                                "low": payload["l"][i], "close": payload["c"][i],
+                                "volume": payload["v"][i],
+                            } for i in range(len(payload["c"]))]
+                            if len(candidate_rows) > len(rows):
+                                rows = candidate_rows
+                                source = "Finnhub Candles" if len(candidate_rows) >= minimum else "Finnhub Candles (partial)"
+                            if len(candidate_rows) < minimum:
+                                attempts.append("Finnhub:insufficient")
+                        else:
+                            attempts.append(f"Finnhub:{payload.get('s', 'no_data')}")
                         break
-                    r.raise_for_status()
-                    payload = r.json()
-                    if payload.get("s") == "ok" and payload.get("c"):
-                        candidate_rows = [{
-                            "datetime": datetime.fromtimestamp(payload["t"][i], timezone.utc).strftime("%Y-%m-%d"),
-                            "open": payload["o"][i], "high": payload["h"][i],
-                            "low": payload["l"][i], "close": payload["c"][i],
-                            "volume": payload["v"][i],
-                        } for i in range(len(payload["c"]))]
-                        if len(candidate_rows) > len(rows):
-                            rows = candidate_rows
-                            source = "Finnhub Candles" if len(candidate_rows) >= minimum else "Finnhub Candles (partial)"
-                        if len(candidate_rows) < minimum:
-                            attempts.append("Finnhub:insufficient")
-                    else:
-                        attempts.append(f"Finnhub:{payload.get('s', 'no_data')}")
-                    break
+                    except Exception as exc:
+                        status_code = getattr(getattr(exc, "response", None), "status_code", None)
+                        attempts.append(f"Finnhub:HTTP{status_code}" if status_code else f"Finnhub:{type(exc).__name__}")
+                        if isinstance(exc, httpx.TimeoutException):
+                            _ohlcv_provider_failed("finnhub", cooldown_seconds=300, threshold=2)
+                        if status_code not in (401, 403):
+                            break
+                if finnhub_keys and auth_failures == len(finnhub_keys):
+                    _ohlcv_provider_failed("finnhub", cooldown_seconds=900, threshold=3)
+        if len(rows) < minimum:
+            # Financial Modeling Prep is optional. Cool down after repeated
+            # authorization failures so a bad key/plan does not delay every symbol.
+            if not _ohlcv_provider_available("fmp"):
+                attempts.append("FMP:cooldown")
+            else:
+                fmp_keys = [
+                    item.strip()
+                    for item in str(getattr(settings, "fmp_api_keys", "") or "").replace("\\n", ",").replace(";", ",").split(",")
+                    if item.strip()
+                ]
+                if getattr(settings, "fmp_api_key", ""):
+                    fmp_keys.insert(0, str(settings.fmp_api_key).strip())
+                fmp_keys = list(dict.fromkeys(key for key in fmp_keys if key))
+                auth_failures = 0
+                for fmp_key in fmp_keys:
+                    try:
+                        from datetime import datetime, timedelta, timezone
+                        end_date = datetime.now(timezone.utc).date()
+                        start_date = end_date - timedelta(days=max(45, min(int(days) * 3, 1095)))
+                        r = await client.get(
+                            "https://financialmodelingprep.com/stable/historical-price-eod/full",
+                            params={
+                                "symbol": symbol.upper(),
+                                "from": start_date.isoformat(),
+                                "to": end_date.isoformat(),
+                                "apikey": fmp_key,
+                            },
+                        )
+                        if r.status_code in (401, 403):
+                            auth_failures += 1
+                            attempts.append(f"FMP:HTTP{r.status_code}")
+                            continue
+                        if r.status_code == 429:
+                            attempts.append("FMP:HTTP429 rate-limited; cooldown started")
+                            _ohlcv_provider_failed("fmp", cooldown_seconds=900, threshold=1, immediate=True)
+                            break
+                        r.raise_for_status()
+                        _ohlcv_provider_succeeded("fmp")
+                        payload = r.json()
+                        fmp_rows = payload if isinstance(payload, list) else (payload.get("historical") or [])
+                        normalized = []
+                        for item in fmp_rows:
+                            if not isinstance(item, dict):
+                                continue
+                            try:
+                                normalized.append({
+                                    "datetime": str(item.get("date") or item.get("datetime") or ""),
+                                    "open": float(item["open"]),
+                                    "high": float(item["high"]),
+                                    "low": float(item["low"]),
+                                    "close": float(item["close"]),
+                                    "volume": float(item.get("volume") or 0),
+                                })
+                            except (KeyError, TypeError, ValueError):
+                                continue
+                        normalized.sort(key=lambda item: item["datetime"])
+                        if len(normalized) > len(rows):
+                            rows = normalized[-max(20, min(int(days), 365)):]
+                            source = "Financial Modeling Prep" if len(normalized) >= minimum else "Financial Modeling Prep (partial)"
+                        if len(normalized) >= minimum:
+                            break
+                        attempts.append("FMP:insufficient")
+                    except Exception as exc:
+                        status_code = getattr(getattr(exc, "response", None), "status_code", None)
+                        attempts.append(f"FMP:HTTP{status_code}" if status_code else f"FMP:{type(exc).__name__}")
+                        if isinstance(exc, httpx.TimeoutException):
+                            _ohlcv_provider_failed("fmp", cooldown_seconds=300, threshold=2)
+                        if status_code not in (401, 403):
+                            break
+                if fmp_keys and auth_failures == len(fmp_keys):
+                    _ohlcv_provider_failed("fmp", cooldown_seconds=900, threshold=3)
+        if len(rows) < minimum:
+            if not _ohlcv_provider_available("stooq"):
+                attempts.append("Stooq:cooldown")
+            else:
+                try:
+                    stooq_rows = await _stooq_ohlcv(symbol, days)
+                    _ohlcv_provider_succeeded("stooq")
+                    if len(stooq_rows) > len(rows):
+                        rows = stooq_rows
+                        source = "Stooq" if len(stooq_rows) >= minimum else "Stooq (partial)"
+                    if len(stooq_rows) < minimum:
+                        attempts.append("Stooq:insufficient")
                 except Exception as exc:
+                    # Preserve failure detail, but stop repeatedly waiting on a
+                    # provider that is timing out for the entire symbol batch.
                     status_code = getattr(getattr(exc, "response", None), "status_code", None)
-                    attempts.append(f"Finnhub:HTTP{status_code}" if status_code else f"Finnhub:{type(exc).__name__}")
-                    if status_code not in (401, 403):
-                        break
-        if len(rows) < minimum:
-            # Financial Modeling Prep provides an independent daily OHLCV source.
-            # It is optional and only queried when a key is configured.
-            fmp_keys = [
-                item.strip()
-                for item in str(getattr(settings, "fmp_api_keys", "") or "").replace("\\n", ",").replace(";", ",").split(",")
-                if item.strip()
-            ]
-            if getattr(settings, "fmp_api_key", ""):
-                fmp_keys.insert(0, str(settings.fmp_api_key).strip())
-            fmp_keys = list(dict.fromkeys(key for key in fmp_keys if key))
-            for fmp_key in fmp_keys:
-                try:
-                    from datetime import datetime, timedelta, timezone
-                    end_date = datetime.now(timezone.utc).date()
-                    start_date = end_date - timedelta(days=max(45, min(int(days) * 3, 1095)))
-                    r = await client.get(
-                        "https://financialmodelingprep.com/stable/historical-price-eod/full",
-                        params={
-                            "symbol": symbol.upper(),
-                            "from": start_date.isoformat(),
-                            "to": end_date.isoformat(),
-                            "apikey": fmp_key,
-                        },
-                    )
-                    if r.status_code in (401, 403):
-                        attempts.append(f"FMP:HTTP{r.status_code}")
-                        continue
-                    if r.status_code == 429:
-                        attempts.append("FMP:HTTP429 rate-limited; key rotation stopped")
-                        break
-                    r.raise_for_status()
-                    payload = r.json()
-                    fmp_rows = payload if isinstance(payload, list) else (payload.get("historical") or [])
-                    normalized = []
-                    for item in fmp_rows:
-                        if not isinstance(item, dict):
-                            continue
-                        try:
-                            normalized.append({
-                                "datetime": str(item.get("date") or item.get("datetime") or ""),
-                                "open": float(item["open"]),
-                                "high": float(item["high"]),
-                                "low": float(item["low"]),
-                                "close": float(item["close"]),
-                                "volume": float(item.get("volume") or 0),
-                            })
-                        except (KeyError, TypeError, ValueError):
-                            continue
-                    normalized.sort(key=lambda item: item["datetime"])
-                    if len(normalized) > len(rows):
-                        rows = normalized[-max(20, min(int(days), 365)):]
-                        source = "Financial Modeling Prep" if len(normalized) >= minimum else "Financial Modeling Prep (partial)"
-                    if len(normalized) >= minimum:
-                        break
-                    attempts.append("FMP:insufficient")
-                except Exception as exc:
-                    attempts.append(f"FMP:{type(exc).__name__}")
-        if len(rows) < minimum:
-            try:
-                stooq_rows = await _stooq_ohlcv(symbol, days)
-                if len(stooq_rows) > len(rows):
-                    rows = stooq_rows
-                    source = "Stooq" if len(stooq_rows) >= minimum else "Stooq (partial)"
-                if len(stooq_rows) < minimum:
-                    attempts.append("Stooq:insufficient")
-            except Exception as exc:
-                # Preserve provider failure detail for the chart diagnostic without turning it into HTTP 500.
-                status_code = getattr(getattr(exc, "response", None), "status_code", None)
-                attempts.append(f"Stooq:HTTP{status_code}" if status_code else f"Stooq:{type(exc).__name__}")
+                    attempts.append(f"Stooq:HTTP{status_code}" if status_code else f"Stooq:{type(exc).__name__}")
+                    if isinstance(exc, httpx.TimeoutException):
+                        _ohlcv_provider_failed("stooq", cooldown_seconds=300, threshold=1, immediate=True)
+                    else:
+                        _ohlcv_provider_failed("stooq", cooldown_seconds=300, threshold=2)
     candles = []
     for row in rows:
         try:
