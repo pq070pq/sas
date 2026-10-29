@@ -554,16 +554,27 @@ async def _apply_daily_momentum_filter(candidates):
         and not _is_excluded_security(row)
         and row.get("symbol")
     ]
+    def _fallback_candle_priority(item):
+        # Do not spend the tiny historical-data budget on the biggest daily
+        # spikes by default: those are commonly exhausted/chase-risk names.
+        # Prefer tradable, liquid movers with enough momentum to matter but
+        # without selecting only the most extended stocks on every cycle.
+        change_pct = _f(item.get("change_pct"), 0.0)
+        volume = _f(item.get("volume"), 0.0)
+        price = _f(item.get("price"), 0.0)
+        section = str(item.get("momentum_section") or "").lower()
+        moderate_move = 1 if 4.0 <= change_pct <= 25.0 else 0
+        early_setup = 1 if section in {"early_mover", "movement", "small"} else 0
+        liquid = min(volume, 10_000_000.0) / 10_000_000.0
+        in_price_range = 1 if MIN_PRICE <= price <= MAX_PRICE else 0
+        # Lexicographic priority keeps in-range/moderate/liquid candidates ahead
+        # of runaway gainers; volume breaks ties without dominating the ranking.
+        return (in_price_range, moderate_move, early_setup, liquid, -abs(change_pct - 12.0))
+
+    fallback_limit = max(0, min(int(settings.twelve_data_scan_fallback_symbols or 0), 3))
     fallback_symbols = {
         str(row.get("symbol") or "").upper()
-        for row in sorted(
-            fallback_candidates,
-            key=lambda item: (
-                float(item.get("change_pct") or 0),
-                float(item.get("volume") or 0),
-            ),
-            reverse=True,
-        )[:max(0, min(int(settings.twelve_data_scan_fallback_symbols or 0), 3))]
+        for row in sorted(fallback_candidates, key=_fallback_candle_priority, reverse=True)[:fallback_limit]
     }
 
     async def enrich(row):
