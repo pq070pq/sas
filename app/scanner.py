@@ -1866,9 +1866,20 @@ def _smart_levels_ict_confirmation(
     }
 
 
-async def classify_sas(symbol: str, quote: dict | None = None, allow_twelve_fallback: bool = False):
+async def classify_sas(
+    symbol: str,
+    quote: dict | None = None,
+    allow_twelve_fallback: bool = False,
+    allow_yahoo: bool = False,
+):
     async with httpx.AsyncClient(timeout=min(settings.panwatch_timeout_seconds, 30)) as client:
-        candles, data_source = await _get_analysis_candles(client, symbol, allow_twelve_fallback, min_candles=60)
+        candles, data_source = await _get_analysis_candles(
+            client,
+            symbol,
+            allow_twelve_fallback,
+            min_candles=60,
+            allow_yahoo=allow_yahoo,
+        )
 
     # لا نجعل توفر 205 شمعة شرطًا لإسقاط فرصة حديثة؛ نستخدم الحد الأدنى
     # اللازم لـ RSI/البنية/الدعم والمقاومة، وتبقى EMA200 اختيارية عند نقص التاريخ.
@@ -2658,6 +2669,9 @@ async def scan_us_low_price_stocks(force_refresh: bool = False, progress_callbac
                     symbol,
                     row,
                     allow_twelve_fallback=symbol in twelve_fallback_symbols,
+                    # This candidate was admitted by the active-session momentum
+                    # scan. Keep Yahoo disabled by default for holiday/manual paths.
+                    allow_yahoo=bool(row.get("momentum_session_verified")),
                 )
                 filter_counts["classify_checked"] += 1
                 # عدّ شروط SAS الفردية لتحديد نقطة الاختناق، دون تغيير pass.
