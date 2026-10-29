@@ -689,7 +689,7 @@ async def macro_quote(symbol: str):
         "is_extended_hours": False,
     }
 
-async def _panwatch_extended_quote(symbol: str, session: str | None) -> dict | None:
+async def _panwatch_extended_quote(symbol: str, session: str | None, now=None) -> dict | None:
     """Return a fresh, session-bounded quote from observed PanWatch 1-minute bars.
 
     This is a fallback only when the quote API does not expose a distinct
@@ -701,7 +701,7 @@ async def _panwatch_extended_quote(symbol: str, session: str | None) -> dict | N
     if session not in {"premarket", "afterhours", "night"}:
         return None
 
-    now = datetime.now(ZoneInfo("America/New_York"))
+    now = now or datetime.now(ZoneInfo("America/New_York"))
     if session == "premarket":
         start = now.replace(hour=4, minute=0, second=0, microsecond=0)
         end = now.replace(hour=9, minute=30, second=0, microsecond=0)
