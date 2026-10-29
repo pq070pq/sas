@@ -523,6 +523,21 @@ async def _apply_daily_momentum_filter(candidates):
     threshold, now = _momentum_time_filter()
     if threshold is None:
         return [], {"session_date": now.strftime("%Y-%m-%d"), "status": "outside_main_session"}
+
+    # The SAS PRO radar is intentionally scoped to US equities priced $0.30-$6.
+    # Drop out-of-range rows before requesting historical candles; the broad
+    # gainers feed can also include larger-cap names above this user's target.
+    candidates = [
+        row for row in candidates
+        if MIN_PRICE <= _f(
+            row.get("price") or row.get("regularMarketPrice") or row.get("current_price"),
+            0.0,
+        ) <= MAX_PRICE
+        and not _is_excluded_security(row)
+    ]
+    if not candidates:
+        return [], {"session_date": now.strftime("%Y-%m-%d"), "status": "no_candidates_in_price_range"}
+
     semaphore = asyncio.Semaphore(12)
 
     # Use Twelve Data only for a tiny, deterministic subset when PanWatch is
@@ -1280,6 +1295,10 @@ async def _get_analysis_candles(client, symbol: str, allow_twelve_fallback: bool
                 interval="1d",
                 min_candles=min_candles,
                 allow_twelve_data=False,
+                # The fast PanWatch attempt above already used a 7-second
+                # timeout. Keep the fallback call bounded so one slow provider
+                # does not consume the entire 24-second per-symbol budget.
+                timeout_seconds=8,
             )
         fallback_candles = _parse_candles(history.get("candles") if isinstance(history, dict) else [])
         source = str(history.get("source") or "unavailable") if isinstance(history, dict) else "unavailable"
