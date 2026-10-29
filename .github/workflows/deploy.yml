@@ -146,6 +146,15 @@ jobs:
               echo "Removing untracked server-side .dockerignore that can hide application source."
               rm -f .dockerignore
             fi
+            # The prior interrupted deployment may leave a container with the exact
+            # Compose service name but no usable service ownership. Remove only this
+            # named PanWatch container before the intended recreate to avoid Docker's
+            # "name already in use" conflict. The next command rebuilds and starts it.
+            panwatch_named_container=$(docker ps -aq --filter "name=^/saspro-panwatch-1$")
+            if [ -n "$panwatch_named_container" ]; then
+              echo "Removing exact-name PanWatch container before planned recreate: $panwatch_named_container"
+              docker rm -f "$panwatch_named_container"
+            fi
             # Ensure the historical OHLCV provider is running before recreating SAS PRO.
             # Do not restart SAS PRO if PanWatch cannot become ready.
             docker compose up -d --build panwatch
