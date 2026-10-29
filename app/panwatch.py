@@ -130,15 +130,55 @@ def _normalize_ohlcv_rows(rows):
     return normalized
 
 
-async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: int = 20, allow_twelve_data: bool = True, timeout_seconds: float | None = None):
-    """Return observed OHLCV candles with explicit source diagnostics.
-    
-    Yahoo is intentionally excluded. Historical fallback order is PanWatch,
-    Twelve Data, Finnhub, FMP, then Stooq.
+def _normalize_yahoo_chart_payload(payload: dict) -> list[dict]:
+    """Normalize Yahoo chart JSON to OHLCV rows without relying on pandas."""
+    from datetime import datetime, timezone
 
-    min_candles lets indicator consumers require enough history without treating
-    a short response as a successful source. allow_twelve_data protects the
-    scanner quota while preserving Twelve Data for explicitly permitted calls.
+    chart = payload.get("chart") if isinstance(payload, dict) else None
+    results = chart.get("result") if isinstance(chart, dict) else None
+    if not isinstance(results, list) or not results or not isinstance(results[0], dict):
+        return []
+    result = results[0]
+    timestamps = result.get("timestamp") or []
+    indicators = result.get("indicators") or {}
+    quotes = indicators.get("quote") or []
+    quote = quotes[0] if quotes and isinstance(quotes[0], dict) else {}
+    opens, highs = quote.get("open") or [], quote.get("high") or []
+    lows, closes = quote.get("low") or [], quote.get("close") or []
+    volumes = quote.get("volume") or []
+    rows = []
+    for i, stamp in enumerate(timestamps):
+        try:
+            op, high, low, close = opens[i], highs[i], lows[i], closes[i]
+            if None in (op, high, low, close):
+                continue
+            rows.append({
+                "datetime": datetime.fromtimestamp(int(stamp), timezone.utc).strftime("%Y-%m-%d"),
+                "open": float(op),
+                "high": float(high),
+                "low": float(low),
+                "close": float(close),
+                "volume": float(volumes[i] or 0) if i < len(volumes) else 0.0,
+            })
+        except (IndexError, TypeError, ValueError, OverflowError, OSError):
+            continue
+    return _normalize_ohlcv_rows(rows)
+
+
+async def ohlcv(
+    symbol: str,
+    days: int = 90,
+    interval: str = "1d",
+    min_candles: int = 20,
+    allow_twelve_data: bool = True,
+    timeout_seconds: float | None = None,
+    allow_yahoo: bool = False,
+    skip_panwatch: bool = False,
+):
+    """Return observed OHLCV candles with explicit source diagnostics.
+
+    Yahoo fallback is opt-in. The live radar enables it only while its session
+    filter confirms an active US trading session; holiday scans keep it disabled.
     """
     # Keep the default 20-bar requirement for indicators/scanners, but allow chart-only callers to request a smaller real OHLC history.
     minimum = max(4, min(int(min_candles), 260))
@@ -148,25 +188,56 @@ async def ohlcv(symbol: str, days: int = 90, interval: str = "1d", min_candles: 
         rows = []
         source = "unavailable"
         attempts = []
-        try:
-            r = await client.get(
-                f"{base}/api/klines/{symbol.upper()}",
-                params={"market": "US", "days": max(20, min(int(days), 365)), "interval": interval},
-            )
-            r.raise_for_status()
-            payload = r.json()
-            data = payload.get("data") or payload
-            candidate_rows = data.get("klines", data.get("candles", data.get("values", []))) if isinstance(data, dict) else data
-            candidate_rows = _normalize_ohlcv_rows(candidate_rows)
-            if len(candidate_rows) >= minimum:
-                rows, source = candidate_rows, "PanWatch"
-            elif candidate_rows:
-                rows, source = candidate_rows, "PanWatch (partial)"
-                attempts.append("PanWatch:insufficient")
-        except Exception as exc:
-            status_code = getattr(getattr(exc, "response", None), "status_code", None)
-            attempts.append(f"PanWatch:HTTP{status_code}" if status_code else f"PanWatch:{type(exc).__name__}")
-
+        if skip_panwatch:
+            attempts.append("PanWatch:skipped_after_fast_attempt")
+        else:
+            try:
+                r = await client.get(
+                    f"{base}/api/klines/{symbol.upper()}",
+                    params={"market": "US", "days": max(20, min(int(days), 365)), "interval": interval},
+                )
+                r.raise_for_status()
+                payload = r.json()
+                data = payload.get("data") or payload
+                candidate_rows = data.get("klines", data.get("candles", data.get("values", []))) if isinstance(data, dict) else data
+                candidate_rows = _normalize_ohlcv_rows(candidate_rows)
+                if len(candidate_rows) >= minimum:
+                    rows, source = candidate_rows, "PanWatch"
+                elif candidate_rows:
+                    rows, source = candidate_rows, "PanWatch (partial)"
+                    attempts.append("PanWatch:insufficient")
+            except Exception as exc:
+                status_code = getattr(getattr(exc, "response", None), "status_code", None)
+                attempts.append(f"PanWatch:HTTP{status_code}" if status_code else f"PanWatch:{type(exc).__name__}")
+    
+    
+        if len(rows) < minimum and allow_yahoo:
+            try:
+                from datetime import datetime, timedelta, timezone
+                end_ts = int(datetime.now(timezone.utc).timestamp())
+                start_ts = int((datetime.now(timezone.utc) - timedelta(days=max(45, min(int(days), 365)))).timestamp())
+                yahoo_interval = {"1d": "1d", "1h": "60m", "1wk": "1wk"}.get(interval, interval)
+                r = await client.get(
+                    f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol.upper()}",
+                    params={
+                        "period1": start_ts,
+                        "period2": end_ts,
+                        "interval": yahoo_interval,
+                        "includePrePost": "false",
+                        "events": "div,splits",
+                    },
+                    headers={"User-Agent": "Mozilla/5.0"},
+                )
+                r.raise_for_status()
+                candidate_rows = _normalize_yahoo_chart_payload(r.json())
+                if len(candidate_rows) > len(rows):
+                    rows = candidate_rows
+                    source = "Yahoo Finance Candles" if len(candidate_rows) >= minimum else "Yahoo Finance Candles (partial)"
+                if len(candidate_rows) < minimum:
+                    attempts.append("Yahoo:insufficient")
+            except Exception as exc:
+                status_code = getattr(getattr(exc, "response", None), "status_code", None)
+                attempts.append(f"Yahoo:HTTP{status_code}" if status_code else f"Yahoo:{type(exc).__name__}")
         if len(rows) < minimum and allow_twelve_data and (settings.twelve_data_api_key or settings.twelve_data_api_keys):
             try:
                 r = await twelve_call(
