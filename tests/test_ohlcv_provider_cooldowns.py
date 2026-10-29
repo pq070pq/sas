@@ -95,7 +95,7 @@ class YahooOhlcvFallbackTests(unittest.IsolatedAsyncioTestCase):
         with patch("app.panwatch.httpx.AsyncClient", FakeClient), patch(
             "app.panwatch._ohlcv_provider_available", return_value=False
         ):
-            candles, source, diagnostics = await panwatch.ohlcv(
+            result = await panwatch.ohlcv(
                 "TEST",
                 days=90,
                 min_candles=30,
@@ -105,15 +105,15 @@ class YahooOhlcvFallbackTests(unittest.IsolatedAsyncioTestCase):
                 skip_panwatch=True,
             )
 
-        self.assertEqual(len(candles), 40)
-        self.assertEqual(source, "Yahoo Finance Candles")
+        self.assertEqual(len(result["candles"]), 40)
+        self.assertEqual(result["source"], "Yahoo Finance Candles")
         self.assertTrue(any("query1.finance.yahoo.com" in url for url in FakeClient.urls))
 
         FakeClient.urls.clear()
         with patch("app.panwatch.httpx.AsyncClient", FakeClient), patch(
             "app.panwatch._ohlcv_provider_available", return_value=False
         ):
-            candles, source, diagnostics = await panwatch.ohlcv(
+            result = await panwatch.ohlcv(
                 "TEST",
                 days=90,
                 min_candles=30,
@@ -123,8 +123,8 @@ class YahooOhlcvFallbackTests(unittest.IsolatedAsyncioTestCase):
                 skip_panwatch=True,
             )
 
-        self.assertEqual(candles, [])
-        self.assertEqual(source, "unavailable")
+        self.assertEqual(result["candles"], [])
+        self.assertEqual(result["source"], "unavailable")
         self.assertFalse(any("query1.finance.yahoo.com" in url for url in FakeClient.urls))
 
 
