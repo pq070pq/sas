@@ -2761,7 +2761,7 @@ startSASMediaAutoRefresh();
  function paint(){
    const now=new Date(), pre=nextOpening(now,4,0), regular=nextOpening(now,9,30);
    const offsetLabel=new Intl.DateTimeFormat('en-US',{timeZone:zone,timeZoneName:'shortOffset'}).formatToParts(now).find(x=>x.type==='timeZoneName')?.value||'';
-   const winterTime=/GMT-5\\b/.test(offsetLabel);
+   const winterTime=/GMT-5\b/.test(offsetLabel);
    const timeMode=document.getElementById('sasMarketTimeMode');
    if(timeMode)timeMode.textContent=winterTime?'التوقيت الشتوي • EST (UTC−5)':'التوقيت الصيفي • EDT (UTC−4)';
    const pe=document.getElementById('sasPreCountdown'),re=document.getElementById('sasRegularCountdown');
