@@ -3641,8 +3641,20 @@ async def stock_analyze(symbol: str, user=Depends(require_pro), db: AsyncSession
         try:
             cached_sas = cached.setdefault("sas_pro", {})
             cached_classification = cached_sas.get("classification")
-            if not isinstance(cached_classification, dict) or not all(
-                key in cached_classification for key in ("quality_score", "stars", "conditional_plan", "quality_checks", "trading_style")
+            if (
+                not isinstance(cached_classification, dict)
+                or not all(
+                    key in cached_classification
+                    for key in ("quality_score", "stars", "conditional_plan", "quality_checks", "trading_style")
+                )
+                # A stable response shape is not proof of a successful analysis:
+                # classify_sas deliberately returns these keys when candles are
+                # missing/insufficient. Never keep that failed result as a healthy
+                # cache entry; retry on the next request after providers recover.
+                or cached_classification.get("quality_data_available") is False
+                or bool(cached_classification.get("quality_error"))
+                or cached_classification.get("quality_score") is None
+                or cached_classification.get("stars") is None
             ):
                 from .scanner import classify_sas
                 refreshed_classification = await asyncio.wait_for(
