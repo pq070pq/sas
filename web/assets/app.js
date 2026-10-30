@@ -462,10 +462,10 @@ function renderDashboard(d){
  const nightCountdown=nightPending && Number.isFinite(nightMinutes)
   ? ' — يفتح بعد '+Math.max(0,Math.ceil(nightMinutes))+' دقيقة'
   : '';
- const nextPremarket=market.next_premarket_riyadh||'11:00';
- const regularOpen=market.regular_open_riyadh||'16:30';
- const regularClose=market.regular_close_riyadh||'23:00';
- const afterClose=market.afterhours_close_riyadh||'03:00';
+ const nextPremarket=market.next_premarket_riyadh||'12:00';
+ const regularOpen=market.regular_open_riyadh||'17:30';
+ const regularClose=market.regular_close_riyadh||'00:00';
+ const afterClose=market.afterhours_close_riyadh||'04:00';
  const scheduleNight=document.getElementById('sasScheduleNight');
  const scheduleNightET=document.getElementById('sasScheduleNightET');
  const schedulePre=document.getElementById('sasSchedulePre');
@@ -480,7 +480,7 @@ function renderDashboard(d){
   const nyParts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(exchangeNow).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
   const nyZoneName=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',timeZoneName:'short'}).formatToParts(exchangeNow).find(p=>p.type==='timeZoneName')?.value||'ET';
   const nyOffsetText=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',timeZoneName:'longOffset'}).formatToParts(exchangeNow).find(p=>p.type==='timeZoneName')?.value||'GMT-04:00';
-  const offsetMatch=nyOffsetText.match(/GMT([+-])(\\d{2}):(\\d{2})/);
+  const offsetMatch=nyOffsetText.match(/GMT([+-])(\d{2}):(\d{2})/);
   const nyOffsetMinutes=offsetMatch?(offsetMatch[1]==='-'?-1:1)*(Number(offsetMatch[2])*60+Number(offsetMatch[3])):-240;
   const riyadhFromET=(hour,minute)=>{
     const utcMs=Date.UTC(Number(nyParts.year),Number(nyParts.month)-1,Number(nyParts.day),hour,minute)-nyOffsetMinutes*60000;
