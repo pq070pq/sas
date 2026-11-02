@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import json
 import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -16,9 +17,10 @@ import httpx
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import delete
 
 from .config import settings
-from .db import RadarSignal, ScheduledReport, SessionLocal
+from .db import RadarSignal, ScheduledReport, SessionLocal, SpeculativeOpportunity
 from .finviz_intraday_filter import evaluate_intraday_candidate
 from .telegram import send_message
 
@@ -69,44 +71,126 @@ def _number(value):
 
 
 async def publish_speculative_candidate(candidate: dict) -> dict:
-    """Publish once per symbol per NY session, with DB-backed deduplication.
+    """Persist each eligible candidate before delivery; retry pending channel delivery.
 
-    Call only with fresh observations from a trusted market-data provider.
-    A failed Telegram send releases the reservation so a later cycle can retry.
+    Speculative records are deliberately separate from confirmed RadarSignal rows.
+    A Telegram outage never discards the website record, and a successful delivery
+    is deduplicated by the NY-session report key.
     """
     symbol = str(candidate.get("symbol") or "").upper().strip()
     report, evaluation = build_speculative_report(candidate)
     if not report:
         return {"status": "not_eligible", "symbol": symbol, "evaluation": evaluation}
-    if not settings.telegram_channel_id or not settings.telegram_bot_token:
-        return {"status": "telegram_not_configured", "symbol": symbol}
 
     session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
     key = speculative_report_key(symbol, session_date)
+    payload = {
+        "symbol": symbol,
+        "price": _number(candidate.get("price")),
+        "session_open": _number(candidate.get("session_open")),
+        "volume": _number(candidate.get("volume")),
+        "float_shares": _number(candidate.get("float_shares")),
+        "change_from_open_pct": evaluation.get("change_from_open_pct"),
+        "quote_source": candidate.get("source"),
+        "radar_type": "speculative",
+    }
+
     async with SessionLocal() as db:
-        # Cross-radar dedupe: do not publish a symbol already sent by the main radar during this session.
-        main_signal = (await db.execute(select(RadarSignal).where(RadarSignal.symbol == symbol, RadarSignal.session_date == session_date, RadarSignal.telegram_message_id.is_not(None)))).scalars().first()
+        main_signal = (await db.execute(select(RadarSignal).where(
+            RadarSignal.symbol == symbol,
+            RadarSignal.session_date == session_date,
+            RadarSignal.telegram_message_id.is_not(None),
+        ))).scalars().first()
         if main_signal is not None:
             return {"status": "duplicate_main_radar_skipped", "symbol": symbol, "session_date": session_date}
-        if (await db.execute(select(ScheduledReport).where(ScheduledReport.report_key == key))).scalars().first():
+
+        opportunity = (await db.execute(
+            select(SpeculativeOpportunity).where(SpeculativeOpportunity.report_key == key)
+        )).scalars().first()
+        if opportunity is None:
+            opportunity = SpeculativeOpportunity(
+                symbol=symbol,
+                session_date=session_date,
+                report_key=key,
+                payload=json.dumps(payload, ensure_ascii=False),
+                status="active",
+                delivery_status="pending",
+                entry_price=payload["price"],
+                current_price=payload["price"],
+            )
+            db.add(opportunity)
+            try:
+                await db.commit()
+            except IntegrityError:
+                await db.rollback()
+                return {"status": "duplicate_skipped", "symbol": symbol, "session_date": session_date}
+        elif opportunity.delivery_status == "sent":
+            # Repeated successful radar scans refresh the displayed price without
+            # sending another channel message or creating another opportunity.
+            opportunity.payload = json.dumps(payload, ensure_ascii=False)
+            opportunity.current_price = payload["price"]
+            opportunity.evaluated_at = datetime.now(ZoneInfo("UTC"))
+            await db.commit()
             return {"status": "duplicate_skipped", "symbol": symbol, "session_date": session_date}
+        else:
+            # Refresh only the latest verified observation; preserve the original entry.
+            opportunity.payload = json.dumps(payload, ensure_ascii=False)
+            opportunity.current_price = payload["price"]
+            opportunity.evaluated_at = datetime.now(ZoneInfo("UTC"))
+            await db.commit()
+
+        if not settings.telegram_channel_id or not settings.telegram_bot_token:
+            return {"status": "saved_delivery_unconfigured", "symbol": symbol, "session_date": session_date}
+
+        reservation = (await db.execute(
+            select(ScheduledReport).where(ScheduledReport.report_key == key)
+        )).scalars().first()
+        if reservation is not None:
+            reserved_at = reservation.created_at
+            if reserved_at is not None:
+                if reserved_at.tzinfo is None:
+                    reserved_at = reserved_at.replace(tzinfo=ZoneInfo("UTC"))
+                age_seconds = (datetime.now(ZoneInfo("UTC")) - reserved_at).total_seconds()
+            else:
+                age_seconds = 0
+            # Recover a delivery worker that died after reserving the idempotency key.
+            if age_seconds < 900:
+                return {"status": "saved_delivery_pending", "symbol": symbol, "session_date": session_date}
+            await db.delete(reservation)
+            await db.flush()
         db.add(ScheduledReport(report_key=key))
         try:
             await db.commit()
         except IntegrityError:
             await db.rollback()
-            return {"status": "duplicate_skipped", "symbol": symbol, "session_date": session_date}
+            return {"status": "saved_delivery_pending", "symbol": symbol, "session_date": session_date}
+        opportunity_id = opportunity.id
 
     try:
-        await send_message(settings.telegram_channel_id, report)
-    except Exception:
-        logger.exception("Speculative radar Telegram delivery failed for %s", symbol)
+        sent = await send_message(settings.telegram_channel_id, report)
+        message_id = None
+        if isinstance(sent, dict):
+            result = sent.get("result") if isinstance(sent.get("result"), dict) else sent
+            message_id = result.get("message_id") if isinstance(result, dict) else None
         async with SessionLocal() as db:
-            reservation = (await db.execute(select(ScheduledReport).where(ScheduledReport.report_key == key))).scalars().first()
+            opportunity = await db.get(SpeculativeOpportunity, opportunity_id)
+            if opportunity is not None:
+                opportunity.delivery_status = "sent"
+                opportunity.telegram_message_id = int(message_id) if message_id is not None else None
+                await db.commit()
+    except Exception:
+        logger.exception("Speculative radar Telegram delivery failed for %s; website record retained.", symbol)
+        async with SessionLocal() as db:
+            reservation = (await db.execute(
+                select(ScheduledReport).where(ScheduledReport.report_key == key)
+            )).scalars().first()
             if reservation is not None:
                 await db.delete(reservation)
-                await db.commit()
-        return {"status": "send_failed", "symbol": symbol, "session_date": session_date}
+            opportunity = await db.get(SpeculativeOpportunity, opportunity_id)
+            if opportunity is not None:
+                opportunity.delivery_status = "pending"
+            await db.commit()
+        return {"status": "saved_delivery_failed", "symbol": symbol, "session_date": session_date}
 
     logger.info("Speculative radar report sent symbol=%s session=%s", symbol, session_date)
     return {"status": "sent", "symbol": symbol, "session_date": session_date, "evaluation": evaluation}
@@ -116,6 +200,14 @@ async def publish_speculative_candidate(candidate: dict) -> dict:
 _FLOAT_CACHE: dict[str, tuple[float, float]] = {}
 _FLOAT_CACHE_TTL_SECONDS = 6 * 60 * 60
 _SPECULATIVE_SCAN_LIMIT = 35
+
+
+
+def speculative_expiry_reason(opportunity_session_date: str, current_session_date: str) -> str | None:
+    """Expire a speculative observation only after its NY trading date has ended."""
+    if not opportunity_session_date or not current_session_date:
+        return None
+    return "انتهت جلسة الرصد" if opportunity_session_date < current_session_date else None
 
 
 def _configured_keys(primary: str, plural: str) -> list[str]:
@@ -312,6 +404,20 @@ async def speculative_radar_cycle() -> dict:
         logger.info("SPECULATIVE_RADAR_SKIPPED session=%s", session)
         return {"status": "outside_market_calendar", "session": session, "sent": 0}
     logger.info("SPECULATIVE_RADAR_ACTIVE session=%s", session)
+
+    # Close prior-session observations deterministically; do not carry an early
+    # intraday signal indefinitely into a different NY trading date.
+    current_session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    async with SessionLocal() as db:
+        open_rows = (await db.execute(
+            select(SpeculativeOpportunity).where(SpeculativeOpportunity.status == "active")
+        )).scalars().all()
+        for opportunity in open_rows:
+            reason = speculative_expiry_reason(opportunity.session_date, current_session_date)
+            if reason:
+                opportunity.status = "expired"
+                opportunity.closed_reason = reason
+        await db.commit()
 
     try:
         discovered = await discover_low_price_stocks(price_min=1.00, price_max=10.00)

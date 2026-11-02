@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
-from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, RadarRun, RadarOutcome, AccessRequest, Setting, Invite, AdminRole, get_session, init_db
+from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, RadarRun, RadarOutcome, SpeculativeOpportunity, AccessRequest, Setting, Invite, AdminRole, get_session, init_db
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
@@ -2538,6 +2538,34 @@ async def radar_opportunities(_: dict = Depends(require_pro), db: AsyncSession =
             "telegram_message_id": signal.telegram_message_id,
         }
         (history if terminal else active).append(item)
+
+    speculative_rows = (await db.execute(
+        select(SpeculativeOpportunity).order_by(SpeculativeOpportunity.created_at.desc()).limit(200)
+    )).scalars().all()
+    for opportunity in speculative_rows:
+        try:
+            details = json.loads(opportunity.payload or "{}")
+        except (TypeError, ValueError):
+            details = {}
+        item = {
+            "symbol": opportunity.symbol,
+            "session_date": opportunity.session_date,
+            "created_at": aware(opportunity.created_at).isoformat() if opportunity.created_at else None,
+            "entry_price": opportunity.entry_price,
+            "current_price": opportunity.current_price,
+            "current_stop": opportunity.current_stop,
+            "targets": [],
+            "achieved_target": 0,
+            "status": "closed" if opportunity.status in {"closed", "cancelled", "expired"} else "active",
+            "outcome_status": opportunity.status,
+            "evaluated_at": aware(opportunity.evaluated_at).isoformat() if opportunity.evaluated_at else None,
+            "reason": opportunity.closed_reason,
+            "radar_type": "speculative",
+            "delivery_status": opportunity.delivery_status,
+            "telegram_message_id": opportunity.telegram_message_id,
+            "change_from_open_pct": details.get("change_from_open_pct"),
+        }
+        (history if item["status"] == "closed" else active).append(item)
 
     return {
         "ok": True,

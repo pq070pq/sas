@@ -4,6 +4,7 @@ from app.speculative_radar import (
     _radar_session_is_scannable,
     build_speculative_report,
     speculative_report_key,
+    speculative_expiry_reason,
 )
 from app.finviz_intraday_filter import evaluate_intraday_candidate
 
@@ -83,6 +84,16 @@ class SpeculativeRadarTests(unittest.TestCase):
         report, result = build_speculative_report({"price": 5.5})
         self.assertIsNone(report)
         self.assertFalse(result["eligible"])
+
+
+    def test_speculative_opportunity_expires_only_after_session_date_rollover(self):
+        self.assertIsNone(speculative_expiry_reason("2026-11-03", "2026-11-03"))
+        self.assertEqual(
+            speculative_expiry_reason("2026-11-02", "2026-11-03"),
+            "انتهت جلسة الرصد",
+        )
+        self.assertIsNone(speculative_expiry_reason("", "2026-11-03"))
+
 
 
 if __name__ == "__main__":

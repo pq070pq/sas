@@ -197,6 +197,26 @@ class ScheduledReport(Base):
     report_key: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
+
+
+class SpeculativeOpportunity(Base):
+    """Independent lifecycle record for the early/speculative radar feed."""
+    __tablename__ = "speculative_opportunities"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(24), index=True)
+    session_date: Mapped[str] = mapped_column(String(16), index=True)
+    report_key: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    payload: Mapped[str] = mapped_column(Text, default="{}")
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    delivery_status: Mapped[str] = mapped_column(String(24), default="pending", index=True)
+    telegram_message_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    entry_price: Mapped[float | None] = mapped_column()
+    current_price: Mapped[float | None] = mapped_column()
+    current_stop: Mapped[float | None] = mapped_column()
+    evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
 class StockAnalysis(Base):
     __tablename__ = "stock_analyses"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

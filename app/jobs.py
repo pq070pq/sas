@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from .config import settings
-from .db import SessionLocal, Subscription, RadarSignal, RadarOutcome, RadarRun, ScheduledReport, User, ScheduledReport
+from .db import SessionLocal, Subscription, RadarSignal, RadarOutcome, RadarRun, ScheduledReport, User
 from .telegram import send_message, edit_message, bot_api
 from .holiday_radar import publish_holiday_radar, publish_market_update
 from .timeutil import utcnow, aware
