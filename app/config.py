@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_env: str = "production"
+    staging_mode: bool = Field(default=False, validation_alias=AliasChoices("SAS_STAGING_MODE", "STAGING_MODE"))
     app_base_url: str = ""
     database_url: str = "sqlite+aiosqlite:///./data/saspro.db"
     telegram_bot_token: str = ""
