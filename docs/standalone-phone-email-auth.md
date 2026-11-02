@@ -10,11 +10,11 @@ This is installation-based identification, not verified real-world identity. Rei
 
 ## User access lifecycle
 
-- New installations receive a configurable default access duration controlled by the administrator (for example, 3 days, 7 days, 30 days, or a custom duration).
+- Every new installation automatically receives 30 days of access from its first successful registration (server UTC time). This is the fixed default policy.
 - Store first_seen_at, access_starts_at, access_expires_at, last_seen_at, status, and a non-secret display identifier for each installation.
 - Access is allowed only while status is active and server time is before access_expires_at.
 - Expired users see a clear access-expired screen; the app does not silently reset the expiry.
-- The admin can extend/reduce the expiry, grant permanent access, revoke access, block/unblock an installation, add an internal note, and inspect last activity.
+- The admin can extend a user's access by any chosen duration or set an exact expiry date, reduce the expiry, grant permanent access, revoke access, block/unblock an installation, add an internal note, and inspect last activity. Extensions add time to the existing expiry unless the admin explicitly chooses an exact new expiry.
 - Admin actions take effect server-side immediately (or on the next API request); hiding a screen in the client is not an access control.
 - Use UTC timestamps in storage and display dates in the user's local timezone.
 - Define whether new installations receive the configured default trial/access duration; never grant repeat access automatically to a known blocked or expired installation.
@@ -28,7 +28,7 @@ Admin capabilities:
 - View first seen, last activity, expiry, and generated installation identifier.
 - Set an exact expiry date or grant a selected duration (1 day, 7 days, 30 days, 90 days, 1 year, custom, or permanent).
 - Extend, shorten, block, unblock, and revoke access.
-- Configure the default access duration for new installations.
+- View the fixed 30-day initial access policy. Any future change to this default requires an explicit product decision.
 - View an audit log of who changed access, when, and what changed.
 
 Protect admin credentials using a server-side password hash, rate limiting, secure sessions, CSRF protection where applicable, HTTPS, and optional MFA. Store no admin secret in the mobile application. Keep a bootstrap admin credential in deployment secrets and require rotation on first setup; do not hardcode it or commit it.
@@ -63,10 +63,10 @@ Protect admin credentials using a server-side password hash, rate limiting, secu
 
 ## Acceptance criteria
 
-- A new user can open and use the app without creating an account or entering credentials.
+- A new installation receives 30 days of access automatically and can use the app without creating an account or entering credentials.
 - Each installation is represented by a random installation ID, not a hardware fingerprint.
 - Server-side expiry and block status are enforced on protected APIs.
-- Admin can search users/installations, set or change usage duration, grant permanent access, block, and unblock.
+- Admin can search users/installations, extend or shorten access by a chosen duration, set an exact expiry, grant permanent access, block, and unblock.
 - Public clients cannot call admin actions or alter their own expiry.
 - Reinstall/device-change limitations are clearly understood and not misrepresented.
 - Existing Telegram bot, Mini App, channel, Stars, subscriptions, admin operations, and radar remain unchanged.
