@@ -5,6 +5,7 @@ from app.speculative_radar import (
     build_speculative_report,
     speculative_report_key,
     speculative_expiry_reason,
+    speculative_exclusion_reason,
 )
 from app.finviz_intraday_filter import evaluate_intraday_candidate
 
@@ -93,6 +94,33 @@ class SpeculativeRadarTests(unittest.TestCase):
             "انتهت جلسة الرصد",
         )
         self.assertIsNone(speculative_expiry_reason("", "2026-11-03"))
+
+
+
+    def test_excludes_only_when_fresh_observation_breaks_a_known_rule(self):
+        self.assertEqual(
+            speculative_exclusion_reason(price=0.95, volume=700_000, session_open=0.90, quote_fresh=True),
+            "خرج السعر من النطاق المحدد: $0.9500",
+        )
+        self.assertEqual(
+            speculative_exclusion_reason(price=5.2, volume=400_000, session_open=4.7, quote_fresh=True),
+            "هبط حجم التداول إلى 400,000 سهم أو أقل من الحد المطلوب",
+        )
+        self.assertIn(
+            "فقد شرط الزخم",
+            speculative_exclusion_reason(price=5.0, volume=700_000, session_open=4.8, quote_fresh=True),
+        )
+
+    def test_does_not_exclude_on_missing_or_stale_observation(self):
+        self.assertIsNone(
+            speculative_exclusion_reason(price=0.90, volume=100_000, session_open=1.0, quote_fresh=False)
+        )
+        self.assertIsNone(
+            speculative_exclusion_reason(price=0.90, volume=None, session_open=1.0, quote_fresh=True)
+        )
+        self.assertIsNone(
+            speculative_exclusion_reason(price=5.5, volume=700_000, session_open=5.0, quote_fresh=True)
+        )
 
 
 
