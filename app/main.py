@@ -5205,3 +5205,9 @@ async def search_sec_disclosures(
     except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
         logger.warning("SEC disclosure search failed: %s", type(exc).__name__)
         raise HTTPException(502, "تعذر جلب بيانات SEC حاليًا. تحقق من الاتصال وإعداد SEC_USER_AGENT.") from exc
+
+
+# Independent anonymous-installation access and admin console.
+# This router does not use or modify Telegram authentication or subscriptions.
+from .standalone_access import router as standalone_access_router
+app.include_router(standalone_access_router)

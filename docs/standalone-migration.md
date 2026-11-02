@@ -72,3 +72,12 @@ Deliver SAS PRO as a standalone web app plus Android and iOS apps. Public app us
 - Installation identity limitations are documented; no invasive hardware fingerprinting is used.
 - Existing Telegram and radar behavior remains unchanged.
 - No production deployment without separate explicit approval.
+
+## Implemented in the feature branch
+
+- Additive tables for anonymous installation access, standalone admin sessions, and standalone admin audit history.
+- Public registration returns a random installation token once; only its hash is persisted.
+- Server-side access checks enforce 30-day expiry, block, and revoke states.
+- A separate Arabic admin console and APIs support search, status counts, expiry extension, exact expiry, permanent access, block/unblock, and audit history.
+- Admin login is configured only through server environment secrets. No default admin password is shipped.
+- Remaining integration: standalone client screens must register/store the token and attach it to protected standalone API requests. Existing Telegram APIs are deliberately untouched.

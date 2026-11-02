@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#06111e">
+<title>SAS PRO | إدارة وصول التطبيق</title>
+<style>
+:root{color-scheme:dark;--bg:#06111e;--panel:#0d1c2c;--line:#20364b;--text:#edf5fc;--muted:#91a7ba;--green:#28d7a0;--red:#ff647c;--gold:#f5c66b}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#12304a 0,transparent 34%),var(--bg);color:var(--text);font:15px system-ui,-apple-system,sans-serif}
+.wrap{max-width:1180px;margin:auto;padding:24px}.brand{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:22px}.brand h1{margin:0;font-size:24px}.brand small,.muted{color:var(--muted)}.panel{background:linear-gradient(145deg,#102338,#0a1725);border:1px solid var(--line);border-radius:18px;padding:20px;margin:16px 0;box-shadow:0 16px 45px #0004}
+input,select,button{font:inherit;border-radius:10px;border:1px solid var(--line);padding:11px 13px;background:#071522;color:var(--text)}button{cursor:pointer;background:#14344b}button:hover{border-color:#4b88ad}button.primary{background:#087b66;border-color:#159d82}button.danger{background:#512334;border-color:#85384d}button:disabled{opacity:.5;cursor:wait}
+form{display:grid;gap:12px;max-width:420px}.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.stat{padding:15px;border-radius:13px;background:#081725;border:1px solid var(--line)}.stat b{display:block;font-size:25px;margin-top:6px}.toolbar{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px}.toolbar input{flex:1;min-width:180px}
+table{width:100%;border-collapse:collapse;min-width:760px}th,td{text-align:right;padding:12px 9px;border-bottom:1px solid var(--line);vertical-align:middle}th{color:var(--muted);font-weight:600}.table-wrap{overflow:auto}.actions{display:flex;gap:6px;flex-wrap:wrap}.actions button{padding:7px 9px;font-size:13px}.pill{display:inline-block;border-radius:99px;padding:4px 9px;font-size:12px;background:#243548}.pill.active,.pill.permanent{color:var(--green)}.pill.blocked,.pill.revoked{color:var(--red)}.pill.expired{color:var(--gold)}.hidden{display:none!important}.message{padding:10px 12px;border-radius:10px;background:#152c3c;margin:10px 0}.error{color:#ff9aaa}.top-actions{display:flex;gap:8px;align-items:center}
+@media(max-width:700px){.wrap{padding:14px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.brand{align-items:flex-start;flex-direction:column}.panel{padding:14px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="brand"><div><h1>🐬 SAS PRO — إدارة الوصول</h1><small>لوحة مستقلة لإدارة مستخدمي التطبيق ومدد الاستخدام</small></div><div class="top-actions"><span id="adminName" class="muted"></span><button id="logoutBtn" class="hidden">تسجيل الخروج</button></div></header>
+<section id="loginPanel" class="panel"><h2>دخول الأدمن</h2><p class="muted">هذه اللوحة محمية ولا تتطلب من مستخدمي التطبيق أي تسجيل دخول.</p><form id="loginForm"><input id="username" autocomplete="username" placeholder="اسم الأدمن" required><input id="password" type="password" autocomplete="current-password" placeholder="كلمة مرور الأدمن" required><button class="primary" type="submit">دخول آمن</button></form><div id="loginMessage" class="message hidden"></div></section>
+<section id="dashboard" class="hidden">
+<div class="panel"><div class="stats"><div class="stat">كل التثبيتات<b id="total">0</b></div><div class="stat">نشطون<b id="active">0</b></div><div class="stat">منتهون<b id="expired">0</b></div><div class="stat">محظورون<b id="blocked">0</b></div><div class="stat">دائم<b id="permanent">0</b></div></div><p class="muted">كل تثبيت جديد يحصل تلقائيًا على 30 يومًا. التمديد يضاف إلى تاريخ الانتهاء الحالي، وإذا انتهت المدة يبدأ من الآن.</p></div>
+<div class="panel"><div class="toolbar"><input id="search" placeholder="ابحث برقم التثبيت أو الملاحظة"><select id="filter"><option value="all">كل الحالات</option><option value="active">نشط</option><option value="expired">منتهي</option><option value="blocked">محظور</option><option value="revoked">ملغي</option><option value="permanent">دائم</option></select><button id="refreshBtn">تحديث</button></div><div class="table-wrap"><table><thead><tr><th>معرّف التثبيت</th><th>الحالة</th><th>أول استخدام</th><th>آخر نشاط</th><th>ينتهي في</th><th>إجراءات</th></tr></thead><tbody id="users"></tbody></table></div><div id="empty" class="muted hidden">لا توجد نتائج.</div></div>
+<div class="panel"><h3>آخر عمليات الإدارة</h3><div id="audit" class="muted">—</div></div>
+</section>
+<div id="globalMessage" class="message hidden"></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+async function api(path,options={}){const r=await fetch(path,{credentials:"same-origin",...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.detail||"تعذر تنفيذ الطلب");return d}
+function msg(id,text,error=false){const el=$(id);el.textContent=text;el.classList.remove("hidden");el.classList.toggle("error",error)}
+function date(v){if(!v)return"—";const d=new Date(v);return Number.isNaN(d.getTime())?"—":d.toLocaleString("ar-SA")}
+function stateLabel(s){return({active:"نشط",expired:"منتهي",blocked:"محظور",revoked:"ملغي",permanent:"دائم"})[s]||s}
+async function boot(){try{const me=await api("/api/standalone/admin/me");$("adminName").textContent="الأدمن: "+me.username;$("loginPanel").classList.add("hidden");$("dashboard").classList.remove("hidden");$("logoutBtn").classList.remove("hidden");await refresh()}catch{$("loginPanel").classList.remove("hidden");$("dashboard").classList.add("hidden");$("logoutBtn").classList.add("hidden")}}
+async function refresh(){const [s,list,a]=await Promise.all([api("/api/standalone/admin/summary"),api("/api/standalone/admin/installations?q="+encodeURIComponent($("search").value)+"&status="+encodeURIComponent($("filter").value)),api("/api/standalone/admin/audit")]);for(const k of ["total","active","expired","blocked","permanent"])$(k).textContent=s[k]??0;render(list.items||[]);$("audit").textContent=(a.items||[]).slice(0,8).map(x=>date(x.created_at)+" — "+x.actor+" — "+x.action+" — "+(x.installation_id||"")).join("\n")||"لا توجد عمليات بعد"}
+function render(items){const body=$("users");body.replaceChildren();$("empty").classList.toggle("hidden",items.length>0);for(const u of items){const tr=document.createElement("tr");const vals=[u.id,u.status,u.first_seen_at,u.last_seen_at,u.access_expires_at];for(let i=0;i<vals.length;i++){const td=document.createElement("td");if(i===1){const pill=document.createElement("span");pill.className="pill "+u.status; pill.textContent=stateLabel(u.status);td.append(pill)}else td.textContent=i>=2?date(vals[i]):vals[i];tr.append(td)}const td=document.createElement("td"),actions=document.createElement("div");actions.className="actions";const add=(label,fn,cls="")=>{const b=document.createElement("button");b.textContent=label;if(cls)b.className=cls;b.addEventListener("click",fn);actions.append(b)};add("+30 يوم",()=>change(u.id,{extend_days:30}),"primary");add("+90 يوم",()=>change(u.id,{extend_days:90}));add("مدة مخصصة",async()=>{const n=prompt("كم يومًا تريد إضافتها؟");if(n!==null)await change(u.id,{extend_days:n})});add("دائم",()=>change(u.id,{permanent:true}));if(u.status==="blocked")add("فك الحظر",()=>change(u.id,{blocked:false}));else add("حظر",()=>change(u.id,{blocked:true}),"danger");add("تاريخ محدد",async()=>{const v=prompt("أدخل تاريخ الانتهاء بصيغة YYYY-MM-DDTHH:mm:ssZ");if(v)await change(u.id,{expires_at:v})});tr.append(td);td.append(actions);body.append(tr)}}
+async function change(id,payload){try{await api("/api/standalone/admin/installations/"+encodeURIComponent(id)+"/access",{method:"POST",body:JSON.stringify(payload)});msg("globalMessage","تم تحديث صلاحية التثبيت");await refresh()}catch(e){msg("globalMessage",e.message,true)}}
+$("loginForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/api/standalone/admin/login",{method:"POST",body:JSON.stringify({username:$("username").value,password:$("password").value})});$("password").value="";await boot()}catch(err){msg("loginMessage",err.message,true)}});
+$("logoutBtn").addEventListener("click",async()=>{try{await api("/api/standalone/admin/logout",{method:"POST"});await boot()}catch(e){msg("globalMessage",e.message,true)}});
+$("refreshBtn").addEventListener("click",()=>refresh().catch(e=>msg("globalMessage",e.message,true)));
+$("filter").addEventListener("change",()=>refresh().catch(e=>msg("globalMessage",e.message,true)));
+let timer; $("search").addEventListener("input",()=>{clearTimeout(timer);timer=setTimeout(()=>refresh().catch(e=>msg("globalMessage",e.message,true)),250)});
+boot();
+</script>
+</body>
+</html>

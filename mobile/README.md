@@ -37,3 +37,10 @@ The current APK/Xcode artifacts are an early launcher shell that hands off to th
 - Use additive schema changes and test on an isolated database before any deployment.
 - Admin secrets remain server-side and must never be embedded in the mobile bundle.
 - Do not claim the app is standalone until it passes the acceptance criteria.
+
+## Admin setup
+
+- Open `/admin/standalone` after deploying the feature in a test environment.
+- Set `SAS_STANDALONE_ADMIN_USERNAME` and `SAS_STANDALONE_ADMIN_PASSWORD` as server-side secrets before logging in.
+- The first successful device registration receives 30 days. The admin can extend by 30/90/custom days, set an exact expiry, make access permanent, or block/unblock the installation.
+- The admin console is independent from Telegram admin login. It does not change Telegram users or subscriptions.

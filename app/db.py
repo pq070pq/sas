@@ -288,3 +288,42 @@ async def init_db():
 async def get_session():
     async with SessionLocal() as session:
         yield session
+
+
+class StandaloneInstallation(Base):
+    """Anonymous app installation with server-enforced access expiry."""
+    __tablename__ = "standalone_installations"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    access_starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    access_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    permanent: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+    blocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class StandaloneAdminSession(Base):
+    """Revocable browser session for the separate standalone admin console."""
+    __tablename__ = "standalone_admin_sessions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    admin_username: Mapped[str] = mapped_column(String(128), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class StandaloneAdminAudit(Base):
+    """Audit trail for standalone installation access changes."""
+    __tablename__ = "standalone_admin_audit"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    actor_username: Mapped[str] = mapped_column(String(128))
+    action: Mapped[str] = mapped_column(String(64), index=True)
+    installation_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    details: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)

@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     telegram_channel_id: str = ""
     telegram_channel_link: str = ""
     owner_telegram_id: int = 0
+    standalone_admin_username: str = ""
+    standalone_admin_password: str = ""
+    standalone_admin_session_hours: int = 8
+    standalone_admin_cookie_secure: bool = True
     twelve_data_api_key: str = ""
     twelve_data_api_keys: str = ""
     finnhub_api_key: str = ""
