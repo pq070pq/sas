@@ -186,7 +186,28 @@ async def register_installation(
             )
         )).scalars().first()
         if not row:
-            raise HTTPException(401, "معرّف التثبيت غير معروف؛ لا يمكن إعادة إنشاء الصلاحية تلقائيًا")
+            # The native app generates a high-entropy installation token and
+            # persists it in Keychain/Keystore before its first registration.
+            if len(x_sas_installation) < 40:
+                raise HTTPException(400, "معرّف التثبيت قصير وغير آمن")
+            row = StandaloneInstallation(
+                id=str(uuid4()),
+                token_hash=token_digest(x_sas_installation),
+                status="active",
+                access_starts_at=now,
+                access_expires_at=now + timedelta(days=INITIAL_ACCESS_DAYS),
+                permanent=False,
+                first_seen_at=now,
+                last_seen_at=now,
+            )
+            db.add(row)
+            await db.commit()
+            return {
+                "ok": True, "installation_id": row.id, "status": "active",
+                "access_starts_at": now.isoformat(),
+                "access_expires_at": as_utc(row.access_expires_at).isoformat(),
+                "days_granted": INITIAL_ACCESS_DAYS, "new_installation": True,
+            }
         state = installation_state(row, now)
         if state != "active":
             raise HTTPException(403, "الوصول موقوف أو منتهي")

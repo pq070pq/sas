@@ -1,3 +1,4 @@
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -11,10 +12,10 @@ class Settings(BaseSettings):
     telegram_channel_id: str = ""
     telegram_channel_link: str = ""
     owner_telegram_id: int = 0
-    standalone_admin_username: str = ""
-    standalone_admin_password: str = ""
-    standalone_admin_session_hours: int = 8
-    standalone_admin_cookie_secure: bool = True
+    standalone_admin_username: str = Field(default="", validation_alias=AliasChoices("SAS_STANDALONE_ADMIN_USERNAME", "STANDALONE_ADMIN_USERNAME"))
+    standalone_admin_password: str = Field(default="", validation_alias=AliasChoices("SAS_STANDALONE_ADMIN_PASSWORD", "STANDALONE_ADMIN_PASSWORD"))
+    standalone_admin_session_hours: int = Field(default=8, validation_alias=AliasChoices("SAS_STANDALONE_ADMIN_SESSION_HOURS", "STANDALONE_ADMIN_SESSION_HOURS"))
+    standalone_admin_cookie_secure: bool = Field(default=True, validation_alias=AliasChoices("SAS_STANDALONE_ADMIN_COOKIE_SECURE", "STANDALONE_ADMIN_COOKIE_SECURE"))
     twelve_data_api_key: str = ""
     twelve_data_api_keys: str = ""
     finnhub_api_key: str = ""

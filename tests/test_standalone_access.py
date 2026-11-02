@@ -25,6 +25,13 @@ class StandaloneAccessTests(unittest.TestCase):
                       "users", "subscriptions", "payments"):
             self.assertIn(table, Base.metadata.tables)
 
+    def test_admin_environment_aliases_accept_sas_prefix(self):
+        from app.config import Settings
+        settings = Settings(_env_file=None, SAS_STANDALONE_ADMIN_USERNAME="admin",
+                            SAS_STANDALONE_ADMIN_PASSWORD="temporary-test-secret")
+        self.assertEqual(settings.standalone_admin_username, "admin")
+        self.assertEqual(settings.standalone_admin_password, "temporary-test-secret")
+
     def test_initial_duration_is_thirty_days(self):
         self.assertEqual(INITIAL_ACCESS_DAYS, 30)
 
