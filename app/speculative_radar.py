@@ -203,6 +203,48 @@ _SPECULATIVE_SCAN_LIMIT = 35
 
 
 
+
+def speculative_exclusion_reason(*, price, volume, session_open, quote_fresh: bool) -> str | None:
+    """Return a deterministic exclusion reason only from a fresh, complete observation."""
+    if quote_fresh is not True:
+        return None
+    price_value = _number(price)
+    volume_value = _number(volume)
+    open_value = _number(session_open)
+    if price_value is None or volume_value is None or open_value is None:
+        return None
+    if not 1.00 <= price_value <= 10.00:
+        return f"خرج السعر من النطاق المحدد: ${price_value:.4f}"
+    if volume_value <= 500_000:
+        return f"هبط حجم التداول إلى {int(volume_value):,} سهم أو أقل من الحد المطلوب"
+    change = ((price_value - open_value) / open_value) * 100
+    if change < 10.0:
+        return f"فقد شرط الزخم: التغير من الافتتاح {change:.2f}%"
+    return None
+
+
+async def _close_observed_speculative_opportunity(symbol: str, session_date: str, *, price, volume, session_open, quote_fresh: bool) -> bool:
+    reason = speculative_exclusion_reason(
+        price=price, volume=volume, session_open=session_open, quote_fresh=quote_fresh
+    )
+    if reason is None:
+        return False
+    key = speculative_report_key(symbol, session_date)
+    async with SessionLocal() as db:
+        opportunity = (await db.execute(
+            select(SpeculativeOpportunity).where(SpeculativeOpportunity.report_key == key)
+        )).scalars().first()
+        if opportunity is None or opportunity.status != "active":
+            return False
+        opportunity.current_price = _number(price)
+        opportunity.status = "closed"
+        opportunity.closed_reason = reason
+        opportunity.evaluated_at = datetime.now(ZoneInfo("UTC"))
+        await db.commit()
+    logger.info("SPECULATIVE_OPPORTUNITY_CLOSED symbol=%s reason=%s", symbol, reason)
+    return True
+
+
 def speculative_expiry_reason(opportunity_session_date: str, current_session_date: str) -> str | None:
     """Expire a speculative observation only after its NY trading date has ended."""
     if not opportunity_session_date or not current_session_date:
@@ -235,8 +277,14 @@ async def _finnhub_session_quote(client: httpx.AsyncClient, symbol: str) -> dict
             payload = response.json()
             price = _number(payload.get("c"))
             session_open = _number(payload.get("o"))
-            if price and session_open:
-                return {"price": price, "session_open": session_open, "source": "Finnhub"}
+            quote_timestamp = payload.get("t")
+            try:
+                observed_at = datetime.fromtimestamp(float(quote_timestamp), ZoneInfo("UTC"))
+                quote_age_seconds = (datetime.now(ZoneInfo("UTC")) - observed_at).total_seconds()
+            except (TypeError, ValueError, OverflowError, OSError):
+                continue
+            if price and session_open and 0 <= quote_age_seconds <= 20 * 60:
+                return {"price": price, "session_open": session_open, "source": "Finnhub", "quote_fresh": True}
         except Exception as exc:
             logger.debug("SPECULATIVE_FINNHUB_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
     return None
@@ -340,6 +388,7 @@ async def _extended_session_quote(client: httpx.AsyncClient, symbol: str, sessio
             "volume": sum(bar[3] for bar in bars),
             "source": "PanWatch 1m",
             "is_extended_hours": True,
+            "quote_fresh": True,
         }
     except Exception as exc:
         logger.debug("SPECULATIVE_EXTENDED_QUOTE_FAILED symbol=%s session=%s error=%s", symbol, session, type(exc).__name__)
@@ -456,12 +505,24 @@ async def speculative_radar_cycle() -> dict:
                 price = quote["price"]
                 session_open = quote["session_open"]
                 if not (1.00 <= price <= 10.00):
-                    return {"status": "price_filtered", "symbol": symbol}
+                    closed = await _close_observed_speculative_opportunity(
+                        symbol, current_session_date, price=price, volume=observed_volume,
+                        session_open=session_open, quote_fresh=quote.get("quote_fresh") is True,
+                    )
+                    return {"status": "price_filtered", "symbol": symbol, "closed": closed}
                 if observed_volume is None or observed_volume <= 500_000:
-                    return {"status": "session_volume_filtered", "symbol": symbol}
+                    closed = await _close_observed_speculative_opportunity(
+                        symbol, current_session_date, price=price, volume=observed_volume,
+                        session_open=session_open, quote_fresh=quote.get("quote_fresh") is True,
+                    )
+                    return {"status": "session_volume_filtered", "symbol": symbol, "closed": closed}
                 change = ((price - session_open) / session_open) * 100
                 if change < 10.0:
-                    return {"status": "price_or_momentum_filtered", "symbol": symbol}
+                    closed = await _close_observed_speculative_opportunity(
+                        symbol, current_session_date, price=price, volume=observed_volume,
+                        session_open=session_open, quote_fresh=quote.get("quote_fresh") is True,
+                    )
+                    return {"status": "price_or_momentum_filtered", "symbol": symbol, "closed": closed}
                 float_shares = await _fmp_float_shares(client, symbol)
                 if float_shares is None:
                     return {"status": "float_unavailable", "symbol": symbol}
