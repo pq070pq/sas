@@ -2487,6 +2487,68 @@ async def admin_radar_daily_summary(session_date: str | None = None, user=Depend
     }
 
 
+@app.get("/api/radar/opportunities")
+async def radar_opportunities(_: dict = Depends(require_pro), db: AsyncSession = Depends(get_session)):
+    """Read-only lifecycle feed for published opportunities, including closed history."""
+    from .db import RadarOutcome
+    rows = (await db.execute(
+        select(RadarSignal, RadarOutcome)
+        .join(RadarOutcome, RadarOutcome.radar_signal_id == RadarSignal.id)
+        .where(RadarSignal.telegram_message_id.is_not(None))
+        .order_by(RadarSignal.created_at.desc())
+        .limit(200)
+    )).all()
+
+    active = []
+    history = []
+    for signal, outcome in rows:
+        try:
+            payload = json.loads(signal.payload or "{}")
+        except (TypeError, ValueError):
+            payload = {}
+        payload = payload if isinstance(payload, dict) else {}
+        targets = [
+            value for value in (
+                outcome.target1, outcome.target2, outcome.target3,
+                outcome.target4, outcome.target5,
+            ) if value is not None
+        ]
+        terminal = (
+            outcome.status in {"failed", "completed"}
+            or int(outcome.achieved_target or 0) >= len(targets)
+        )
+        item = {
+            "symbol": signal.symbol,
+            "session_date": signal.session_date,
+            "created_at": aware(signal.created_at).isoformat() if signal.created_at else None,
+            "entry_price": outcome.entry_price,
+            "current_price": outcome.current_price,
+            "current_stop": outcome.current_stop,
+            "targets": targets,
+            "achieved_target": int(outcome.achieved_target or 0),
+            "status": "closed" if terminal else "active",
+            "outcome_status": outcome.status,
+            "evaluated_at": aware(outcome.evaluated_at).isoformat() if outcome.evaluated_at else None,
+            "reason": (
+                payload.get("strategy_cancel_reason")
+                or payload.get("strategy_inactive_reason")
+                or ("اكتملت الأهداف المسجلة" if terminal and int(outcome.achieved_target or 0) else None)
+            ),
+            "radar_active": payload.get("radar_active") is True,
+            "telegram_message_id": signal.telegram_message_id,
+        }
+        (history if terminal else active).append(item)
+
+    return {
+        "ok": True,
+        "checked_at": utcnow().isoformat(),
+        "active_count": len(active),
+        "history_count": len(history),
+        "active": active,
+        "history": history,
+    }
+
+
 @app.get("/api/radar/learning-profile")
 async def radar_learning_profile_api(user=Depends(telegram_user)):
     """Admin-only read of the persisted learning profile; never triggers a scan or provider request."""
