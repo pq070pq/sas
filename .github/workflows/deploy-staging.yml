@@ -1,7 +1,16 @@
 name: Deploy SAS PRO Staging
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - feature/sas-mobile-app
+    paths:
+      - 'app/**'
+      - 'web/**'
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - 'docker-compose.staging.yml'
+      - '.github/workflows/deploy-staging.yml'
 
 permissions:
   contents: read
@@ -12,7 +21,7 @@ concurrency:
 
 jobs:
   deploy-staging:
-    # The workflow must be dispatched from the approved development branch.
+    # Only the development branch can deploy to staging; production main is excluded.
     if: github.ref == 'refs/heads/feature/sas-mobile-app'
     runs-on: ubuntu-22.04
     timeout-minutes: 30
