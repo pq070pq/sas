@@ -15,6 +15,7 @@ from .market import quote
 from .perpequities_provider import get_equity_perpetuals
 from .twelve_guard import call as twelve_call
 from .smart_memory import SmartMemory
+from .radar_confirmation import confirmation_state
 from .tradingview_mcp import discover_tradingview_mcp
 
 # رادار SAS PRO:
@@ -3059,24 +3060,19 @@ async def scan_us_low_price_stocks(force_refresh: bool = False, progress_callbac
                 # البوابة النهائية تفصل بين "المراقبة" و"الفرصة المؤكدة":
                 # لا نحذف المرشح المبكر إذا كان ناقصًا هدفًا/R:R فقط؛ يبقى للمراقبة.
                 # لكن لا يسمح له بالوصول للقناة أو قائمة الفرص المؤكدة حتى تكتمل الشروط.
-                final_target_levels = targets.get("targets") if isinstance(targets, dict) else []
-                final_target_levels = final_target_levels if isinstance(final_target_levels, list) else []
-                final_target = _f(final_target_levels[0], 0) if final_target_levels else 0
-                final_stop = _f(targets.get("exit"), 0) if isinstance(targets, dict) else 0
-                final_rr = _f(targets.get("risk_reward"), 0) if isinstance(targets, dict) else 0
-                final_target_ok = bool(
-                    isinstance(targets, dict)
-                    and targets.get("status") == "ok"
-                    and final_target > live_price > final_stop > 0
-                )
-                final_live_ok = bool(
-                    live_price > 0
-                    and live_source
-                    and str(live_source).lower() not in {"unavailable", "scan data"}
-                )
                 final_strategy_ok = bool(classification.get("strategy_pass"))
-                # R:R تحذير توضيحي وليس شرط رفض مستقلًا؛ الهدف الفني والسعر الحي
-                # والاستراتيجية تبقى شروطًا إلزامية للتأكيد.
+                confirmation = confirmation_state(
+                    strategy_pass=final_strategy_ok,
+                    live_price=live_price,
+                    live_source=live_source,
+                    targets=targets,
+                )
+                final_live_ok = confirmation["live_price_ready"]
+                final_stop_ok = confirmation["stop_ready"]
+                final_target_ok = confirmation["target_confirmed"]
+                # الهدف الفني اختياري عند غياب مقاومة موثوقة؛ لا نختلق هدفًا.
+                # يبقى وقف صالح بمسافة أمان 0.75% والسعر الحي والاستراتيجية شروطًا إلزامية للتأكيد.
+
 
                 # شروط أساسية: إذا فشلت الاستراتيجية أو السعر الحي، لا تعتبر
                 # مراقبة قابلة للتحول؛ أما نقص الهدف الفني فيبقي السهم تحت المراقبة.
@@ -3097,11 +3093,11 @@ async def scan_us_low_price_stocks(force_refresh: bool = False, progress_callbac
                     }
 
                 # المرشح المبكر يبقى محفوظًا للمراقبة، ونسبة R:R المنخفضة تظهر كتحذير.
-                confirmation_ready = bool(final_target_ok)
+                confirmation_ready = bool(confirmation["confirmation_ready"])
                 classification["confirmation_ready"] = confirmation_ready
-                classification["opportunity_status"] = (
-                    "confirmed" if confirmation_ready else "watch"
-                )
+                classification["opportunity_status"] = confirmation["opportunity_status"]
+                classification["target_confirmed"] = bool(final_target_ok)
+                classification["stop_distance_pct"] = confirmation["stop_distance_pct"]
                 if not confirmation_ready:
                     filter_counts["watch_candidates"] += 1
 
@@ -3175,7 +3171,7 @@ async def scan_us_low_price_stocks(force_refresh: bool = False, progress_callbac
                     "live_change_pct": live_change,
                     "live_price_source": live_source,
                     "radar_checks": radar_checks,
-                    "radar_tier": "confirmed" if has_confirmed_target and not advanced_warning else "watch",
+                    "radar_tier": "confirmed" if confirmation_ready and not advanced_warning else "watch",
                 }
 
                 if live_price > 0:
