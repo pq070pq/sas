@@ -694,8 +694,8 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
     overnight = session == "night"
 
     classification = row.get("classification") or {}
-    # لا تسمح بوابة القناة أو التطبيق بفرصة "مراقبة" غير مكتملة.
-    # يجب أن يعلن scanner.py صراحةً أن الهدف/الوقف/R:R مكتملة.
+    # الهدف الفني اختياري إذا لم توجد مقاومة موثوقة؛ لا نختلق هدفًا.
+    # scanner.py لا يعلن التأكيد إلا بعد اجتياز الاستراتيجية والسعر الحي والوقف الصالح.
     if classification.get("opportunity_status") != "confirmed" or not bool(classification.get("confirmation_ready")):
         return False, "الفرصة ما زالت تحت المراقبة ولم تكتمل شروط التأكيد"
     targets = row.get("targets") or {}
