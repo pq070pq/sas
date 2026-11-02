@@ -2,19 +2,21 @@
 
 This branch adds a Capacitor launcher for the existing SAS PRO Telegram Mini App. It deliberately does **not** replace Telegram authentication or billing. The app hands off to the existing bot Mini App deep link so Telegram supplies the signed WebApp initData already validated by the backend. Existing user IDs, subscriptions, Stars payments, channel membership, bot, and radar remain unchanged.
 
-## Required GitHub repository variables
+## Public app configuration
 
-Set these under **Settings → Secrets and variables → Actions → Variables** (public configuration values, not secrets):
+The build has safe public defaults for the existing SAS PRO deployment:
 
-- `SAS_TELEGRAM_BOT_USERNAME`: bot username without `@`.
-- `SAS_TELEGRAM_WEBAPP_SHORT_NAME`: configured Telegram Mini App short name.
-- `SAS_APP_URL`: current HTTPS SAS website URL, used as a fallback link.
+- Bot username: `SAS_07_bot`
+- Telegram Mini App short name: `saspro`
+- Website URL: `https://vps-b67ef07b.vps.ovh.ca/`
 
-No bot token, API key, password, or signing credential belongs in these variables or in the app bundle.
+Optional GitHub Actions repository variables with names `SAS_TELEGRAM_BOT_USERNAME`, `SAS_TELEGRAM_WEBAPP_SHORT_NAME`, and `SAS_APP_URL` can override these defaults. They are public routing values, not secrets.
+
+No bot token, API key, password, or signing credential belongs in the app bundle.
 
 ## Build
 
-Run **Actions → SAS PRO Mobile Build → Run workflow** on `feature/sas-mobile-app`. Android produces an unsigned debug APK for internal testing. iOS produces an Xcode project; a signed IPA requires Apple signing certificates/provisioning and a configured bundle identifier/team before distribution.
+The workflow runs on pushes to this feature branch that change `mobile/**` or the workflow file. It can also be started manually from **Actions → SAS PRO Mobile Build → Run workflow** on `feature/sas-mobile-app`. Android produces an unsigned debug APK for internal testing. iOS produces an Xcode project; a signed IPA requires Apple signing certificates/provisioning and a configured bundle identifier/team before distribution.
 
 ## Important authentication behavior
 
