@@ -351,6 +351,8 @@ async def standalone_admin_update_access(
         payload = await request.json()
     except Exception:
         raise HTTPException(400, "الطلب غير صالح")
+    if not isinstance(payload, dict):
+        raise HTTPException(400, "الطلب غير صالح")
     now = utc_now()
     action = "updated"
     if payload.get("blocked") is True:
