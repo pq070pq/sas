@@ -289,7 +289,7 @@ const savedRadarSnapshot=readLocalJson('saspro_radar_snapshot',[]);
 const savedPreliminarySnapshot=readLocalJson('saspro_preliminary_radar_snapshot',null);
 const currentUsSessionDate=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const savedPreliminaryRows=Array.isArray(savedPreliminarySnapshot?.stocks)&&String(savedPreliminarySnapshot?.session_date||'')===currentUsSessionDate?savedPreliminarySnapshot.stocks:[];
-const terminalState={ticker:[],radar:Array.isArray(savedRadarSnapshot)?savedRadarSnapshot:[],preliminaryRadar:savedPreliminaryRows.filter(x=>x&&String(x.symbol||'').trim()).slice(0,12).map(x=>({...x,_radar_preliminary_candidate:true})),perpAssets:{},watch:readLocalJson('saspro_watchlist',[]),timer:null,moversTimer:null,newsTimer:null,newsItems:[],newsFilter:'all',moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
+const terminalState={ticker:[],radar:Array.isArray(savedRadarSnapshot)?savedRadarSnapshot:[],radarLifecycle:{active:[],history:[]},preliminaryRadar:savedPreliminaryRows.filter(x=>x&&String(x.symbol||'').trim()).slice(0,12).map(x=>({...x,_radar_preliminary_candidate:true})),perpAssets:{},watch:readLocalJson('saspro_watchlist',[]),timer:null,moversTimer:null,newsTimer:null,newsItems:[],newsFilter:'all',moversRefreshing:false,tab:'dashboard',refreshing:false,radarScanning:false};
 let radarSnapshotLastChecked=0;
 let radarSnapshotLoadPromise=null;
 function escHtml(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
@@ -355,7 +355,8 @@ async function loadRadarSnapshot(){
   }catch(e){console.warn('SAS PRO local radar snapshot unavailable:',e?.message||e);}
   try{
    // Normal page opening reads the saved server snapshot; it must not launch a slow scan.
-   const d=await api('/api/radar/scan',{timeoutMs:12000,retries:0});
+   const [d,lifecycle]=await Promise.all([api('/api/radar/scan',{timeoutMs:12000,retries:0}),api('/api/radar/opportunities',{timeoutMs:12000,retries:0}).catch(()=>null)]);
+   if(lifecycle?.ok)terminalState.radarLifecycle={active:lifecycle.active||[],history:lifecycle.history||[]};
    if(Array.isArray(d.stocks)){
     const serverConfirmed=d.stocks.filter(stock=>stock&&String(stock.symbol||stock.ticker||'').trim());
     const serverPreliminary=Array.isArray(d.preliminary_stocks)
@@ -1219,6 +1220,15 @@ function renderRadar(){
   rows.push({...candidate,_radar_preliminary_candidate:true});
  });
  renderCards(document.getElementById('radarGrid'),rows);
+ renderRadarLifecycle();
+}
+function renderRadarLifecycle(){
+ const el=document.getElementById('radarLifecycle');if(!el)return;
+ const feed=terminalState.radarLifecycle||{active:[],history:[]};
+ const active=Array.isArray(feed.active)?feed.active:[],history=Array.isArray(feed.history)?feed.history:[];
+ const money=v=>{const n=Number(v);if(!Number.isFinite(n)||n<=0)return '—';return '$'+n.toFixed(4).replace(/0+$/,'').replace(/\.$/,'');};
+ const card=x=>{const targets=(x.targets||[]).map((v,i)=>(i+1)+': '+money(v)).join(' · ')||'لا توجد أهداف مسجلة';const state=x.status==='closed'?'منتهية':'تحت المتابعة';const reason=x.reason?'<small>'+escHtml(x.reason)+'</small>':'';return '<article class="radar-lifecycle-card"><header><b>'+escHtml(x.symbol||'—')+'</b><span>'+state+'</span></header><div>الدخول: '+money(x.entry_price)+' · الحالي: '+money(x.current_price)+'</div><div>الوقف: '+money(x.current_stop)+'</div><div class="radar-lifecycle-targets">'+escHtml(targets)+'</div><small>تحقق '+Number(x.achieved_target||0)+' هدف · '+escHtml(x.session_date||'')+'</small>'+reason+'</article>';};
+ el.innerHTML='<div class="radar-lifecycle-head"><b>متابعة الفرص وسجلها</b><span>نشطة '+active.length+' · منتهية '+history.length+'</span></div>'+(active.length?'<section><h3>🟢 فرص تحت المتابعة</h3>'+active.map(card).join('')+'</section>':'<p class="radar-lifecycle-empty">لا توجد فرص منشورة تحت المتابعة حاليًا.</p>')+(history.length?'<details><summary>السجل السابق ('+history.length+')</summary>'+history.map(card).join('')+'</details>':'');
 }
 function radarClassificationLabel(x){
  const cls=x?.classification||{};

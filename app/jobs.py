@@ -240,13 +240,22 @@ async def evaluate_radar_outcomes():
     """
     today_session = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
     async with SessionLocal() as db:
+        # Track today's newly published signals plus previously-created outcomes
+        # that are still live. This lets a valid opportunity remain monitored
+        # across session-date boundaries without resurrecting closed history.
         signals = (await db.execute(
-            select(RadarSignal).where(
-                RadarSignal.session_date == today_session,
+            select(RadarSignal)
+            .outerjoin(RadarOutcome, RadarOutcome.radar_signal_id == RadarSignal.id)
+            .where(
                 RadarSignal.telegram_message_id.is_not(None),
+                (
+                    (RadarSignal.session_date == today_session)
+                    | (RadarOutcome.status.in_(("active", "target1", "target2", "target3", "target4")))
+                ),
             )
-        )).scalars().all()
-        logger.info("Radar outcome evaluation: %d today's published signals.", len(signals))
+            .order_by(RadarSignal.created_at.asc())
+        )).scalars().unique().all()
+        logger.info("Radar outcome evaluation: %d published signals (today + still-active history).", len(signals))
 
         for signal in signals:
             payload = json.loads(signal.payload or "{}")

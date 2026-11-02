@@ -77,3 +77,18 @@
 #sasRadarAutoPanel .sas-radar-schedule-status,
 #sasRadarAutoPanel [id*="RadarCountdown"],
 .sas-radar-visual [id*="RadarCountdown"]{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;width:0!important;height:0!important;overflow:hidden!important}
+
+
+/* Live opportunity lifecycle panel */
+.radar-lifecycle{display:grid;gap:12px;margin:14px 0;padding:14px;border:1px solid rgba(91,190,220,.22);border-radius:16px;background:linear-gradient(145deg,rgba(7,22,38,.96),rgba(4,12,23,.96));color:#e8f3ff}
+.radar-lifecycle-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.radar-lifecycle-head b{font-size:14px}.radar-lifecycle-head span,.radar-lifecycle small{color:#9eb3c9;font-size:11px}
+.radar-lifecycle section{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.radar-lifecycle section h3{grid-column:1/-1;margin:4px 0;font-size:12px}
+.radar-lifecycle-card{min-width:0;padding:11px;border:1px solid rgba(111,170,210,.18);border-radius:12px;background:rgba(12,31,49,.8);font-size:11px;line-height:1.8;overflow-wrap:anywhere}
+.radar-lifecycle-card header{display:flex;justify-content:space-between;gap:8px;margin-bottom:5px;font-size:13px}
+.radar-lifecycle-card header span{color:#74e0ae}.radar-lifecycle-targets{color:#9fc7ee}
+.radar-lifecycle-card>small{display:block;margin-top:4px}.radar-lifecycle-card>small:last-child{color:#e6b66b}
+.radar-lifecycle details{font-size:12px}.radar-lifecycle summary{cursor:pointer;padding:8px 0;color:#b9d9f5}
+.radar-lifecycle-empty{margin:0;color:#9eb3c9;font-size:12px}
+@media(max-width:560px){.radar-lifecycle section{grid-template-columns:1fr}}
