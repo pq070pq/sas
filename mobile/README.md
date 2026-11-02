@@ -51,10 +51,13 @@ The current APK/Xcode artifacts are an early launcher shell that hands off to th
 - The Android/iOS app is now a standalone SAS PRO interface and does not open Telegram.
 - On first native launch, the server issues an opaque installation token. The app stores it with `@aparajita/capacitor-secure-storage` using Android Keystore-backed encryption and iOS Keychain.
 - The token is sent in `X-SAS-Installation`. Browser preview refuses to use insecure browser storage for this credential.
-- Build configuration uses `SAS_API_BASE` when set, otherwise the existing `SAS_APP_URL` workflow value.
+- Build configuration requires the repository variable `SAS_API_BASE` to point to a separately isolated staging API. The workflow refuses to build against the current production SAS host.
 - Protected standalone data routes expose market status, ticker, movers, news, and saved radar signals. Existing Telegram routes and guards remain unchanged.
 - Do not distribute builds until the matching backend version and admin environment secrets have been deployed and verified in a separate test environment.
 
 
 - The native client creates a 48-byte cryptographically random token and stores it in Keychain/Keystore before registering. The server stores only its SHA-256 digest; no hardware identifiers are collected.
 - Admin secrets are read from `SAS_STANDALONE_ADMIN_USERNAME` and `SAS_STANDALONE_ADMIN_PASSWORD` (or their unprefixed equivalents) in the server environment only.
+
+
+**Release safety:** The standalone client must not be built or distributed against the production API until a separate staging deployment, database, and admin secret set have been verified. The GitHub mobile workflow now requires an explicit staging `SAS_API_BASE` and blocks the known production hostname.

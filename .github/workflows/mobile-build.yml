@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 env:
-  SAS_API_BASE: ${{ vars.SAS_API_BASE || 'https://vps-b67ef07b.vps.ovh.ca' }}
+  SAS_API_BASE: ${{ vars.SAS_API_BASE }}
 
 jobs:
   android:
@@ -28,7 +28,11 @@ jobs:
           java-version: '21'
       - name: Validate public app configuration
         run: |
-          test -n "$SAS_API_BASE" || (echo 'Missing repository variable SAS_API_BASE' && exit 1)
+          test -n "$SAS_API_BASE" || (echo 'Set SAS_API_BASE to an isolated staging API origin before building; production is intentionally blocked.' && exit 1)
+          if [ "$SAS_API_BASE" = "https://vps-b67ef07b.vps.ovh.ca" ]; then
+            echo 'Refusing to build a standalone app pointed at the production SAS host.'
+            exit 1
+          fi
       - name: Install and build web shell
         working-directory: mobile
         run: |
