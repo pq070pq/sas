@@ -124,11 +124,18 @@ async def publish_speculative_candidate(candidate: dict) -> dict:
                 await db.rollback()
                 return {"status": "duplicate_skipped", "symbol": symbol, "session_date": session_date}
         elif opportunity.delivery_status == "sent":
+            # Repeated successful radar scans refresh the displayed price without
+            # sending another channel message or creating another opportunity.
+            opportunity.payload = json.dumps(payload, ensure_ascii=False)
+            opportunity.current_price = payload["price"]
+            opportunity.evaluated_at = datetime.now(ZoneInfo("UTC"))
+            await db.commit()
             return {"status": "duplicate_skipped", "symbol": symbol, "session_date": session_date}
         else:
             # Refresh only the latest verified observation; preserve the original entry.
             opportunity.payload = json.dumps(payload, ensure_ascii=False)
             opportunity.current_price = payload["price"]
+            opportunity.evaluated_at = datetime.now(ZoneInfo("UTC"))
             await db.commit()
 
         if not settings.telegram_channel_id or not settings.telegram_bot_token:
