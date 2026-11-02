@@ -1,34 +1,39 @@
-# SAS PRO Mobile — Standalone App Migration
+# SAS PRO Mobile — Standalone App
 
-This feature branch is the isolated workspace for turning SAS PRO into a standalone Android/iOS app. The approved sign-in method is **SAS username and password**. Email and phone are not required.
+This feature branch is the isolated workspace for the independent SAS PRO Android/iOS app.
 
-## Product separation
+## Approved access model
 
-- The standalone app must open and authenticate without Telegram installed.
-- The existing Telegram Mini App, bot, channel, Telegram Stars billing, and Telegram login remain operational and unchanged.
-- The standalone client uses a separate server-side authentication/session flow. It must never forge or bypass Telegram WebApp initData.
-- Existing Telegram subscribers may link accounts only after proving control of both identities. Subscription time and trial history must be preserved exactly.
+- Public users do not register or log in. No username, password, email, phone, or Telegram login is required.
+- Each installation receives a random installation identifier stored in platform-protected storage where available.
+- Server-side access records control whether that installation is active, blocked, expired, or permanent.
+- A configurable default duration applies to new installations.
+- A separate protected admin console manages installations, blocks/unblocks access, changes expiry, grants permanent access, and reviews activity.
+
+See docs/standalone-phone-email-auth.md for the full anonymous-access, expiry, admin-security, API, and acceptance requirements. The historical filename is retained to avoid path churn.
+
+## Important identity limitation
+
+An installation ID identifies an app installation, not a verified person. Reinstalling, clearing protected storage, or changing devices can create a new installation identity. Do not use invasive hardware fingerprinting or claim person-level enforcement.
 
 ## Current build status
 
-The current APK/Xcode artifacts are an early launcher shell, not the finished standalone application. The launcher currently hands off to the Telegram Mini App and therefore does not meet the standalone requirement. Do not distribute it as the final independent app.
+The current APK/Xcode artifacts are an early launcher shell that hands off to the Telegram Mini App. They are not the finished standalone app and must not be distributed as such.
 
 ## Implementation plan
 
-See `docs/standalone-phone-email-auth.md` for the approved username/password identity, recovery-code, account-linking, security, compatibility, and acceptance requirements. (The historical filename is retained to avoid unnecessary path churn.)
-
-1. Additive SAS identity schema for normalized usernames, password hashes, and hashed single-use recovery codes.
-2. Standalone registration, login, logout, password change, and recovery-code flows with abuse controls.
-3. Standalone API authentication separated from Telegram authentication.
-4. Verified account linking and shared entitlement reads without duplicate trials or payments.
-5. Shared responsive client support for native standalone sessions while retaining the Telegram Mini App path.
-6. Native Android/iOS secure token storage, push notifications, device testing, and signed release builds.
+1. Add standalone installation-access and admin-session schema, isolated from Telegram models.
+2. Implement device registration and server-side access checks.
+3. Implement admin APIs for users/installations, block status, duration, permanent access, and audit history.
+4. Build a protected Arabic RTL admin console.
+5. Build standalone app screens and secure installation-ID storage.
+6. Test expiry, blocking, admin authorization, Android/iOS behavior, and Telegram regressions.
 
 ## Non-negotiable safety boundaries
 
-- Work only on `feature/sas-mobile-app`; do not merge into `main` or deploy production without separate explicit approval.
+- Work only on feature/sas-mobile-app; do not merge into main or deploy production without separate explicit approval.
 - Do not modify Telegram bot code, Mini App auth, Telegram Stars, channel automation, webhooks, polling, or existing subscription fulfillment.
 - Do not modify radar discovery, scoring, filtering, scheduling, market data providers, or production database.
-- Use additive migrations only after review, backup, and rehearsal on a production-like copy.
-- Keep signing keys and long-lived secrets in server-side secrets, never in the mobile bundle.
-- Do not claim the app is standalone until it passes the acceptance criteria in the authentication specification.
+- Use additive schema changes and test on an isolated database before any deployment.
+- Admin secrets remain server-side and must never be embedded in the mobile bundle.
+- Do not claim the app is standalone until it passes the acceptance criteria.
