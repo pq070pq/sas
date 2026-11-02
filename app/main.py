@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
-from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, RadarRun, RadarOutcome, AccessRequest, Setting, Invite, AdminRole, get_session, init_db
+from .db import SessionLocal, User, Subscription, Payment, StockAnalysis, RadarSignal, RadarRun, RadarOutcome, SpeculativeOpportunity, AccessRequest, Setting, Invite, AdminRole, get_session, init_db
 from .telegram import validate_init_data, send_message, bot_api
 from .market import quote, ticker
 from .panwatch import analyze, technical_targets, ohlcv
