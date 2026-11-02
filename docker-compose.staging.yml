@@ -1,0 +1,38 @@
+# Separate project, service, network, and volume from production docker-compose.yml.
+# Run only after reviewing .env.staging and confirming host capacity and reverse-proxy routing.
+services:
+  saspro-staging:
+    container_name: saspro-staging
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: saspro-staging:local
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+    environment:
+      APP_ENV: staging
+      SAS_STAGING_MODE: "true"
+      DATABASE_URL: sqlite+aiosqlite:////app/data/saspro-staging.db
+      TELEGRAM_BOT_TOKEN: ""
+      TELEGRAM_WEBHOOK_SECRET: ""
+      TELEGRAM_WEBHOOK_AUTO_CONFIGURE: "false"
+      TELEGRAM_CHANNEL_ID: ""
+      TELEGRAM_CHANNEL_LINK: ""
+      OWNER_TELEGRAM_ID: "0"
+      SAS_MEDIA_DIR: /app/data/site_media
+      SAS_STANDALONE_ADMIN_COOKIE_SECURE: "true"
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - saspro_staging_data:/app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+    # Deliberately no production PanWatch/OpenTerminal dependencies.
+
+volumes:
+  saspro_staging_data:
+    name: saspro_staging_data
