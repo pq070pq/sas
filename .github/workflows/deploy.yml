@@ -177,11 +177,7 @@ jobs:
 
               if [ "$status" = "running" ]; then
                 # Record the actual HTTP outcome without dumping response bodies or secrets.
-                probe=$(docker compose exec -T panwatch python -c 'import urllib.request,urllib.error; u="http://127.0.0.1:8000/openapi.json"; 
-try:
- r=urllib.request.urlopen(u,timeout=3); print("http_status="+str(r.status))
-except urllib.error.HTTPError as e: print("http_status="+str(e.code))
-except Exception as e: print("probe_error="+type(e).__name__+":"+str(e)[:240]); raise SystemExit(2)' 2>&1)
+                probe=$(docker compose exec -T panwatch python -c 'import urllib.request; r=urllib.request.urlopen("http://127.0.0.1:8000/openapi.json",timeout=3); print("http_status="+str(r.status))' 2>&1)
                 probe_rc=$?
                 echo "PanWatch OpenAPI probe rc=$probe_rc result=$probe"
                 if [ "$probe_rc" -eq 0 ]; then
