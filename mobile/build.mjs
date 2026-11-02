@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile, cp } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-const root = resolve('mobile');
+const root = process.cwd();
 const out = resolve(root, 'www');
 await mkdir(out, { recursive: true });
 const template = await readFile(resolve(root, 'src/index.html'), 'utf8');
