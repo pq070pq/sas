@@ -28,7 +28,7 @@ Deliver SAS PRO as a standalone web app plus Android and iOS apps. Public app us
 2. Add a standalone installation record with a random opaque installation token, token hash, first/last seen timestamps, access start/expiry, status, and audit metadata.
 3. Add a separate standalone admin identity/session mechanism. Public users have no account credentials; admin authentication remains mandatory.
 4. Enforce access expiry and blocked status server-side for standalone APIs.
-5. Provide admin controls for default access duration, per-installation expiry, permanent access, block/unblock, and audit log.
+5. Apply a fixed 30-day initial access period to every new installation. Provide admin controls to extend/reduce each installation's access, set an exact expiry, grant permanent access, block/unblock, and review the audit log.
 6. Keep Telegram login, Mini App, Stars, subscriptions, and admin flows unchanged.
 7. Add Capacitor Android/iOS packaging only after standalone core screens work without Telegram WebApp initData.
 8. Add push notification registration later without coupling it to Telegram.
@@ -44,12 +44,12 @@ Deliver SAS PRO as a standalone web app plus Android and iOS apps. Public app us
 - [ ] Add installation and standalone access schema using additive changes.
 - [ ] Generate random installation IDs; do not use hardware identifiers or fingerprinting.
 - [ ] Implement server-authoritative registration, expiry, and blocked-state checks.
-- [ ] Define configurable default access duration for new installations.
+- [ ] Apply 30 days of access automatically to every new installation.
 
 ### Phase 2 — Admin management
 - [ ] Add protected standalone admin authentication and revocable sessions.
 - [ ] Add list/search/filter and detail views for installations.
-- [ ] Add expiry changes, duration grants, permanent access, block/unblock, and audit history.
+- [ ] Add expiry extensions/reductions by chosen duration, exact expiry changes, permanent access, block/unblock, and audit history.
 - [ ] Add a protected Arabic RTL admin console.
 
 ### Phase 3 — Standalone web/mobile client
