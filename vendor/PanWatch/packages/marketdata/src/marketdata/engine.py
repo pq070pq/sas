@@ -39,7 +39,19 @@ class Engine:
 
         market = req.market
         syms = [Symbol(Market(market), c) for c in req.symbols]
-        sources = sorted(self.config.sources_for(self.datatype, market), key=lambda s: s.priority)
+        # The built-in US K-line seed intentionally gives Stooq and Tencent
+        # equal priority: Stooq is the US daily-candle primary, while Tencent
+        # remains a fallback. Keep this market-specific tie-break local to the
+        # engine so CN/HK ordering and user-defined priority values are unchanged.
+        def _source_order(source):
+            stooq_us_kline_first = (
+                self.datatype == "kline"
+                and market == "US"
+                and source.vendor == "stooq"
+            )
+            return (source.priority, 0 if stooq_us_kline_first else 1)
+
+        sources = sorted(self.config.sources_for(self.datatype, market), key=_source_order)
 
         last_err = ""
         best: Response | None = None
