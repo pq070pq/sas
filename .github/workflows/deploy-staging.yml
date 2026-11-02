@@ -100,7 +100,7 @@ jobs:
 
             # Refuse port conflicts unless the listener is the already-owned staging container.
             staging_id="$(docker inspect -f '{{.Id}}' saspro-staging 2>/dev/null || true)"
-            for id in $(docker ps -q --filter publish=8001); do
+            for id in $(docker ps --no-trunc -q --filter publish=8001); do
               test "$id" = "$staging_id" || { echo "Host port 8001 is used by another container; aborting."; exit 1; }
             done
 
