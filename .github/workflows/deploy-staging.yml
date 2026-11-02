@@ -7,11 +7,13 @@ on:
     paths:
       - 'app/**'
       - 'web/**'
+      - 'tests/**'
       - 'Dockerfile'
       - 'requirements.txt'
       - 'docker-compose.staging.yml'
       - '.env.staging.example'
       - '.github/workflows/deploy-staging.yml'
+      - '.github/workflows/syntax.yml'
 
 permissions:
   contents: read
@@ -21,8 +23,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate-staging:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout staging branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/sas-mobile-app
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Python compile
+        run: python -m compileall -q app tests
+      - name: Frontend syntax
+        run: |
+          node --check web/assets/app.js
+          node --check web/assets/app-ticker-fix-20261015.js
+      - name: Import smoke test
+        run: python -c "import app.main; print('SAS PRO import OK')"
+      - name: Unit and architecture tests
+        run: python -m unittest discover -s tests -v
+
   deploy-staging:
-    # The workflow must be dispatched from the approved development branch.
+    needs: validate-staging
     if: github.ref == 'refs/heads/feature/sas-mobile-app'
     runs-on: ubuntu-22.04
     timeout-minutes: 30
