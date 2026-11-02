@@ -1,0 +1,81 @@
+name: SAS PRO Mobile Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/sas-mobile-app]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile-build.yml'
+
+permissions:
+  contents: read
+
+env:
+  SAS_TELEGRAM_BOT_USERNAME: ${{ vars.SAS_TELEGRAM_BOT_USERNAME }}
+  SAS_TELEGRAM_WEBAPP_SHORT_NAME: ${{ vars.SAS_TELEGRAM_WEBAPP_SHORT_NAME }}
+  SAS_APP_URL: ${{ vars.SAS_APP_URL }}
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Validate public app configuration
+        run: |
+          test -n "$SAS_TELEGRAM_BOT_USERNAME" || (echo 'Missing repository variable SAS_TELEGRAM_BOT_USERNAME' && exit 1)
+          test -n "$SAS_TELEGRAM_WEBAPP_SHORT_NAME" || (echo 'Missing repository variable SAS_TELEGRAM_WEBAPP_SHORT_NAME' && exit 1)
+          test -n "$SAS_APP_URL" || (echo 'Missing repository variable SAS_APP_URL' && exit 1)
+      - name: Install and build web shell
+        working-directory: mobile
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          npx cap add android
+          npx cap sync android
+      - name: Build Android APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sas-pro-android-debug-apk
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  ios-project:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package.json
+      - name: Validate public app configuration
+        run: |
+          test -n "$SAS_TELEGRAM_BOT_USERNAME" || (echo 'Missing repository variable SAS_TELEGRAM_BOT_USERNAME' && exit 1)
+          test -n "$SAS_TELEGRAM_WEBAPP_SHORT_NAME" || (echo 'Missing repository variable SAS_TELEGRAM_WEBAPP_SHORT_NAME' && exit 1)
+          test -n "$SAS_APP_URL" || (echo 'Missing repository variable SAS_APP_URL' && exit 1)
+      - name: Generate iOS project
+        working-directory: mobile
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          npx cap add ios
+          npx cap sync ios
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sas-pro-ios-xcode-project
+          path: mobile/ios/App
+          if-no-files-found: error
+          retention-days: 14
