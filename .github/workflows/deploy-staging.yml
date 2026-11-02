@@ -1,7 +1,17 @@
 name: Deploy SAS PRO Staging
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - feature/sas-mobile-app
+    paths:
+      - 'app/**'
+      - 'web/**'
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - 'docker-compose.staging.yml'
+      - '.env.staging.example'
+      - '.github/workflows/deploy-staging.yml'
 
 permissions:
   contents: read
