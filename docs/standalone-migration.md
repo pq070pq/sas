@@ -2,74 +2,73 @@
 
 ## Goal
 
-Deliver SAS PRO as a standalone web app plus Android and iOS apps, with independent SAS accounts and notifications. The approved sign-in method is username and password; email and phone are not required. Existing Telegram subscriptions remain usable and Telegram stays operational.
+Deliver SAS PRO as a standalone web app plus Android and iOS apps. Public app users enter without registration or login. A server-side installation record controls access duration and block status through a separate protected admin console. Telegram remains a parallel, unchanged product.
 
 ## Safety boundaries
 
-- Work only on `feature/sas-mobile-app`; do not merge to `main` or deploy production during this migration work.
-- Do not change radar discovery, scoring, filtering, scheduling, provider fallback, or market-session logic as part of the app conversion.
-- Keep the existing Telegram webhook, bot, Telegram Stars payments, and channel automation operational.
-- Back up the production database before any schema migration. Use reviewed additive changes; do not drop or rename Telegram-specific columns.
-- Never store payment provider secrets or signing keys in the frontend.
+- Work only on feature/sas-mobile-app; do not merge into main or deploy production during migration work.
+- Do not change radar discovery, scoring, filtering, scheduling, provider fallback, or market-session logic.
+- Keep the existing Telegram webhook, bot, Telegram Stars payments, channel automation, Telegram admin workflows, and subscription fulfillment operational and unchanged.
+- Do not migrate Telegram users into anonymous installation records.
+- Use reviewed additive schema changes; never run migrations against production during feature development.
+- Never store admin credentials or signing keys in the frontend/mobile bundle.
 
 ## Current repository findings
 
-- Backend: FastAPI in `app/main.py`.
-- Frontend: Arabic RTL HTML/CSS/JS under `web/`.
-- Existing persistence: SQLAlchemy models in `app/db.py`.
-- Existing user, subscription, payment, admin, and invite models rely on Telegram IDs and/or Telegram Stars.
-- App startup configures Telegram and starts the radar scheduler in the same service. Standalone authentication must be added without making Telegram configuration mandatory or modifying radar startup.
-- The frontend currently loads Telegram Web App JavaScript and has Telegram-specific subscription and channel UI. These must be separated behind authentication and entitlement adapters before standalone clients can use the core app.
+- Backend: FastAPI in app/main.py.
+- Frontend: Arabic RTL HTML/CSS/JS under web/.
+- Persistence: SQLAlchemy models in app/db.py.
+- Existing Telegram users, subscriptions, payments, and admin roles are Telegram-ID based.
+- App startup configures Telegram and starts the radar scheduler in the same service. Standalone access must be added without changing Telegram startup or radar startup.
+- The current web client has Telegram-specific dependencies. Standalone screens and APIs must be separated without breaking Telegram routes.
 
 ## Proposed architecture
 
 1. Keep the existing FastAPI service and radar workers intact initially.
-2. Add an internal immutable SAS account UUID and identity-link table; preserve Telegram IDs as a separate legacy identity.
-3. Add standalone username/password registration and authentication, hashed recovery codes, rate limits, revocable sessions, and secure password changes.
-4. Refactor entitlement reads through the internal SAS account mapping while keeping a compatibility path for existing Telegram subscribers.
-5. Keep billing fulfillment and Telegram Stars unchanged; do not introduce new billing providers as part of this login decision.
-6. Add Capacitor Android/iOS packaging only after the client can load core app screens without Telegram WebApp initData.
-7. Add push notification registration and per-device token storage; retain server-side scheduled radar execution.
-8. Keep the responsive web app as the shared web client.
+2. Add a standalone installation record with a random opaque installation token, token hash, first/last seen timestamps, access start/expiry, status, and audit metadata.
+3. Add a separate standalone admin identity/session mechanism. Public users have no account credentials; admin authentication remains mandatory.
+4. Enforce access expiry and blocked status server-side for standalone APIs.
+5. Provide admin controls for default access duration, per-installation expiry, permanent access, block/unblock, and audit log.
+6. Keep Telegram login, Mini App, Stars, subscriptions, and admin flows unchanged.
+7. Add Capacitor Android/iOS packaging only after standalone core screens work without Telegram WebApp initData.
+8. Add push notification registration later without coupling it to Telegram.
 
 ## Delivery phases and acceptance checks
 
-### Phase 0 — Baseline and isolation
-- [x] Create a feature branch from the existing application.
-- [ ] Capture baseline health, radar diagnostics, and subscription counts before any production migration.
-- [ ] Add regression tests for radar scheduling, market gate, and existing Telegram entitlement checks.
+### Phase 0 — Isolation
+- [x] Use the dedicated feature/sas-mobile-app branch.
+- [ ] Capture baseline health and Telegram/radar regression tests before integration.
+- [ ] Confirm standalone APIs do not require Telegram initData.
 
-### Phase 1 — Platform-neutral identity
-- [ ] Add internal SAS user IDs and identity links using reviewed additive schema changes.
-- [ ] Add standalone username/password registration and login, logout, password change, and recovery codes.
-- [ ] Verify existing Telegram users still work unchanged.
-- [ ] Verify unauthenticated requests cannot access subscriber-only APIs.
+### Phase 1 — Anonymous installation access
+- [ ] Add installation and standalone access schema using additive changes.
+- [ ] Generate random installation IDs; do not use hardware identifiers or fingerprinting.
+- [ ] Implement server-authoritative registration, expiry, and blocked-state checks.
+- [ ] Define configurable default access duration for new installations.
 
-### Phase 2 — Entitlements
-- [ ] Resolve standalone entitlement reads through SAS account IDs with a Telegram compatibility adapter.
-- [ ] Preserve existing paid-through dates and trial history exactly when accounts are linked.
-- [ ] Prevent duplicate trials and duplicate entitlement grants.
+### Phase 2 — Admin management
+- [ ] Add protected standalone admin authentication and revocable sessions.
+- [ ] Add list/search/filter and detail views for installations.
+- [ ] Add expiry changes, duration grants, permanent access, block/unblock, and audit history.
+- [ ] Add a protected Arabic RTL admin console.
 
-### Phase 3 — Shared web/mobile client
-- [ ] Remove hard dependencies on Telegram WebApp for standalone routes without changing Telegram routes.
-- [ ] Add Capacitor Android/iOS shells and platform-specific configuration.
-- [ ] Verify charts, navigation, session expiry, deep links, and responsive layouts on physical devices.
+### Phase 3 — Standalone web/mobile client
+- [ ] Separate standalone routes from Telegram WebApp dependencies without changing Telegram routes.
+- [ ] Add Capacitor Android/iOS shells.
+- [ ] Add access-expired and blocked states.
+- [ ] Test secure installation-ID storage and reinstall/device-change behavior.
 
-### Phase 4 — Notifications
-- [ ] Add device registration and revocation.
-- [ ] Add push notification provider and permission handling.
-- [ ] Verify notification delivery while app is backgrounded/closed.
-
-### Phase 5 — Controlled release
-- [ ] Invite a small test cohort and compare radar/API health against baseline.
-- [ ] Link accounts only after proof of ownership and preserve existing subscription entitlements.
-- [ ] Keep Telegram available as a parallel client.
-- [ ] Deploy or release only after explicit approval.
+### Phase 4 — Controlled release
+- [ ] Test all access and admin flows on an isolated environment.
+- [ ] Verify Telegram Mini App, bot, channel, Stars, subscriptions, admin, and radar regression tests.
+- [ ] Review backup and rollback plans.
+- [ ] Release only after explicit approval.
 
 ## Release gates
 
-- No unexplained increase in radar errors or change in candidate/pass counts under equivalent market data.
-- Existing active subscribers retain their paid-through date.
-- Session and recovery-code protections pass security tests.
-- Database backup and tested rollback procedure exist before migration.
-- Android/iOS release signing and store compliance are verified before public release.
+- Expiry and blocked state are enforced by the server, not only by UI.
+- Anonymous clients cannot access admin APIs or alter their own expiry.
+- Admin changes are audited and revocable.
+- Installation identity limitations are documented; no invasive hardware fingerprinting is used.
+- Existing Telegram and radar behavior remains unchanged.
+- No production deployment without separate explicit approval.
