@@ -135,3 +135,53 @@ def test_engine_passes_request_extra_to_vendor_config():
     e.fetch(Request(symbols=("x",), market="CN", limit=99, extra=(("since_days", 30),)))
     assert seen["since_days"] == 30
     assert seen["days"] == 99  # extra 透传不应破坏原有 days 注入
+
+
+def test_us_kline_prefers_stooq_before_tencent_when_priorities_tie():
+    calls = []
+    class OrderedVendor:
+        supports_markets = {"US"}
+        def __init__(self, name): self.name = name
+        def fetch(self, symbols, config):
+            calls.append(self.name)
+            return [{"source": self.name}]
+
+    e = Engine(
+        datatype="kline",
+        vendors={"tencent": OrderedVendor("tencent"), "stooq": OrderedVendor("stooq")},
+        config=FakeConfig([
+            SourceConfig(vendor="tencent", priority=0),
+            SourceConfig(vendor="stooq", priority=0),
+        ]),
+        metrics=InMemoryMetricsSink(),
+        cache=TTLCache(5.0),
+        default_ttl=5.0,
+    )
+    response = e.fetch(Request(symbols=("AAPL",), market="US"))
+    assert response.ok and response.vendor == "stooq"
+    assert calls == ["stooq"]
+
+
+def test_non_us_kline_keeps_configured_priority_order():
+    calls = []
+    class OrderedVendor:
+        supports_markets = {"CN"}
+        def __init__(self, name): self.name = name
+        def fetch(self, symbols, config):
+            calls.append(self.name)
+            return [{"source": self.name}]
+
+    e = Engine(
+        datatype="kline",
+        vendors={"tencent": OrderedVendor("tencent"), "stooq": OrderedVendor("stooq")},
+        config=FakeConfig([
+            SourceConfig(vendor="tencent", priority=0),
+            SourceConfig(vendor="stooq", priority=0),
+        ]),
+        metrics=InMemoryMetricsSink(),
+        cache=TTLCache(5.0),
+        default_ttl=5.0,
+    )
+    response = e.fetch(Request(symbols=("600519",), market="CN"))
+    assert response.ok and response.vendor == "tencent"
+    assert calls == ["tencent"]
