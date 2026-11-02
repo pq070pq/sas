@@ -2,7 +2,7 @@
   "name": "sas-pro-mobile",
   "version": "1.0.0",
   "private": true,
-  "description": "SAS PRO native launcher for the existing Telegram Mini App",
+  "description": "Independent SAS PRO mobile app for iOS and Android",
   "scripts": {
     "build": "node build.mjs",
     "cap:sync": "npx cap sync"
@@ -10,10 +10,12 @@
   "dependencies": {
     "@capacitor/android": "^7.4.3",
     "@capacitor/core": "^7.4.3",
-    "@capacitor/ios": "^7.4.3"
+    "@capacitor/ios": "^7.4.3",
+    "@aparajita/capacitor-secure-storage": "^7.1.6"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.4.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "esbuild": "^0.25.11"
   }
 }

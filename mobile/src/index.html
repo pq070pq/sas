@@ -1,40 +1,6 @@
 <!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#020912">
-  <title>SAS PRO</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <main class="shell">
-    <div class="brand">🐬</div>
-    <p class="eyebrow">SMART STOCK RADAR</p>
-    <h1>SAS PRO</h1>
-    <p class="description">منصة الرصد والتحليل الخاصة بك، مع الحفاظ على حساب Telegram واشتراكك الحالي.</p>
-    <button id="openTelegram" type="button">فتح SAS PRO عبر Telegram</button>
-    <a id="openWeb" hidden>فتح نسخة الموقع</a>
-    <p id="status" role="status" aria-live="polite">يتم التحقق من إعدادات التطبيق…</p>
-    <small>تسجيل الدخول والاشتراكات وإدارة القناة تبقى عبر Telegram دون تغيير.</small>
-  </main>
-  <script>
-    const config = __SAS_MOBILE_CONFIG__;
-    const status = document.getElementById('status');
-    const launch = document.getElementById('openTelegram');
-    const web = document.getElementById('openWeb');
-    const username = String(config.botUsername || '').replace(/^@/, '').trim();
-    const shortName = String(config.webAppShortName || '').trim();
-    const telegramUrl = username && shortName ? 'https://t.me/' + encodeURIComponent(username) + '/' + encodeURIComponent(shortName) : '';
-    launch.addEventListener('click', () => {
-      if (!telegramUrl) {
-        status.textContent = 'يلزم ضبط اسم بوت Telegram واسم Mini App في إعدادات بناء GitHub.';
-        return;
-      }
-      window.location.href = telegramUrl;
-    });
-    if (config.webUrl) { web.href = config.webUrl; web.hidden = false; }
-    status.textContent = telegramUrl ? 'جاهز لفتح حسابك الحالي في Telegram.' : 'التطبيق يحتاج إعداد اسم البوت واسم Mini App قبل البناء النهائي.';
-  </script>
-</body>
-</html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#06111e"><title>SAS PRO</title><link rel="stylesheet" href="styles.css"></head>
+<body><div class="app-frame"><header class="topbar"><div class="brand-mark">🐬</div><div><strong>SAS PRO</strong><small>SMART STOCK RADAR</small></div><button id="refresh" class="icon-button" aria-label="تحديث">↻</button></header>
+<main id="app" aria-live="polite"><section class="loading-card"><div class="loader"></div><h1>يتم تجهيز منصتك</h1><p>جارٍ التحقق من صلاحية هذا التثبيت…</p></section></main>
+<nav class="bottom-nav" aria-label="التنقل الرئيسي"><button data-tab="home" class="active"><span>⌂</span>الرئيسية</button><button data-tab="radar"><span>◉</span>الرادار</button><button data-tab="news"><span>▤</span>الأخبار</button><button data-tab="account"><span>◌</span>الوصول</button></nav></div>
+<script>window.SAS_CONFIG=__SAS_MOBILE_CONFIG__;</script><script type="module" src="app.js"></script></body></html>

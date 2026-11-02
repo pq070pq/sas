@@ -44,3 +44,13 @@ The current APK/Xcode artifacts are an early launcher shell that hands off to th
 - Set `SAS_STANDALONE_ADMIN_USERNAME` and `SAS_STANDALONE_ADMIN_PASSWORD` as server-side secrets before logging in.
 - The first successful device registration receives 30 days. The admin can extend by 30/90/custom days, set an exact expiry, make access permanent, or block/unblock the installation.
 - The admin console is independent from Telegram admin login. It does not change Telegram users or subscriptions.
+
+
+## Independent mobile application
+
+- The Android/iOS app is now a standalone SAS PRO interface and does not open Telegram.
+- On first native launch, the server issues an opaque installation token. The app stores it with `@aparajita/capacitor-secure-storage` using Android Keystore-backed encryption and iOS Keychain.
+- The token is sent in `X-SAS-Installation`. Browser preview refuses to use insecure browser storage for this credential.
+- Build configuration uses `SAS_API_BASE` when set, otherwise the existing `SAS_APP_URL` workflow value.
+- Protected standalone data routes expose market status, ticker, movers, news, and saved radar signals. Existing Telegram routes and guards remain unchanged.
+- Do not distribute builds until the matching backend version and admin environment secrets have been deployed and verified in a separate test environment.

@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
 from .db import (
     SessionLocal, StandaloneInstallation, StandaloneAdminSession,
-    StandaloneAdminAudit, get_session,
+    StandaloneAdminAudit, RadarSignal, get_session,
 )
 
 router = APIRouter()
@@ -433,3 +433,54 @@ async def standalone_admin_audit(
         "installation_id": row.installation_id, "details": row.details,
         "created_at": as_utc(row.created_at).isoformat(),
     } for row in rows]}
+
+
+@router.get("/api/standalone/market/status")
+async def standalone_market_status(row=Depends(require_installation)):
+    from .market_calendar import market_status
+    return market_status()
+
+
+@router.get("/api/standalone/market/ticker")
+async def standalone_market_ticker(row=Depends(require_installation)):
+    from .main import market_ticker
+    return await market_ticker()
+
+
+@router.get("/api/standalone/market/movers")
+async def standalone_market_movers(row=Depends(require_installation)):
+    from .main import perpequities_market_movers
+    return await perpequities_market_movers()
+
+
+@router.get("/api/standalone/market/news")
+async def standalone_market_news(row=Depends(require_installation)):
+    from .main import market_news_endpoint
+    return await market_news_endpoint()
+
+
+@router.get("/api/standalone/radar/signals")
+async def standalone_radar_signals(
+    limit: int = Query(default=30, ge=1, le=100),
+    row=Depends(require_installation),
+    db: AsyncSession = Depends(get_session),
+):
+    records = (await db.execute(
+        select(RadarSignal).order_by(RadarSignal.created_at.desc()).limit(limit)
+    )).scalars().all()
+    items = []
+    for record in records:
+        try:
+            payload = json.loads(record.payload or "{}")
+        except (TypeError, ValueError):
+            payload = {}
+        if not isinstance(payload, dict):
+            payload = {}
+        items.append({
+            "id": record.id,
+            "symbol": record.symbol,
+            "session_date": record.session_date,
+            "created_at": as_utc(record.created_at).isoformat() if record.created_at else None,
+            "payload": payload,
+        })
+    return {"ok": True, "items": items, "count": len(items)}

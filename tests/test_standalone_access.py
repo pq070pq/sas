@@ -55,6 +55,17 @@ class StandaloneAccessTests(unittest.TestCase):
         row.status = "blocked"
         self.assertEqual(installation_state(row, now), "blocked")
 
+    def test_standalone_data_routes_are_registered(self):
+        from app.standalone_access import router
+        paths = {route.path for route in router.routes}
+        self.assertTrue({
+            "/api/standalone/market/status",
+            "/api/standalone/market/ticker",
+            "/api/standalone/market/movers",
+            "/api/standalone/market/news",
+            "/api/standalone/radar/signals",
+        }.issubset(paths))
+
     def test_admin_models_have_separate_tables(self):
         self.assertIn("token_hash", StandaloneAdminSession.__table__.columns)
         self.assertIn("actor_username", StandaloneAdminAudit.__table__.columns)
