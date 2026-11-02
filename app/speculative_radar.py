@@ -17,6 +17,7 @@ import httpx
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import delete
 
 from .config import settings
 from .db import RadarSignal, ScheduledReport, SessionLocal, SpeculativeOpportunity
@@ -145,7 +146,18 @@ async def publish_speculative_candidate(candidate: dict) -> dict:
             select(ScheduledReport).where(ScheduledReport.report_key == key)
         )).scalars().first()
         if reservation is not None:
-            return {"status": "saved_delivery_pending", "symbol": symbol, "session_date": session_date}
+            reserved_at = reservation.created_at
+            if reserved_at is not None:
+                if reserved_at.tzinfo is None:
+                    reserved_at = reserved_at.replace(tzinfo=ZoneInfo("UTC"))
+                age_seconds = (datetime.now(ZoneInfo("UTC")) - reserved_at).total_seconds()
+            else:
+                age_seconds = 0
+            # Recover a delivery worker that died after reserving the idempotency key.
+            if age_seconds < 900:
+                return {"status": "saved_delivery_pending", "symbol": symbol, "session_date": session_date}
+            await db.delete(reservation)
+            await db.flush()
         db.add(ScheduledReport(report_key=key))
         try:
             await db.commit()
@@ -188,6 +200,14 @@ async def publish_speculative_candidate(candidate: dict) -> dict:
 _FLOAT_CACHE: dict[str, tuple[float, float]] = {}
 _FLOAT_CACHE_TTL_SECONDS = 6 * 60 * 60
 _SPECULATIVE_SCAN_LIMIT = 35
+
+
+
+def speculative_expiry_reason(opportunity_session_date: str, current_session_date: str) -> str | None:
+    """Expire a speculative observation only after its NY trading date has ended."""
+    if not opportunity_session_date or not current_session_date:
+        return None
+    return "انتهت جلسة الرصد" if opportunity_session_date < current_session_date else None
 
 
 def _configured_keys(primary: str, plural: str) -> list[str]:
