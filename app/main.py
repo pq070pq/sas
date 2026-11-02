@@ -290,8 +290,17 @@ async def _configure_telegram():
 @app.on_event("startup")
 async def startup():
     await init_db()
-    await ensure_subscription_settings()
     global scheduler_task, telegram_polling_task, telegram_config_task, private_analysis_task, radar_health_task
+
+    # Staging is a read/test environment only. It must never configure Telegram,
+    # poll Telegram updates, or start production radar/background workers.
+    if settings.staging_mode:
+        logger.warning(
+            "SAS PRO STAGING mode enabled: Telegram, scheduler, and radar health workers are disabled."
+        )
+        return
+
+    await ensure_subscription_settings()
     telegram_config_task = asyncio.create_task(_configure_telegram(), name="saspro-telegram-config")
     scheduler_task = asyncio.create_task(scheduler(), name="saspro-scheduler")
 
