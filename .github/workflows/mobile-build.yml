@@ -29,7 +29,8 @@ jobs:
       - name: Validate public app configuration
         run: |
           test -n "$SAS_API_BASE" || (echo 'Set SAS_API_BASE to an isolated staging API origin before building; production is intentionally blocked.' && exit 1)
-          if [ "$SAS_API_BASE" = "https://vps-b67ef07b.vps.ovh.ca" ]; then
+          api_base="${SAS_API_BASE%/}"
+          if [ "$api_base" = "https://vps-b67ef07b.vps.ovh.ca" ]; then
             echo 'Refusing to build a standalone app pointed at the production SAS host.'
             exit 1
           fi
