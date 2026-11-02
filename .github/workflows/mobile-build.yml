@@ -12,9 +12,9 @@ permissions:
   contents: read
 
 env:
-  SAS_TELEGRAM_BOT_USERNAME: ${{ vars.SAS_TELEGRAM_BOT_USERNAME }}
-  SAS_TELEGRAM_WEBAPP_SHORT_NAME: ${{ vars.SAS_TELEGRAM_WEBAPP_SHORT_NAME }}
-  SAS_APP_URL: ${{ vars.SAS_APP_URL }}
+  SAS_TELEGRAM_BOT_USERNAME: ${{ vars.SAS_TELEGRAM_BOT_USERNAME || 'SAS_07_bot' }}
+  SAS_TELEGRAM_WEBAPP_SHORT_NAME: ${{ vars.SAS_TELEGRAM_WEBAPP_SHORT_NAME || 'saspro' }}
+  SAS_APP_URL: ${{ vars.SAS_APP_URL || 'https://vps-b67ef07b.vps.ovh.ca/' }}
 
 jobs:
   android:
