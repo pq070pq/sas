@@ -1,71 +1,73 @@
-# SAS PRO Standalone Authentication — Username and Password
+# SAS PRO Standalone Access — Anonymous Users and Admin-Controlled Expiry
 
 ## Approved product decision
 
-The standalone Android, iOS, and web experience authenticates independently using:
-- A unique SAS username.
-- A password protected with a modern password-hashing algorithm.
+The standalone Android, iOS, and web app is open without user registration, username, password, email, phone, or Telegram login.
 
-Email address and mobile phone number are not required for sign-in or account creation. Do not add SMS or email OTP as a dependency for the primary login flow.
+Each app installation receives a cryptographically random installation identifier on first launch. The client stores it in platform-protected storage (iOS Keychain / Android Keystore where available) and presents it to the standalone API over HTTPS. The server creates a device-access record on first use.
 
-Telegram remains a separate, fully supported client. Do not remove or alter Telegram Mini App authentication, bot commands, Telegram Stars, channel membership, webhooks, polling, or Telegram subscription flows.
+This is installation-based identification, not verified real-world identity. Reinstalling the app, clearing protected storage, changing devices, or using a modified client may create a new installation identity. Do not describe it as foolproof person-level identification or collect invasive device fingerprints.
 
-## Identity and entitlement model
+## User access lifecycle
 
-- Use an immutable internal SAS account UUID as the platform-neutral principal.
-- Store a normalized, case-insensitive unique username.
-- Store only a password hash (prefer Argon2id; use a reviewed equivalent if deployment constraints require it). Never store plaintext passwords.
-- Email and phone may be absent; they are not required identity keys.
-- Keep Telegram user IDs in the legacy users table and represent account-to-Telegram association through an explicit identity-link record.
-- Do not auto-link accounts solely because a user types a Telegram username, SAS username, phone number, email address, or Telegram user ID.
-- Linking an existing Telegram subscriber requires proof of control of the Telegram account through a currently authenticated, signed Telegram Mini App session, plus proof of control of the SAS account. Use a short-lived, single-use linking challenge and audit the operation.
-- Resolve subscription entitlements through a platform-neutral account mapping while retaining compatibility for existing Telegram-only users. Preserve remaining paid-through time and trial history exactly; never create a second trial or duplicate entitlement during linking.
+- New installations receive a configurable default access duration controlled by the administrator (for example, 3 days, 7 days, 30 days, or a custom duration).
+- Store first_seen_at, access_starts_at, access_expires_at, last_seen_at, status, and a non-secret display identifier for each installation.
+- Access is allowed only while status is active and server time is before access_expires_at.
+- Expired users see a clear access-expired screen; the app does not silently reset the expiry.
+- The admin can extend/reduce the expiry, grant permanent access, revoke access, block/unblock an installation, add an internal note, and inspect last activity.
+- Admin actions take effect server-side immediately (or on the next API request); hiding a screen in the client is not an access control.
+- Use UTC timestamps in storage and display dates in the user's local timezone.
+- Define whether new installations receive the configured default trial/access duration; never grant repeat access automatically to a known blocked or expired installation.
 
-## Password recovery
+## Admin console
 
-Because email and phone are not required, provide recovery codes:
-- Generate a set of high-entropy, single-use recovery codes after account creation or during verified account linking.
-- Display the codes once and require the user to save them securely.
-- Store only hashes of recovery codes; consume each code atomically on use.
-- Allow authenticated password changes after verifying the current password.
-- Do not claim that support can recover a password without a valid recovery code or another independently verified proof of account ownership.
-- Do not silently fall back to Telegram username or a user-entered Telegram ID as recovery proof.
+The admin console is separate from the public app and requires strong administrator authentication. Anonymous app users must never be able to access admin APIs or change their own status/expiry.
 
-## Authentication and session security
+Admin capabilities:
+- List/search/filter installations by active, expired, blocked, and permanent status.
+- View first seen, last activity, expiry, and generated installation identifier.
+- Set an exact expiry date or grant a selected duration (1 day, 7 days, 30 days, 90 days, 1 year, custom, or permanent).
+- Extend, shorten, block, unblock, and revoke access.
+- Configure the default access duration for new installations.
+- View an audit log of who changed access, when, and what changed.
 
-- Use Argon2id password hashing with per-password salts and parameters appropriate to the server.
-- Enforce sensible password length and reject commonly compromised passwords where a local safe mechanism is available; do not impose arbitrary composition rules.
-- Apply per-account and per-IP rate limits, progressive delays, and generic login errors that do not disclose whether a username exists.
-- Use revocable, expiring server sessions with cryptographically secure opaque tokens stored hashed server-side, or an equivalently reviewed secure token design.
-- Native clients store session credentials in iOS Keychain / Android Keystore through secure platform storage.
-- Require HTTPS, strict CORS, CSRF protection for cookie-based web sessions, session rotation, logout/revocation, and audit events for credential and identity changes.
-- Never place password hashes, recovery-code hashes, signing keys, or long-lived secrets in the mobile bundle.
+Protect admin credentials using a server-side password hash, rate limiting, secure sessions, CSRF protection where applicable, HTTPS, and optional MFA. Store no admin secret in the mobile application. Keep a bootstrap admin credential in deployment secrets and require rotation on first setup; do not hardcode it or commit it.
 
-## Compatibility and isolation
+## API and abuse controls
 
-- The existing Telegram `validate_init_data` dependency remains unchanged for Telegram routes.
-- Add a distinct standalone authentication dependency for standalone routes. Never accept client-supplied Telegram IDs as proof of identity.
-- Keep Telegram-specific routes and standalone API namespaces separate.
-- Do not change the radar, market data providers, scheduler, subscription fulfillment, production configuration, or production database during this feature-branch phase.
-- Any future database migration must be additive where possible, reviewed, backed up, and tested against a production-like copy before deployment. Existing Telegram users and tables must remain valid.
+- Generate installation IDs using a cryptographically secure random generator; never derive them from IMEI, MAC address, advertising ID, phone number, or hardware fingerprint.
+- Store only a hash of the installation token on the server where practical; rotate/revoke tokens when needed.
+- Rate-limit registration and API calls; validate request sizes and use HTTPS.
+- Do not trust client timestamps, client-supplied expiry, or client-supplied access status. The server is authoritative.
+- Treat installation identity as a convenience, not strong anti-abuse identity. Add optional admin review and rate limits for suspicious registration bursts.
+- Consider platform attestation (Apple App Attest / Google Play Integrity) only as a later, separately reviewed hardening measure; do not block basic testing on it.
+
+## Existing Telegram and SAS systems
+
+- Telegram Mini App, bot, channel, Telegram Stars, Telegram login, Telegram subscriptions, and their existing admin workflows remain unchanged.
+- Do not migrate, overwrite, or merge Telegram users into anonymous device records.
+- Do not alter the radar, stock scanning, market-data providers, scheduler, or production database during this feature-branch phase.
+- Keep standalone device access and Telegram subscription entitlements as separate access paths unless a later, explicit product decision defines a safe mapping.
+- Any schema change must be additive, tested on an isolated database, and reviewed before production deployment.
 
 ## Delivery sequence
 
-1. Inspect current account, subscription, migration, and API dependencies; document compatibility points.
-2. Update the additive SAS account schema for a normalized unique username, password hash, and hashed single-use recovery codes. Make email optional rather than a required login identifier.
-3. Implement standalone registration, login, logout, password change, and recovery-code endpoints with abuse controls.
-4. Implement secure account linking from a verified Telegram session, without automatic matching.
-5. Add standalone entitlement reads through the compatibility adapter.
-6. Refactor the shared frontend to support standalone sessions while retaining the Telegram Mini App path unchanged.
-7. Build native Android/iOS clients with secure token storage and test on devices.
-8. Complete security review, migration rehearsal, backup/rollback plan, and explicit approval before any production deployment.
+1. Inspect existing FastAPI dependencies, admin authorization, database initialization, and frontend routing.
+2. Add a standalone installation-access model and a separate standalone admin authentication/session model without changing Telegram models.
+3. Add server-authoritative device registration and access-check endpoints.
+4. Add admin APIs for listing, searching, blocking/unblocking, expiry changes, permanent access, and default duration.
+5. Add an Arabic RTL admin console protected by admin authentication.
+6. Add standalone client onboarding, access-expired/blocked states, and secure installation-ID storage.
+7. Add tests for expiry boundaries, blocked devices, admin authorization, token rotation, and Telegram regression.
+8. Test on an isolated environment. No production migration or release without separate explicit approval.
 
 ## Acceptance criteria
 
-- A user can create an independent SAS account and sign in with username and password without Telegram installed.
-- Email and phone are not required to create or use the account.
-- Recovery codes are shown once, stored only as hashes, single-use, and tested.
-- Existing Telegram Mini App login, bot, Stars payments, subscriptions, and channel access continue unchanged.
-- Linking an existing subscriber preserves the exact entitlement expiry and trial history.
-- Brute force, replay, session theft, username enumeration, recovery-code reuse, and account takeover tests pass.
-- No production deployment or Telegram change occurs without separate explicit approval.
+- A new user can open and use the app without creating an account or entering credentials.
+- Each installation is represented by a random installation ID, not a hardware fingerprint.
+- Server-side expiry and block status are enforced on protected APIs.
+- Admin can search users/installations, set or change usage duration, grant permanent access, block, and unblock.
+- Public clients cannot call admin actions or alter their own expiry.
+- Reinstall/device-change limitations are clearly understood and not misrepresented.
+- Existing Telegram bot, Mini App, channel, Stars, subscriptions, admin operations, and radar remain unchanged.
+- No production deployment occurs without separate explicit approval.
