@@ -73,6 +73,16 @@ class StandaloneAccessTests(unittest.TestCase):
             "/api/standalone/radar/signals",
         }.issubset(paths))
 
+    def test_standalone_data_routes_require_installation_access(self):
+        from app.standalone_access import router, require_installation
+        protected_prefixes = ("/api/standalone/market/", "/api/standalone/radar/")
+        for route in router.routes:
+            if route.path.startswith(protected_prefixes):
+                self.assertTrue(
+                    any(dependency.call is require_installation for dependency in route.dependant.dependencies),
+                    route.path,
+                )
+
     def test_admin_models_have_separate_tables(self):
         self.assertIn("token_hash", StandaloneAdminSession.__table__.columns)
         self.assertIn("actor_username", StandaloneAdminAudit.__table__.columns)

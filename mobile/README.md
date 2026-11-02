@@ -54,3 +54,7 @@ The current APK/Xcode artifacts are an early launcher shell that hands off to th
 - Build configuration uses `SAS_API_BASE` when set, otherwise the existing `SAS_APP_URL` workflow value.
 - Protected standalone data routes expose market status, ticker, movers, news, and saved radar signals. Existing Telegram routes and guards remain unchanged.
 - Do not distribute builds until the matching backend version and admin environment secrets have been deployed and verified in a separate test environment.
+
+
+- The native client creates a 48-byte cryptographically random token and stores it in Keychain/Keystore before registering. The server stores only its SHA-256 digest; no hardware identifiers are collected.
+- Admin secrets are read from `SAS_STANDALONE_ADMIN_USERNAME` and `SAS_STANDALONE_ADMIN_PASSWORD` (or their unprefixed equivalents) in the server environment only.
