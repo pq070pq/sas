@@ -169,7 +169,7 @@ jobs:
               exit 1
             fi
             panwatch_ready=0
-            for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+            for i in $(seq 1 45); do
               state_json=$(docker inspect -f '{{json .State}}' "$panwatch_id" 2>/dev/null || true)
               status=$(docker inspect -f '{{.State.Status}}' "$panwatch_id" 2>/dev/null || true)
               health_status=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$panwatch_id" 2>/dev/null || true)
