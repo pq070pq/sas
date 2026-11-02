@@ -64,12 +64,20 @@ class SpeculativeRadarTests(unittest.TestCase):
             speculative_report_key("ABCD", "2026-10-22"),
         )
 
-    def test_radar_runs_in_all_sessions_except_weekends_and_holidays(self):
-        for session in ("premarket", "regular", "afterhours", "night", "night_pending", "overnight"):
+    def test_radar_runs_only_in_sessions_with_supported_live_quotes(self):
+        for session in ("premarket", "regular", "afterhours", "night"):
             with self.subTest(session=session):
                 self.assertTrue(_radar_session_is_scannable({"session": session, "holiday": False}))
-        self.assertFalse(_radar_session_is_scannable({"session": "weekend", "holiday": False}))
-        self.assertFalse(_radar_session_is_scannable({"session": "holiday", "holiday": True}))
+
+    def test_radar_skips_transition_and_unsupported_sessions(self):
+        for session in ("night_pending", "overnight", "weekend", "holiday", ""):
+            with self.subTest(session=session):
+                self.assertFalse(_radar_session_is_scannable({"session": session, "holiday": False}))
+
+    def test_radar_skips_all_sessions_on_market_holidays(self):
+        for session in ("premarket", "regular", "afterhours", "night"):
+            with self.subTest(session=session):
+                self.assertFalse(_radar_session_is_scannable({"session": session, "holiday": True}))
 
     def test_missing_symbol_is_rejected(self):
         report, result = build_speculative_report({"price": 5.5})
