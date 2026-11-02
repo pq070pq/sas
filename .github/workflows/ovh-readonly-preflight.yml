@@ -54,28 +54,59 @@ jobs:
             section "CPU AND MEMORY"
             printf 'CPU_COUNT=%s\\n' "$(nproc 2>/dev/null)"
             awk '/MemTotal:/ {total=int($2/1024)} /MemAvailable:/ {available=int($2/1024)} END {printf "RAM_TOTAL_MB=%d\\nRAM_AVAILABLE_MB=%d\\n", total, available}' /proc/meminfo
+            free -m 2>/dev/null | awk 'NR==2 {printf "RAM_USED_MB=%s\\nRAM_FREE_MB=%s\\n", $3, $4}'
 
             section "ROOT DISK"
             df -Pm / | awk 'NR==2 {printf "ROOT_DISK_TOTAL_MB=%s\\nROOT_DISK_USED_MB=%s\\nROOT_DISK_AVAILABLE_MB=%s\\nROOT_DISK_USED_PERCENT=%s\\n", $2, $3, $4, $5}'
 
-            section "DOCKER"
+            section "DOCKER VERSIONS AND COUNTS"
             if command -v docker >/dev/null 2>&1; then
               docker --version 2>&1
               docker compose version 2>&1
               docker info --format 'DOCKER_SERVER={{.ServerVersion}} STORAGE_DRIVER={{.Driver}}' 2>/dev/null
               printf 'CONTAINERS_RUNNING=%s\\n' "$(docker ps -q 2>/dev/null | wc -l)"
               printf 'CONTAINERS_TOTAL=%s\\n' "$(docker ps -aq 2>/dev/null | wc -l)"
-              printf 'COMPOSE_PROJECTS=%s\\n' "$(docker compose ls -q 2>/dev/null | wc -l)"
               printf 'DOCKER_VOLUMES=%s\\n' "$(docker volume ls -q 2>/dev/null | wc -l)"
             else
               echo "DOCKER=not-installed"
             fi
 
+            section "LIVE CONTAINER RESOURCE SNAPSHOT"
+            docker stats --no-stream --format 'CONTAINER={{.Name}} CPU={{.CPUPerc}} MEMORY={{.MemUsage}} MEMORY_PERCENT={{.MemPerc}} BLOCK_IO={{.BlockIO}} PIDS={{.PIDs}}' 2>&1
+
+            section "DOCKER DISK USAGE"
+            docker system df 2>&1
+            docker image ls --format 'IMAGE={{.Repository}} TAG={{.Tag}} SIZE={{.Size}}' 2>&1 | head -n 30
+
             section "STAGING PORT CHECK"
-            if command -v ss >/dev/null 2>&1 && ss -lntH 2>/dev/null | awk '$4 ~ /:8001$/ {found=1} END {exit !found}'; then
-              echo "PORT_8001=in-use"
+            if command -v ss >/dev/null 2>&1; then
+              if ss -lntH 2>/dev/null | awk '$4 ~ /:8001$/ {found=1} END {exit !found}'; then
+                echo "PORT_8001=in-use"
+              else
+                echo "PORT_8001=available"
+              fi
             else
-              echo "PORT_8001=available"
+              echo "PORT_8001=check-unavailable"
+            fi
+
+            section "NGINX ROUTING SUMMARY (NO FULL CONFIG OR SECRETS)"
+            if command -v nginx >/dev/null 2>&1; then
+              nginx -v 2>&1
+              if nginx -t >/dev/null 2>&1; then echo "NGINX_CONFIG_TEST=passed"; else echo "NGINX_CONFIG_TEST=failed"; fi
+              if [ -d /etc/nginx/sites-enabled ]; then
+                find /etc/nginx/sites-enabled -maxdepth 1 -type l -printf 'ENABLED_SITE=%f TARGET=%l\\n' 2>/dev/null
+                grep -RhoE '^[[:space:]]*(listen|server_name|proxy_pass)[[:space:]]+[^;]+' /etc/nginx/sites-enabled 2>/dev/null | sed -E 's/(proxy_pass[[:space:]]+).*/\\1[configured]/' | head -n 40
+              else
+                echo "NGINX_SITES_ENABLED=directory-not-found"
+              fi
+            else
+              echo "NGINX=not-installed"
+            fi
+
+            section "SERVICE STATES"
+            if command -v systemctl >/dev/null 2>&1; then
+              printf 'DOCKER_SERVICE=%s\\n' "$(systemctl is-active docker 2>/dev/null || true)"
+              printf 'NGINX_SERVICE=%s\\n' "$(systemctl is-active nginx 2>/dev/null || true)"
             fi
 
             section "FIREWALL SUMMARY"
@@ -88,17 +119,5 @@ jobs:
               printf 'FIREWALLD_SERVICE=%s\\n' "$(systemctl is-active firewalld 2>/dev/null || true)"
             fi
 
-            section "SERVICE HEALTH"
-            if command -v systemctl >/dev/null 2>&1; then
-              printf 'DOCKER_SERVICE=%s\\n' "$(systemctl is-active docker 2>/dev/null || true)"
-              printf 'NGINX_SERVICE=%s\\n' "$(systemctl is-active nginx 2>/dev/null || true)"
-            fi
-            if command -v nginx >/dev/null 2>&1; then
-              nginx -v 2>&1
-              if nginx -t >/dev/null 2>&1; then echo "NGINX_CONFIG_TEST=passed"; else echo "NGINX_CONFIG_TEST=failed"; fi
-            else
-              echo "NGINX=not-installed"
-            fi
-
             section "END"
-            echo "Read-only checks only. No host configuration, containers, volumes, networks, firewall rules, DNS, or application data were changed."
+            echo "Read-only checks only. No host configuration, containers, images, volumes, networks, firewall rules, DNS, or application data were changed."
