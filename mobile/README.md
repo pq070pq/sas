@@ -7,8 +7,8 @@ This feature branch is the isolated workspace for the independent SAS PRO Androi
 - Public users do not register or log in. No username, password, email, phone, or Telegram login is required.
 - Each installation receives a random installation identifier stored in platform-protected storage where available.
 - Server-side access records control whether that installation is active, blocked, expired, or permanent.
-- A configurable default duration applies to new installations.
-- A separate protected admin console manages installations, blocks/unblocks access, changes expiry, grants permanent access, and reviews activity.
+- Every new installation automatically receives 30 days of access; the admin can extend or change its expiry at any time.
+- A separate protected admin console manages installations, blocks/unblocks access, extends or changes expiry, grants permanent access, and reviews activity.
 
 See docs/standalone-phone-email-auth.md for the full anonymous-access, expiry, admin-security, API, and acceptance requirements. The historical filename is retained to avoid path churn.
 
