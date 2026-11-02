@@ -32,7 +32,7 @@ jobs:
           ssh-keygen -y -f "$key_file" >/dev/null
           echo "SSH key validated."
 
-      - name: Read-only host inventory
+      - name: Read-only host inventory (sanitized output)
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.OVH_HOST }}
@@ -42,71 +42,63 @@ jobs:
           command_timeout: 5m
           script: |
             set +e
-
-            section() { printf '\n===== %s =====\n' "$1"; }
-
-            section "IDENTITY AND OS"
-            id
-            hostname
-            date -u
-            uname -a
-            ( . /etc/os-release 2>/dev/null; printf 'OS=%s\nVERSION=%s\n' "$PRETTY_NAME" "$VERSION_ID" )
+            section() { printf '\\n===== %s =====\\n' "$1"; }
+            section "OS"
+            if [ -r /etc/os-release ]; then
+              . /etc/os-release
+              printf 'OS=%s\\n' "$PRETTY_NAME"
+            else
+              echo "OS=unknown"
+            fi
 
             section "CPU AND MEMORY"
-            nproc
-            uptime
-            free -h
-            (command -v lscpu >/dev/null 2>&1 && lscpu | grep -E '^(Architecture|CPU\(s\)|Model name|Thread|Core|Socket)' | head -n 12)
+            printf 'CPU_COUNT=%s\\n' "$(nproc 2>/dev/null)"
+            awk '/MemTotal:/ {total=int($2/1024)} /MemAvailable:/ {available=int($2/1024)} END {printf "RAM_TOTAL_MB=%d\\nRAM_AVAILABLE_MB=%d\\n", total, available}' /proc/meminfo
 
-            section "DISK AND MOUNTS"
-            df -hT
-            lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT 2>/dev/null | head -n 40
+            section "ROOT DISK"
+            df -Pm / | awk 'NR==2 {printf "ROOT_DISK_TOTAL_MB=%s\\nROOT_DISK_USED_MB=%s\\nROOT_DISK_AVAILABLE_MB=%s\\nROOT_DISK_USED_PERCENT=%s\\n", $2, $3, $4, $5}'
 
-            section "DOCKER VERSIONS AND HEALTH"
+            section "DOCKER"
             if command -v docker >/dev/null 2>&1; then
-              docker --version
-              docker compose version
-              docker info --format 'ServerVersion={{.ServerVersion}} StorageDriver={{.Driver}} CgroupVersion={{.CgroupVersion}}' 2>&1
+              docker --version 2>&1
+              docker compose version 2>&1
+              docker info --format 'DOCKER_SERVER={{.ServerVersion}} STORAGE_DRIVER={{.Driver}}' 2>/dev/null
+              printf 'CONTAINERS_RUNNING=%s\\n' "$(docker ps -q 2>/dev/null | wc -l)"
+              printf 'CONTAINERS_TOTAL=%s\\n' "$(docker ps -aq 2>/dev/null | wc -l)"
+              printf 'COMPOSE_PROJECTS=%s\\n' "$(docker compose ls -q 2>/dev/null | wc -l)"
+              printf 'DOCKER_VOLUMES=%s\\n' "$(docker volume ls -q 2>/dev/null | wc -l)"
             else
-              echo "Docker is not installed or not on PATH."
+              echo "DOCKER=not-installed"
             fi
 
-            section "CONTAINERS (NAMES, STATUS, PORTS ONLY)"
-            docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' 2>&1
-
-            section "DOCKER COMPOSE PROJECTS"
-            docker compose ls --all 2>&1
-
-            section "DOCKER VOLUMES AND NETWORKS"
-            docker volume ls 2>&1
-            docker network ls 2>&1
-
-            section "LISTENING TCP PORTS"
-            if command -v ss >/dev/null 2>&1; then ss -lnt 2>&1; else netstat -lnt 2>&1; fi
-
-            section "FIREWALL STATUS (READ ONLY)"
-            if command -v ufw >/dev/null 2>&1; then ufw status verbose 2>&1; fi
-            if command -v firewall-cmd >/dev/null 2>&1; then
-              firewall-cmd --state 2>&1
-              firewall-cmd --list-all 2>&1
-            fi
-            if command -v nft >/dev/null 2>&1; then
-              nft list ruleset 2>&1 | head -n 120
-            elif command -v iptables >/dev/null 2>&1; then
-              iptables -S 2>&1 | head -n 100
+            section "STAGING PORT CHECK"
+            if command -v ss >/dev/null 2>&1 && ss -lntH 2>/dev/null | awk '$4 ~ /:8001$/ {found=1} END {exit !found}'; then
+              echo "PORT_8001=in-use"
+            else
+              echo "PORT_8001=available"
             fi
 
-            section "SERVICE STATES (NO RESTARTS)"
-            for service in docker nginx; do
-              if command -v systemctl >/dev/null 2>&1; then
-                printf '%s=' "$service"
-                systemctl is-active "$service" 2>&1
-              fi
-            done
+            section "FIREWALL SUMMARY"
+            if command -v ufw >/dev/null 2>&1; then
+              ufw status 2>/dev/null | head -n 1 | sed 's/^Status: /UFW_STATUS=/'
+            else
+              echo "UFW_STATUS=not-installed"
+            fi
+            if command -v systemctl >/dev/null 2>&1; then
+              printf 'FIREWALLD_SERVICE=%s\\n' "$(systemctl is-active firewalld 2>/dev/null || true)"
+            fi
+
+            section "SERVICE HEALTH"
+            if command -v systemctl >/dev/null 2>&1; then
+              printf 'DOCKER_SERVICE=%s\\n' "$(systemctl is-active docker 2>/dev/null || true)"
+              printf 'NGINX_SERVICE=%s\\n' "$(systemctl is-active nginx 2>/dev/null || true)"
+            fi
             if command -v nginx >/dev/null 2>&1; then
               nginx -v 2>&1
-              nginx -t 2>&1
+              if nginx -t >/dev/null 2>&1; then echo "NGINX_CONFIG_TEST=passed"; else echo "NGINX_CONFIG_TEST=failed"; fi
+            else
+              echo "NGINX=not-installed"
             fi
 
-            section "END OF READ-ONLY INVENTORY"
-            echo "No files, services, containers, volumes, networks, firewall rules, DNS, or application data were changed."
+            section "END"
+            echo "Read-only checks only. No host configuration, containers, volumes, networks, firewall rules, DNS, or application data were changed."
