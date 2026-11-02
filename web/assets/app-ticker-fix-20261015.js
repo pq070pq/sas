@@ -355,7 +355,8 @@ async function loadRadarSnapshot(){
   }catch(e){console.warn('SAS PRO local radar snapshot unavailable:',e?.message||e);}
   try{
    // Normal page opening reads the saved server snapshot; it must not launch a slow scan.
-   const [d,lifecycle]=await Promise.all([api('/api/radar/scan',{timeoutMs:12000,retries:0}),api('/api/radar/opportunities',{timeoutMs:12000,retries:0}).catch(()=>null)]);\n   if(lifecycle?.ok)terminalState.radarLifecycle={active:lifecycle.active||[],history:lifecycle.history||[]};
+   const [d,lifecycle]=await Promise.all([api('/api/radar/scan',{timeoutMs:12000,retries:0}),api('/api/radar/opportunities',{timeoutMs:12000,retries:0}).catch(()=>null)]);
+   if(lifecycle?.ok)terminalState.radarLifecycle={active:lifecycle.active||[],history:lifecycle.history||[]};
    if(Array.isArray(d.stocks)){
     const serverConfirmed=d.stocks.filter(stock=>stock&&String(stock.symbol||stock.ticker||'').trim());
     const serverPreliminary=Array.isArray(d.preliminary_stocks)
@@ -1218,7 +1219,8 @@ function renderRadar(){
   indexBySymbol.set(symbol,rows.length);
   rows.push({...candidate,_radar_preliminary_candidate:true});
  });
- renderCards(document.getElementById('radarGrid'),rows);\n renderRadarLifecycle();
+ renderCards(document.getElementById('radarGrid'),rows);
+ renderRadarLifecycle();
 }
 function renderRadarLifecycle(){
  const el=document.getElementById('radarLifecycle');if(!el)return;
