@@ -1056,7 +1056,15 @@ function renderRadarLifecycle(){
  const feed=terminalState.radarLifecycle||{active:[],history:[]};
  const active=Array.isArray(feed.active)?feed.active:[];
  const history=Array.isArray(feed.history)?feed.history:[];
- const money=v=>Number.isFinite(Number(v))&&Number(v)>0?'
+ const money=v=>{const n=Number(v);if(!Number.isFinite(n)||n<=0)return '—';return '$'+n.toFixed(4).replace(/0+$/,'').replace(/\.$/,'');};
+ const card=x=>{
+  const targets=(x.targets||[]).map((v,i)=>(i+1)+': '+money(v)).join(' · ')||'لا توجد أهداف مسجلة';
+  const state=x.status==='closed'?'منتهية':'تحت المتابعة';
+  const reason=x.reason?'<small>'+escHtml(x.reason)+'</small>':'';
+  return '<article class="radar-lifecycle-card"><header><b>'+escHtml(x.symbol||'—')+'</b><span>'+state+'</span></header><div>الدخول: '+money(x.entry_price)+' · الحالي: '+money(x.current_price)+'</div><div>الوقف: '+money(x.current_stop)+'</div><div class="radar-lifecycle-targets">'+escHtml(targets)+'</div><small>تحقق '+Number(x.achieved_target||0)+' هدف · '+escHtml(x.session_date||'')+'</small>'+reason+'</article>';
+ };
+ el.innerHTML='<div class="radar-lifecycle-head"><b>متابعة الفرص وسجلها</b><span>نشطة '+active.length+' · منتهية '+history.length+'</span></div>'+(active.length?'<section><h3>🟢 فرص تحت المتابعة</h3>'+active.map(card).join('')+'</section>':'<p class="radar-lifecycle-empty">لا توجد فرص منشورة تحت المتابعة حاليًا.</p>')+(history.length?'<details><summary>السجل السابق ('+history.length+')</summary>'+history.map(card).join('')+'</details>':'');
+}
 function renderCards(el,rows){
  if(!el)return;
  const all=Array.isArray(rows)?rows:[];
