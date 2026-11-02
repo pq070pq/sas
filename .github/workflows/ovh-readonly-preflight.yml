@@ -84,6 +84,18 @@ jobs:
             section "LISTENING TCP PORTS"
             if command -v ss >/dev/null 2>&1; then ss -lnt 2>&1; else netstat -lnt 2>&1; fi
 
+            section "FIREWALL STATUS (READ ONLY)"
+            if command -v ufw >/dev/null 2>&1; then ufw status verbose 2>&1; fi
+            if command -v firewall-cmd >/dev/null 2>&1; then
+              firewall-cmd --state 2>&1
+              firewall-cmd --list-all 2>&1
+            fi
+            if command -v nft >/dev/null 2>&1; then
+              nft list ruleset 2>&1 | head -n 120
+            elif command -v iptables >/dev/null 2>&1; then
+              iptables -S 2>&1 | head -n 100
+            fi
+
             section "SERVICE STATES (NO RESTARTS)"
             for service in docker nginx; do
               if command -v systemctl >/dev/null 2>&1; then
@@ -91,7 +103,10 @@ jobs:
                 systemctl is-active "$service" 2>&1
               fi
             done
-            if command -v nginx >/dev/null 2>&1; then nginx -v 2>&1; fi
+            if command -v nginx >/dev/null 2>&1; then
+              nginx -v 2>&1
+              nginx -t 2>&1
+            fi
 
             section "END OF READ-ONLY INVENTORY"
             echo "No files, services, containers, volumes, networks, firewall rules, DNS, or application data were changed."
