@@ -1,0 +1,142 @@
+name: Deploy SAS PRO Staging
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: saspro-staging-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    # The workflow must be dispatched from the approved development branch.
+    if: github.ref == 'refs/heads/feature/sas-mobile-app'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    environment: staging
+    steps:
+      - name: Validate required staging secrets
+        shell: bash
+        env:
+          STAGING_HOST: ${{ secrets.OVH_STAGING_HOST }}
+          STAGING_USER: ${{ secrets.OVH_STAGING_USER }}
+          STAGING_KEY: ${{ secrets.OVH_STAGING_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$STAGING_HOST" || { echo "Missing OVH_STAGING_HOST in GitHub Environment: staging"; exit 1; }
+          test -n "$STAGING_USER" || { echo "Missing OVH_STAGING_USER in GitHub Environment: staging"; exit 1; }
+          test -n "$STAGING_KEY" || { echo "Missing OVH_STAGING_SSH_KEY in GitHub Environment: staging"; exit 1; }
+          echo "Staging connection settings are present."
+
+      - name: Deploy isolated staging service
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.OVH_STAGING_HOST }}
+          username: ${{ secrets.OVH_STAGING_USER }}
+          key: ${{ secrets.OVH_STAGING_SSH_KEY }}
+          port: ${{ secrets.OVH_STAGING_PORT || '22' }}
+          command_timeout: 25m
+          script: |
+            set -eu
+
+            STAGING_DIR="/opt/saspro-staging"
+            PROD_DIR="/opt/saspro"
+            BRANCH="feature/sas-mobile-app"
+
+            # Hard stop unless this is a separately provisioned checkout.
+            test -d "$STAGING_DIR/.git" || { echo "Staging checkout is missing; refusing to create or guess a server path."; exit 1; }
+            test -d "$PROD_DIR" || { echo "Expected production directory was not found; cannot verify isolation."; exit 1; }
+            test -f "$STAGING_DIR/docker-compose.staging.yml" || { echo "Staging Compose file is missing."; exit 1; }
+            test -f "$STAGING_DIR/.env.staging" || { echo ".env.staging is missing; refusing deployment."; exit 1; }
+            test "$(realpath "$STAGING_DIR")" != "$(realpath "$PROD_DIR")" || { echo "Staging path resolves to production; aborting."; exit 1; }
+
+            cd "$STAGING_DIR"
+            remote_url="$(git remote get-url origin)"
+            case "$remote_url" in
+              https://github.com/pq070pq/sas|https://github.com/pq070pq/sas.git|git@github.com:pq070pq/sas.git|ssh://git@github.com/pq070pq/sas.git) ;;
+              *) echo "Staging checkout origin is not the approved SAS repository; aborting."; exit 1 ;;
+            esac
+
+            # Validate staging-only configuration without printing any values.
+            python3 - <<'PY'
+            from pathlib import Path
+            values = {}
+            for raw in Path(".env.staging").read_text(encoding="utf-8").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                values[key.strip()] = value.strip().strip("'").strip('"')
+            required = ("SAS_STANDALONE_ADMIN_USERNAME", "SAS_STANDALONE_ADMIN_PASSWORD")
+            for key in required:
+                value = values.get(key, "")
+                if not value or value.startswith("CHANGE_THIS") or "YOUR-DOMAIN" in value:
+                    raise SystemExit("Staging admin credentials are missing or still placeholders.")
+            if len(values["SAS_STANDALONE_ADMIN_PASSWORD"]) < 24:
+                raise SystemExit("Staging admin password must be at least 24 characters.")
+            for key in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_WEBHOOK_SECRET", "TELEGRAM_CHANNEL_ID", "TELEGRAM_CHANNEL_LINK"):
+                if values.get(key, ""):
+                    raise SystemExit("Telegram credentials/settings must be blank in .env.staging.")
+            if values.get("OWNER_TELEGRAM_ID", "0") not in ("", "0"):
+                raise SystemExit("OWNER_TELEGRAM_ID must be empty or 0 in staging.")
+            sec = values.get("SEC_USER_AGENT", "")
+            if sec and ("@" not in sec or "YOUR-DOMAIN" in sec or "example.com" in sec):
+                raise SystemExit("SEC_USER_AGENT is still a placeholder.")
+            print("Staging environment checks passed; secret values were not displayed.")
+            PY
+
+            # Verify any pre-existing named container belongs to this staging Compose project.
+            if docker inspect saspro-staging >/dev/null 2>&1; then
+              project="$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project" }}' saspro-staging)"
+              service="$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.service" }}' saspro-staging)"
+              test "$project" = "saspro-staging" && test "$service" = "saspro-staging" || {
+                echo "Container name saspro-staging is owned by another workload; aborting."
+                exit 1
+              }
+            fi
+
+            # Refuse port conflicts unless the listener is the already-owned staging container.
+            staging_id="$(docker inspect -f '{{.Id}}' saspro-staging 2>/dev/null || true)"
+            for id in $(docker ps --no-trunc -q --filter publish=8001); do
+              test "$id" = "$staging_id" || { echo "Host port 8001 is used by another container; aborting."; exit 1; }
+            done
+
+            # Fetch and reset only this isolated staging checkout; production checkout is untouched.
+            git fetch --prune origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
+            git checkout -B "$BRANCH" "refs/remotes/origin/$BRANCH"
+
+            docker compose --project-name saspro-staging -f docker-compose.staging.yml config --quiet
+
+            # This project has a dedicated container, network, database volume and loopback-only port.
+            docker compose --project-name saspro-staging -f docker-compose.staging.yml up -d --build --remove-orphans saspro-staging
+
+            container_id="$(docker compose --project-name saspro-staging -f docker-compose.staging.yml ps -q saspro-staging)"
+            test -n "$container_id" || { echo "Compose did not return a staging container ID."; exit 1; }
+            production_id="$(docker ps -q --filter label=com.docker.compose.project=saspro --filter label=com.docker.compose.service=saspro | head -n 1)"
+            test -z "$production_id" || test "$container_id" != "$production_id" || {
+              echo "Staging resolved to the production container; aborting."
+              exit 1
+            }
+
+            # Verify staging mode and ensure Telegram credentials are absent from the running container.
+            docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$container_id" | grep -qx 'APP_ENV=staging'
+            docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$container_id" | grep -qx 'SAS_STAGING_MODE=true'
+            docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$container_id" | grep -qx 'TELEGRAM_BOT_TOKEN='
+            docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$container_id" | grep -qx 'TELEGRAM_CHANNEL_ID='
+            docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$container_id" | grep -qx 'OWNER_TELEGRAM_ID=0'
+
+            health_ok=0
+            for attempt in $(seq 1 30); do
+              if curl -fsS --max-time 3 http://127.0.0.1:8001/health >/dev/null; then
+                health_ok=1
+                break
+              fi
+              sleep 2
+            done
+            test "$health_ok" -eq 1 || { echo "Staging health check failed; inspect saspro-staging logs on the host."; exit 1; }
+
+            echo "SAS PRO staging deployment and health check succeeded on loopback port 8001."
+            echo "Production checkout, production container, production database and Telegram deployment were not targeted."
