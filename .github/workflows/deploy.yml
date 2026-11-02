@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    # Workflow-only changes must never trigger a production deployment.
+    paths-ignore:
+      - '.github/workflows/**'
   workflow_dispatch:
 
 concurrency:
