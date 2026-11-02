@@ -49,6 +49,12 @@ class StandaloneAccessTests(unittest.TestCase):
         row.status = "blocked"
         self.assertEqual(installation_state(row), "blocked")
 
+    def test_permanent_access_uses_server_state(self):
+        row, now = self.make_row(permanent=True, access_expires_at=now_minus_one())
+        self.assertEqual(installation_state(row, now), "active")
+        row.status = "blocked"
+        self.assertEqual(installation_state(row, now), "blocked")
+
     def test_admin_models_have_separate_tables(self):
         self.assertIn("token_hash", StandaloneAdminSession.__table__.columns)
         self.assertIn("actor_username", StandaloneAdminAudit.__table__.columns)

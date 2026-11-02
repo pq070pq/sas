@@ -28,6 +28,7 @@ ADMIN_COOKIE = "sas_standalone_admin"
 ADMIN_SESSION_HOURS = max(1, min(int(settings.standalone_admin_session_hours or 8), 24))
 INITIAL_ACCESS_DAYS = 30
 _LOGIN_FAILURES = {}
+_REGISTRATION_ATTEMPTS = {}
 _LOGIN_WINDOW_SECONDS = 900
 _LOGIN_MAX_FAILURES = 8
 
@@ -83,6 +84,19 @@ def _check_login_rate(ip: str):
         raise HTTPException(429, "محاولات كثيرة. حاول بعد 15 دقيقة")
     if not item or now - item[0] >= _LOGIN_WINDOW_SECONDS:
         _LOGIN_FAILURES[ip] = (now, 0)
+
+
+def _check_registration_rate(ip: str):
+    now = time.monotonic()
+    item = _REGISTRATION_ATTEMPTS.get(ip)
+    if item and now - item[0] < 600 and item[1] >= 30:
+        raise HTTPException(429, "محاولات تسجيل كثيرة من الشبكة. حاول لاحقًا")
+    count = item[1] + 1 if item and now - item[0] < 600 else 1
+    _REGISTRATION_ATTEMPTS[ip] = (now, count)
+    if len(_REGISTRATION_ATTEMPTS) > 2000:
+        for key, value in list(_REGISTRATION_ATTEMPTS.items()):
+            if now - value[0] >= 600:
+                _REGISTRATION_ATTEMPTS.pop(key, None)
 
 
 def _record_login_failure(ip: str):
@@ -155,10 +169,13 @@ async def _audit(db: AsyncSession, actor: str, action: str, installation_id=None
 
 @router.post("/api/standalone/register")
 async def register_installation(
+    request: Request,
     x_sas_installation: str = Header(default="", alias="X-SAS-Installation"),
     db: AsyncSession = Depends(get_session),
 ):
     """Create a 30-day installation record or validate an existing token."""
+    ip = request.client.host if request.client else "unknown"
+    _check_registration_rate(ip)
     now = utc_now()
     if x_sas_installation:
         if len(x_sas_installation) > 160:
@@ -230,6 +247,8 @@ async def standalone_admin_login(request: Request, response: Response, db: Async
         payload = await request.json()
     except Exception:
         raise HTTPException(400, "بيانات الدخول غير صالحة")
+    if not isinstance(payload, dict):
+        raise HTTPException(400, "بيانات الدخول غير صالحة")
     username = str(payload.get("username") or "")[:128]
     password = str(payload.get("password") or "")
     valid_user = hmac.compare_digest(username, settings.standalone_admin_username)
@@ -281,7 +300,7 @@ async def standalone_admin_summary(
     return {
         "ok": True, "total": len(rows), "active": states.count("active"),
         "expired": states.count("expired"), "blocked": states.count("blocked"),
-        "revoked": states.count("revoked"), "permanent": sum(bool(row.permanent) for row in rows),
+        "revoked": states.count("revoked"), "permanent": sum(bool(row.permanent) and state == "active" for row, state in zip(rows, states)),
         "initial_access_days": INITIAL_ACCESS_DAYS,
     }
 
@@ -300,13 +319,14 @@ async def standalone_admin_installations(
     needle = q.strip().lower()
     for row in rows:
         state = installation_state(row)
-        if status != "all" and state != status:
+        display_state = "permanent" if row.permanent and state == "active" else state
+        if status != "all" and display_state != status:
             continue
         if needle and needle not in row.id.lower() and needle not in (row.note or "").lower():
             continue
         expiry = as_utc(row.access_expires_at)
         items.append({
-            "id": row.id, "status": "permanent" if row.permanent and state == "active" else state,
+            "id": row.id, "status": display_state,
             "first_seen_at": as_utc(row.first_seen_at).isoformat(),
             "last_seen_at": as_utc(row.last_seen_at).isoformat(),
             "access_starts_at": as_utc(row.access_starts_at).isoformat(),
@@ -348,8 +368,9 @@ async def standalone_admin_update_access(
         action = "revoked"
     elif payload.get("permanent") is True:
         row.permanent = True
-        row.status = "active"
-        row.blocked_at = None
+        if row.status != "blocked":
+            row.status = "active"
+            row.blocked_at = None
         action = "made_permanent"
     elif "extend_days" in payload:
         try:
@@ -362,8 +383,9 @@ async def standalone_admin_update_access(
         base = current if current and current > now else now
         row.access_expires_at = base + timedelta(days=days)
         row.permanent = False
-        row.status = "active"
-        row.blocked_at = None
+        if row.status != "blocked":
+            row.status = "active"
+            row.blocked_at = None
         action = "extended"
     elif "expires_at" in payload:
         try:
@@ -375,8 +397,9 @@ async def standalone_admin_update_access(
             raise HTTPException(400, "تاريخ الانتهاء غير صالح")
         row.access_expires_at = expiry
         row.permanent = False
-        row.status = "active" if expiry > now else "revoked"
-        row.blocked_at = None
+        if row.status != "blocked":
+            row.status = "active"
+            row.blocked_at = None
         action = "expiry_set"
     else:
         raise HTTPException(400, "لم يتم تحديد إجراء")
