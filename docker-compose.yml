@@ -9,7 +9,7 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      - RADAR_INTERVAL_MINUTES=30
+      - RADAR_INTERVAL_MINUTES=10
       - TWELVE_DATA_API_KEY=${TWELVE_DATA_API_KEY:-}
       - TWELVE_DATA_API_KEYS=${TWELVE_DATA_API_KEYS:-}
       - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
