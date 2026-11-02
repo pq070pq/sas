@@ -153,7 +153,7 @@ async def _finnhub_session_quote(client: httpx.AsyncClient, symbol: str) -> dict
 def _radar_session_is_scannable(status: dict) -> bool:
     """Keep both radars scheduled in every known session except weekends/holidays."""
     session = str((status or {}).get("session") or "").strip().lower()
-    return not bool((status or {}).get("holiday")) and session not in {"weekend", "holiday", ""}
+    return not bool((status or {}).get("holiday")) and session in {"premarket", "regular", "afterhours", "night"}
 
 
 def _parse_market_timestamp(value):
