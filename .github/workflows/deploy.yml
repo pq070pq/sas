@@ -173,12 +173,14 @@ jobs:
               state_json=$(docker inspect -f '{{json .State}}' "$panwatch_id" 2>/dev/null || true)
               status=$(docker inspect -f '{{.State.Status}}' "$panwatch_id" 2>/dev/null || true)
               health_status=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$panwatch_id" 2>/dev/null || true)
-              echo "PanWatch readiness attempt=$i/15 container=$panwatch_id state=$status health=$health_status"
+              echo "PanWatch readiness attempt=$i/45 container=$panwatch_id state=$status health=$health_status"
 
               if [ "$status" = "running" ]; then
                 # Record the actual HTTP outcome without dumping response bodies or secrets.
+                set +e
                 probe=$(docker compose exec -T panwatch python -c 'import urllib.request; r=urllib.request.urlopen("http://127.0.0.1:8000/openapi.json",timeout=3); print("http_status="+str(r.status))' 2>&1)
                 probe_rc=$?
+                set -e
                 echo "PanWatch OpenAPI probe rc=$probe_rc result=$probe"
                 if [ "$probe_rc" -eq 0 ]; then
                   panwatch_ready=1
