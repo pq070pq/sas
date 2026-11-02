@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from .config import settings
-from .db import SessionLocal, Subscription, RadarSignal, RadarOutcome, RadarRun, ScheduledReport, User, ScheduledReport
+from .db import SessionLocal, Subscription, RadarSignal, RadarOutcome, RadarRun, ScheduledReport, User, SpeculativeOpportunity
 from .telegram import send_message, edit_message, bot_api
 from .holiday_radar import publish_holiday_radar, publish_market_update
 from .timeutil import utcnow, aware
@@ -467,6 +467,33 @@ async def evaluate_radar_outcomes():
                     logger.warning("Radar outcome quote throttled for %s; skipping this evaluation cycle.", signal.symbol)
                 else:
                     logger.exception("Radar outcome evaluation failed: %s", signal.symbol)
+                continue
+
+        # Keep early/speculative opportunities price-monitored through the
+        # existing quote path. Missing/delayed quotes never close an opportunity.
+        speculative_rows = (await db.execute(
+            select(SpeculativeOpportunity).where(SpeculativeOpportunity.status == "active")
+        )).scalars().all()
+        for opportunity in speculative_rows:
+            try:
+                from .market import quote
+                observed = await quote(opportunity.symbol)
+                source = str((observed or {}).get("source") or "").strip().casefold()
+                if not observed or observed.get("is_delayed") or source == "cusp wealth":
+                    continue
+                price = observed.get("price")
+                if price is None:
+                    continue
+                price = float(price)
+                if not math.isfinite(price) or price <= 0:
+                    continue
+                opportunity.current_price = price
+                opportunity.evaluated_at = utcnow()
+            except Exception as exc:
+                logger.info(
+                    "Speculative opportunity quote skipped symbol=%s error=%s",
+                    opportunity.symbol, type(exc).__name__,
+                )
                 continue
 
         await db.commit()
