@@ -405,6 +405,20 @@ async def speculative_radar_cycle() -> dict:
         return {"status": "outside_market_calendar", "session": session, "sent": 0}
     logger.info("SPECULATIVE_RADAR_ACTIVE session=%s", session)
 
+    # Close prior-session observations deterministically; do not carry an early
+    # intraday signal indefinitely into a different NY trading date.
+    current_session_date = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
+    async with SessionLocal() as db:
+        open_rows = (await db.execute(
+            select(SpeculativeOpportunity).where(SpeculativeOpportunity.status == "active")
+        )).scalars().all()
+        for opportunity in open_rows:
+            reason = speculative_expiry_reason(opportunity.session_date, current_session_date)
+            if reason:
+                opportunity.status = "expired"
+                opportunity.closed_reason = reason
+        await db.commit()
+
     try:
         discovered = await discover_low_price_stocks(price_min=1.00, price_max=10.00)
     except Exception:
