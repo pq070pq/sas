@@ -182,3 +182,44 @@
 @media(min-width:700px){.terminal-tabs>button{min-height:116px!important}}
 @media(max-width:380px){.terminal-tabs>button{min-height:82px!important}.terminal-tabs>button .terminal-tab-icon{width:34px!important;height:34px!important}.terminal-tabs>button .terminal-tab-label{font-size:10px!important}}
 @media(prefers-reduced-motion:reduce){.terminal-tabs>button:hover,.terminal-tabs>button:focus-visible{transform:none!important}}
+
+
+/* SAS PRO icon-only navigation: remove every tile/card behind the symbols. */
+.terminal-tabs{
+  border:0!important;border-radius:0!important;
+  background:transparent!important;box-shadow:none!important;
+  padding:clamp(8px,2vw,14px) 0!important;
+  gap:clamp(5px,1.5vw,12px)!important;
+  margin:clamp(10px,2.5vw,18px) 0!important;
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+}
+.terminal-tabs:before{display:none!important;content:none!important}
+.terminal-tabs>button{
+  border:0!important;border-radius:0!important;
+  background:transparent!important;box-shadow:none!important;
+  min-height:clamp(82px,19vw,116px)!important;
+  padding:clamp(8px,1.8vw,13px) 2px!important;
+  overflow:visible!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+}
+.terminal-tabs>button:before{display:none!important;content:none!important}
+.terminal-tabs>button:hover,.terminal-tabs>button:focus-visible{
+  border:0!important;background:transparent!important;box-shadow:none!important;
+  transform:translateY(-2px)!important;
+}
+.terminal-tabs>button.active{
+  border:0!important;background:transparent!important;box-shadow:none!important;
+  animation:none!important;
+}
+.terminal-tabs>button.active:after{
+  opacity:1!important;transform:scaleX(1)!important;
+  bottom:0!important;height:2px!important;left:22%!important;right:22%!important;
+  background:linear-gradient(90deg,transparent,#12eaff,transparent)!important;
+  box-shadow:0 0 12px rgba(0,234,255,.8)!important;
+}
+.terminal-tabs>button .terminal-tab-icon:before{display:none!important;content:none!important}
+.terminal-tabs>button .terminal-tab-icon{
+  background:transparent!important;border:0!important;border-radius:0!important;
+  box-shadow:none!important;
+}
+.terminal-tabs>button.active .terminal-tab-label{color:#55efff!important}
+@media(max-width:600px){.terminal-tabs>button.active{box-shadow:none!important}}
