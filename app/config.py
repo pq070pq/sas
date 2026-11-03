@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     twelve_data_api_keys: str = ""
     finnhub_api_key: str = ""
     finnhub_api_keys: str = ""
+    # SEC EDGAR User-Agent contact; configure SEC_CONTACT_EMAIL in the server environment.
+    sec_contact_email: str = ""
     fmp_api_key: str = ""
     fmp_api_keys: str = ""
     newsfilter_api_key: str = ""
