@@ -495,7 +495,38 @@
   </div>
 </div>
 
-<script src="/assets/app-ticker-fix-20261015.js?v=20261103-analyst-consensus-1"></script>
+<script>
+/* Early Mini App boot diagnostics: installed before the main bundle so syntax/runtime failures are visible. */
+(function(){
+  function report(message){
+    var name=document.getElementById('userName');
+    var error=document.getElementById('accountLoadError');
+    var target=document.getElementById('accountLoadErrorText');
+    var grid=document.getElementById('subscriptionStatusGrid');
+    if(!name||!error||!target||!grid)return;
+    if(name.textContent.indexOf('جار')===-1)return;
+    name.textContent='تعذر تشغيل الواجهة';
+    name.classList.remove('account-loading');
+    target.textContent=String(message||'توقف تشغيل واجهة SAS PRO قبل اكتمال التحقق.').slice(0,220);
+    error.hidden=false;
+    grid.setAttribute('aria-busy','false');
+  }
+  window.addEventListener('error',function(event){
+    if(event&&event.message)report('خطأ JavaScript: '+event.message+' ('+(event.filename||'')+':'+(event.lineno||0)+')');
+  },true);
+  window.addEventListener('unhandledrejection',function(event){
+    var reason=event&&event.reason;
+    report('تعذر إكمال تشغيل الواجهة: '+String(reason&&reason.message||reason||'رفض غير معروف'));
+  });
+  setTimeout(function(){
+    var name=document.getElementById('userName');
+    if(name&&name.textContent.indexOf('جار')!==-1){
+      report('لم يكتمل بدء التحقق خلال 12 ثانية. قد يكون ملف الواجهة لم يبدأ أو توقف قبل طلب بيانات الحساب.');
+    }
+  },12000);
+})();
+</script>
+<script src="/assets/app-ticker-fix-20261015.js?v=20261103-analyst-consensus-1" onerror="(function(){var e=document.getElementById('accountLoadError'),t=document.getElementById('accountLoadErrorText'),n=document.getElementById('userName'),g=document.getElementById('subscriptionStatusGrid');if(n)n.textContent='تعذر تحميل الواجهة';if(t)t.textContent='تعذر تحميل ملف SAS PRO الرئيسي. تحقق من اتصال الإنترنت ثم أعد المحاولة.';if(e)e.hidden=false;if(g)g.setAttribute('aria-busy','false');})()"></script>
 
 <script>
 /* Presentation-only interactions. Does not modify radar, pricing, API calls, or permissions. */
