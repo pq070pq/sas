@@ -15,3 +15,17 @@ def is_current_active_opportunity(payload):
         and classification.get("opportunity_status") == "confirmed"
         and classification.get("confirmation_ready") is True
     )
+
+
+from datetime import date
+
+
+def is_within_monitoring_window(session_date, today=None, max_age_days=7):
+    """Reject old/future radar sessions instead of judging them with today's quote."""
+    try:
+        session_day = date.fromisoformat(str(session_date))
+        current_day = today if isinstance(today, date) else date.fromisoformat(str(today)) if today else date.today()
+    except (TypeError, ValueError):
+        return False
+    age_days = (current_day - session_day).days
+    return 0 <= age_days <= max_age_days
