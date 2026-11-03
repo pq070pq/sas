@@ -2532,8 +2532,12 @@ async def radar_opportunities(_: dict = Depends(require_pro), db: AsyncSession =
                 outcome.target4, outcome.target5,
             ) if value is not None
         ]
+        # Expired / invalidated signals are history, never active follow-up cards.
+        # In particular, the monitoring-window expiry must not leak into the
+        # Mini App's active list as "تحت المتابعة".
         terminal = (
-            outcome.status in {"failed", "completed"}
+            outcome.status in {"failed", "completed", "expired", "invalidated", "cancelled", "closed"}
+            or payload.get("strategy_status") in {"expired", "invalidated", "cancelled", "closed"}
             or int(outcome.achieved_target or 0) >= len(targets)
         )
         item = {
