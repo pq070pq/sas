@@ -342,6 +342,25 @@ async def startup():
         scheduler_task.get_name(), radar_health_task.get_name(), telegram_polling_task.get_name()
     )
 
+@app.on_event("shutdown")
+async def graceful_scheduler_shutdown():
+    """Let the active radar cycle finish before the container is stopped."""
+    if scheduler_task is None or scheduler_task.done():
+        return
+    try:
+        from .scheduler import request_scheduler_shutdown
+        request_scheduler_shutdown()
+        logger = logging.getLogger(__name__)
+        logger.warning("Graceful shutdown requested; waiting for the active radar cycle.")
+        await asyncio.wait_for(asyncio.shield(scheduler_task), timeout=8 * 60)
+        logger.warning("SAS PRO scheduler exited cleanly after its active cycle.")
+    except asyncio.TimeoutError:
+        logging.getLogger(__name__).error(
+            "SAS PRO scheduler did not finish within the 8-minute graceful shutdown window."
+        )
+    except Exception:
+        logging.getLogger(__name__).exception("Graceful SAS PRO scheduler shutdown failed.")
+
 async def telegram_polling_loop():
     """Receive Telegram updates without relying on the public webhook proxy."""
     if not settings.telegram_bot_token:
