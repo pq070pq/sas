@@ -23,6 +23,14 @@ from .radar_learning import learn_radar_profile
 
 logger = logging.getLogger(__name__)
 
+# Graceful container shutdown: finish the in-flight radar cycle before exiting.
+_shutdown_requested = asyncio.Event()
+
+
+def request_scheduler_shutdown():
+    """Ask the scheduler to exit after its current cycle completes."""
+    _shutdown_requested.set()
+
 
 async def recover_interrupted_radar_runs():
     """Close every prior-process radar run left 'running' before this scheduler starts."""
@@ -86,9 +94,16 @@ async def scheduler():
         stock_radar_cycle,
     )
 
+    _shutdown_requested.clear()
     logger.info("SAS PRO scheduler started.")
     await recover_interrupted_radar_runs()
-    await asyncio.sleep(60)
+    try:
+        await asyncio.wait_for(_shutdown_requested.wait(), timeout=60)
+    except asyncio.TimeoutError:
+        pass
+    if _shutdown_requested.is_set():
+        logger.info("SAS PRO scheduler stopped during startup grace period.")
+        return
     logger.info("SAS PRO initial scheduler grace period completed.")
     last_cleanup_at = None
     while True:
@@ -181,6 +196,10 @@ async def scheduler():
             )
         except Exception:
             logger.exception("Scheduler cycle failed.")
+
+        if _shutdown_requested.is_set():
+            logger.info("SAS PRO scheduler graceful shutdown: current cycle finished; exiting.")
+            break
 
         configured_interval = max(1, int(settings.radar_interval_minutes))
         current_session = str((market_status() or {}).get("session") or "")
