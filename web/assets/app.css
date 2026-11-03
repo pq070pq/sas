@@ -4735,3 +4735,25 @@ body{background-image:radial-gradient(ellipse at 12% 22%,rgba(0,172,220,.11),tra
 
 /* Seasonal US market time label shown on the market card. */
 .sas-time-mode-badge{display:inline-flex;align-items:center;gap:6px;width:max-content;margin-top:7px;padding:5px 10px;border:1px solid rgba(86,190,255,.34);border-radius:999px;background:rgba(35,125,190,.13);color:#9bd7ff;font-size:11px;font-weight:800;line-height:1.4;letter-spacing:.1px}
+
+/* Analyst consensus: source-backed ratings and price targets. */
+.analyst-consensus-card{scroll-margin-top:88px}
+.analyst-consensus-summary{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}
+.analyst-consensus-summary>div{flex:1;min-width:125px;padding:13px;border:1px solid rgba(120,150,180,.2);border-radius:14px;background:rgba(100,130,160,.07);display:flex;flex-direction:column;gap:5px}
+.analyst-consensus-summary small,.analyst-target-grid small{color:var(--muted,#8795a8);font-size:11px}
+.analyst-consensus-summary strong{font-size:22px;color:var(--text,#edf4fb);font-weight:900}
+.analyst-consensus-summary b{font-size:13px;color:#32a77d}
+.analyst-rating-bar{height:12px;display:flex;overflow:hidden;border-radius:99px;background:rgba(130,145,165,.12);gap:2px;margin:14px 0}
+.analyst-rating-bar span{display:block;min-width:0;border-radius:99px}
+.analyst-rating-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:8px;margin:10px 0 16px}
+.analyst-rating-row{display:flex;align-items:center;gap:7px;padding:8px 9px;border:1px solid rgba(120,150,180,.16);border-radius:10px;font-size:12px}
+.analyst-rating-row span{display:flex;align-items:center;gap:6px;flex:1}
+.analyst-rating-row i{width:8px;height:8px;border-radius:50%;flex:none}
+.analyst-rating-row b{font-variant-numeric:tabular-nums}
+.analyst-rating-row small{color:var(--muted,#8795a8)}
+.analyst-target-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:14px 0}
+.analyst-target-grid>div{padding:12px;border-radius:12px;background:rgba(100,130,160,.07);display:flex;flex-direction:column;gap:6px}
+.analyst-target-grid b{font-size:17px;color:var(--text,#edf4fb)}
+.analyst-upside{font-size:13px;margin:8px 0 12px}
+.analyst-empty{color:var(--muted,#8795a8);font-size:13px;line-height:1.8}
+.analyst-consensus-card>small{display:block;color:var(--muted,#8795a8);font-size:10px;line-height:1.7;margin-top:9px}
