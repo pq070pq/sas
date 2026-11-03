@@ -8,6 +8,7 @@ from .news import company_news, corporate_events, company_fundamentals, tipranks
 from .ai_radar import analyze_stock
 from .smart_memory import dedupe_records
 from .binance_spot import is_crypto_symbol, normalize_symbol as normalize_crypto_symbol, quote as binance_quote, analyze as binance_analyze
+from .sec_edgar import sec_company_intelligence
 
 
 def _safe_http_url(value):
@@ -341,13 +342,14 @@ async def build_private_analysis(symbol: str):
         except Exception:
             return fallback
 
-    quote_data, tech, events, news, fundamentals, tipranks = await asyncio.gather(
+    quote_data, tech, events, news, fundamentals, tipranks, sec_data = await asyncio.gather(
         bounded(quote(symbol), 8, {"symbol": symbol}),
         bounded(technical_targets(symbol), 10, {"status": "watch", "targets": []}),
         bounded(corporate_events(symbol), 10, {"splits": [], "earnings": [], "dividends": [], "material_events": []}),
         bounded(company_news(symbol, days=14), 8, []),
         bounded(company_fundamentals(symbol), 8, {}),
         bounded(tipranks_analysis(symbol), 10, {}),
+        bounded(sec_company_intelligence(symbol), 9, {"available": False, "status": "timeout", "filings": []}),
     )
 
     def value(result, fallback):
@@ -369,6 +371,7 @@ async def build_private_analysis(symbol: str):
         news = [item for item in raw_news if isinstance(item, dict)] if isinstance(raw_news, list) else []
     fundamentals = value(fundamentals, {})
     tipranks = value(tipranks, {})
+    sec_data = value(sec_data, {"available": False, "status": "unavailable", "filings": []})
     # Normalize provider results so a transient/empty response cannot abort
     # the whole private report.
     if not isinstance(quote_data, dict):
@@ -584,6 +587,12 @@ async def build_private_analysis(symbol: str):
 
     corporate_text = _format_corporate_actions(events)
     tipranks_text = _format_tipranks(tipranks, ai)
+    sec_filings = sec_data.get("filings", []) if isinstance(sec_data, dict) else []
+    sec_lines = []
+    for filing in sec_filings[:8]:
+        if isinstance(filing, dict):
+            sec_lines.append("• " + str(filing.get("form") or "إفصاح") + " — " + str(filing.get("filed") or "تاريخ غير متوفر") + " — " + str(filing.get("url") or ""))
+    sec_text = "\n".join(sec_lines) if sec_lines else "• لا توجد إفصاحات حديثة مطابقة أو تعذر التحقق."
     ai_text = _format_ai(ai)
 
     news_text = _format_news(news, ai)
@@ -608,6 +617,10 @@ async def build_private_analysis(symbol: str):
         "━━━━━━━━━━━━━━━━━━\n"
         "🏛️ <b>أحداث وإجراءات الشركة</b>\n"
         f"{corporate_text or 'لا توجد أحداث موثقة إضافية.'}\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        "🏛️ <b>إفصاحات SEC الرسمية</b>\n"
+        f"{sec_text}\n"
+        "ℹ️ نوع النموذج وحده لا يثبت بيعًا داخليًا أو تخفيفًا للأسهم.\n"
         "━━━━━━━━━━━━━━━━━━\n"
         "📊 <b>الوضع المالي المختصر</b>\n"
         f"{fundamentals_text}\n"
