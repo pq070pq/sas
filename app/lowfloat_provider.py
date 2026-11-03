@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import date, datetime, timezone
 from html.parser import HTMLParser
 
 import httpx
@@ -17,6 +18,18 @@ logger = logging.getLogger(__name__)
 LOWFLOAT_URL = "https://www.lowfloat.com/"
 ALLOWED_EXCHANGES = {"NASDAQ", "NYSE", "AMEX"}
 MAX_FLOAT_SHARES = 10_000_000
+MAX_SOURCE_AGE_DAYS = 3
+_UPDATED_RE = re.compile(r"Database\s+last\s+updated\s+on\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})", re.IGNORECASE)
+
+
+def _source_updated_date(html: str) -> date | None:
+    match = _UPDATED_RE.search(html or "")
+    if not match:
+        return None
+    try:
+        return datetime.strptime(match.group(1), "%B %d, %Y").date()
+    except ValueError:
+        return None
 
 
 def _number(value: str) -> float | None:
@@ -58,8 +71,17 @@ class _TableParser(HTMLParser):
             self._cell = None
 
 
-def parse_lowfloat_html(html: str) -> list[dict]:
-    """Parse the published ticker/company/exchange/float/short-interest table."""
+def parse_lowfloat_html(html: str, today: date | None = None) -> list[dict]:
+    """Parse only when the page declares a recent, valid database update date."""
+    updated_at = _source_updated_date(html)
+    reference_date = today or datetime.now(timezone.utc).date()
+    if updated_at is None:
+        logger.warning("LOWFLOAT_DISCOVERY_REJECTED reason=missing_or_invalid_update_date")
+        return []
+    age_days = (reference_date - updated_at).days
+    if age_days < 0 or age_days > MAX_SOURCE_AGE_DAYS:
+        logger.warning("LOWFLOAT_DISCOVERY_REJECTED reason=stale_or_future_data age_days=%s updated_at=%s", age_days, updated_at.isoformat())
+        return []
     parser = _TableParser()
     parser.feed(html or "")
     output = []
@@ -90,6 +112,7 @@ def parse_lowfloat_html(html: str) -> list[dict]:
             "short_interest_pct": _number(short_text),
             "industry": industry.strip(),
             "source": "LowFloat.com",
+            "source_updated_at": updated_at.isoformat(),
             "source_url": LOWFLOAT_URL,
             "data_role": "discovery_metadata_only",
         })
