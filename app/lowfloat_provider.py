@@ -21,7 +21,7 @@ MAX_FLOAT_SHARES = 10_000_000
 
 def _number(value: str) -> float | None:
     text = str(value or "").strip().upper().replace(",", "").replace("$", "").replace("%", "")
-    match = re.fullmatch(r"([0-9]*\\.?[0-9]+)\\s*([KMB]?)", text)
+    match = re.fullmatch(r"([0-9]*\.?[0-9]+)\s*([KMB]?)", text)
     if not match:
         return None
     scale = {"": 1, "K": 1_000, "M": 1_000_000, "B": 1_000_000_000}[match.group(2)]
