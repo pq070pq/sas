@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     newsfilter_api_key: str = ""
     marketaux_api_key: str = ""
     marketaux_api_keys: str = ""
-    # Optional licensed market-data provider. Disabled unless explicitly configured.
+    # LowFloat.com is an opt-in discovery metadata source; never a quote feed.\n    lowfloat_enabled: bool = False\n    lowfloat_timeout_seconds: int = 12\n    # Optional licensed market-data provider. Disabled unless explicitly configured.
     licensed_market_data_url: str = ""
     licensed_market_data_api_key: str = ""
     licensed_market_data_timeout_seconds: int = 10
