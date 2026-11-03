@@ -3601,21 +3601,7 @@ function openDeployActions(){
  if(tg?.openLink)tg.openLink(url);else window.open(url,'_blank');
 }
 
-const ADMIN_ACCORDION_ITEMS=[
- ['adminOverview','⌂','نظرة عامة','الحالة العامة والإحصاءات والتنبيهات'],
- ['adminRadarPreviewPanel','📡','حالة الرادار','آخر دورة، أفضل الفرص وأسباب الاستبعاد'],
- ['adminNewsPanel','▤','أخبار السوق','آخر أخبار السوق الأمريكي ومصادرها'],
- ['adminUsersPanel','👥','المشتركون','البحث وإدارة المستخدمين'],
- ['termsAdminPanel','📋','موافقات الشروط','الموافقات ونسخة الشروط'],
- ['adminSubscriptionPanel','💎','الاشتراكات','التجربة والباقات وإعدادات الاشتراك'],
- ['starsPanel','⭐','المدفوعات','Telegram Stars والعمليات المالية'],
- ['staffPanel','🛡️','المشرفون','الأدوار والصلاحيات'],
- ['deployPanel','🚀','النشر','حالة GitHub Actions والنشر إلى OVH'],
- ['mediaPanel','🖼️','الصور والأيقونات','استبدال صورة الواجهة ورفع الأيقونات المصغرة'],
- ['plansEditorPanel','💎','الباقات والأسعار','تعديل الأسعار وظهور الباقات'],
- ['ownerCard','👑','حساب المالك','بيانات الحساب الرئيسي'],
- ['monthly-report-panel','📊','التقرير الشهري','ملخص أداء المنصة الشهري']
-];
+
 
 function initAdminAccordion(){
  const monthly=document.querySelector('.monthly-report-panel');
