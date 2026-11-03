@@ -1,5 +1,7 @@
 services:
   saspro:
+    # Allow a running multi-minute radar cycle to finish during safe deployments.
+    stop_grace_period: 10m
     logging:
       driver: json-file
       options:
