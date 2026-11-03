@@ -67,6 +67,18 @@ jobs:
           python3 -m compileall -q app tests
           python3 -m unittest discover -s tests -v
 
+      - name: Validate active Mini App JavaScript
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check active Mini App JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check web/assets/radar-card-candles-managed-icon.js
+          node --check web/assets/radar-cycle-20261020.js
+          node --check web/assets/app-ticker-fix-20261015.js
+
       - name: Prepare OVH SSH key
         shell: bash
         env:
