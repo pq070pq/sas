@@ -220,4 +220,10 @@ async def scheduler():
             logger.exception("Scheduler transition timing check failed.")
 
         logger.info("Scheduler sleeping for %.0fs before next cycle.", sleep_seconds)
-        await asyncio.sleep(sleep_seconds)
+        try:
+            await asyncio.wait_for(_shutdown_requested.wait(), timeout=sleep_seconds)
+        except asyncio.TimeoutError:
+            pass
+        if _shutdown_requested.is_set():
+            logger.info("SAS PRO scheduler shutdown received while idle; exiting.")
+            break
