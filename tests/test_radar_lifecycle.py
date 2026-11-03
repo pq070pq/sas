@@ -44,3 +44,22 @@ def test_monitoring_window_rejects_stale_future_and_invalid_sessions():
     assert not is_within_monitoring_window("2026-10-26", "2026-11-03")
     assert not is_within_monitoring_window("2026-11-04", "2026-11-03")
     assert not is_within_monitoring_window("not-a-date", "2026-11-03")
+
+
+from datetime import datetime, timezone
+
+from app.radar_lifecycle import is_fresh_quote_timestamp
+
+
+def test_quote_timestamp_accepts_recent_epoch_and_iso_values():
+    now = datetime(2026, 11, 3, 12, 0, tzinfo=timezone.utc)
+    assert is_fresh_quote_timestamp(1793707080, now=now)
+    assert is_fresh_quote_timestamp("2026-11-03T11:59:00Z", now=now)
+
+
+def test_quote_timestamp_rejects_old_missing_malformed_and_future_values():
+    now = datetime(2026, 11, 3, 12, 0, tzinfo=timezone.utc)
+    assert not is_fresh_quote_timestamp("2026-11-03T11:50:00Z", now=now)
+    assert not is_fresh_quote_timestamp(None, now=now)
+    assert not is_fresh_quote_timestamp("not-a-timestamp", now=now)
+    assert not is_fresh_quote_timestamp("2026-11-03T12:05:00Z", now=now)

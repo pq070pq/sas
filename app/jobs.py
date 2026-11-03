@@ -21,7 +21,7 @@ from .shariah import check_shariah
 from .maintenance import cleanup_old_data
 from .quality_score import score_quality
 from .quality_backtest import summarize_quality_outcomes
-from .radar_lifecycle import is_current_active_opportunity, is_within_monitoring_window
+from .radar_lifecycle import is_current_active_opportunity, is_within_monitoring_window, is_fresh_quote_timestamp
 from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
@@ -761,6 +761,10 @@ def _radar_channel_gate(status, row, quote_data, learning=None):
         return False, "بيانات السعر/الحجم الحي غير متاحة"
     if bool((quote_data or {}).get("stale")):
         return False, "السعر موسوم كبيانات قديمة"
+    quote_time = (quote_data or {}).get("datetime")
+    max_quote_age = 900 if extended else 300
+    if not is_fresh_quote_timestamp(quote_time, max_age_seconds=max_quote_age):
+        return False, "وقت تحديث السعر غير متاح أو تجاوز حد الحداثة المسموح"
     if not extended and (
         "stooq" in quote_source
         or "last close" in quote_source
