@@ -136,3 +136,49 @@
 @keyframes sasIconBreath{0%,100%{filter:drop-shadow(0 0 4px rgba(32,232,255,.68))}50%{filter:drop-shadow(0 0 9px rgba(32,232,255,.98)) drop-shadow(0 0 15px rgba(32,220,255,.5))}}
 .terminal-tabs>button.active .terminal-tab-icon{animation:sasIconBreath 2.4s ease-in-out infinite}
 @media(prefers-reduced-motion:reduce){.terminal-tabs>button.active .terminal-tab-icon{animation:none!important}}
+
+
+/* SAS PRO 3D glass navigation — approved visual refresh, preserves existing tab actions. */
+.terminal-tabs{
+  gap:clamp(7px,1.8vw,14px)!important;
+  padding:clamp(9px,2.2vw,15px)!important;
+  border-color:rgba(24,220,255,.48)!important;
+  background:linear-gradient(135deg,rgba(1,9,20,.97),rgba(2,17,34,.94) 52%,rgba(0,27,43,.96)),url("/assets/saspro-banner.webp?v=20261103-nav-glass") center 44%/cover no-repeat!important;
+  box-shadow:inset 0 1px 0 rgba(190,249,255,.15),inset 0 -12px 28px rgba(0,196,255,.045),0 0 26px rgba(0,199,255,.12),0 14px 34px rgba(0,0,0,.34)!important;
+}
+.terminal-tabs>button{
+  min-height:clamp(92px,21vw,132px)!important;
+  border:1px solid rgba(94,193,230,.2)!important;
+  border-radius:clamp(17px,3.6vw,25px)!important;
+  background:linear-gradient(155deg,rgba(11,43,70,.9),rgba(3,20,38,.96) 58%,rgba(1,12,25,.98))!important;
+  box-shadow:inset 0 1px 0 rgba(211,246,255,.13),inset 0 -5px 12px rgba(0,0,0,.22),0 8px 15px rgba(0,0,0,.24)!important;
+}
+.terminal-tabs>button:before{
+  content:"";position:absolute;inset:1px;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(145deg,rgba(255,255,255,.075),transparent 32%,transparent 72%,rgba(0,203,255,.07));
+  opacity:.9;
+}
+.terminal-tabs>button .terminal-tab-icon{
+  width:clamp(40px,9.5vw,64px)!important;height:clamp(40px,9.5vw,64px)!important;
+  filter:drop-shadow(0 3px 5px rgba(0,0,0,.45)) drop-shadow(0 0 8px rgba(0,205,255,.48))!important;
+}
+.terminal-tabs>button .terminal-tab-label{
+  font-size:clamp(11px,2.9vw,17px)!important;font-weight:900!important;
+  color:#e5f8ff!important;text-shadow:0 2px 9px rgba(0,0,0,.8)!important;
+}
+.terminal-tabs>button:hover,
+.terminal-tabs>button:focus-visible{
+  transform:translateY(-3px)!important;border-color:rgba(47,225,255,.72)!important;
+  box-shadow:inset 0 1px 0 rgba(220,252,255,.18),0 0 0 1px rgba(0,213,255,.12),0 10px 22px rgba(0,174,255,.17)!important;
+}
+.terminal-tabs>button.active{
+  border:1.5px solid rgba(30,238,255,.98)!important;
+  background:linear-gradient(155deg,rgba(0,135,174,.72),rgba(0,69,99,.88) 55%,rgba(0,30,50,.98))!important;
+  box-shadow:inset 0 1px 0 rgba(220,255,255,.28),inset 0 -12px 22px rgba(0,225,255,.1),0 0 0 1px rgba(0,220,255,.2),0 0 25px rgba(0,220,255,.3),0 9px 18px rgba(0,0,0,.32)!important;
+}
+.terminal-tabs>button.active .terminal-tab-icon{color:#83f7ff!important;filter:drop-shadow(0 0 5px rgba(255,255,255,.65)) drop-shadow(0 0 13px rgba(0,229,255,.95))!important}
+.terminal-tabs>button.active .terminal-tab-label{color:#fff!important;text-shadow:0 0 10px rgba(0,235,255,.5),0 2px 8px rgba(0,0,0,.75)!important}
+.terminal-tabs>button.active:after{height:3px;bottom:6px;left:22%;right:22%;box-shadow:0 0 14px #00eaff,0 0 25px rgba(0,234,255,.65)!important}
+@media(min-width:700px){.terminal-tabs>button{min-height:116px!important}}
+@media(max-width:380px){.terminal-tabs>button{min-height:82px!important}.terminal-tabs>button .terminal-tab-icon{width:34px!important;height:34px!important}.terminal-tabs>button .terminal-tab-label{font-size:10px!important}}
+@media(prefers-reduced-motion:reduce){.terminal-tabs>button:hover,.terminal-tabs>button:focus-visible{transform:none!important}}
