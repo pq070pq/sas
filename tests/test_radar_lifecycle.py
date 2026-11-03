@@ -63,3 +63,19 @@ def test_quote_timestamp_rejects_old_missing_malformed_and_future_values():
     assert not is_fresh_quote_timestamp(None, now=now)
     assert not is_fresh_quote_timestamp("not-a-timestamp", now=now)
     assert not is_fresh_quote_timestamp("2026-11-03T12:05:00Z", now=now)
+
+
+from app.radar_lifecycle import has_post_signal_reverse_split
+
+
+def test_verified_reverse_split_on_or_after_signal_invalidates_outcome_tracking():
+    actions = {"verified": True, "reverse_split": True, "reverse_split_date": "2026-11-03"}
+    assert has_post_signal_reverse_split("2026-11-02", actions)
+    assert has_post_signal_reverse_split("2026-11-03", actions)
+    assert not has_post_signal_reverse_split("2026-11-04", actions)
+
+
+def test_unverified_or_malformed_corporate_actions_do_not_trigger_split_guard():
+    assert not has_post_signal_reverse_split("2026-11-02", {"reverse_split": True, "reverse_split_date": "2026-11-03"})
+    assert not has_post_signal_reverse_split("2026-11-02", {"verified": True, "reverse_split": True, "reverse_split_date": "bad-date"})
+    assert not has_post_signal_reverse_split("2026-11-02", None)

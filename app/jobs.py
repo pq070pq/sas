@@ -21,7 +21,7 @@ from .shariah import check_shariah
 from .maintenance import cleanup_old_data
 from .quality_score import score_quality
 from .quality_backtest import summarize_quality_outcomes
-from .radar_lifecycle import is_current_active_opportunity, is_within_monitoring_window, is_fresh_quote_timestamp
+from .radar_lifecycle import is_current_active_opportunity, is_within_monitoring_window, is_fresh_quote_timestamp, has_post_signal_reverse_split
 from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
@@ -301,6 +301,18 @@ async def evaluate_radar_outcomes():
                 )
                 db.add(existing)
                 await db.flush()
+
+            # A verified reverse split changes the price scale. Never compare the
+            # pre-split entry/stop/targets with post-split quotes or emit a false stop.
+            if has_post_signal_reverse_split(signal.session_date, payload.get("corporate_actions")):
+                if existing.status in ("active", "target1", "target2", "target3", "target4"):
+                    existing.status = "expired"
+                    payload["radar_active"] = False
+                    payload["strategy_status"] = "expired"
+                    payload["strategy_cancel_reason"] = "تغير مقياس السعر بسبب تقسيم عكسي موثق بعد إنشاء الإشارة"
+                    signal.payload = json.dumps(payload, ensure_ascii=False)
+                    logger.info("Radar outcome expired after verified reverse split: symbol=%s session_date=%s split_date=%s", signal.symbol, signal.session_date, (payload.get("corporate_actions") or {}).get("reverse_split_date"))
+                continue
 
             # Never compare an old radar setup with today's quote: corporate actions,
             # stale entries and large price gaps can otherwise create false stop alerts.
@@ -1474,6 +1486,9 @@ async def stock_radar_cycle():
                     logger.exception("Corporate-action report enrichment failed: %s", symbol)
                     tech["corporate_actions"] = {"status": "unavailable", "verified": False}
                 tech = await _attach_reverse_split_data(tech, symbol)
+                # Persist verified corporate-action context with the signal so the
+                # outcome monitor can invalidate pre-split levels safely.
+                row["corporate_actions"] = tech.get("corporate_actions") or {}
                 report = _compact_radar_report(symbol, q, tech, classification, row)
 
                 try:

@@ -63,3 +63,17 @@ def is_fresh_quote_timestamp(value, *, max_age_seconds=300, now=None):
         return -60 <= age <= max_age_seconds
     except (TypeError, ValueError, OverflowError, OSError):
         return False
+
+
+def has_post_signal_reverse_split(session_date, corporate_actions):
+    """Return True only for a verified reverse split on/after the signal session."""
+    if not isinstance(corporate_actions, dict):
+        return False
+    if corporate_actions.get("verified") is not True or corporate_actions.get("reverse_split") is not True:
+        return False
+    try:
+        signal_day = date.fromisoformat(str(session_date))
+        split_day = date.fromisoformat(str(corporate_actions.get("reverse_split_date")))
+    except (TypeError, ValueError):
+        return False
+    return split_day >= signal_day
