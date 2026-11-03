@@ -28,3 +28,19 @@ def test_inactive_or_unconfirmed_opportunities_are_excluded():
         "opportunity_status": "confirmed", "confirmation_ready": False
     }))
     assert not is_current_active_opportunity(None)
+
+
+from datetime import date
+
+from app.radar_lifecycle import is_within_monitoring_window
+
+
+def test_monitoring_window_accepts_recent_sessions():
+    assert is_within_monitoring_window("2026-11-03", "2026-11-03")
+    assert is_within_monitoring_window("2026-10-27", "2026-11-03")
+
+
+def test_monitoring_window_rejects_stale_future_and_invalid_sessions():
+    assert not is_within_monitoring_window("2026-10-26", "2026-11-03")
+    assert not is_within_monitoring_window("2026-11-04", "2026-11-03")
+    assert not is_within_monitoring_window("not-a-date", "2026-11-03")

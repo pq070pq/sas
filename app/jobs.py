@@ -21,7 +21,7 @@ from .shariah import check_shariah
 from .maintenance import cleanup_old_data
 from .quality_score import score_quality
 from .quality_backtest import summarize_quality_outcomes
-from .radar_lifecycle import is_current_active_opportunity
+from .radar_lifecycle import is_current_active_opportunity, is_within_monitoring_window
 from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
@@ -301,6 +301,25 @@ async def evaluate_radar_outcomes():
                 )
                 db.add(existing)
                 await db.flush()
+
+            # Never compare an old radar setup with today's quote: corporate actions,
+            # stale entries and large price gaps can otherwise create false stop alerts.
+            if not is_within_monitoring_window(signal.session_date, today_session, max_age_days=7):
+                if existing.status in ("active", "target1", "target2", "target3", "target4"):
+                    existing.status = "expired"
+                    try:
+                        signal_payload = json.loads(signal.payload or "{}")
+                    except (TypeError, ValueError):
+                        signal_payload = {}
+                    signal_payload["radar_active"] = False
+                    signal_payload["strategy_status"] = "expired"
+                    signal_payload["strategy_cancel_reason"] = "انتهت مدة صلاحية الرصد دون تحقق موثوق"
+                    signal.payload = json.dumps(signal_payload, ensure_ascii=False)
+                    logger.info(
+                        "Radar outcome expired as stale; no stop result emitted: symbol=%s session_date=%s",
+                        signal.symbol, signal.session_date,
+                    )
+                continue
 
             if existing.entry_price is None and entry is not None:
                 existing.entry_price = entry
