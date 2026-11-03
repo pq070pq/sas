@@ -3574,34 +3574,6 @@ async function continueTerms(){
   alert(e.message);
  }
 }
-function showActionNotice(kind,message){
- const id=kind==='channel'?'channelActionNotice':'radarActionNotice';
- let box=document.getElementById(id);
- if(!box){box=document.createElement('div');box.id=id;box.className='sas-action-notice';box.setAttribute('role','status');const anchor=kind==='channel'?document.querySelector('#tab-dashboard .sas-action-card[onclick="openChannel()"]'):document.getElementById('radarDiagnostics');(anchor?.parentElement||document.getElementById('tab-'+(kind==='channel'?'dashboard':'radar')))?.insertBefore(box,anchor?.nextSibling||null);}
- box.textContent=message;box.hidden=false;
-}
-let sasChannelOpening=false;
-async function openChannel(){
- if(sasChannelOpening)return;
- sasChannelOpening=true;
- const button=document.querySelector('#tab-dashboard .sas-action-card[onclick="openChannel()"]');
- if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
- try{
-  showActionNotice('channel','جاري تجهيز رابط القناة… لا تقفل التطبيق.');
-  const d=await api('/api/channel/access',{timeoutMs:12000,retries:0});
-  if(tg?.openTelegramLink)tg.openTelegramLink(d.url);
-  else if(tg?.openLink)tg.openLink(d.url);
-  else window.open(d.url,'_blank');
-  const notice=document.getElementById('channelActionNotice');if(notice)notice.hidden=true;
- }catch(e){
-  const msg=String(e?.message||'تعذر تجهيز رابط القناة.');
-  showActionNotice('channel',msg.includes('الوقت المحدد')?'تأخر إنشاء رابط القناة. انتهت مهلة الاتصال؛ جرّب مرة ثانية.':msg);
- }
- finally{
-  sasChannelOpening=false;
-  if(button){button.disabled=false;button.removeAttribute('aria-busy');}
- }
-}
 async function buyPlan(k){
  if(!me.terms_accepted){openTerms('buy:'+k);return;}
  try{
