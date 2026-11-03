@@ -28,7 +28,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Validate Mini App JavaScript
+      - name: Validate active Mini App JavaScript
         run: |
-          node --check web/assets/app.js
+          node --check web/assets/radar-card-candles-managed-icon.js
+          node --check web/assets/radar-cycle-20261020.js
           node --check web/assets/app-ticker-fix-20261015.js
