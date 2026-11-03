@@ -3636,6 +3636,76 @@ async def stock_news(symbol: str, _: dict = Depends(require_pro)):
 async def stock_events(symbol: str, _: dict = Depends(require_pro)):
     return await corporate_events(symbol.upper())
 
+@app.get("/api/stocks/{symbol}/analyst-consensus")
+async def stock_analyst_consensus(symbol: str, _: dict = Depends(require_pro)):
+    """Source-backed analyst ratings and price targets from Finnhub; never infer missing values."""
+    key = symbol.upper().strip()
+    if not re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,14}", key):
+        raise HTTPException(400, "رمز السهم غير صالح")
+    cache = getattr(stock_analyst_consensus, "_cache", {})
+    now_mono = time.monotonic()
+    cached = cache.get(key)
+    if cached and now_mono - float(cached.get("at") or 0) < 900:
+        return copy.deepcopy(cached["payload"])
+    from .news import _finnhub_get, _finnhub_pool
+    if not _finnhub_pool.size:
+        return {
+            "symbol": key, "available": False, "source": "Finnhub",
+            "message_ar": "بيانات إجماع المحللين غير متاحة؛ لم يتم تخمين أي تقييم أو سعر مستهدف."
+        }
+    trends, target = await asyncio.gather(
+        asyncio.wait_for(_finnhub_get("stock/recommendation", {"symbol": key}, timeout=10), timeout=12),
+        asyncio.wait_for(_finnhub_get("stock/price-target", {"symbol": key}, timeout=10), timeout=12),
+        return_exceptions=True,
+    )
+    if isinstance(trends, Exception):
+        logger.info("Finnhub analyst recommendations unavailable for %s: %s", key, type(trends).__name__)
+        trends = None
+    if isinstance(target, Exception):
+        logger.info("Finnhub analyst price target unavailable for %s: %s", key, type(target).__name__)
+        target = None
+    trend = trends[0] if isinstance(trends, list) and trends and isinstance(trends[0], dict) else {}
+    fields = ("strongBuy", "buy", "hold", "sell", "strongSell")
+    counts = {}
+    for field in fields:
+        try:
+            value = int(float(trend.get(field) or 0))
+            counts[field] = max(0, value)
+        except (TypeError, ValueError):
+            counts[field] = 0
+    total = sum(counts.values())
+    weights = {"strongBuy": 1, "buy": 2, "hold": 3, "sell": 4, "strongSell": 5}
+    score = round(sum(counts[k] * weights[k] for k in fields) / total, 2) if total else None
+    percentages = {k: round(counts[k] / total * 100, 1) if total else None for k in fields}
+    target_data = target if isinstance(target, dict) else {}
+    def positive_number(value):
+        try:
+            number = float(value)
+            return number if math.isfinite(number) and number > 0 else None
+        except (TypeError, ValueError):
+            return None
+    price_targets = {
+        "high": positive_number(target_data.get("targetHigh")),
+        "low": positive_number(target_data.get("targetLow")),
+        "mean": positive_number(target_data.get("targetMean")),
+        "median": positive_number(target_data.get("targetMedian")),
+        "analyst_count": int(target_data.get("numberOfAnalysts") or 0) or None,
+        "updated_at": target_data.get("lastUpdated"),
+    }
+    available = bool(total or any(price_targets[k] is not None for k in ("high", "low", "mean", "median")))
+    payload = {
+        "symbol": key, "available": available, "source": "Finnhub",
+        "period": trend.get("period"), "counts": counts if total else None,
+        "percentages": percentages if total else None,
+        "analyst_count": total or price_targets["analyst_count"],
+        "consensus_score": score, "targets": price_targets,
+        "message_ar": "" if available else "لا توجد بيانات إجماع أو أهداف محللين متاحة لهذا السهم من المصدر حاليًا.",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    stock_analyst_consensus._cache = {**cache, key: {"at": now_mono, "payload": payload}}
+    return payload
+
+
 @app.get("/api/stocks/{symbol}/quote")
 async def stock_quote(symbol: str, _: dict = Depends(require_pro)):
     raw_symbol = symbol.upper().strip()
