@@ -698,11 +698,14 @@ async def _panwatch_extended_quote(symbol: str, session: str | None, now=None) -
     from datetime import datetime, timedelta
     from zoneinfo import ZoneInfo
 
-    if session not in {"premarket", "afterhours", "night"}:
+    if session not in {"regular", "premarket", "afterhours", "night"}:
         return None
 
     now = now or datetime.now(ZoneInfo("America/New_York"))
-    if session == "premarket":
+    if session == "regular":
+        start = now.replace(hour=9, minute=30, second=0, microsecond=0)
+        end = now.replace(hour=16, minute=0, second=0, microsecond=0)
+    elif session == "premarket":
         start = now.replace(hour=4, minute=0, second=0, microsecond=0)
         end = now.replace(hour=9, minute=30, second=0, microsecond=0)
     elif session == "afterhours":
@@ -782,7 +785,7 @@ async def _panwatch_extended_quote(symbol: str, session: str | None, now=None) -
             "price": last_price,
             "change_pct": ((last_price / session_open) - 1.0) * 100.0,
             "source": "PanWatch Extended 1m",
-            "is_extended_hours": True,
+            "is_extended_hours": session != "regular",
             "is_overnight_hours": session == "night",
             "session_volume": session_volume,
             "datetime": bars[-1][0].isoformat(),
@@ -817,7 +820,11 @@ async def quote(symbol: str, prefer_extended: bool = False, session: str | None 
         except Exception as exc:
             logger.info("EXTENDED_QUOTE_FAILED symbol=%s error=%s", symbol, type(exc).__name__)
 
-    if prefer_extended:
+    # Prefer a timestamped PanWatch 1-minute bar from the actual current
+    # session before slower quote snapshots. This gives the channel gate a real
+    # provider observation time and session volume; it never stamps retrieval
+    # time onto an older candle.
+    if session in {"regular", "premarket", "afterhours", "night"}:
         panwatch_quote = await _panwatch_extended_quote(symbol, session)
         if panwatch_quote:
             return panwatch_quote

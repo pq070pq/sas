@@ -2,6 +2,7 @@ import ast
 import importlib
 from pathlib import Path
 import unittest
+from unittest.mock import AsyncMock, patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -155,3 +156,44 @@ class RadarOutcomeClassificationTests(unittest.TestCase):
         ])["65-74"]
         self.assertEqual(result["unclassified"], 1)
         self.assertIsNone(result["success_rate"])
+
+
+
+class RadarLiveQuoteTests(unittest.IsolatedAsyncioTestCase):
+    async def test_regular_session_prefers_timestamped_panwatch_minute_quote(self):
+        from app.market import quote
+
+        observed = {
+            "symbol": "BESS",
+            "price": 2.70,
+            "change_pct": 1.2,
+            "source": "PanWatch Extended 1m",
+            "is_extended_hours": False,
+            "session_volume": 250000,
+            "datetime": "2026-11-04T10:12:00-05:00",
+        }
+        with patch("app.market._panwatch_extended_quote", new=AsyncMock(return_value=observed)), patch(
+            "app.market._fmp_quote", new=AsyncMock(return_value=None)
+        ) as fmp_quote:
+            result = await quote("BESS", session="regular")
+
+        self.assertEqual(result, observed)
+        fmp_quote.assert_not_awaited()
+
+    async def test_regular_session_does_not_promote_missing_minute_quote(self):
+        from app.market import quote
+
+        fallback = {
+            "symbol": "BESS",
+            "price": 2.70,
+            "change_pct": 1.2,
+            "source": "FMP",
+            "datetime": None,
+        }
+        with patch("app.market._panwatch_extended_quote", new=AsyncMock(return_value=None)), patch(
+            "app.market._fmp_quote", new=AsyncMock(return_value=fallback)
+        ):
+            result = await quote("BESS", session="regular")
+
+        self.assertEqual(result["source"], "FMP")
+        self.assertIsNone(result.get("datetime"))
