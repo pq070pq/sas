@@ -2318,7 +2318,7 @@ const SITE_MEDIA_MANAGED_ITEMS=[
  {slot:'icon-live-movers',label:'أيقونة بطاقة أعلى الأسهم حركة',fallback:'📈',target:'.sas-insight-grid .sas-insight-panel .sas-insight-title > span'},
  {slot:'icon-perp-movers',label:'أيقونة بطاقة الأكثر تحركًا خلال 24 ساعة',fallback:'↕️',target:'.sas-perp-movers-panel .sas-insight-title > span'},
  {slot:'icon-market-indicators',label:'أيقونة عنوان مؤشرات السوق',fallback:'📊',target:'.section-title .market-indicators-icon'},
- {slot:'icon-shariah',label:'أيقونة الشرعية في بطاقة السهم',fallback:'🕌',target:'.stock-shariah-icon,.shariah-source-brand-icon,.shariah-search-btn-icon,.shariah-search-btn-arrow'},
+ {slot:'icon-shariah',label:'أيقونة الشرعية في بطاقة السهم',fallback:'🕌',target:'.stock-shariah-icon,.shariah-source-brand-icon,.shariah-search-btn-icon'},
  {slot:'icon-disclaimer-alert',label:'أيقونة التنبيه القانوني أسفل الصفحة',fallback:'⛔',target:'.sas-disclaimer-bar .disclaimer-badge .disclaimer-icon'}
 ];
 const SITE_MEDIA_ICON_TARGETS=Object.fromEntries(SITE_MEDIA_MANAGED_ITEMS.map(item=>[item.slot,item.target]));
