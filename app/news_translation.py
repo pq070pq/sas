@@ -177,19 +177,42 @@ async def translate_stock_news(symbol: str, items: list[dict]) -> list[dict]:
             return provider_name, []
 
     combined = {}
+    # Bound total AI-provider time so fallback translation still gets a chance
+    # before the market-news endpoint's response deadline.
+    provider_deadline = asyncio.get_running_loop().time() + 12.0
     for provider in providers:
-        provider_name, result = await request_provider(*provider)
+        remaining = provider_deadline - asyncio.get_running_loop().time()
+        if remaining <= 0.25:
+            break
+        try:
+            provider_name, result = await asyncio.wait_for(
+                request_provider(*provider), timeout=min(5.5, remaining)
+            )
+        except asyncio.TimeoutError:
+            logger.warning("News translation provider timed out: %s", provider[0])
+            continue
         for item in result:
             combined.setdefault(str(item.get("url") or ""), item)
         if result:
-            # A successful provider response is enough; do not spend another provider quota for partial extras.
+            # One working provider is enough; avoid spending additional quota.
             break
 
     missing = [item for item in selected if str(item.get("url") or "") not in combined]
     if missing:
-        fallback = await _fallback_translate_items(missing)
+        try:
+            fallback = await asyncio.wait_for(_fallback_translate_items(missing), timeout=6.5)
+        except asyncio.TimeoutError:
+            logger.warning("MyMemory fallback batch timed out for %s (%s headlines)", symbol, len(missing))
+            fallback = []
         for item in fallback:
             combined.setdefault(str(item.get("url") or ""), item)
+
+    translated_count = sum(bool(item.get("translated_headline")) for item in combined.values())
+    if translated_count < len(selected):
+        logger.warning(
+            "Arabic news translation incomplete for %s: %s/%s headlines translated",
+            symbol, translated_count, len(selected),
+        )
 
     return [combined[str(item.get("url") or "")] for item in selected
             if str(item.get("url") or "") in combined]
