@@ -377,3 +377,65 @@
  nav.terminal-tabs>button .terminal-tab-label{font-size:10px!important}
  #sasMarketPulse.sas-market-pulse{margin-bottom:10px!important}
 }
+
+
+/* SAS PRO layout reconciliation — one platform, icon-only controls, tight news transition. */
+nav.terminal-tabs{
+  display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  align-items:center!important;gap:clamp(5px,1.25vw,12px)!important;
+  width:calc(100% - 16px)!important;max-width:1040px!important;
+  min-height:0!important;height:auto!important;
+  margin:clamp(7px,1.4vw,12px) auto 5px!important;
+  padding:clamp(10px,2vw,16px) clamp(8px,2vw,16px)!important;
+  border:1px solid rgba(48,220,245,.42)!important;
+  border-radius:24px!important;
+  background:linear-gradient(180deg,rgba(5,35,49,.91),rgba(2,17,31,.96))!important;
+  background-image:linear-gradient(180deg,rgba(5,35,49,.91),rgba(2,17,31,.96))!important;
+  box-shadow:inset 0 1px 0 rgba(205,250,255,.12),0 8px 22px rgba(0,0,0,.28),0 0 18px rgba(0,205,235,.09)!important;
+  overflow:visible!important;backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important;
+}
+nav.terminal-tabs:before{display:block!important;content:""!important;inset:4px 8px!important;border:1px solid rgba(60,218,239,.12)!important;border-radius:inherit!important;background:linear-gradient(110deg,rgba(255,255,255,.035),transparent 35%,rgba(0,220,255,.045))!important}
+nav.terminal-tabs:after{display:block!important;content:""!important;left:8%!important;right:8%!important;bottom:3px!important;height:1px!important;box-shadow:0 0 8px rgba(0,224,255,.38)!important}
+nav.terminal-tabs>button{
+  display:flex!important;flex:1 1 0!important;min-width:0!important;width:auto!important;
+  min-height:0!important;height:auto!important;margin:0!important;
+  padding:7px 2px 9px!important;gap:6px!important;
+  border:0!important;border-radius:12px!important;background:transparent!important;
+  box-shadow:none!important;overflow:visible!important;transform:none!important;
+}
+nav.terminal-tabs>button:before{display:none!important;content:none!important}
+nav.terminal-tabs>button:after{left:25%!important;right:25%!important;bottom:0!important;height:2px!important}
+nav.terminal-tabs>button.active{border:0!important;background:rgba(22,191,218,.075)!important;box-shadow:none!important;animation:none!important}
+nav.terminal-tabs>button .terminal-tab-icon{
+  width:clamp(37px,7vw,54px)!important;height:clamp(37px,7vw,54px)!important;
+  min-width:0!important;min-height:0!important;border:1px solid rgba(47,224,255,.3)!important;
+  border-radius:50%!important;background:radial-gradient(circle at 30% 20%,rgba(74,241,255,.14),transparent 58%),rgba(3,24,43,.42)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.08),0 0 11px rgba(0,196,255,.08)!important;
+}
+nav.terminal-tabs>button.active .terminal-tab-icon{
+  border-color:rgba(59,242,255,.82)!important;
+  background:radial-gradient(circle at 30% 15%,rgba(57,239,255,.25),transparent 58%),rgba(4,44,67,.58)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.14),0 0 17px rgba(0,216,255,.2)!important;
+}
+nav.terminal-tabs>button .terminal-tab-label{margin:0!important;padding:0!important;font-size:clamp(10px,2.5vw,14px)!important;line-height:1.2!important}
+#sasMarketPulse.sas-market-pulse{
+  display:grid!important;gap:9px!important;
+  width:100%!important;max-width:1040px!important;
+  margin:0 auto 12px!important;padding:0 8px!important;
+}
+.terminal-navigation-row:has(#terminalPreviousBtn[hidden]){display:none!important;height:0!important;min-height:0!important;margin:0!important;padding:0!important}
+@media(max-width:600px){
+  nav.terminal-tabs{width:calc(100% - 14px)!important;margin:5px auto 4px!important;padding:9px 7px 8px!important;gap:2px!important;border-radius:19px!important}
+  nav.terminal-tabs>button{padding:5px 1px 7px!important;gap:5px!important}
+  nav.terminal-tabs>button .terminal-tab-icon{width:clamp(34px,10vw,44px)!important;height:clamp(34px,10vw,44px)!important}
+  nav.terminal-tabs>button .terminal-tab-label{font-size:clamp(9px,2.7vw,11px)!important}
+  #sasMarketPulse.sas-market-pulse{margin:0 auto 10px!important;padding:0 7px!important;gap:8px!important}
+}
+@media(max-width:360px){
+  nav.terminal-tabs{padding:8px 5px 7px!important}
+  nav.terminal-tabs>button .terminal-tab-icon{width:32px!important;height:32px!important}
+  nav.terminal-tabs>button .terminal-tab-label{font-size:9px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  nav.terminal-tabs>button,nav.terminal-tabs>button .terminal-tab-icon{transition:none!important;animation:none!important}
+}
