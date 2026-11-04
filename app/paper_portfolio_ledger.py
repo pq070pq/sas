@@ -6,6 +6,8 @@ fetches prices or invents missing entry/stop/target values.
 """
 from __future__ import annotations
 
+from math import isfinite
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +28,7 @@ def prepare_paper_trade(
     equity: float,
     risk_fraction: float = 0.01,
     max_position_fraction: float = 0.20,
+    currency: str = "USD",
 ) -> dict:
     """Validate an eligible signal and return a deterministic virtual trade row."""
     if not channel_gate_passed or not confirmed:
@@ -34,6 +37,11 @@ def prepare_paper_trade(
         raise ValueError("Signal identity fields are required.")
     if entry_price is None or stop_price is None:
         raise ValueError("A source-backed entry and stop are required.")
+    if currency != "USD":
+        raise ValueError("Only USD-denominated paper equity is currently supported.")
+    raw_prices = [entry_price, stop_price, *(value for value in targets if value is not None), equity]
+    if any(not isfinite(float(value)) or float(value) <= 0 for value in raw_prices):
+        raise ValueError("All supplied prices and equity must be finite and positive.")
     valid_targets = [float(value) for value in targets if value is not None]
     if not valid_targets:
         raise ValueError("At least one source-backed target is required.")
@@ -61,6 +69,9 @@ def prepare_paper_trade(
         "target1": valid_targets[0] if len(valid_targets) > 0 else None,
         "target2": valid_targets[1] if len(valid_targets) > 1 else None,
         "target3": valid_targets[2] if len(valid_targets) > 2 else None,
+        "target4": valid_targets[3] if len(valid_targets) > 3 else None,
+        "target5": valid_targets[4] if len(valid_targets) > 4 else None,
+        "currency": currency,
         "risk_budget": sizing["risk_budget"],
         "planned_risk": sizing["planned_risk"],
         "notional": sizing["notional"],
