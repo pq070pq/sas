@@ -199,6 +199,30 @@ class ScheduledReport(Base):
 
 
 
+class PaperTrade(Base):
+    """Independent virtual-trade ledger; never submits broker orders."""
+    __tablename__ = "paper_trades"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    radar_signal_id: Mapped[int] = mapped_column(Integer, ForeignKey("radar_signals.id", ondelete="RESTRICT"), unique=True, index=True)
+    symbol: Mapped[str] = mapped_column(String(24), index=True)
+    session_date: Mapped[str] = mapped_column(String(16), index=True)
+    status: Mapped[str] = mapped_column(String(24), default="open", index=True)
+    entry_price: Mapped[float] = mapped_column()
+    shares: Mapped[int] = mapped_column(Integer)
+    stop_price: Mapped[float] = mapped_column()
+    target1: Mapped[float | None] = mapped_column()
+    target2: Mapped[float | None] = mapped_column()
+    target3: Mapped[float | None] = mapped_column()
+    risk_budget: Mapped[float] = mapped_column()
+    planned_risk: Mapped[float] = mapped_column()
+    notional: Mapped[float] = mapped_column()
+    exit_price: Mapped[float | None] = mapped_column()
+    realized_pnl: Mapped[float | None] = mapped_column()
+    exit_reason: Mapped[str | None] = mapped_column(String(24))
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class SpeculativeOpportunity(Base):
     """Independent lifecycle record for the early/speculative radar feed."""
     __tablename__ = "speculative_opportunities"
