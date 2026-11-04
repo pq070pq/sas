@@ -5575,3 +5575,10 @@ body{background-attachment:fixed!important;background-repeat:no-repeat;backgroun
 .analyst-upside{font-size:13px;margin:8px 0 12px}
 .analyst-empty{color:var(--muted,#8795a8);font-size:13px;line-height:1.8}
 .analyst-consensus-card>small{display:block;color:var(--muted,#8795a8);font-size:10px;line-height:1.7;margin-top:9px}
+
+/* Reuse the admin-managed Shariah icon in the verification result and Telegram action. */
+.shariah-source-brand-icon .sas-managed-icon-image,.shariah-search-btn-icon .sas-managed-icon-image,.shariah-search-btn-arrow .sas-managed-icon-image{display:block;width:78%;height:78%;object-fit:contain;filter:drop-shadow(0 0 5px rgba(45,224,255,.34))}
+.shariah-search-btn-arrow.has-managed-icon{display:flex;align-items:center;justify-content:center;width:38px;height:38px;flex:0 0 38px}
+.shariah-search-btn-icon.has-managed-icon{display:flex;align-items:center;justify-content:center}
+.shariah-source-brand-icon.has-managed-icon{overflow:hidden}
+@media(max-width:600px){.shariah-search-btn-arrow.has-managed-icon{width:30px;height:30px;flex-basis:30px}}
