@@ -2977,39 +2977,15 @@ async def market_news_endpoint(_: dict = Depends(require_pro)):
     except Exception as exc:
         logger.info("Market news Arabic translation unavailable: %s", type(exc).__name__)
         translated = []
-    # Retry missing headlines through the lightweight Arabic fallback before building the feed.
-    translated_urls = {
-        str(item.get("url") or "").strip()
-        for item in translated if isinstance(item, dict) and item.get("translated_headline")
-    }
-    missing_headlines = [
-        row for row in rows[:16]
-        if str(row.get("url") or "").strip() not in translated_urls
-        and str(row.get("headline") or row.get("title") or "").strip()
-    ]
-    if missing_headlines:
-        try:
-            fallback_headlines = await asyncio.wait_for(
-                asyncio.gather(
-                    *(_mymemory_translate(str(row.get("headline") or row.get("title") or ""))
-                      for row in missing_headlines),
-                    return_exceptions=True,
-                ),
-                timeout=7.0,
-            )
-            for row, fallback_headline in zip(missing_headlines, fallback_headlines):
-                if isinstance(fallback_headline, str) and any(0x0600 <= ord(ch) <= 0x06FF for ch in fallback_headline):
-                    translated.append({
-                        "url": str(row.get("url") or ""),
-                        "headline": str(row.get("headline") or row.get("title") or ""),
-                        "translated_headline": fallback_headline,
-                        "summary": "",
-                        "basis": "headline_only",
-                        "source": str(row.get("source") or ""),
-                        "translation_provider": "MyMemory fallback retry",
-                    })
-        except Exception as exc:
-            logger.info("Market news fallback translation unavailable: %s", type(exc).__name__)
+    # translate_stock_news already performs a bounded AI-provider failover and
+    # one bounded MyMemory fallback pass. Do not repeat the same requests here:
+    # duplicate retries previously consumed the endpoint deadline and caused
+    # otherwise successful translations to be discarded.
+    if len(translated) < min(16, len(rows)):
+        logger.warning(
+            "Market news Arabic translation coverage: %s/%s",
+            len(translated), min(16, len(rows)),
+        )
 
     def normalized_news_url(value):
         # Match translation to source if tracking parameters or trailing slash differ.
