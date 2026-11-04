@@ -122,3 +122,36 @@ class QualityBacktestTests(unittest.TestCase):
         self.assertEqual(result["85-100"]["failure"], 1)
         self.assertEqual(result["85-100"]["active"], 1)
         self.assertEqual(result["85-100"]["success_rate"], 50.0)
+
+
+class RadarOutcomeClassificationTests(unittest.TestCase):
+    def test_expired_without_target_is_excluded_from_success_rate(self):
+        from app.quality_backtest import summarize_quality_outcomes
+        result = summarize_quality_outcomes([
+            {"quality_score": 90, "status": "target1", "achieved_target": 1},
+            {"quality_score": 90, "status": "failed", "achieved_target": 0},
+            {"quality_score": 90, "status": "expired", "achieved_target": 0},
+            {"quality_score": 90, "status": "active", "achieved_target": 0},
+        ])["85-100"]
+        self.assertEqual(result["success"], 1)
+        self.assertEqual(result["failure"], 1)
+        self.assertEqual(result["expired"], 1)
+        self.assertEqual(result["active"], 1)
+        self.assertEqual(result["success_rate"], 50.0)
+
+    def test_expired_after_target_remains_a_target_hit(self):
+        from app.quality_backtest import summarize_quality_outcomes
+        result = summarize_quality_outcomes([
+            {"quality_score": 80, "status": "expired", "achieved_target": 2},
+        ])["75-84"]
+        self.assertEqual(result["success"], 1)
+        self.assertEqual(result["expired"], 0)
+        self.assertEqual(result["success_rate"], 100.0)
+
+    def test_unknown_status_is_not_silently_counted(self):
+        from app.quality_backtest import summarize_quality_outcomes
+        result = summarize_quality_outcomes([
+            {"quality_score": 70, "status": "unexpected", "achieved_target": 0},
+        ])["65-74"]
+        self.assertEqual(result["unclassified"], 1)
+        self.assertIsNone(result["success_rate"])

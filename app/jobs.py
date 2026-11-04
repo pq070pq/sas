@@ -1736,7 +1736,8 @@ async def weekly_radar_report():
             })
         quality_summary = summarize_quality_outcomes(quality_records)
         stopped = [x for x in outcomes if x.status == "failed"]
-        active = [x for x in outcomes if x.status == "active"]
+        active = [x for x in outcomes if x.status in ("active", "target1", "target2", "target3", "target4")]
+        expired = [x for x in outcomes if x.status == "expired"]
         lines = [
             "📊 <b>SAS PRO | التقرير الأسبوعي</b>",
             f"📅 الفترة: {start} → {now.strftime('%Y-%m-%d')}",
@@ -1746,6 +1747,7 @@ async def weekly_radar_report():
             f"🎯 حققت هدفًا فعليًا: <b>{len(reached)}</b>",
             f"🛑 أوقفت/ألغيت: <b>{len(stopped)}</b>",
             f"⏳ تحت المتابعة: <b>{len(active)}</b>",
+            f"⌛ انتهت مدة الرصد دون هدف: <b>{len([x for x in expired if not int(x.achieved_target or 0)])}</b>",
             "",
             "🧪 <b>جودة الرادار حسب Quality Score</b>",
         ]
@@ -1753,7 +1755,7 @@ async def weekly_radar_report():
             q = quality_summary[label]
             rate = f"{q['success_rate']:.1f}%" if q["success_rate"] is not None else "لا توجد حالات مكتملة"
             lines.append(
-                f"• {label}: مكتملة {q['completed']} | ناجحة {q['success']} | فشل {q['failure']} | نشطة {q['active']} | النجاح {rate}"
+                f"• {label}: حققت هدفًا {q['success']} | فشل/وقف {q['failure']} | نشطة {q['active']} | منتهية بلا هدف {q['expired']} | غير مصنفة {q['unclassified']} | نسبة الهدف {rate}"
             )
         lines.extend([
             "",
@@ -1770,7 +1772,7 @@ async def weekly_radar_report():
         lines += [
             "",
             "━━━━━━━━━━━━━━━━━━",
-            "⚠️ تعتمد الإحصائية على أحداث تحقق الأهداف التي رصدها النظام فعليًا أثناء التشغيل، وليست إعادة احتساب تاريخية.",
+            "⚠️ نسبة الهدف = الإشارات التي لامست هدفًا ÷ (الإشارات التي لامست هدفًا + حالات الوقف). المنتهية بلا هدف والنشطة مستبعدة من المقام.",
             "لا يعد هذا التقرير توصية شراء أو بيع ويبقى قرار التداول وإدارة المخاطر مسؤولية المتداول ⚠️",
         ]
         await send_message(settings.telegram_channel_id, "\n".join(lines))
