@@ -5590,3 +5590,14 @@ body{background-attachment:fixed!important;background-repeat:no-repeat;backgroun
 .shariah-source-brand-icon.has-managed-icon .sas-managed-icon-image{width:100%;height:100%;object-fit:contain}
 .stock-shariah-icon.has-managed-icon{border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;padding:0!important}
 .stock-shariah-icon.has-managed-icon .sas-managed-icon-image{width:1.35em;height:1.35em;object-fit:contain}
+
+/* Floating icon navigation: remove the enclosing platform, retain individual icon rings and labels. */
+.terminal-tabs{background:transparent!important;background-image:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;outline:0!important;padding:8px 4px!important;margin:8px 10px 13px!important}
+.terminal-tabs:before,.terminal-tabs:after{display:none!important;content:none!important}
+.terminal-tabs button[data-tab]{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;outline:0!important}
+.terminal-tabs button[data-tab].active{background:transparent!important;border-color:transparent!important;box-shadow:none!important}
+.terminal-tabs button[data-tab].active:after{display:none!important;content:none!important}
+.terminal-tabs button[data-tab] .terminal-tab-icon{border:1px solid rgba(47,224,255,.32);border-radius:50%!important;background:radial-gradient(circle at 30% 20%,rgba(74,241,255,.14),transparent 58%),rgba(3,24,43,.45)!important;box-shadow:inset 0 1px rgba(255,255,255,.08),0 0 13px rgba(0,196,255,.08)!important}
+.terminal-tabs button[data-tab].active .terminal-tab-icon{border-color:rgba(59,242,255,.85)!important;background:radial-gradient(circle at 30% 15%,rgba(57,239,255,.28),transparent 58%),rgba(4,44,67,.55)!important;box-shadow:inset 0 1px rgba(255,255,255,.15),0 0 20px rgba(0,216,255,.22)!important}
+.terminal-tabs button[data-tab] .terminal-tab-icon:after{display:none!important;content:none!important}
+.terminal-tabs button[data-tab] .terminal-tab-label{color:inherit;text-shadow:none}
