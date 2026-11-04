@@ -2316,7 +2316,7 @@ const SITE_MEDIA_MANAGED_ITEMS=[
  {slot:'icon-live-movers',label:'أيقونة بطاقة أعلى الأسهم حركة',fallback:'📈',target:'.sas-insight-grid .sas-insight-panel .sas-insight-title > span'},
  {slot:'icon-perp-movers',label:'أيقونة بطاقة الأكثر تحركًا خلال 24 ساعة',fallback:'↕️',target:'.sas-perp-movers-panel .sas-insight-title > span'},
  {slot:'icon-market-indicators',label:'أيقونة عنوان مؤشرات السوق',fallback:'📊',target:'.section-title .market-indicators-icon'},
- {slot:'icon-shariah',label:'أيقونة الشرعية في بطاقة السهم',fallback:'🕌',target:'.stock-shariah-icon'},
+ {slot:'icon-shariah',label:'أيقونة الشرعية في بطاقة السهم',fallback:'🕌',target:'.stock-shariah-icon,.shariah-source-brand-icon,.shariah-search-btn-icon,.shariah-search-btn-arrow'},
  {slot:'icon-disclaimer-alert',label:'أيقونة التنبيه القانوني أسفل الصفحة',fallback:'⛔',target:'.sas-disclaimer-bar .disclaimer-badge .disclaimer-icon'}
 ];
 const SITE_MEDIA_ICON_TARGETS=Object.fromEntries(SITE_MEDIA_MANAGED_ITEMS.map(item=>[item.slot,item.target]));
@@ -2344,32 +2344,34 @@ async function loadSiteMedia(){
   hero.src=items.hero?.url||hero.dataset.mediaOriginalSrc;
  }
  for(const [slot,selector] of Object.entries(SITE_MEDIA_ICON_TARGETS)){
-  const el=document.querySelector(selector);
-  if(!el)continue;
-  if(!el.dataset.mediaOriginalHTML)el.dataset.mediaOriginalHTML=el.innerHTML;
+  const elements=document.querySelectorAll(selector);
+  if(!elements.length)continue;
   const item=items[slot];
-  if(!item?.url){
-   el.innerHTML=el.dataset.mediaOriginalHTML;
-   el.classList.remove('has-managed-icon');
-   continue;
-  }
-  const restoreIcon=()=>{
-   el.innerHTML=el.dataset.mediaOriginalHTML||'';
-   el.classList.remove('has-managed-icon');
-   if(terminalState.siteMedia)delete terminalState.siteMedia[slot];
-  };
-  if(el.matches('.sas-profile-avatar')){
-   el.innerHTML='<img class="sas-profile-managed-avatar" src="'+esc(item.url)+'" alt="" aria-hidden="true">';
-  }else if(el.matches('button')){
-   if(!el.dataset.mediaOriginalLabel)el.dataset.mediaOriginalLabel=el.textContent.trim();
-   const label=el.dataset.mediaOriginalLabel.replace(/^[^\p{L}\p{N}]+/u,'').trim();
-   el.innerHTML='<img class="sas-managed-tab-icon" src="'+esc(item.url)+'" alt="" aria-hidden="true"><span>'+esc(label)+'</span>';
-  }else{
-   el.innerHTML='<img class="sas-managed-icon-image" src="'+esc(item.url)+'" alt="" aria-hidden="true">';
-  }
-  const managedImage=el.querySelector('img.sas-managed-icon-image,img.sas-managed-tab-icon');
-  if(managedImage){managedImage.loading='lazy';managedImage.addEventListener('error',restoreIcon,{once:true});}
-  el.classList.add('has-managed-icon');
+  elements.forEach(el=>{
+   if(!el.dataset.mediaOriginalHTML)el.dataset.mediaOriginalHTML=el.innerHTML;
+   if(!item?.url){
+    el.innerHTML=el.dataset.mediaOriginalHTML;
+    el.classList.remove('has-managed-icon');
+    return;
+   }
+   const restoreIcon=()=>{
+    el.innerHTML=el.dataset.mediaOriginalHTML||'';
+    el.classList.remove('has-managed-icon');
+    if(terminalState.siteMedia)delete terminalState.siteMedia[slot];
+   };
+   if(el.matches('.sas-profile-avatar')){
+    el.innerHTML='<img class="sas-profile-managed-avatar" src="'+esc(item.url)+'" alt="" aria-hidden="true">';
+   }else if(el.matches('button')){
+    if(!el.dataset.mediaOriginalLabel)el.dataset.mediaOriginalLabel=el.textContent.trim();
+    const label=el.dataset.mediaOriginalLabel.replace(/^[^\p{L}\p{N}]+/u,'').trim();
+    el.innerHTML='<img class="sas-managed-tab-icon" src="'+esc(item.url)+'" alt="" aria-hidden="true"><span>'+esc(label)+'</span>';
+   }else{
+    el.innerHTML='<img class="sas-managed-icon-image" src="'+esc(item.url)+'" alt="" aria-hidden="true">';
+   }
+   const managedImage=el.querySelector('img.sas-managed-icon-image,img.sas-managed-tab-icon');
+   if(managedImage){managedImage.loading='lazy';managedImage.addEventListener('error',restoreIcon,{once:true});}
+   el.classList.add('has-managed-icon');
+  });
  }
  return items;
 }
