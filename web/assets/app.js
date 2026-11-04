@@ -2809,26 +2809,6 @@ function renderGiftMessagePreview(){
  if(node)node.textContent=Number.isInteger(days)&&days>0?String(days):'7';
 }
 document.addEventListener('input',event=>{if(event.target?.id==='giftExtendDays')renderGiftMessagePreview();});
-+money(n(v)):'—';
- if(!d.available)return '<section class="sas-terminal-panel analyst-consensus-card"><div class="sas-terminal-section-title"><span>🏦</span><div><b>إجماع بيوت الخبرة</b><small>تقييمات المحللين وأهداف الأسعار</small></div></div><p class="analyst-empty">'+escHtml(d.message_ar||'لا توجد بيانات موثقة متاحة حاليًا لهذا السهم.')+'</p><small>المصدر: Finnhub · لا يتم استنتاج التقييمات عند غياب البيانات.</small></section>';
- const rows=[
-  ['شراء قوي','strongBuy','#168b68'],['شراء','buy','#239b79'],['حياد','hold','#66627d'],['بيع','sell','#c94c63'],['بيع قوي','strongSell','#e58a9b']
- ];
- const total=rows.reduce((sum,r)=>sum+Math.max(0,n(counts[r[1]])||0),0);
- const score=n(d.consensus_score),price=n(currentPrice),mean=n(t.mean);
- const upside=price&&mean?((mean/price)-1)*100:null;
- const bar=rows.map(r=>{const p=n(pct[r[1]]);return p&&p>0?'<span title="'+r[0]+' '+p+'%" style="width:'+Math.min(100,p)+'%;background:'+r[2]+'"></span>':'';}).join('');
- const labels=rows.map(r=>{const p=n(pct[r[1]]);const c=n(counts[r[1]])||0;return '<div class="analyst-rating-row"><span><i style="background:'+r[2]+'"></i>'+r[0]+'</span><b>'+(p===null?'—':p.toFixed(1)+'%')+'</b><small>'+c+'</small></div>';}).join('');
- const scoreText=score===null?'غير متاح':score.toFixed(2)+' / 5';
- const ratingLabel=score===null?'لا يوجد تقييم إجمالي':(score<=1.5?'شراء قوي':score<=2.5?'شراء':score<=3.5?'حياد':score<=4.5?'بيع':'بيع قوي');
- const date=String(t.updated_at||d.period||'').trim();
- return '<section class="sas-terminal-panel analyst-consensus-card" id="sasAnalystConsensus"><div class="sas-terminal-section-title"><span>🏦</span><div><b>إجماع بيوت الخبرة</b><small>توزيع تقييمات المحللين المتاحة</small></div></div>'+
-  '<div class="analyst-consensus-summary"><div><small>متوسط التقييم</small><strong>'+scoreText+'</strong><b>'+ratingLabel+'</b></div><div><small>عدد التقييمات</small><strong>'+(total||n(d.analyst_count)||'—')+'</strong></div></div>'+
-  (total?'<div class="analyst-rating-bar">'+bar+'</div><div class="analyst-rating-list">'+labels+'</div>':'<p class="analyst-empty">لا تتوفر أعداد تقييمات مفصلة للفترة الحالية.</p>')+
-  '<div class="analyst-target-grid"><div><small>أعلى مستهدف</small><b>'+moneyValue(t.high)+'</b></div><div><small>متوسط المستهدف</small><b>'+moneyValue(t.mean)+'</b></div><div><small>أدنى مستهدف</small><b>'+moneyValue(t.low)+'</b></div><div><small>الهدف الوسيط</small><b>'+moneyValue(t.median)+'</b></div></div>'+
-  (upside===null?'':'<p class="analyst-upside">الفرق الحسابي بين السعر الحالي ومتوسط الهدف: <b class="'+(upside>=0?'up':'down')+'">'+(upside>=0?'+':'')+upside.toFixed(1)+'%</b></p>')+
-  '<small>المصدر: Finnhub · آخر فترة تقييم: '+escHtml(date||'غير محدد')+' · لا تمثل أهداف المحللين ضمانًا للسعر المستقبلي.</small></section>';
-}
 function renderCuspFundamentalSummary(cusp,currentQuote){
  const data=cusp&&typeof cusp==='object'?cusp:{},m=data.metrics&&typeof data.metrics==='object'?data.metrics:{};
  const parts=[];
