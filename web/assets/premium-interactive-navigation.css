@@ -361,3 +361,19 @@
  .terminal-tabs>button .terminal-tab-label{font-size:10px!important}
  #sasMarketPulse.sas-market-pulse{margin-top:4px!important}
 }
+
+
+/* HARD FIX: collapse reserved navigation height and adjacent wrapper spacing on mobile. */
+@media(max-width:700px){
+ .terminal-navigation-row{display:none!important;height:0!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important}
+ nav.terminal-tabs{display:flex!important;align-items:center!important;justify-content:space-around!important;width:100%!important;height:auto!important;min-height:0!important;margin:0!important;padding:0 4px 2px!important;gap:0!important;box-sizing:border-box!important}
+ nav.terminal-tabs>button{display:flex!important;flex:1 1 0!important;min-width:0!important;width:20%!important;height:auto!important;min-height:0!important;margin:0!important;padding:2px 1px 3px!important;gap:4px!important;justify-content:center!important;overflow:visible!important}
+ nav.terminal-tabs>button .terminal-tab-icon{width:52px!important;height:52px!important;min-width:52px!important;min-height:52px!important}
+ nav.terminal-tabs>button .terminal-tab-label{margin:0!important;padding:0!important;line-height:1.15!important}
+ #sasMarketPulse.sas-market-pulse{margin:0 0 12px!important;padding:0!important;gap:8px!important}
+}
+@media(max-width:390px){
+ nav.terminal-tabs>button .terminal-tab-icon{width:46px!important;height:46px!important;min-width:46px!important;min-height:46px!important}
+ nav.terminal-tabs>button .terminal-tab-label{font-size:10px!important}
+ #sasMarketPulse.sas-market-pulse{margin-bottom:10px!important}
+}
