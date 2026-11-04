@@ -5582,3 +5582,11 @@ body{background-attachment:fixed!important;background-repeat:no-repeat;backgroun
 .shariah-search-btn-icon.has-managed-icon{display:flex;align-items:center;justify-content:center}
 .shariah-source-brand-icon.has-managed-icon{overflow:hidden}
 @media(max-width:600px){.shariah-search-btn-arrow.has-managed-icon{width:30px;height:30px;flex-basis:30px}}
+
+/* Shariah managed mark: one icon only, without a surrounding tile/frame. */
+.shariah-search-btn-icon.has-managed-icon{width:42px!important;height:42px!important;flex:0 0 42px!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+.shariah-search-btn-icon.has-managed-icon .sas-managed-icon-image{width:100%;height:100%;object-fit:contain}
+.shariah-source-brand-icon.has-managed-icon{border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+.shariah-source-brand-icon.has-managed-icon .sas-managed-icon-image{width:100%;height:100%;object-fit:contain}
+.stock-shariah-icon.has-managed-icon{border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;padding:0!important}
+.stock-shariah-icon.has-managed-icon .sas-managed-icon-image{width:1.35em;height:1.35em;object-fit:contain}
