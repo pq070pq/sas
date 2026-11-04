@@ -13,9 +13,9 @@ class PaperPortfolioSizingTests(unittest.TestCase):
             equity=10000, entry_price=2.0, stop_price=1.8,
             risk_fraction=0.01, max_position_fraction=0.20,
         )
-        self.assertEqual(result["shares"], 100)
-        self.assertAlmostEqual(result["planned_risk"], 20.0)
-        self.assertAlmostEqual(result["notional"], 200.0)
+        self.assertEqual(result["shares"], 500)
+        self.assertAlmostEqual(result["planned_risk"], 100.0)
+        self.assertAlmostEqual(result["notional"], 1000.0)
 
     def test_position_size_rejects_invalid_long_levels(self):
         with self.assertRaises(ValueError):
