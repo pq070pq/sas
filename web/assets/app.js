@@ -1620,25 +1620,31 @@ function renderVerifiedTechnicalCards(classification,targets,mini){
  return '<div class="sas-indicator-grid">'+cards.map(([label,value,note])=>'<div class="sas-indicator-card"><small>'+escHtml(label)+'</small><b>'+escHtml(value)+'</b><span>'+escHtml(note)+'</span></div>').join('')+'</div><small class="sas-data-integrity">✓ تُعرض المؤشرات التي وصلت بقيم فعلية فقط؛ لا تُعرض القيم المفقودة أو المخمّنة.</small>';
 }
 function renderAnalystConsensus(data,currentPrice){
- const d=data&&typeof data==='object'?data:{},counts=d.counts||{},pct=d.percentages||{},t=d.targets||{};
- const n=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))?Number(v):null;
- const moneyValue=v=>n(v)!==null&&n(v)>0?'
- const data=cusp&&typeof cusp==='object'?cusp:{},m=data.metrics&&typeof data.metrics==='object'?data.metrics:{};
- const parts=[];
- const score=Number(m.valuation_score);
- if(m.valuation_score!==undefined&&Number.isFinite(score))parts.push('تقييم CUSP المنشور '+score+'/100'+(m.valuation_label?' ('+String(m.valuation_label)+')':'')+'.');
- if(m.pe_ratio)parts.push('مكرر الربحية: '+String(m.pe_ratio)+'.');
- if(m.market_cap)parts.push('القيمة السوقية المنشورة: '+String(m.market_cap)+'.');
- if(m.analyst_consensus)parts.push('إجماع المحللين: '+String(m.analyst_consensus)+'.');
- const target=Number(String(m.analyst_target||'').replace(/[^0-9.\-]/g,''));
- const price=Number(currentQuote);
- if(m.analyst_target&&Number.isFinite(target)&&target>0&&Number.isFinite(price)&&price>0){
-  const upside=(target-price)/price*100;
-  parts.push('متوسط السعر المستهدف المنشور '+String(m.analyst_target)+'؛ الفرق الحسابي عن السعر المعروض '+(upside>=0?'+':'')+upside.toFixed(2)+'%. هذا حساب مقارنة وليس توقعًا مضمونًا.');
- }
- if(!parts.length)return '<p class="cusp-fundamental-summary">وصلت صفحة CUSP لكن لم تتوفر حقول كافية لبناء ملخص أساسي موثوق لهذا السهم.</p>';
- return '<div class="cusp-fundamental-summary"><b>القراءة الأساسية من CUSP</b><p>'+escHtml(parts.join(' '))+'</p><small>المعلومات المالية ليست بديلًا عن المؤشرات الفنية، ولا تُعد توصية تداول.</small></div>';
+ const d=data&&typeof data==='object'?data:{};
+ const counts=d.counts&&typeof d.counts==='object'?d.counts:{};
+ const percentages=d.percentages&&typeof d.percentages==='object'?d.percentages:{};
+ const targets=d.targets&&typeof d.targets==='object'?d.targets:{};
+ const n=value=>value!==null&&value!==undefined&&value!==''&&Number.isFinite(Number(value))?Number(value):null;
+ const moneyValue=value=>{const amount=n(value);return amount!==null&&amount>0?'$'+amount.toFixed(2):'—';};
+ const total=n(d.analyst_count)||Object.values(counts).reduce((sum,value)=>sum+(n(value)||0),0);
+ const current=n(currentPrice);
+ const mean=n(targets.mean);
+ const upside=current!==null&&current>0&&mean!==null&&mean>0?(mean-current)/current*100:null;
+ const rows=[
+  ['شراء قوي',counts.strong_buy,percentages.strong_buy],
+  ['شراء',counts.buy,percentages.buy],
+  ['احتفاظ',counts.hold,percentages.hold],
+  ['بيع',counts.sell,percentages.sell],
+  ['بيع قوي',counts.strong_sell,percentages.strong_sell]
+ ].filter(row=>n(row[1])!==null||n(row[2])!==null);
+ const ratingHtml=rows.map(row=>'<div class="analyst-rating-row"><span>'+escHtml(row[0])+'</span><b>'+escHtml(n(row[1])===null?'—':String(n(row[1])))+'</b><small>'+escHtml(n(row[2])===null?'—':n(row[2]).toFixed(1)+'%')+'</small></div>').join('');
+ return '<div class="analyst-consensus-card"><div class="analyst-consensus-head"><b>إجماع المحللين</b><span>عدد المحللين: '+escHtml(total?String(total):'—')+'</span></div>'+
+  (ratingHtml?'<div class="analyst-rating-list">'+ratingHtml+'</div>':'<p class="analyst-empty">لا تتوفر أعداد تقييمات مفصلة للفترة الحالية.</p>')+
+  '<div class="analyst-target-grid"><div><small>أعلى مستهدف</small><b>'+moneyValue(targets.high)+'</b></div><div><small>متوسط المستهدف</small><b>'+moneyValue(targets.mean)+'</b></div><div><small>أدنى مستهدف</small><b>'+moneyValue(targets.low)+'</b></div><div><small>الهدف الوسيط</small><b>'+moneyValue(targets.median)+'</b></div></div>'+
+  (upside===null?'':'<p class="analyst-upside">الفرق الحسابي عن السعر الحالي: <b class="'+(upside>=0?'up':'down')+'">'+(upside>=0?'+':'')+upside.toFixed(1)+'%</b></p>')+
+  '<small>المصدر: Finnhub · أهداف المحللين ليست ضمانًا للسعر المستقبلي.</small></div>';
 }
+
 function renderCuspWealthMetrics(cusp){
  const data=cusp&&typeof cusp==='object'?cusp:{};
  const metrics=data.metrics&&typeof data.metrics==='object'?data.metrics:{};
