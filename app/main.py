@@ -4718,7 +4718,7 @@ async def process_telegram_update(data: dict):
                     Subscription.active == True
                 ).order_by(Subscription.expires_at.desc()))).scalars().first()
                 global_open = bool((await get_subscription_config()).get("global_access_open"))
-            active = bool(global_open or (row and (row.free_access or (row.trial_expires and aware(row.trial_expires) > now) or is_active(sub))))
+                active = bool(global_open or (row and (row.free_access or (row.trial_expires and aware(row.trial_expires) > now) or is_active(sub))))
                 await db.commit()
             if active:
                 try:
