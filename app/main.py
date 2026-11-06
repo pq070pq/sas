@@ -783,10 +783,8 @@ async def require_terms(user=Depends(telegram_user), db: AsyncSession = Depends(
     return user
 
 async def require_pro(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
-    # وضع الوصول المفتوح يتجاوز بوابة الاشتراك للجميع دون تعديل سجلات الاشتراكات.
-    if (await get_subscription_config()).get("global_access_open"):
-        return user
-    # المالك يدخل مباشرة. المستخدم يدخل SAS PRO عند وجود اشتراك فعال،
+    # المالك والمشرفون يدخلون مباشرة.
+    # وضع الوصول المفتوح يتجاوز بوابة الدفع بعد قبول شروط الاستخدام.
     # تجربة فعالة، أو وصول مجاني منحه المشرف.
     # المالك وأي مشرف SAS PRO مصرح له يستطيع فتح واجهة المستخدم
     # من لوحة الإدارة لمعاينة نفس المحطة والبيانات المتاحة للمشترك.
@@ -798,6 +796,8 @@ async def require_pro(user=Depends(telegram_user), db: AsyncSession = Depends(ge
     )).scalars().first()
     if not row or row.terms_version != TERMS_VERSION or not row.terms_accepted_at:
         raise HTTPException(409, "يجب الموافقة على الشروط أولاً")
+    if (await get_subscription_config()).get("global_access_open"):
+        return user
 
     now = utcnow()
     trial_active = bool(
@@ -1122,6 +1122,7 @@ async def subscription_plans(user=Depends(telegram_user)):
         "plans": plans,
         "terms_version": TERMS_VERSION,
         "terms_text": TERMS_TEXT,
+        "global_access_open": bool((await get_subscription_config()).get("global_access_open")),
     }
 
 @app.post("/api/subscription/trial")
@@ -1594,7 +1595,7 @@ async def admin_subscribers(state: str = "active", user=Depends(telegram_user), 
                 )
             )
         )
-        is_active_user = bool(u.free_access or trial_active or paid_active)
+        is_active_user = bool(global_access_open or u.free_access or trial_active or paid_active)
         if state == "active" and not is_active_user:
             continue
         if state == "expired" and is_active_user:
