@@ -780,6 +780,9 @@ async def require_terms(user=Depends(telegram_user), db: AsyncSession = Depends(
     return user
 
 async def require_pro(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    # وضع الوصول المفتوح يتجاوز بوابة الاشتراك للجميع دون تعديل سجلات الاشتراكات.
+    if (await get_subscription_config()).get("global_access_open"):
+        return user
     # المالك يدخل مباشرة. المستخدم يدخل SAS PRO عند وجود اشتراك فعال،
     # تجربة فعالة، أو وصول مجاني منحه المشرف.
     # المالك وأي مشرف SAS PRO مصرح له يستطيع فتح واجهة المستخدم
@@ -977,7 +980,8 @@ async def accept_terms(user=Depends(telegram_user), db: AsyncSession = Depends(g
     # يتم إنشاء رابط قناة أحادي الاستخدام ثم فتحه مباشرة من Mini App.
     trial = None
     if (
-        int(user["id"]) != int(settings.owner_telegram_id)
+        not (await get_subscription_config()).get("global_access_open")
+        and int(user["id"]) != int(settings.owner_telegram_id)
         and not row.trial_used_at
         and not row.free_access
         and not (
@@ -1059,6 +1063,7 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
                 admin_permissions = []
 
     now = utcnow()
+    global_access_open = bool((await get_subscription_config()).get("global_access_open"))
     trial_active = bool(
         existing.status == "trial"
         and existing.trial_expires
@@ -1070,7 +1075,7 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
         and existing.subscription_expires
         and aware(existing.subscription_expires) > now
     )
-    pro = admin or existing.free_access or subscription_active or trial_active
+    pro = global_access_open or admin or existing.free_access or subscription_active or trial_active
     expires = None
     if not admin:
         if trial_active:
@@ -1086,7 +1091,8 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
         "pro": pro,
         "access": {
             "enabled": pro,
-            "source": "admin" if admin else ("free" if existing.free_access else ("trial" if trial_active else ("subscription" if subscription_active else None))),
+            "source": "global_open" if global_access_open else ("admin" if admin else ("free" if existing.free_access else ("trial" if trial_active else ("subscription" if subscription_active else None)))),
+            "global_access_open": global_access_open,
             "radar": pro,
             "market": pro,
             "analysis": pro,
@@ -1496,6 +1502,7 @@ async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends
     trial = 0
     for u in users:
         trial_active = bool(u.status == "trial" and u.trial_expires and aware(u.trial_expires) > now)
+        global_access_open = bool((await get_subscription_config()).get("global_access_open"))
         user_subscriptions = subscriptions_by_user.get(int(u.telegram_id), [])
         current_subscription = next(
             (sub for sub in user_subscriptions if sub.active and aware(sub.expires_at) > now),
@@ -1516,7 +1523,7 @@ async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends
                 )
             )
         )
-        is_active_user = bool(u.free_access or trial_active or paid_active)
+        is_active_user = bool(global_access_open or u.free_access or trial_active or paid_active)
         if is_active_user:
             active += 1
         elif (
@@ -1588,7 +1595,11 @@ async def admin_subscribers(state: str = "active", user=Depends(telegram_user), 
             continue
         if state == "expired" and is_active_user:
             continue
-        if u.free_access:
+        if global_access_open:
+            source = "global_open"
+            status_label = "🌐 وصول مفتوح للجميع"
+            expires = None
+        elif u.free_access:
             source = "free"
             status_label = "♾️ وصول مجاني"
             expires = None
@@ -1622,6 +1633,8 @@ async def admin_subscribers(state: str = "active", user=Depends(telegram_user), 
             "status_label": status_label,
             "expires_at": expires.isoformat() if expires else None,
             "created_at": aware(u.created_at).isoformat() if u.created_at else None,
+            "channel_status": u.channel_status or "unknown",
+            "channel_checked_at": aware(u.channel_checked_at).isoformat() if u.channel_checked_at else None,
         })
     return {"state": state, "count": len(rows), "users": rows}
 
@@ -1916,13 +1929,15 @@ async def admin_update_subscription_config(request: Request, user=Depends(telegr
     await require_admin_permission(user, "settings")
     body = await request.json()
     paid_visible = bool(body.get("paid_plans_visible", True))
+    global_open = bool(body.get("global_access_open", False))
     trial_days = int(body.get("trial_days", 3))
     if trial_days < 1 or trial_days > 365:
         raise HTTPException(400, "مدة التجربة يجب أن تكون بين 1 و365 يومًا")
     await setting_set(db, "paid_plans_visible", "1" if paid_visible else "0")
+    await setting_set(db, "global_access_open", "1" if global_open else "0")
     await setting_set(db, "trial_days", trial_days)
     await db.commit()
-    await audit(int(user["id"]), "subscription_visibility_updated", None, {"paid_plans_visible": paid_visible, "trial_days": trial_days})
+    await audit(int(user["id"]), "subscription_visibility_updated", None, {"paid_plans_visible": paid_visible, "global_access_open": global_open, "trial_days": trial_days})
     return {"ok": True, **await get_subscription_config()}
 
 @app.get("/api/admin/plans")
@@ -2399,7 +2414,9 @@ async def terminal_access(user=Depends(require_pro), db: AsyncSession = Depends(
         )).scalars().first()
         if not row:
             raise HTTPException(403, "صلاحيات SAS PRO غير مفعلة")
-        if row.status == "active" and row.subscription_expires:
+        if (await get_subscription_config()).get("global_access_open"):
+            expires = utcnow() + timedelta(days=3650)
+        elif row.status == "active" and row.subscription_expires:
             expires = aware(row.subscription_expires)
         elif row.status == "trial" and row.trial_expires:
             expires = aware(row.trial_expires)
@@ -4591,7 +4608,8 @@ async def process_telegram_update(data: dict):
                     Subscription.telegram_id == telegram_id,
                     Subscription.active == True
                 ).order_by(Subscription.expires_at.desc()))).scalars().first()
-                active = bool(row and (row.free_access or (row.trial_expires and aware(row.trial_expires) > now) or is_active(sub)))
+                global_open = bool((await get_subscription_config()).get("global_access_open"))
+            active = bool(global_open or (row and (row.free_access or (row.trial_expires and aware(row.trial_expires) > now) or is_active(sub))))
                 await db.commit()
             if active:
                 try:
@@ -4663,8 +4681,10 @@ async def process_telegram_update(data: dict):
                 Subscription.telegram_id == telegram_id,
                 Subscription.active == True,
             ).order_by(Subscription.expires_at.desc()))).scalars().first()
+            global_open = bool((await get_subscription_config()).get("global_access_open"))
             pro_active = bool(
-                telegram_id == settings.owner_telegram_id
+                global_open
+                or telegram_id == settings.owner_telegram_id
                 or (row and row.free_access)
                 or (row and row.status == "trial" and row.trial_expires and aware(row.trial_expires) > now)
                 or (row and row.status == "active" and row.subscription_expires and aware(row.subscription_expires) > now and active_sub and is_active(active_sub))
