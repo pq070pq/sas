@@ -2736,7 +2736,10 @@ async function adminRefresh(){
   staffPanel:p.includes('admins'),
   deployPanel:p.includes('settings'),
   mediaPanel:p.includes('settings'),
-  plansEditorPanel:p.includes('settings')
+  plansEditorPanel:p.includes('settings'),
+  subscriptionConfigControls:p.includes('settings'),
+  subscriptionExpiryPanel:p.includes('subscriptions')||p.includes('settings'),
+  channelAuditPanel:p.includes('channel')
  };
  const monthlyPanel=document.getElementById('monthly-report-panel');
  for(const [id,allowed] of Object.entries(permissionRules)){
