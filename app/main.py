@@ -1646,7 +1646,8 @@ async def admin_subscribers(state: str = "active", user=Depends(telegram_user), 
 
 @app.get("/api/admin/subscription-alerts")
 async def admin_subscription_alerts(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
-    await require_admin_permission(user, "subscriptions")
+    if not (await has_permission(int(user["id"]), "subscriptions") or await has_permission(int(user["id"]), "settings")):
+        raise HTTPException(403, "ليست لديك صلاحية عرض تنبيهات الاشتراكات")
     now = utcnow()
     global_open = bool((await get_subscription_config()).get("global_access_open"))
     users = (await db.execute(select(User).order_by(User.subscription_expires.asc().nullslast()))).scalars().all()
