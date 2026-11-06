@@ -706,6 +706,9 @@ async def set_channel_access(telegram_id: int, allow: bool, expires_at=None):
         return {"ok": False, "reason": "telegram_channel_id_not_configured"}
 
     if not allow:
+        # لا نحذف أعضاء القناة أثناء تفعيل وضع الوصول المفتوح للجميع.
+        if (await get_subscription_config()).get("global_access_open"):
+            return {"ok": True, "action": "skipped_global_open"}
         # Telegram has no standalone "kick" method: briefly ban, then immediately
         # unban. This removes the member from the channel without leaving a ban,
         # so they can rejoin after renewing their subscription.
@@ -4654,14 +4657,21 @@ async def process_telegram_update(data: dict):
         uid = int(member_user.get("id") or 0)
         if uid and str(chat.get("id")) in {str(settings.telegram_channel_id), str(settings.trial_channel_id)}:
             async with SessionLocal() as db:
+                row = (await db.execute(select(User).where(User.telegram_id == uid))).scalars().first()
+                if not row:
+                    row = User(telegram_id=uid, username=member_user.get("username"),
+                               first_name=member_user.get("first_name"), last_name=member_user.get("last_name"))
+                    db.add(row)
+                row.channel_status = str(member.get("status") or "unknown")
+                row.channel_checked_at = utcnow()
                 invite = (await db.execute(select(Invite).where(
                     Invite.telegram_id == uid,
                     Invite.channel_id == str(chat.get("id")),
                     Invite.used == False
                 ).order_by(Invite.created_at.desc()))).scalars().first()
-                if invite:
+                if invite and row.channel_status in {"member", "administrator", "creator", "restricted"}:
                     invite.used = True
-                    await db.commit()
+                await db.commit()
         return {"ok": True}
 
     if "chat_join_request" in data:
