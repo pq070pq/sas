@@ -34,7 +34,7 @@ from .holiday_radar import stock_radar_enabled
 from .radar_health import radar_health_monitor
 from .radar_lifecycle import is_current_active_opportunity
 from .timeutil import utcnow, aware
-from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, get_subscription_config, setting_set, setting_get, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings, create_user_channel_invite
+from .subscriptions import TERMS_VERSION, TERMS_TEXT, get_plans, get_subscription_config, setting_set, setting_get, start_trial_for_user, create_invoice_for_user, apply_successful_payment, grant_access, active_subscription, ensure_subscription_settings, create_user_channel_invite, resolve_user_access
 from .admin import PERMISSIONS, ROLE_DEFAULTS, get_admin, has_permission, audit
 from .fcc_reviewer import review_stock
 from .shariah import check_shariah
@@ -796,22 +796,8 @@ async def require_pro(user=Depends(telegram_user), db: AsyncSession = Depends(ge
     )).scalars().first()
     if not row or row.terms_version != TERMS_VERSION or not row.terms_accepted_at:
         raise HTTPException(409, "يجب الموافقة على الشروط أولاً")
-    if (await get_subscription_config()).get("global_access_open"):
-        return user
-
-    now = utcnow()
-    trial_active = bool(
-        row.status == "trial"
-        and row.trial_expires
-        and aware(row.trial_expires) > now
-    )
-    subscription_active = bool(
-        row.status == "active"
-        and row.subscription_expires
-        and aware(row.subscription_expires) > now
-    )
-
-    if row.free_access or subscription_active or trial_active:
+    entitlement = await resolve_user_access(db, row)
+    if entitlement["enabled"]:
         return user
 
     raise HTTPException(403, "صلاحيات SAS PRO غير مفعلة أو منتهية")
@@ -1066,25 +1052,14 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
                 admin_permissions = []
 
     now = utcnow()
-    global_access_open = bool((await get_subscription_config()).get("global_access_open"))
-    trial_active = bool(
-        existing.status == "trial"
-        and existing.trial_expires
-        and aware(existing.trial_expires) > now
-    )
-    subscription_active = bool(
-        not existing.free_access
-        and existing.status == "active"
-        and existing.subscription_expires
-        and aware(existing.subscription_expires) > now
-    )
-    pro = global_access_open or admin or existing.free_access or subscription_active or trial_active
+    entitlement = await resolve_user_access(db, existing, now)
+    global_access_open = entitlement["source"] == "global_open"
+    trial_active = entitlement["source"] == "trial"
+    subscription_active = entitlement["source"] == "subscription"
+    pro = admin or entitlement["enabled"]
     expires = None
-    if not admin:
-        if trial_active:
-            expires = aware(existing.trial_expires).isoformat()
-        elif subscription_active:
-            expires = aware(existing.subscription_expires).isoformat()
+    if not admin and entitlement.get("expires_at"):
+        expires = aware(entitlement["expires_at"]).isoformat()
 
     return {
         "user": user,
@@ -1094,7 +1069,7 @@ async def me(user=Depends(telegram_user), db: AsyncSession = Depends(get_session
         "pro": pro,
         "access": {
             "enabled": pro,
-            "source": "global_open" if global_access_open else ("admin" if admin else ("free" if existing.free_access else ("trial" if trial_active else ("subscription" if subscription_active else None)))),
+            "source": "admin" if admin else entitlement["source"],
             "global_access_open": global_access_open,
             "radar": pro,
             "market": pro,
