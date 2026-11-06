@@ -1683,7 +1683,8 @@ async def admin_channel_audit(user=Depends(telegram_user), db: AsyncSession = De
                 row.channel_status = status
                 row.channel_checked_at = utcnow()
                 trial = row.status == "trial" and row.trial_expires and aware(row.trial_expires) > now
-                expected = bool(global_open or row.free_access or int(row.telegram_id) in paid_ids or trial)
+                legacy_paid = row.status == "active" and row.subscription_expires and aware(row.subscription_expires) > now
+                expected = bool(global_open or row.free_access or int(row.telegram_id) in paid_ids or legacy_paid or trial)
                 present = status in {"creator", "administrator", "member"} or (status == "restricted" and bool((member or {}).get("is_member")))
                 return {"telegram_id": row.telegram_id, "name": row.first_name or row.username or str(row.telegram_id),
                         "channel_status": status, "expected_access": expected, "in_channel": present,
@@ -1722,7 +1723,8 @@ async def admin_channel_reconcile(user=Depends(telegram_user), db: AsyncSession 
             row.channel_status = status
             row.channel_checked_at = utcnow()
             trial = row.status == "trial" and row.trial_expires and aware(row.trial_expires) > now
-            expected = bool(global_open or row.free_access or int(row.telegram_id) in paid_ids or trial)
+            legacy_paid = row.status == "active" and row.subscription_expires and aware(row.subscription_expires) > now
+            expected = bool(global_open or row.free_access or int(row.telegram_id) in paid_ids or legacy_paid or trial)
             present = status in {"creator", "administrator", "member"} or (status == "restricted" and bool((member or {}).get("is_member")))
             checked += 1
             if expected != present:
