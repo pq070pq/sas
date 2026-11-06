@@ -163,11 +163,10 @@ async def create_user_channel_invite(telegram_id: int, kind: str, expires_at=Non
         raise RuntimeError("لم يتم إعداد قناة SAS PRO")
     expires_at = aware(expires_at) if expires_at else utcnow() + timedelta(hours=settings.invite_hours)
 
-    # للتجربة استخدم رابط القناة الثابت إن كان مضبوطًا، وإلا أنشئ رابطًا
-    # للقناة الخاصة بالتجربة. سابقًا كان TRIAL_CHANNEL_ID موجودًا في الإعدادات
-    # لكنه لا يُستخدم، فيتجه الطلب خطأً إلى قناة الوصول الرئيسية.
-    link = (settings.telegram_channel_link or "").strip()
-    if not link:
+    # أنشئ رابطًا فريدًا أحادي الاستخدام لكل Telegram ID حتى لا تختلط
+    # دعوات المشتركين أو تُستخدم وصلة عامة خارج سجل الاشتراك.
+    link = None
+    if channel_id:
         try:
             result = await bot_api("createChatInviteLink", {
                 "chat_id": channel_id,
@@ -178,10 +177,12 @@ async def create_user_channel_invite(telegram_id: int, kind: str, expires_at=Non
             })
             link = result.get("invite_link") if isinstance(result, dict) else result
         except Exception as exc:
-            raise RuntimeError(
-                "تعذر إنشاء رابط دعوة القناة. اضبط TELEGRAM_CHANNEL_LINK "
-                "برابط القناة المباشر، أو امنح البوت صلاحية دعوة المستخدمين في القناة."
-            ) from exc
+            if not settings.telegram_channel_link:
+                raise RuntimeError(
+                    "تعذر إنشاء رابط دعوة فريد. امنح البوت صلاحية دعوة المستخدمين في القناة."
+                ) from exc
+    if not link:
+        link = (settings.telegram_channel_link or "").strip()
     if not link:
         raise RuntimeError("تعذر تحديد رابط دخول القناة")
     async with SessionLocal() as db:
