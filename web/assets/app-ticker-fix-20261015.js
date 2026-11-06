@@ -2751,8 +2751,8 @@ async function adminRefresh(){
  if(radarNav)radarNav.hidden=!p.includes('radar');
  const tasks=[];
  if(p.includes('users')){tasks.push(loadAdminStats(),adminSearch(),loadAdminMonthlyReport(),loadAdminTerms());}
- if(p.includes('subscriptions'))tasks.push(loadGiftCandidates());
- if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;document.getElementById('plansEditorPanel').hidden=false;document.getElementById('plansEditorPanel').dataset.adminPermissionHidden='0';document.getElementById('deployPanel').hidden=false;document.getElementById('deployPanel').dataset.adminPermissionHidden='0';document.getElementById('mediaPanel').hidden=false;document.getElementById('mediaPanel').dataset.adminPermissionHidden='0';tasks.push(loadAdminPlans(),loadSubscriptionConfig(),loadDeployStatus(),loadAdminMedia());}
+ if(p.includes('subscriptions'))tasks.push(loadGiftCandidates(),loadSubscriptionAlerts());
+ if(p.includes('settings')){document.getElementById('planEditor').closest('.admin-panel').hidden=false;document.getElementById('plansEditorPanel').hidden=false;document.getElementById('plansEditorPanel').dataset.adminPermissionHidden='0';document.getElementById('deployPanel').hidden=false;document.getElementById('deployPanel').dataset.adminPermissionHidden='0';document.getElementById('mediaPanel').hidden=false;document.getElementById('mediaPanel').dataset.adminPermissionHidden='0';tasks.push(loadAdminPlans(),loadSubscriptionConfig(),loadSubscriptionAlerts(),loadDeployStatus(),loadAdminMedia());}
  else {document.getElementById('planEditor').closest('.admin-panel').hidden=true;document.getElementById('plansEditorPanel').hidden=true;document.getElementById('plansEditorPanel').dataset.adminPermissionHidden='1';document.getElementById('deployPanel').hidden=true;document.getElementById('deployPanel').dataset.adminPermissionHidden='1';document.getElementById('mediaPanel').hidden=true;document.getElementById('mediaPanel').dataset.adminPermissionHidden='1';}
  if(p.includes('payments')){document.getElementById('starsPanel').hidden=false;document.getElementById('starsPanel').dataset.adminPermissionHidden='0';tasks.push(loadStarsWallet());}else{document.getElementById('starsPanel').hidden=true;document.getElementById('starsPanel').dataset.adminPermissionHidden='1';}
  await Promise.all(tasks);
@@ -3061,8 +3061,38 @@ async function adminResetForTest(id){
 async function loadSubscriptionConfig(){
  const d=await api('/api/admin/subscription-config');
  document.getElementById('paidPlansVisible').checked=!!d.paid_plans_visible;
+ const open=document.getElementById('globalAccessOpen');if(open)open.checked=!!d.global_access_open;
  document.getElementById('trialDays').value=d.trial_days||3;
  document.getElementById('plansEditorPanel').hidden=!d.paid_plans_visible;
+}
+async function loadSubscriptionAlerts(){
+ const panel=document.getElementById('subscriptionExpiryAlerts');if(!panel)return;
+ panel.innerHTML='<div class="loading">جاري قراءة الاشتراكات التي تنتهي خلال 7 أيام...</div>';
+ try{
+  const d=await api('/api/admin/subscription-alerts');
+  if(d.global_access_open){panel.innerHTML='<div class="empty-state">🌐 وضع الوصول مفتوح للجميع؛ تنبيهات الانتهاء متوقفة مؤقتًا دون تغيير تواريخ الاشتراكات.</div>';return;}
+  const rows=Array.isArray(d.users)?d.users:[];
+  panel.innerHTML=rows.length?rows.map(u=>{
+   const name=esc(u.name||u.username||u.telegram_id);
+   const remaining=Number(u.days_left);
+   const due=remaining<=1?'ينتهي اليوم أو خلال 24 ساعة':remaining+' أيام متبقية';
+   const expiry=u.expires_at?new Date(u.expires_at).toLocaleString('ar-SA',{timeZone:'Asia/Riyadh'}):'—';
+   return '<article class="subscriber-real-row"><div class="subscriber-real-avatar">⏰</div><div class="subscriber-real-main"><b>'+name+'</b><small>Telegram ID: '+Number(u.telegram_id)+' • '+esc(u.kind)+'</small><span>'+due+'</span><small>تاريخ الانتهاء: '+esc(expiry)+'</small></div><button class="subscriber-real-action" onclick="openSubscriberActions('+Number(u.telegram_id)+')">إدارة</button></article>';
+  }).join(''):'<div class="empty-state">✅ لا توجد اشتراكات تنتهي خلال الأيام السبعة القادمة.</div>';
+ }catch(e){panel.innerHTML='<div class="fatal">تعذر تحميل تنبيهات الانتهاء: '+esc(e.message)+'</div>';}
+}
+async function runChannelAudit(){
+ const panel=document.getElementById('channelAuditResults');if(!panel)return;
+ panel.innerHTML='<div class="loading">جارٍ فحص عضوية المستخدمين المسجلين في Telegram...</div>';
+ try{
+  const d=await api('/api/admin/channel-audit');
+  const rows=Array.isArray(d.users)?d.users:[];
+  const mismatches=rows.filter(x=>x.mismatch===true);
+  const errors=rows.filter(x=>x.error);
+  panel.innerHTML='<div class="subscriber-status-summary"><b>'+Number(d.checked||0)+'</b><span>تم فحصهم • '+Number(d.mismatches||0)+' حالات عدم تطابق • '+Number(d.errors||0)+' أخطاء</span></div>'+
+   (mismatches.length?mismatches.map(x=>'<article class="subscriber-real-row"><div class="subscriber-real-avatar">⚠️</div><div class="subscriber-real-main"><b>'+esc(x.name||x.telegram_id)+'</b><small>ID: '+Number(x.telegram_id)+' • القناة: '+esc(x.channel_status)+'</small><span>الوصول المتوقع: '+(x.expected_access?'مفعل':'غير مفعل')+' • العضوية: '+(x.in_channel?'موجود':'غير موجود')+'</span></div></article>').join(''):'<div class="empty-state">✅ لا توجد حالات اختلاف بين صلاحية المستخدمين المسجلين وعضويتهم في القناة.</div>')+
+   (errors.length?'<div class="empty-state">تعذر التحقق من '+errors.length+' حساب. تأكد أن البوت مشرف في القناة ويملك صلاحية قراءة حالة الأعضاء.</div>':'');
+ }catch(e){panel.innerHTML='<div class="fatal">تعذر فحص القناة: '+esc(e.message)+'</div>';}
 }
 async function loadAdminPlans(){
  const p=await api('/api/admin/plans');
@@ -3088,9 +3118,11 @@ async function saveSubscriptionConfig(){
  const paid=!!document.getElementById('paidPlansVisible').checked;
  const days=Number(document.getElementById('trialDays').value||30);
  try{
-  const d=await api('/api/admin/subscription-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paid_plans_visible:paid,trial_days:days})});
+  const globalOpen=!!document.getElementById('globalAccessOpen')?.checked;
+  const d=await api('/api/admin/subscription-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paid_plans_visible:paid,global_access_open:globalOpen,trial_days:days})});
   document.getElementById('plansEditorPanel').hidden=!d.paid_plans_visible;
-  alert(d.paid_plans_visible?'تم إظهار الاشتراكات المدفوعة.':'تم إخفاء الاشتراكات المدفوعة وإبقاء المجاني فقط.');
+  await loadSubscriptionAlerts();
+  alert(d.global_access_open?'🌐 تم فتح SAS PRO للجميع دون اشتراك.':'تم إغلاق وضع الوصول المفتوح والعودة للتحقق من الاشتراكات.');
  for(const el of document.querySelectorAll('.plan-vis')){await api('/api/admin/plan-visibility/'+el.dataset.plan,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({visible:el.checked})});}
  }catch(e){alert(e.message);}
 }
