@@ -1561,6 +1561,7 @@ async def admin_subscribers(state: str = "active", user=Depends(telegram_user), 
     if state not in {"active", "expired"}:
         raise HTTPException(400, "الحالة يجب أن تكون active أو expired")
     now = utcnow()
+    global_access_open = bool((await get_subscription_config()).get("global_access_open"))
     users = (await db.execute(select(User).order_by(User.created_at.desc()))).scalars().all()
     subscription_rows = (await db.execute(
         select(Subscription).order_by(Subscription.expires_at.desc())
@@ -1637,6 +1638,82 @@ async def admin_subscribers(state: str = "active", user=Depends(telegram_user), 
             "channel_checked_at": aware(u.channel_checked_at).isoformat() if u.channel_checked_at else None,
         })
     return {"state": state, "count": len(rows), "users": rows}
+
+
+@app.get("/api/admin/subscription-alerts")
+async def admin_subscription_alerts(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    await require_admin_permission(user, "subscriptions")
+    now = utcnow()
+    global_open = bool((await get_subscription_config()).get("global_access_open"))
+    users = (await db.execute(select(User).order_by(User.subscription_expires.asc().nullslast()))).scalars().all()
+    subs = (await db.execute(select(Subscription).where(Subscription.active == True).order_by(Subscription.expires_at.asc()))).scalars().all()
+    latest = {}
+    for sub in subs:
+        if sub.telegram_id not in latest and aware(sub.expires_at) > now:
+            latest[sub.telegram_id] = sub
+    alerts = []
+    if not global_open:
+        for row in users:
+            expiry = None
+            kind = None
+            paid = latest.get(row.telegram_id)
+            if paid:
+                expiry, kind = aware(paid.expires_at), "مدفوع"
+            elif row.status == "trial" and row.trial_expires and aware(row.trial_expires) > now:
+                expiry, kind = aware(row.trial_expires), "تجربة"
+            elif row.status == "active" and row.subscription_expires and aware(row.subscription_expires) > now:
+                expiry, kind = aware(row.subscription_expires), "اشتراك"
+            if expiry:
+                remaining = (expiry - now).total_seconds() / 86400
+                if remaining <= 7:
+                    alerts.append({
+                        "telegram_id": row.telegram_id,
+                        "name": " ".join(x for x in [row.first_name, row.last_name] if x).strip() or row.username or str(row.telegram_id),
+                        "username": row.username,
+                        "kind": kind,
+                        "expires_at": expiry.isoformat(),
+                        "days_left": max(0, int(remaining + 0.999)),
+                        "channel_status": row.channel_status or "unknown",
+                    })
+    alerts.sort(key=lambda item: item["expires_at"])
+    return {"global_access_open": global_open, "count": len(alerts), "users": alerts}
+
+
+@app.get("/api/admin/channel-audit")
+async def admin_channel_audit(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    await require_admin_permission(user, "channel")
+    if not settings.telegram_channel_id:
+        raise HTTPException(503, "لم يتم إعداد معرف قناة SAS PRO")
+    global_open = bool((await get_subscription_config()).get("global_access_open"))
+    rows = (await db.execute(select(User).order_by(User.updated_at.desc()).limit(300))).scalars().all()
+    semaphore = asyncio.Semaphore(8)
+
+    async def inspect_member(row):
+        async with semaphore:
+            try:
+                member = await bot_api("getChatMember", {"chat_id": settings.telegram_channel_id, "user_id": row.telegram_id})
+                status = str((member or {}).get("status") or "unknown")
+                row.channel_status = status
+                row.channel_checked_at = utcnow()
+                now = utcnow()
+                paid = row.status == "active" and row.subscription_expires and aware(row.subscription_expires) > now
+                trial = row.status == "trial" and row.trial_expires and aware(row.trial_expires) > now
+                expected = bool(global_open or row.free_access or paid or trial)
+                present = status in {"creator", "administrator", "member", "restricted"}
+                return {"telegram_id": row.telegram_id, "name": row.first_name or row.username or str(row.telegram_id),
+                        "channel_status": status, "expected_access": expected, "in_channel": present,
+                        "mismatch": expected != present}
+            except Exception as exc:
+                return {"telegram_id": row.telegram_id, "name": row.first_name or row.username or str(row.telegram_id),
+                        "channel_status": row.channel_status or "unknown", "expected_access": None,
+                        "in_channel": None, "mismatch": None, "error": str(exc)[:180]}
+
+    results = await asyncio.gather(*(inspect_member(row) for row in rows))
+    await db.commit()
+    mismatches = [item for item in results if item.get("mismatch") is True]
+    errors = [item for item in results if item.get("error")]
+    return {"checked": len(results), "mismatches": len(mismatches), "errors": len(errors),
+            "global_access_open": global_open, "users": results}
 
 
 @app.get("/api/admin/terms-status")
@@ -1967,7 +2044,7 @@ async def admin_grant(telegram_id: int, days: str = "30", user=Depends(telegram_
     await require_admin_permission(user, "subscriptions")
     try:
         if days.lower() == "forever":
-            exp, channel_link = await grant_access(telegram_id, forever=True)
+            exp, channel_link, _invite_expires = await grant_access(telegram_id, forever=True)
         else:
             try:
                 n = int(days)
@@ -1975,7 +2052,7 @@ async def admin_grant(telegram_id: int, days: str = "30", user=Depends(telegram_
                 raise HTTPException(400, "استخدم مدة صحيحة أو forever")
             if n <= 0 or n > 3650:
                 raise HTTPException(400, "المدة يجب أن تكون بين 1 و3650 يومًا")
-            exp, channel_link = await grant_access(telegram_id, days=n)
+            exp, channel_link, _invite_expires = await grant_access(telegram_id, days=n)
     except HTTPException:
         raise
     except Exception as exc:
