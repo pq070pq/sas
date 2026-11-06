@@ -1481,9 +1481,9 @@ async def admin_overview(user=Depends(telegram_user), db: AsyncSession = Depends
     active = 0
     expired = 0
     trial = 0
+    global_access_open = bool((await get_subscription_config()).get("global_access_open"))
     for u in users:
         trial_active = bool(u.status == "trial" and u.trial_expires and aware(u.trial_expires) > now)
-        global_access_open = bool((await get_subscription_config()).get("global_access_open"))
         user_subscriptions = subscriptions_by_user.get(int(u.telegram_id), [])
         current_subscription = next(
             (sub for sub in user_subscriptions if sub.active and aware(sub.expires_at) > now),
