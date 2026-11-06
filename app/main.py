@@ -1720,6 +1720,45 @@ async def admin_channel_audit(user=Depends(telegram_user), db: AsyncSession = De
             "global_access_open": global_open, "users": results}
 
 
+@app.post("/api/admin/channel-reconcile")
+async def admin_channel_reconcile(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
+    await require_admin_permission(user, "channel")
+    if not settings.telegram_channel_id:
+        raise HTTPException(503, "لم يتم إعداد معرف قناة SAS PRO")
+    global_open = bool((await get_subscription_config()).get("global_access_open"))
+    rows = (await db.execute(select(User).order_by(User.updated_at.desc()).limit(300))).scalars().all()
+    checked = repaired = failed = 0
+    details = []
+    for row in rows:
+        try:
+            member = await bot_api("getChatMember", {"chat_id": settings.telegram_channel_id, "user_id": row.telegram_id})
+            status = str((member or {}).get("status") or "unknown")
+            row.channel_status = status
+            row.channel_checked_at = utcnow()
+            now = utcnow()
+            paid = row.status == "active" and row.subscription_expires and aware(row.subscription_expires) > now
+            trial = row.status == "trial" and row.trial_expires and aware(row.trial_expires) > now
+            expected = bool(global_open or row.free_access or paid or trial)
+            present = status in {"creator", "administrator", "member", "restricted"}
+            checked += 1
+            if expected != present:
+                result = await set_channel_access(row.telegram_id, allow=expected,
+                    expires_at=(row.subscription_expires if row.subscription_expires else row.trial_expires))
+                if result.get("ok"):
+                    repaired += 1
+                    details.append({"telegram_id": row.telegram_id, "action": "invite_sent" if expected else "removed"})
+                else:
+                    failed += 1
+                    details.append({"telegram_id": row.telegram_id, "action": "failed", "reason": result.get("reason")})
+        except Exception as exc:
+            failed += 1
+            details.append({"telegram_id": row.telegram_id, "action": "failed", "reason": str(exc)[:180]})
+    await db.commit()
+    await audit(int(user["id"]), "channel_membership_reconciled", None,
+                {"checked": checked, "repaired": repaired, "failed": failed, "global_access_open": global_open})
+    return {"ok": True, "checked": checked, "repaired": repaired, "failed": failed, "details": details}
+
+
 @app.get("/api/admin/terms-status")
 async def admin_terms_status(user=Depends(telegram_user), db: AsyncSession = Depends(get_session)):
     await require_admin_permission(user, "users")
