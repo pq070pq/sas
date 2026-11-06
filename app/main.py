@@ -4688,14 +4688,18 @@ async def process_telegram_update(data: dict):
                     row = User(telegram_id=uid, username=member_user.get("username"),
                                first_name=member_user.get("first_name"), last_name=member_user.get("last_name"))
                     db.add(row)
-                row.channel_status = str(member.get("status") or "unknown")
-                row.channel_checked_at = utcnow()
+                if str(chat.get("id")) == str(settings.telegram_channel_id):
+                    row.channel_status = str(member.get("status") or "unknown")
+                    row.channel_checked_at = utcnow()
                 invite = (await db.execute(select(Invite).where(
                     Invite.telegram_id == uid,
                     Invite.channel_id == str(chat.get("id")),
                     Invite.used == False
                 ).order_by(Invite.created_at.desc()))).scalars().first()
-                if invite and row.channel_status in {"member", "administrator", "creator", "restricted"}:
+                joined = member.get("status") in {"member", "administrator", "creator"} or (
+                    member.get("status") == "restricted" and bool(member.get("is_member"))
+                )
+                if invite and joined:
                     invite.used = True
                 await db.commit()
         return {"ok": True}
