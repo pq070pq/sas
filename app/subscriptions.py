@@ -60,6 +60,7 @@ async def ensure_subscription_settings():
             "yearly_sar": settings.yearly_sar, "yearly_days": 365, "yearly_stars": settings.pro_yearly_stars,
             "trial_days": settings.trial_days, "invite_hours": settings.invite_hours,
             "paid_plans_visible": 1,
+            "global_access_open": 0,
             "plan_monthly_visible": 1,
             "plan_3month_visible": 0,
             "plan_6month_visible": 0,
@@ -95,6 +96,7 @@ async def get_subscription_config():
     async with SessionLocal() as db:
         return {
             "paid_plans_visible": (await setting_get(db, "paid_plans_visible", 1) or "0") in ("1", "true", "True"),
+            "global_access_open": (await setting_get(db, "global_access_open", 0) or "0") in ("1", "true", "True"),
             "trial_days": int(await setting_get(db, "trial_days", settings.trial_days) or settings.trial_days),
             "plan_visibility": {
                 "monthly": (await setting_get(db, "plan_monthly_visible", 1) or "0") in ("1", "true", "True"),
@@ -196,6 +198,8 @@ async def create_user_channel_invite(telegram_id: int, kind: str, expires_at=Non
     return link, expires_at
 
 async def start_trial_for_user(user_data):
+    if (await get_subscription_config()).get("global_access_open"):
+        raise ValueError("الوصول مفتوح للجميع حاليًا ولا تحتاج إلى تفعيل تجربة")
     telegram_id = int(user_data["id"])
     now = utcnow()
     async with SessionLocal() as db:
@@ -240,6 +244,8 @@ async def start_trial_for_user(user_data):
 
 async def create_invoice_for_user(user_data, plan_key):
     config = await get_subscription_config()
+    if config.get("global_access_open"):
+        raise ValueError("الوصول مفتوح للجميع حاليًا ولا تحتاج إلى اشتراك مدفوع")
     if not config["paid_plans_visible"]:
         raise ValueError("الاشتراكات المدفوعة مخفية حاليًا. التجربة المجانية فقط متاحة.")
     plans = await get_plans()
