@@ -3081,6 +3081,17 @@ async function loadSubscriptionAlerts(){
   }).join(''):'<div class="empty-state">✅ لا توجد اشتراكات تنتهي خلال الأيام السبعة القادمة.</div>';
  }catch(e){panel.innerHTML='<div class="fatal">تعذر تحميل تنبيهات الانتهاء: '+esc(e.message)+'</div>';}
 }
+async function reconcileChannelMembers(){
+ if(!confirm('سيتم فحص المستخدمين المسجلين وإرسال روابط دخول لمن لديهم صلاحية، وإزالة من انتهت صلاحيتهم من القناة. هل تريد المتابعة؟'))return;
+ const panel=document.getElementById('channelAuditResults');if(!panel)return;
+ panel.innerHTML='<div class="loading">جارٍ إصلاح اختلافات عضوية القناة...</div>';
+ try{
+  const d=await api('/api/admin/channel-reconcile',{method:'POST'});
+  panel.innerHTML='<div class="subscriber-status-summary"><b>اكتملت المزامنة</b><span>تم فحص '+Number(d.checked||0)+' • تمت معالجة '+Number(d.repaired||0)+' • تعذر '+Number(d.failed||0)+'</span></div>'+
+   '<div class="empty-state">تمت معالجة الحالات التي أمكن التحقق منها. قد يحتاج المستخدم الذي أُرسل له رابط دخول إلى الضغط عليه للانضمام بنفسه.</div>';
+  await runChannelAudit();
+ }catch(e){panel.innerHTML='<div class="fatal">تعذرت مزامنة القناة: '+esc(e.message)+'</div>';}
+}
 async function runChannelAudit(){
  const panel=document.getElementById('channelAuditResults');if(!panel)return;
  panel.innerHTML='<div class="loading">جارٍ فحص عضوية المستخدمين المسجلين في Telegram...</div>';
