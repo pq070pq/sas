@@ -831,6 +831,8 @@ async def request_access(user=Depends(telegram_user), db: AsyncSession = Depends
         await db.flush()
     if row.terms_version != TERMS_VERSION or not row.terms_accepted_at:
         raise HTTPException(409, "يجب الموافقة على شروط استخدام SAS PRO أولاً")
+    if (await get_subscription_config()).get("global_access_open"):
+        return {"ok": True, "status": "active", "message": "الوصول مفتوح للجميع حاليًا ولا تحتاج إلى طلب اشتراك."}
     active = (await db.execute(select(Subscription).where(
         Subscription.telegram_id == user["id"], Subscription.active == True
     ).order_by(Subscription.expires_at.desc()))).scalars().first()
