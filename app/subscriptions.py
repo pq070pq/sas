@@ -127,6 +127,33 @@ def active_subscription(user: User):
         return True
     return bool(user.subscription_expires and aware(user.subscription_expires) > utcnow() and user.status == "active")
 
+async def resolve_user_access(db, user: User, now=None):
+    """Single source of truth for site/channel entitlements."""
+    from sqlalchemy import select
+    now = now or utcnow()
+    global_open = str(await setting_get(db, "global_access_open", "0")).strip().lower() in {"1", "true", "yes"}
+    if global_open:
+        return {"enabled": True, "source": "global_open", "expires_at": None}
+    if not user:
+        return {"enabled": False, "source": None, "expires_at": None}
+    if user.free_access:
+        return {"enabled": True, "source": "free", "expires_at": None}
+    if user.status == "trial" and user.trial_expires and aware(user.trial_expires) > now:
+        return {"enabled": True, "source": "trial", "expires_at": aware(user.trial_expires)}
+    active_sub = (await db.execute(
+        select(Subscription).where(
+            Subscription.telegram_id == user.telegram_id,
+            Subscription.active == True,
+            Subscription.expires_at > now,
+        ).order_by(Subscription.expires_at.desc())
+    )).scalars().first()
+    if active_sub:
+        return {"enabled": True, "source": "subscription", "expires_at": aware(active_sub.expires_at)}
+    # Backward compatibility for older admin grants that predate Subscription rows.
+    if user.status == "active" and user.subscription_expires and aware(user.subscription_expires) > now:
+        return {"enabled": True, "source": "subscription", "expires_at": aware(user.subscription_expires)}
+    return {"enabled": False, "source": None, "expires_at": None}
+
 async def sync_user_subscription(db, user, sub=None):
     if sub is None:
         from sqlalchemy import select
