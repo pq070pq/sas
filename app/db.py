@@ -35,6 +35,8 @@ class User(Base):
     terms_version: Mapped[str | None] = mapped_column(String(32))
     trial_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     channel_join_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    channel_status: Mapped[str | None] = mapped_column(String(24), index=True)
+    channel_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 class SASAccount(Base):
     """Platform-neutral SAS account; kept separate from legacy Telegram users.
@@ -283,6 +285,8 @@ async def init_db():
                 "terms_version": "VARCHAR(32)",
                 "trial_used_at": "DATETIME",
                 "channel_join_requested_at": "DATETIME",
+                "channel_status": "VARCHAR(24)",
+                "channel_checked_at": "DATETIME",
             })
             await _sqlite_add_columns(conn, "radar_signals", {
                 "telegram_message_id": "INTEGER",
