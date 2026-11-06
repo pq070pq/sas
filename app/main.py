@@ -4717,12 +4717,8 @@ async def process_telegram_update(data: dict):
                     )
                     db.add(row)
                 row.channel_join_requested_at = now
-                sub = (await db.execute(select(Subscription).where(
-                    Subscription.telegram_id == telegram_id,
-                    Subscription.active == True
-                ).order_by(Subscription.expires_at.desc()))).scalars().first()
-                global_open = bool((await get_subscription_config()).get("global_access_open"))
-                active = bool(global_open or (row and (row.free_access or (row.trial_expires and aware(row.trial_expires) > now) or is_active(sub))))
+                entitlement = await resolve_user_access(db, row, now)
+                active = bool(entitlement["enabled"])
                 await db.commit()
             if active:
                 try:
@@ -4790,17 +4786,10 @@ async def process_telegram_update(data: dict):
         async with SessionLocal() as db:
             row = (await db.execute(select(User).where(User.telegram_id == telegram_id))).scalars().first()
             now = utcnow()
-            active_sub = (await db.execute(select(Subscription).where(
-                Subscription.telegram_id == telegram_id,
-                Subscription.active == True,
-            ).order_by(Subscription.expires_at.desc()))).scalars().first()
-            global_open = bool((await get_subscription_config()).get("global_access_open"))
+            entitlement = await resolve_user_access(db, row, now) if row else {"enabled": False}
             pro_active = bool(
-                global_open
-                or telegram_id == settings.owner_telegram_id
-                or (row and row.free_access)
-                or (row and row.status == "trial" and row.trial_expires and aware(row.trial_expires) > now)
-                or (row and row.status == "active" and row.subscription_expires and aware(row.subscription_expires) > now and active_sub and is_active(active_sub))
+                telegram_id == settings.owner_telegram_id
+                or entitlement.get("enabled")
             )
         if not pro_active:
             await send_message(chat_id,
