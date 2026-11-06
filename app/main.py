@@ -1665,6 +1665,11 @@ async def admin_channel_audit(user=Depends(telegram_user), db: AsyncSession = De
     if not settings.telegram_channel_id:
         raise HTTPException(503, "لم يتم إعداد معرف قناة SAS PRO")
     global_open = bool((await get_subscription_config()).get("global_access_open"))
+    now = utcnow()
+    active_subs = (await db.execute(select(Subscription).where(
+        Subscription.active == True, Subscription.expires_at > now
+    ))).scalars().all()
+    paid_ids = {int(item.telegram_id) for item in active_subs}
     rows = (await db.execute(select(User).order_by(User.updated_at.desc()).limit(300))).scalars().all()
     semaphore = asyncio.Semaphore(8)
 
@@ -1675,11 +1680,9 @@ async def admin_channel_audit(user=Depends(telegram_user), db: AsyncSession = De
                 status = str((member or {}).get("status") or "unknown")
                 row.channel_status = status
                 row.channel_checked_at = utcnow()
-                now = utcnow()
-                paid = row.status == "active" and row.subscription_expires and aware(row.subscription_expires) > now
                 trial = row.status == "trial" and row.trial_expires and aware(row.trial_expires) > now
-                expected = bool(global_open or row.free_access or paid or trial)
-                present = status in {"creator", "administrator", "member", "restricted"}
+                expected = bool(global_open or row.free_access or int(row.telegram_id) in paid_ids or trial)
+                present = status in {"creator", "administrator", "member"} or (status == "restricted" and bool((member or {}).get("is_member")))
                 return {"telegram_id": row.telegram_id, "name": row.first_name or row.username or str(row.telegram_id),
                         "channel_status": status, "expected_access": expected, "in_channel": present,
                         "mismatch": expected != present}
@@ -1702,6 +1705,11 @@ async def admin_channel_reconcile(user=Depends(telegram_user), db: AsyncSession 
     if not settings.telegram_channel_id:
         raise HTTPException(503, "لم يتم إعداد معرف قناة SAS PRO")
     global_open = bool((await get_subscription_config()).get("global_access_open"))
+    now = utcnow()
+    active_subs = (await db.execute(select(Subscription).where(
+        Subscription.active == True, Subscription.expires_at > now
+    ))).scalars().all()
+    paid_ids = {int(item.telegram_id) for item in active_subs}
     rows = (await db.execute(select(User).order_by(User.updated_at.desc()).limit(300))).scalars().all()
     checked = repaired = failed = 0
     details = []
@@ -1711,11 +1719,9 @@ async def admin_channel_reconcile(user=Depends(telegram_user), db: AsyncSession 
             status = str((member or {}).get("status") or "unknown")
             row.channel_status = status
             row.channel_checked_at = utcnow()
-            now = utcnow()
-            paid = row.status == "active" and row.subscription_expires and aware(row.subscription_expires) > now
             trial = row.status == "trial" and row.trial_expires and aware(row.trial_expires) > now
-            expected = bool(global_open or row.free_access or paid or trial)
-            present = status in {"creator", "administrator", "member", "restricted"}
+            expected = bool(global_open or row.free_access or int(row.telegram_id) in paid_ids or trial)
+            present = status in {"creator", "administrator", "member"} or (status == "restricted" and bool((member or {}).get("is_member")))
             checked += 1
             if expected != present:
                 result = await set_channel_access(row.telegram_id, allow=expected,
